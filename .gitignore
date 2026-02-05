@@ -1,0 +1,54 @@
+# Byte-compiled / optimized / offload files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.whl
+
+# Distributions and packaging
+.Python
+build/
+dist/
+wheels/
+*.egg-info/
+.install_reports
+htmlcov/
+.nox/
+.tox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+venvs/
+# other common names
+*.venv
+.env
+
+# Installer logs
+pip-log.txt
+pip-delete-this-line.txt
+
+# Unit test / coverage
+.coverage
+.coverage.*
+target/
+.pytest_cache/
+
+# Editors and IDEs
+# VS Code
+.vscode/
+# PyCharm
+.idea/
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# OS-specific files
+.DS_Store # macOS
+Thumbs.db # Windows
+
+# Sensitive files/credentials (add specific file names here)
+# credentials.json
+# config.ini
+

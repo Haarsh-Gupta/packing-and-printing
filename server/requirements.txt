@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+sqlalchemy[asyncio]
+passlib
+jose
+cloudinary 
+pydantic-settings
+python-dotenv
+asyncpg
+pydantic[email]
