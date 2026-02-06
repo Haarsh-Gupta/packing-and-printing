@@ -1,82 +1,64 @@
-class Product(Base):
-    """A product type — a named bundle of services (e.g. Book, Calendar)."""
-
-    __tablename__ = "products"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    product_name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
-    min_order_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-
-    # ── relationships ──
-    # One product → many junction rows (links to services)
-    service_links: Mapped[list["ProductService"]] = relationship(
-        "ProductService", back_populates="product", cascade="all, delete-orphan"
-    )
-    # One product → many sizes
-    sizes: Mapped[list["ProductSize"]] = relationship(
-        "ProductSize", back_populates="product", cascade="all, delete-orphan"
-    )
-
-    def __repr__(self) -> str:
-        return f"<Product(id={self.id}, name={self.product_name!r})>"
+from typing import List, Optional, Literal, Union, Dict, Any
+from pydantic import BaseModel, Field, validator , model_validator
 
 
-# ─── product_services (junction) ─────────────────────────────────────────────
+class Option(BaseModel):
+    """Represents a single choice: e.g., 'Thermal Lamination'"""
+    label: str                   # What the user sees: "Thermal Matte"
+    value: str                   # What DB stores: "thermal_matte"
+    price_mod: float = 0.0       # Added cost: +5.00
+    
+class FormSection(BaseModel):
+    """Represents a dropdown or input field in the form"""
+    key: str                     # e.g., "binding_type"
+    label: str                   # e.g., "Select Binding Style"
+    type: Literal['dropdown', 'radio', 'number_input', 'text_input']
+    
+    # Validation: 'options' is required for dropdown/radio, but not for inputs
+    options: Optional[List[Option]] = None 
+    min_val: Optional[int] = None # For number inputs (e.g., min 50 pages)
+    max_val: Optional[int] = None
+    price_per_unit: Optional[float] = 0.0 # Cost per page
+
+class ProductConfigSchema(BaseModel):
+    """The master JSON structure stored in product_templates.config_schema"""
+    sections: List[FormSection]
+
+# --- API Request/Response Schemas ---
+
+class ProductTemplateCreate(BaseModel):
+    slug: str
+    name: str
+    base_price: float
+    minimum_quantity: Optional[int] = 1
+    config_schema: ProductConfigSchema # The complex JSON structure
+
+class ProductTemplateUpdate(BaseModel):
+    slug: Optional[str] = None
+    name: Optional[str] = None
+    base_price: Optional[float] = None 
+    minimum_quantity: Optional[int] = None
+    config_schema: Optional[ProductConfigSchema] = None
 
 
-class ProductService(Base):
-    """
-    Many-to-many junction between products and services.
-
-    is_required = True  → the service is mandatory for this product.
-    is_required = False → the service is optional (upsell / add-on).
-    """
-
-    __tablename__ = "product_services"
-    __table_args__ = (
-        UniqueConstraint("product_id", "service_id", name="uq_product_service"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    product_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False
-    )
-    service_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("services.id", ondelete="CASCADE"), nullable=False
-    )
-    is_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-
-    # ── relationships ──
-    product: Mapped["Product"] = relationship("Product", back_populates="service_links")
-    service: Mapped["Service"] = relationship("Service", back_populates="product_links")
-
-    def __repr__(self) -> str:
-        return (
-            f"<ProductService(product_id={self.product_id}, "
-            f"service_id={self.service_id}, required={self.is_required})>"
-        )
+    @model_validator(mode="after")
+    def validate_config_schema(self):
+        if self.config_schema:
+            for section in self.config_schema.sections:
+                if section.type in ["dropdown", "radio"] and not section.options:
+                    raise ValueError(f"Options are required for {section.type} type")
+        return self
 
 
-# ─── product_sizes ───────────────────────────────────────────────────────────
+    @model_validator(mode="after")
+    def is_all_none(self):
+        if self.slug is None and self.name is None and self.base_price is None and self.minimum_quantity is None and self.config_schema is None:
+            raise ValueError("At least one field must be provided")
+        return self
 
+class ProductTemplateResponse(ProductTemplateCreate):
+    id: int
+    is_active: bool
 
-class ProductSize(Base):
-    """A valid size for a given product (e.g. A4 for Book)."""
-
-    __tablename__ = "product_sizes"
-    __table_args__ = (
-        UniqueConstraint("product_id", "size_label", name="uq_product_size"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    product_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False
-    )
-    size_label: Mapped[str] = mapped_column(String(20), nullable=False)
-
-    # ── relationships ──
-    product: Mapped["Product"] = relationship("Product", back_populates="sizes")
-
-    def __repr__(self) -> str:
-        return f"<ProductSize(id={self.id}, product_id={self.product_id}, size={self.size_label!r})>"
+    class Config:
+        from_attributes = True 

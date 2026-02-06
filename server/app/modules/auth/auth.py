@@ -1,32 +1,35 @@
+import asyncio
 from passlib.context import CryptContext
 from .schemas import TokenData
 from jose import JWTError , jwt
-from datetime import datetime , timedelta
+from datetime import datetime , timedelta , timezone
 from fastapi import HTTPException , Depends , status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..users.models import User
 from ...db.database import get_db
+from ...config import settings
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 async def get_password_hash(password: str):
-    return pwd_context.hash(password)
+    return await asyncio.to_thread(pwd_context.hash , password)
+   
 
 async def verify_password(plain_password: str , hashed_password: str):
-    return pwd_context.verify(plain_password , hashed_password)
+    return await asyncio.to_thread(pwd_context.verify , plain_password , hashed_password)
 
 
 async def create_access_token(data : dict):
     payload = TokenData(**data) 
     to_encode = payload.model_dump()
-    expire = datetime.now() + timedelta(minutes = ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes = ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp" : expire})
     encoded_jwt = jwt.encode(to_encode , SECRET_KEY , algorithm = ALGORITHM)
     return encoded_jwt

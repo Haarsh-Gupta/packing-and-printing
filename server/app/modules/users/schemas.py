@@ -36,10 +36,8 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
-    email: Optional[EmailStr] = None
     phone: Optional[str] = None
     password: Optional[str] = None
-    profile_picture: Optional[str] = None
 
 
     @field_validator("password")
@@ -50,7 +48,7 @@ class UserUpdate(BaseModel):
 
     @model_validator(mode="after")
     def is_all_none(self):
-        if self.name is None and self.email is None and self.phone is None and self.password is None and self.profile_picture is None:
+        if self.name is None and self.phone is None and self.password is None:
             raise ValueError("At least one field must be provided")
         return self
     
