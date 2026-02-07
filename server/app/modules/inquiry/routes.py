@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
-from ...db.database import get_db
+from app.core.database import get_db
 from ..auth.auth import get_current_user, get_current_active_user
 from ..users.models import User
 from ..products.models import ProductTemplate

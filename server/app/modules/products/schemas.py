@@ -27,17 +27,31 @@ class ProductConfigSchema(BaseModel):
 # --- API Request/Response Schemas ---
 
 class ProductTemplateCreate(BaseModel):
-    slug: str
+    slug: Optional[str] = None
     name: str
-    base_price: float
-    minimum_quantity: Optional[int] = 1
+    base_price: float = Field(..., ge=0)
+    minimum_quantity: Optional[int] = Field(..., ge=1)
     config_schema: ProductConfigSchema # The complex JSON structure
+
+    @model_validator(mode="after")
+    def validate_config_schema(self):
+        if self.config_schema:
+            for section in self.config_schema.sections:
+                if section.type in ["dropdown", "radio"] and not section.options:
+                    raise ValueError(f"Options are required for {section.type} type")
+
+        if self.slug is None:
+            self.slug = slugify(self.name)
+        else:
+            self.slug = slugify(self.slug)
+
+        return self
 
 class ProductTemplateUpdate(BaseModel):
     slug: Optional[str] = None
     name: Optional[str] = None
-    base_price: Optional[float] = None 
-    minimum_quantity: Optional[int] = None
+    base_price: Optional[float] = Field(..., ge=0)
+    minimum_quantity: Optional[int] = Field(..., ge=1)
     config_schema: Optional[ProductConfigSchema] = None
 
 
@@ -47,14 +61,17 @@ class ProductTemplateUpdate(BaseModel):
             for section in self.config_schema.sections:
                 if section.type in ["dropdown", "radio"] and not section.options:
                     raise ValueError(f"Options are required for {section.type} type")
-        return self
 
+        if self.slug is None:
+            self.slug = slugify(self.name)
+        else:
+            self.slug = slugify(self.slug)
 
-    @model_validator(mode="after")
-    def is_all_none(self):
         if self.slug is None and self.name is None and self.base_price is None and self.minimum_quantity is None and self.config_schema is None:
             raise ValueError("At least one field must be provided")
+
         return self
+
 
 class ProductTemplateResponse(ProductTemplateCreate):
     id: int

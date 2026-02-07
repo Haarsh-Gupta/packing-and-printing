@@ -6,7 +6,7 @@ from sqlalchemy import select, update, delete, or_
 
 from .schemas import UserCreate, UserOut, UserUpdate
 from .models import User
-from ...db.database import get_db
+from app.core.database import get_db
 from ..auth import get_password_hash
 from ..auth import get_current_user, get_current_active_user
 

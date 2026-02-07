@@ -1,31 +1,25 @@
-from sqlalchemy import Column , Integer , String
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float
 from sqlalchemy.orm import relationship
-
-from ...db.database import Base
+from app.core.database import Base
 
 class Service(Base):
     __tablename__ = "services"
-    id = Column(Integer , primary_key = True , nullable = False , autoincrement = True)
-    name = Column(String , nullable = False)
-    description = Column(String , nullable = True)
-    
-    relationship("ServiceType", back_populates="service")
 
-    def __repr__(self):
-        return f"Service(id={self.id}, name={self.name}, description={self.description})"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)     
+    slug = Column(String, unique=True) 
+    is_active = Column(Boolean, default=True)
 
-class ServiceType(Base):
-    __tablename__ = "service_types"
-    id = Column(Integer , primary_key = True , nullable = False , autoincrement = True)
-    service_id = Column(Integer , nullable = False , foreign_key = "services.id")
-    name = Column(String , nullable = False)
-    description = Column(String , nullable = True)
-    minimum_quantity = Column(Integer , nullable = False , default = 1)
-    unit_price = Column(Integer , nullable = False)
+    variants = relationship("ServiceVariant", back_populates="service")
 
-    relationship("Service", back_populates="services")
+class ServiceVariant(Base):
+    __tablename__ = "service_variants"
 
-    def __repr__(self):
-        return f"ServiceType(id={self.id}, name={self.name}, description={self.description})"
-    
-    
+    id = Column(Integer, primary_key=True, index=True)
+    service_id = Column(Integer, ForeignKey("services.id")) 
+    name = Column(String, nullable=False) 
+    base_price = Column(Float, default=0.0)       
+    price_per_unit = Column(Float, default=0.0)
+    description = Column(String, nullable=True)
+
+    service = relationship("Service", back_populates="variants")

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from .auth import verify_password, create_access_token
 from .schemas import TokenData, Token
 from ..users.models import User
-from ...db.database import get_db
+from app.core.database import get_db
 
 router = APIRouter()
 

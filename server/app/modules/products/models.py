@@ -3,7 +3,7 @@ from sqlalchemy import Column , Integer , String , DateTime, Boolean, func , Flo
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
-from ...db.database import Base
+from app.core.database import Base
 
 class ProductTemplate(Base):
     __tablename__ = "product_templates"
