@@ -1,7 +1,8 @@
 from datetime import datetime
-from sqlalchemy import Column , Integer , String , DateTime, Boolean, func , Float
+from sqlalchemy import Column , Integer , String , DateTime, Boolean, func , Float , ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
+from typing import List
 
 from app.core.database import Base
 
@@ -12,29 +13,15 @@ class ProductTemplate(Base):
     name = Column(String , nullable = False)
     base_price = Column(Float , nullable = False)
     minimum_quantity = Column(Integer , nullable = False)
+    is_active = Column(Boolean , nullable = False , default = True)
     
     config_schema = Column(JSONB , nullable = False)
 
+    created_at = Column(DateTime(timezone = True) , server_default=func.now())
+
+    images = Column(ARRAY(String) , nullable = True)
+    
     inquiries = relationship("Inquiry", back_populates="template")
 
     def __repr__(self):
         return f"Product(id={self.id}, name={self.name}, base_price={self.base_price}, config_schema={self.config_schema})"
-
-
-# class Inquiry(Base):
-#     __tablename__ = 'inquiries'
-    
-#     id = Column(Integer, primary_key=True)
-#     user_id = Column(Integer, ForeignKey('users.id'))
-#     template_id = Column(Integer, ForeignKey('product_templates.id'))
-    
-#     quantity = Column(Integer, nullable=False)
-    
-#     # Stores the simple dictionary of user choices
-#     selected_options = Column(JSONB, nullable=False) 
-    
-#     status = Column(String, default='PENDING') # PENDING, QUOTED
-#     quoted_price = Column(Float, nullable=True) # Set by Admin later
-    
-#     template = relationship("ProductTemplate", back_populates="inquiries")
-#     user = relationship("User", back_populates="inquiries")

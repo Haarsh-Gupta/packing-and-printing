@@ -31,6 +31,7 @@ class ProductTemplateCreate(BaseModel):
     name: str
     base_price: float = Field(..., ge=0)
     minimum_quantity: Optional[int] = Field(..., ge=1)
+    images : Optional[List[str]] = None
     config_schema: ProductConfigSchema # The complex JSON structure
 
     @model_validator(mode="after")
@@ -52,8 +53,9 @@ class ProductTemplateUpdate(BaseModel):
     name: Optional[str] = None
     base_price: Optional[float] = Field(..., ge=0)
     minimum_quantity: Optional[int] = Field(..., ge=1)
+    images : Optional[List[str]] = None
     config_schema: Optional[ProductConfigSchema] = None
-
+    is_active : Optional[bool] = True
 
     @model_validator(mode="after")
     def validate_config_schema(self):

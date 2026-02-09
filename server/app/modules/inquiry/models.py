@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Text, func
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Text, func , ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -28,11 +28,14 @@ class Inquiry(Base):
     
     # Status workflow: PENDING -> QUOTED -> ACCEPTED/REJECTED
     status = Column(String, default='PENDING', nullable=False)
+
+    images = Column(ARRAY(String) , nullable = True)
     
     # Admin sets these after reviewing the inquiry
     quoted_price = Column(Float, nullable=True)
     admin_notes = Column(Text, nullable=True)  # Admin can add notes/comments
     quoted_at = Column(DateTime(timezone=True), nullable=True)
+    quote_valid_until = Column(DateTime(timezone=True), nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

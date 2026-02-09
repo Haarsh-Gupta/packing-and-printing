@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float , DateTime , func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -9,6 +9,7 @@ class Service(Base):
     name = Column(String, unique=True, nullable=False)     
     slug = Column(String, unique=True) 
     is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone = True) , server_default=func.now())
 
     variants = relationship("ServiceVariant", back_populates="service")
 

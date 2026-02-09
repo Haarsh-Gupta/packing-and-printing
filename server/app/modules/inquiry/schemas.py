@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Union, Optional, Literal
+from typing import Dict, Union, Optional, Literal , List
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -32,6 +32,7 @@ class InquiryQuotation(BaseModel):
     """Schema for admin sending a quotation"""
     quoted_price: float = Field(..., gt=0, description="Price must be positive")
     admin_notes: Optional[str] = None
+    valid_for_days: int = Field(7, gt=0, description="How many days is this price valid?")
 
 
 class InquiryStatusUpdate(BaseModel):
@@ -50,6 +51,7 @@ class InquiryResponse(BaseModel):
     selected_options: Dict[str, Union[str, int, float]]
     notes: Optional[str]
     status: str
+    images : Optional[List[str]] = None
     quoted_price: Optional[float]
     admin_notes: Optional[str]
     quoted_at: Optional[datetime]
@@ -66,6 +68,7 @@ class InquiryListResponse(BaseModel):
     template_id: int
     quantity: int
     status: str
+    images : Optional[List[str]] = None
     quoted_price: Optional[float]
     created_at: datetime
 

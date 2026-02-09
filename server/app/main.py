@@ -5,6 +5,7 @@ from app.modules.auth.routes import router as auth_router
 from app.modules.products.routes import router as product_router
 from app.modules.inquiry.routes import router as inquiry_router
 from app.modules.services.routes import router as service_router
+from app.modules.orders.routes import router as order_router
 
 from contextlib import asynccontextmanager
 from app import modules
@@ -24,6 +25,7 @@ app.include_router(auth_router , prefix="/auth" , tags=["Authentication"])
 app.include_router(product_router , prefix="/products" , tags=["Products"])
 app.include_router(inquiry_router , prefix="/inquiries" , tags=["Inquiries"])
 app.include_router(service_router , prefix="/services" , tags=["Services"])
+app.include_router(order_router , prefix="/orders" , tags=["Orders"])
 
 
 @app.get("/")

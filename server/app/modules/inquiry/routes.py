@@ -298,6 +298,7 @@ async def send_quotation(
     inquiry.admin_notes = quotation.admin_notes
     inquiry.quoted_at = datetime.now(timezone.utc)
     inquiry.status = 'QUOTED'
+    inquiry.quote_valid_until = datetime.now(timezone.utc) + timedelta(days=quotation.valid_for_days)
     
     await db.commit()
     await db.refresh(inquiry)

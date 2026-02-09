@@ -10,7 +10,7 @@ from app.modules.products.schemas import ProductTemplateCreate , ProductTemplate
 
 router = APIRouter()
 
-@router.post("/" , status_code=status.HTTP_201_CREATED)
+@router.post("/admin" , status_code=status.HTTP_201_CREATED)
 async def create_product_template(template : ProductTemplateCreate , current_user : User = Depends(get_current_active_user) , db : AsyncSession = Depends(get_db)):
     """
     Creates a new Product Template with the complex JSON config.
@@ -30,12 +30,12 @@ async def create_product_template(template : ProductTemplateCreate , current_use
     return new_template
 
 
-@router.get("/")
+@router.get("/admin")
 async def get_product_templates(skip : int = 0 , limit : int = 10 , db : AsyncSession = Depends(get_db)):
     """
     Returns a list of available products.
     """
-    stmt = select(ProductTemplate).offset(skip).limit(limit)
+    stmt = select(ProductTemplate).where(ProductTemplate.is_active == True).offset(skip).limit(limit)
     result = await db.execute(stmt)
     return result.scalars().all()
 
@@ -46,7 +46,7 @@ async def get_product_template(slug : str , db : AsyncSession = Depends(get_db))
     Fetches the specific configuration for a product (e.g., 'notebook-a5').
     Frontend uses this to build the form.
     """
-    stmt = select(ProductTemplate).where(ProductTemplate.slug == slug)
+    stmt = select(ProductTemplate).where(ProductTemplate.slug == slug , ProductTemplate.is_active == True)
     result = await db.execute(stmt)
     template = result.scalar_one_or_none()
 
@@ -57,12 +57,7 @@ async def get_product_template(slug : str , db : AsyncSession = Depends(get_db))
 
 
 @router.put("/{slug}")
-async def update_product_template(
-    slug: str, 
-    template_data: ProductTemplateUpdate, # 1. Renamed input
-    current_user: User = Depends(get_current_active_user), 
-    db: AsyncSession = Depends(get_db)
-):
+async def update_product_template(slug: str, template_data: ProductTemplateUpdate, current_user: User = Depends(get_current_active_user), db: AsyncSession = Depends(get_db)):
 
     stmt = select(ProductTemplate).where(ProductTemplate.slug == slug)
     result = await db.execute(stmt)
@@ -82,7 +77,8 @@ async def update_product_template(
     await db.refresh(db_template)
     return db_template
 
-@router.delete("/{slug}")
+
+@router.delete("/admin/{slug}")
 async def delete_product_template(slug : str , current_user : User = Depends(get_current_active_user) , db : AsyncSession = Depends(get_db)):
     stmt = select(ProductTemplate).where(ProductTemplate.slug == slug)
     result = await db.execute(stmt)

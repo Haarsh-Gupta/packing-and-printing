@@ -4,24 +4,33 @@ from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
-# from ..products.models import Inquiry
-# from ..users.models import User
 
 class Order(Base):
     __tablename__ = 'orders'
-    id = Column(Integer, primary_key=True)
-    # inquiry_id = Column(Integer, ForeignKey('inquiries.id'))  # Uncomment when Inquiry model is enabled
-    user_id = Column(Integer, ForeignKey('users.id'))
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    inquiry_id = Column(Integer, ForeignKey('inquiries.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     total_amount = Column(Float, nullable=False)
     amount_paid = Column(Float, default=0.0)
     status = Column(String, default='WAITING_PAYMENT')
     
-    # user = relationship("User", back_populates="orders")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="orders")
+    inquiry = relationship("Inquiry", back_populates="order", uselist=False)
+    transactions = relationship("Transaction", back_populates="order", cascade="all, delete-orphan")
+
 
 class Transaction(Base):
     __tablename__ = 'transactions'
-    id = Column(Integer, primary_key=True)
-    order_id = Column(Integer, ForeignKey('orders.id'))
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey('orders.id'), nullable=False)
     amount = Column(Float, nullable=False)
-    payment_mode = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    payment_mode = Column(String, nullable=False)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationship
+    order = relationship("Order", back_populates="transactions")
