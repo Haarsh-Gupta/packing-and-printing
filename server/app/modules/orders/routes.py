@@ -361,7 +361,7 @@ async def generate_order_invoice(
         'company_info': company_info,
         'customer_info': customer_info,
         'items': items,
-        'qr_code': None  # Can add QR code here if needed
+        'qr_code': None  
     }
     
     generate_simple_invoice(invoice_filename, invoice_data)

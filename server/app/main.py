@@ -1,4 +1,5 @@
-from fastapi import FastAPI , APIRouter,Depends , HTTPException 
+from fastapi import FastAPI 
+from fastapi.responses import HTMLResponse , PlainTextResponse
 from app.core.database import engine , Base , get_db
 from app.modules.users.routes import router as user_router
 from app.modules.auth.routes import router as auth_router
@@ -28,6 +29,24 @@ app.include_router(service_router , prefix="/services" , tags=["Services"])
 app.include_router(order_router , prefix="/orders" , tags=["Orders"])
 
 
+from app.modules.orders.utils.whatsapp_messenger import link
+
+from fastapi.responses import HTMLResponse
+
+@app.get("/link")
+async def get_link():
+    return HTMLResponse(
+        f"""
+        <html>
+          <body>
+            <h3>Open WhatsApp</h3>
+            <a href="{link}" target="_blank">Send Message</a>
+          </body>
+        </html>
+        """
+    )
+
+
 @app.get("/")
 async def root():
     return {"message" : "Hello World"}
@@ -35,7 +54,3 @@ async def root():
 @app.get("/health")
 async def health():
     return {"message" : "I am alive"}
-
-
-
-
