@@ -1,5 +1,6 @@
 from fastapi import FastAPI , APIRouter,Depends , HTTPException 
 from app.core.database import engine , Base , get_db
+from app.core.redis import init_redis, close_redis
 from app.modules.users.routes import router as user_router
 from app.modules.auth.routes import router as auth_router
 from app.modules.products.routes import router as product_router
@@ -15,7 +16,15 @@ async def lifespan(app: FastAPI):
     print("Creating tables ...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Initialize Redis
+    await init_redis()
+    print("Redis initialized")
+    
     yield
+    
+    # Cleanup
+    await close_redis()
     print("Tables created")
 
 app = FastAPI(lifespan=lifespan)
@@ -35,7 +44,3 @@ async def root():
 @app.get("/health")
 async def health():
     return {"message" : "I am alive"}
-
-
-
-

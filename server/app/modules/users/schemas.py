@@ -37,7 +37,7 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
-    password: Optional[str] = None
+    password: Optional[str] = Field(min_length = 6, max_length= 15, default=None)
 
 
     @field_validator("password")

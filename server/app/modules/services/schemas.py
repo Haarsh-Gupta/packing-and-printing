@@ -1,4 +1,4 @@
-from warnings import _OptionError
+
 from pydantic import BaseModel, Field , model_validator
 from typing import Optional, List
 from slugify import slugify

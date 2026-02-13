@@ -33,6 +33,7 @@ class Inquiry(Base):
     
     # Admin sets these after reviewing the inquiry
     quoted_price = Column(Float, nullable=True)
+    total_amount = Column(Float, nullable=True)  # Final total amount for the inquiry
     admin_notes = Column(Text, nullable=True)  # Admin can add notes/comments
     quoted_at = Column(DateTime(timezone=True), nullable=True)
     quote_valid_until = Column(DateTime(timezone=True), nullable=True)
@@ -41,7 +42,7 @@ class Inquiry(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    user = relationship("User", back_populates="inquiries")
+    # user = relationship("User", back_populates="inquiries")
     template = relationship("ProductTemplate", back_populates="inquiries")
 
     def __repr__(self):

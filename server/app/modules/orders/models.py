@@ -18,8 +18,8 @@ class Order(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    user = relationship("User", back_populates="orders")
-    inquiry = relationship("Inquiry", back_populates="order", uselist=False)
+    user = relationship("User", backref="orders")
+    inquiry = relationship("Inquiry", backref="order", uselist=False)
     transactions = relationship("Transaction", back_populates="order", cascade="all, delete-orphan")
 
 

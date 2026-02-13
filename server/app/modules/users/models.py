@@ -4,8 +4,8 @@ from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
-# from ..products.models import Inquiry
-from ..orders.models import Order
+#from ..products.models import Inquiry
+#from ..orders.models import Order
 
 
 class User(Base):
@@ -19,7 +19,7 @@ class User(Base):
     admin = Column(Boolean , nullable = False , default = False)
     created_at = Column(DateTime(timezone = True) , server_default=func.now())
 
-    inquiries = relationship("Inquiry", back_populates="user")
+    # inquiries = relationship("Inquiry", back_populates="user")
     # orders = relationship("Order", back_populates="user")
 
     def __repr__(self):

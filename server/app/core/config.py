@@ -19,6 +19,17 @@ class Settings(BaseSettings):
     db_port: int
     db_name: str
 
+    # Brevo SMTP
+    brevo_smtp_api_key: str
+    brevo_sender_email: str = "noreply@yourcompany.com"
+    brevo_login_email: str
+
+    # Redis
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: str = ""
+
+
     @computed_field
     @property
     def cloudinary_url(self) -> str:

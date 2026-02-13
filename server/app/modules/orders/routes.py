@@ -44,7 +44,7 @@ async def create_order(order : OrderCreate , current_user : User = Depends(get_c
     """
 
 
-    stmt = select(Inquiry).selectinload(Inquiry.template).where(Inquiry.id == order.inquiry_id , Inquiry.status == "ACCEPTED" , Inquiry.user_id == current_user.id)
+    stmt = select(Inquiry).options(selectinload(Inquiry.template)).where(Inquiry.id == order.inquiry_id , Inquiry.status == "ACCEPTED" , Inquiry.user_id == current_user.id)
 
     result = await db.execute(stmt)
     inquiry = result.scalar_one_or_none()
@@ -74,7 +74,7 @@ async def create_order(order : OrderCreate , current_user : User = Depends(get_c
         status="WAITING_PAYMENT"
     )
 
-    await db.add(new_order)
+    db.add(new_order)
     await db.commit()
     await db.refresh(new_order)
 
@@ -140,7 +140,7 @@ async def pay_for_order(
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Order not found")
 
-    if order.status in ["WAITING_PAYMENT" , "PARTIALLY_PAID"]:
+    if order.status not in ["WAITING_PAYMENT" , "PARTIALLY_PAID"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail="Order is not in WAITING_PAYMENT or PARTIALLY_PAID status")
 
     
@@ -148,7 +148,6 @@ async def pay_for_order(
     new_transaction = Transaction(
         order_id=order.id,
         amount=payment_data.amount,
-        payment_method=payment_data.payment_method,
         payment_mode=payment_data.payment_mode,
         notes=payment_data.notes
     )
@@ -160,35 +159,13 @@ async def pay_for_order(
     elif order.amount_paid > 0:
         order.status = "PARTIALLY_PAID"
 
-    await db.add(new_transaction)
+    db.add(new_transaction)
     await db.commit()
     await db.refresh(new_transaction)
 
     return new_transaction
 
-@router.get("{order_id}/payments" , response_model = List[TransactionResponse])
-async def get_order_payments(
-    order_id : int,
-    current_user : User = Depends(get_current_user) ,
-    db : AsyncSession = Depends(get_db)
-):
-    """
-    Get all payments for a specific order (only if owned by current user).
-    """
 
-    stmt = select(Order).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Order not found")
-
-    if order.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN , detail="You are not authorized to access this order")
-
-    stmt = select(Transaction).where(Transaction.order_id == order_id)
-    result = await db.execute(stmt)
-    return result.scalars().all()
 
 
 @router.get("/{order_id}/payments", response_model=list[TransactionResponse])
