@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 # from ..products.models import Inquiry
-from ..orders.models import Order
+# from ..orders.models import Order
 
 
 class User(Base):
