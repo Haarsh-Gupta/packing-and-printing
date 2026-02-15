@@ -13,6 +13,11 @@ pydantic[email]
 bcrypt==4.0.1
 python-slugify
 python-multipart
+authlib
+httpx
+itdangerous
+redis
+aiosmtplib
 
 # PDF and Invoice generation
 reportlab

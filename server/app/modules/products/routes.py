@@ -2,7 +2,7 @@ from fastapi import APIRouter , Depends , HTTPException , status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from app.core.database import get_db
-from app.modules.auth.auth import get_current_active_user
+from app.modules.auth.auth import get_current_admin_user
 from app.modules.users.models import User
 from app.modules.products.models import ProductTemplate
 from app.modules.products.schemas import ProductTemplateCreate , ProductTemplateUpdate
@@ -11,7 +11,7 @@ from app.modules.products.schemas import ProductTemplateCreate , ProductTemplate
 router = APIRouter()
 
 @router.post("/admin" , status_code=status.HTTP_201_CREATED)
-async def create_product_template(template : ProductTemplateCreate , current_user : User = Depends(get_current_active_user) , db : AsyncSession = Depends(get_db)):
+async def create_product_template(template : ProductTemplateCreate , current_user : User = Depends(get_current_admin_user) , db : AsyncSession = Depends(get_db)):
     """
     Creates a new Product Template with the complex JSON config.
     """
@@ -57,7 +57,7 @@ async def get_product_template(slug : str , db : AsyncSession = Depends(get_db))
 
 
 @router.put("/{slug}")
-async def update_product_template(slug: str, template_data: ProductTemplateUpdate, current_user: User = Depends(get_current_active_user), db: AsyncSession = Depends(get_db)):
+async def update_product_template(slug: str, template_data: ProductTemplateUpdate, current_user: User = Depends(get_current_admin_user), db: AsyncSession = Depends(get_db)):
 
     stmt = select(ProductTemplate).where(ProductTemplate.slug == slug)
     result = await db.execute(stmt)
@@ -79,7 +79,7 @@ async def update_product_template(slug: str, template_data: ProductTemplateUpdat
 
 
 @router.delete("/admin/{slug}")
-async def delete_product_template(slug : str , current_user : User = Depends(get_current_active_user) , db : AsyncSession = Depends(get_db)):
+async def delete_product_template(slug : str , current_user : User = Depends(get_current_admin_user) , db : AsyncSession = Depends(get_db)):
     stmt = select(ProductTemplate).where(ProductTemplate.slug == slug)
     result = await db.execute(stmt)
     template = result.scalar_one_or_none()

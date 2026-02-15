@@ -1,5 +1,6 @@
 from typing import List, Optional, Literal, Union, Dict, Any
 from pydantic import BaseModel, Field, validator , model_validator
+from slugify import slugify
 
 
 class Option(BaseModel):
@@ -47,6 +48,52 @@ class ProductTemplateCreate(BaseModel):
             self.slug = slugify(self.slug)
 
         return self
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "Premium Corporate Diary 2026",
+                "base_price": 250.0,
+                "minimum_quantity": 50,
+                "config_schema": {
+                    "sections": [
+                        {
+                            "key": "size",
+                            "label": "Select Diary Size",
+                            "type": "dropdown",
+                            "options": [
+                                { "label": "A5 (Standard)", "value": "a5", "price_mod": 0.0 },
+                                { "label": "A4 (Executive)", "value": "a4", "price_mod": 100.0 },
+                                { "label": "B5 (Compact)", "value": "b5", "price_mod": -20.0 }
+                            ]
+                        },
+                        {
+                            "key": "cover_style",
+                            "label": "Cover Material",
+                            "type": "radio",
+                            "options": [
+                                { "label": "Faux Leather (PU)", "value": "pu_leather", "price_mod": 0.0 },
+                                { "label": "Hardbound Paper", "value": "hardbound", "price_mod": -50.0 },
+                                { "label": "Premium Genuine Leather", "value": "genuine_leather", "price_mod": 450.0 }
+                            ]
+                        },
+                        {
+                            "key": "total_pages",
+                            "label": "Number of Pages",
+                            "type": "number_input",
+                            "min_val": 100,
+                            "max_val": 500,
+                            "price_per_unit": 0.5
+                        },
+                        {
+                            "key": "embossing_text",
+                            "label": "Company Name for Embossing",
+                            "type": "text_input"
+                        }
+                    ]
+                }
+            }
+        }
 
 class ProductTemplateUpdate(BaseModel):
     slug: Optional[str] = None

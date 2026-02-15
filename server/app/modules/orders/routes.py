@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.config import settings
-from ..auth.auth import get_current_user, get_current_active_user
+from ..auth.auth import get_current_user, get_current_admin_user
 from ..users.models import User
 from ..inquiry.models import Inquiry
 from ..products.models import ProductTemplate
@@ -127,7 +127,7 @@ async def get_my_order(
 async def pay_for_order(
     order_id : int,
     payment_data : TransactionCreate,
-    current_user : User = Depends(get_current_active_user) ,
+    current_user : User = Depends(get_current_admin_user) ,
     db : AsyncSession = Depends(get_db)
 ):
     """
@@ -380,7 +380,7 @@ async def get_all_orders(
     skip: int = 0,
     limit: int = 50,
     status_filter: Optional[str] = None,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -401,7 +401,7 @@ async def get_all_orders(
 async def update_order_status(
     order_id: int,
     status_update: OrderUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -428,7 +428,7 @@ async def update_order_status(
 @router.delete("/admin/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def admin_delete_order(
     order_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """

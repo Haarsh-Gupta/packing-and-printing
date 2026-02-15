@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     algorithm: str
     secret_key: str
     access_token_expire_minutes: int
+    refresh_token_expire_days: int = 7
+
+    #oauth
+    client_id : str
+    client_secret : str
+    redirect_uri : str
 
     # Database
     db_user: str
@@ -18,6 +24,23 @@ class Settings(BaseSettings):
     db_host: str
     db_port: int
     db_name: str
+
+    # Redis
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: str = ""
+    redis_db: int = 0
+
+    # OTP
+    otp_expire_seconds: int = 300  # 5 minutes
+
+    # Brevo SMTP (Email)
+    brevo_smtp_host: str = "smtp-relay.brevo.com"
+    brevo_smtp_port: int = 587
+    brevo_smtp_user: str = ""
+    brevo_smtp_password: str = ""
+    brevo_sender_email: str = "noreply@example.com"
+    brevo_sender_name: str = "BookBind"
 
     @computed_field
     @property
@@ -44,4 +67,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

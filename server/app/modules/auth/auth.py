@@ -6,15 +6,18 @@ from datetime import datetime , timedelta , timezone
 from fastapi import HTTPException , Depends , status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from ..users.models import User
 from app.core.database import get_db
 from app.core.config import settings
+import random
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -25,16 +28,27 @@ async def get_password_hash(password: str):
 async def verify_password(plain_password: str , hashed_password: str):
     return await asyncio.to_thread(pwd_context.verify , plain_password , hashed_password)
 
+async def generate_otp():
+    return random.randint(100000 , 999999)
+
 
 async def create_access_token(data : dict):
     payload = TokenData(**data) 
     to_encode = payload.model_dump()
     expire = datetime.now(timezone.utc) + timedelta(minutes = ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp" : expire})
+    to_encode.update({"exp" : expire , "type" : "access_token"})
     encoded_jwt = jwt.encode(to_encode , SECRET_KEY , algorithm = ALGORITHM)
     return encoded_jwt
 
-async def verify_token(token : str, credintials_exception : HTTPException):
+async def create_refresh_token(data : dict):
+    payload = TokenData(**data)
+    to_encode = payload.model_dump()
+    expire = datetime.now(timezone.utc) + timedelta(days = REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp" : expire , "type" : "refresh_token"})
+    encoded_jwt = jwt.encode(to_encode , SECRET_KEY , algorithm = ALGORITHM)
+    return encoded_jwt
+
+async def verify_token(token : str, credintials_exception : HTTPException) -> TokenData:
     try:
         payload = jwt.decode(token , SECRET_KEY , algorithms = [ALGORITHM])
         token_data = TokenData(**payload)
@@ -42,22 +56,30 @@ async def verify_token(token : str, credintials_exception : HTTPException):
         raise credintials_exception
     return token_data
 
-
-async def get_current_user(token : str = Depends(oauth2_scheme), db : AsyncSession = Depends(get_db)):
+async def get_current_user(token : str = Depends(oauth2_scheme)) -> TokenData:
     credintials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED , 
         detail="Could not validate credentials" ,
         headers={"WWW-Authenticate" : "Bearer"} 
     )
     token_data = await verify_token(token , credintials_exception) 
-    user = await db.get(User, token_data.id)
+    return token_data
+
+
+async def get_current_admin_user(current_user: TokenData = Depends(get_current_user) , db : AsyncSession = Depends(get_db)) -> User:
+    if current_user.admin == False:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="The user is not an admin")
+
+    result = await db.execute(select(User).where(User.id == current_user.id))
+    user = result.scalar_one_or_none()
+
     if not user:
-        raise credintials_exception
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid user")
+
+    if user.admin == False:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="The user is not an admin")
+
+    if user.token_version != current_user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Invalid user")
+
     return user
-
-
-async def get_current_active_user(current_user: User = Depends(get_current_user)):
-    if not current_user.admin:
-        raise HTTPException(status_code=400, detail="The user is not an admin")
-    return current_user
-

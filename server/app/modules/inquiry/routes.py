@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
 from app.core.database import get_db
-from ..auth.auth import get_current_user, get_current_active_user
+from ..auth.auth import get_current_user, get_current_admin_user
 from ..users.models import User
 from ..products.models import ProductTemplate
 from .models import Inquiry
@@ -228,7 +228,7 @@ async def get_all_inquiries(
     skip: int = 0,
     limit: int = 50,
     status_filter: str = None,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -248,7 +248,7 @@ async def get_all_inquiries(
 @router.get("/admin/{inquiry_id}", response_model=InquiryResponse)
 async def get_inquiry_by_id(
     inquiry_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -271,7 +271,7 @@ async def get_inquiry_by_id(
 async def send_quotation(
     inquiry_id: int,
     quotation: InquiryQuotation,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -309,7 +309,7 @@ async def send_quotation(
 @router.delete("/admin/{inquiry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def admin_delete_inquiry(
     inquiry_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """

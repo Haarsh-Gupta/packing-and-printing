@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession # FIXED: Correct import
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload # FIXED: Needed to load variants
 from app.core.database import get_db
-from app.modules.auth.auth import get_current_active_user
+from app.modules.auth.auth import get_current_admin_user
 from app.modules.users.models import User
 from app.modules.services.models import Service, ServiceVariant
 from app.modules.services.schemas import (
@@ -18,7 +18,7 @@ router = APIRouter()
 @router.post("/", response_model=ServiceResponse)
 async def create_service(
     service_in: ServiceCreate, # Renamed to avoid confusion
-    current_user: User = Depends(get_current_active_user), 
+    current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
     # FIXED: Use comma for AND, or use & operator
@@ -71,7 +71,7 @@ async def get_service(slug: str, db: AsyncSession = Depends(get_db)):
 async def update_service(
     slug: str, 
     service_in: ServiceUpdate, # FIXED: Renamed input variable
-    current_user: User = Depends(get_current_active_user), 
+    current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
     stmt = select(Service).options(selectinload(Service.variants)).where(Service.slug == slug)
@@ -98,7 +98,7 @@ async def update_service(
 @router.delete("/{slug}", response_model=ServiceResponse)
 async def delete_service(
     slug: str, 
-    current_user: User = Depends(get_current_active_user), 
+    current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
     stmt = select(Service).where(Service.slug == slug)
@@ -119,7 +119,7 @@ async def delete_service(
 async def create_service_variant(
     slug: str, 
     variant_in: ServiceVariantCreate, 
-    current_user: User = Depends(get_current_active_user), 
+    current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
     stmt = select(Service).where(Service.slug == slug)

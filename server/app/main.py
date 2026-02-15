@@ -7,9 +7,13 @@ from app.modules.products.routes import router as product_router
 from app.modules.inquiry.routes import router as inquiry_router
 from app.modules.services.routes import router as service_router
 from app.modules.orders.routes import router as order_router
+from app.modules.otps.routes import router as otp_router
+
+from starlette.middleware.sessions import SessionMiddleware
 
 from contextlib import asynccontextmanager
 from app import modules
+from app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,12 +25,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+app.add_middleware(SessionMiddleware , secret_key=settings.secret_key)
+
 app.include_router(user_router , prefix="/users" , tags=["Users"])
 app.include_router(auth_router , prefix="/auth" , tags=["Authentication"])
 app.include_router(product_router , prefix="/products" , tags=["Products"])
 app.include_router(inquiry_router , prefix="/inquiries" , tags=["Inquiries"])
 app.include_router(service_router , prefix="/services" , tags=["Services"])
 app.include_router(order_router , prefix="/orders" , tags=["Orders"])
+app.include_router(otp_router , prefix="/otp" , tags=["OTP"])
 
 
 from app.modules.orders.utils.whatsapp_messenger import link

@@ -1,10 +1,22 @@
 from pydantic import BaseModel, EmailStr
 
 class Token(BaseModel):
-    access_token: str = "Bearer"
-    token_type: str
+    access_token: str 
+    token_type: str = "Bearer"
 
 class TokenData(BaseModel):
     id: int
     email: EmailStr
     admin : bool
+    token_version : int = 1
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+

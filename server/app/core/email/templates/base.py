@@ -1,0 +1,93 @@
+"""
+Shared HTML wrapper for all email templates.
+
+All templates call `wrap_in_base(content)` to get consistent
+branding, header, and footer across every email type.
+"""
+
+
+def wrap_in_base(
+    content: str,
+    company_name: str = "BookBind",
+    support_email: str = "support@bookbind.com",
+) -> str:
+    """
+    Wraps inner HTML content with a branded email shell.
+
+    Args:
+        content: The inner HTML specific to each email type.
+        company_name: Company name shown in header/footer.
+        support_email: Shown in the footer for support.
+
+    Returns:
+        Full HTML document string ready to send.
+    """
+    return f"""\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{company_name}</title>
+  <style>
+    body {{
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f7;
+      color: #333333;
+    }}
+    .email-wrapper {{
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }}
+    .email-header {{
+      background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+      padding: 24px 32px;
+      text-align: center;
+    }}
+    .email-header h1 {{
+      margin: 0;
+      color: #ffffff;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }}
+    .email-body {{
+      padding: 32px;
+    }}
+    .email-footer {{
+      background-color: #f8f9fa;
+      padding: 20px 32px;
+      text-align: center;
+      font-size: 12px;
+      color: #888888;
+      border-top: 1px solid #eaeaea;
+    }}
+    .email-footer a {{
+      color: #3498db;
+      text-decoration: none;
+    }}
+  </style>
+</head>
+<body>
+  <div style="padding: 20px 0;">
+    <div class="email-wrapper">
+      <div class="email-header">
+        <h1>{company_name}</h1>
+      </div>
+      <div class="email-body">
+        {content}
+      </div>
+      <div class="email-footer">
+        <p>&copy; {company_name}. All rights reserved.</p>
+        <p>Need help? <a href="mailto:{support_email}">{support_email}</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>"""

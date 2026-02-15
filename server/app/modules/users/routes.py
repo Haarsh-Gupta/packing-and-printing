@@ -8,7 +8,8 @@ from .schemas import UserCreate, UserOut, UserUpdate
 from .models import User
 from app.core.database import get_db
 from ..auth import get_password_hash
-from ..auth import get_current_user, get_current_active_user
+from ..auth import get_current_user, get_current_admin_user
+from ..auth.schemas import TokenData
 
 router = APIRouter()
 
@@ -33,50 +34,62 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
     return new_user
 
 @router.get("/all" , response_model=list[UserOut])
-async def get_all_users(query : Optional[str] = None, db : AsyncSession = Depends(get_db) , current_user : User = Depends(get_current_active_user)):
+async def get_all_users(
+    query : Optional[str] = None,
+    admin : Optional[bool] = None,
+    db : AsyncSession = Depends(get_db) , 
+    current_user : User = Depends(get_current_admin_user)):
     
     stmt = select(User)
+    if admin is not None:
+        stmt = stmt.where(User.admin == admin)
     if query:
         stmt = stmt.where(or_(
             User.name.ilike(f"%{query}%"),
             User.email.ilike(f"%{query}%"),
             User.phone.ilike(f"%{query}%")
         ))
-
-        result = await db.execute(stmt)
-        return result.scalars().all()
     
     result = await db.execute(stmt)
     return result.scalars().all()
 
 
 @router.get("/me" , response_model=UserOut)
-async def user_detail(current_user : User = Depends(get_current_user)):
-    return current_user
+async def user_detail(current_user : TokenData = Depends(get_current_user), db : AsyncSession = Depends(get_db)):
+    stmt = select(User).where(User.id == current_user.id)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    return user
 
 
 @router.get("/{id}" , response_model=UserOut)
-async def get_user_by_id(id : int , db : AsyncSession = Depends(get_db)):
+async def get_user_by_id(id : int , db : AsyncSession = Depends(get_db), current_user: TokenData = Depends(get_current_user)):
 
     stmt = select(User).where(User.id == id)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
+
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="User not found")
     return user
-
-
-@router.get("/admin" , response_model=UserOut)
-async def admin_detail(current_user : User = Depends(get_current_active_user)):
-    return current_user
 
 
 @router.patch("/update", response_model=UserOut)
 async def update_user(
     user: UserUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    stmt = select(User).where(User.id == current_user.id)
+    result = await db.execute(stmt)
+    db_user = result.scalar_one_or_none()
+
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="User not found")
     data = user.model_dump(exclude_unset=True)
 
     if "password" in data:
@@ -99,7 +112,7 @@ async def update_user(
 async def delete_user(
     user_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin_user),
 ):
     stmt = select(User).where(User.id == user_id)
     result = await db.execute(stmt)
