@@ -1,12 +1,14 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from .schemas import OtpSend, OtpVerify
-from .service import get_otp_service
+from .services import get_otp_service
+from app.core.rate_limiter import RateLimiter
+
 
 router = APIRouter()
 otp_service = get_otp_service()
 
 
-@router.post("/send", status_code=status.HTTP_200_OK)
+@router.post("/send", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=3, seconds=60))])
 async def send_otp(payload: OtpSend):
     """
     Generate a 6-digit OTP, store it in Redis, and send it to the given email.

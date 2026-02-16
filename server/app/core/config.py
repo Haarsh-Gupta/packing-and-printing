@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     redis_password: str = ""
     redis_db: int = 0
+    redis_ssl: bool = False
 
     # OTP
     otp_expire_seconds: int = 300  # 5 minutes

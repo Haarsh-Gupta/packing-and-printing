@@ -11,10 +11,11 @@ from ..auth import get_password_hash
 from ..auth import get_current_user, get_current_admin_user
 from ..auth.schemas import TokenData
 from app.modules.otps.services import get_otp_service
+from app.core.rate_limiter import RateLimiter
 
 router = APIRouter()
 
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
 async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
 
     stmt = select(User).where(User.email == user.email)

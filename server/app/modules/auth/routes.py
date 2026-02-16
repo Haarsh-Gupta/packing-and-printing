@@ -12,13 +12,14 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.core.oauth import oauth
 from authlib.integrations.base_client import OAuthError
+from app.core.rate_limiter import RateLimiter
 
 REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 
 router = APIRouter()
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
 async def login(response : Response , db : AsyncSession = Depends(get_db), form_data : OAuth2PasswordRequestForm = Depends()):
     username = form_data.username
     password = form_data.password
@@ -169,7 +170,7 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
 
 from .schemas import ForgotPasswordRequest, ResetPasswordRequest
 from .auth import get_password_hash
-from app.modules.otps.service import get_otp_service
+from app.modules.otps.services import get_otp_service
 
 _otp_service = get_otp_service()
 

@@ -1,5 +1,5 @@
 from fastapi import FastAPI 
-from fastapi.responses import HTMLResponse , PlainTextResponse
+from fastapi.responses import HTMLResponse 
 from app.core.database import engine , Base , get_db
 from app.modules.users.routes import router as user_router
 from app.modules.auth.routes import router as auth_router
@@ -15,6 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 from app import modules
 from app.core.config import settings
+from app.core.middleware import RateLimitMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,6 +27,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
+app.add_middleware(RateLimitMiddleware, limit=200, window=60)
 app.add_middleware(SessionMiddleware , secret_key=settings.secret_key)
 
 app.include_router(user_router , prefix="/users" , tags=["Users"])

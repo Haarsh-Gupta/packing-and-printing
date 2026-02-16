@@ -24,7 +24,8 @@ redis_client = redis.Redis(
     port=settings.redis_port,
     password=settings.redis_password or None,
     db=settings.redis_db,
-    decode_responses=True
+    decode_responses=True,
+    ssl=settings.redis_ssl
 )
 
 
