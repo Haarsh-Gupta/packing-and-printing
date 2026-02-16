@@ -8,6 +8,7 @@ from app.modules.inquiry.routes import router as inquiry_router
 from app.modules.services.routes import router as service_router
 from app.modules.orders.routes import router as order_router
 from app.modules.otps.routes import router as otp_router
+from app.modules.uploads.routes import router as upload_router
 
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -34,6 +35,7 @@ app.include_router(inquiry_router , prefix="/inquiries" , tags=["Inquiries"])
 app.include_router(service_router , prefix="/services" , tags=["Services"])
 app.include_router(order_router , prefix="/orders" , tags=["Orders"])
 app.include_router(otp_router , prefix="/otp" , tags=["OTP"])
+app.include_router(upload_router, prefix="/upload", tags=["Uploads"])
 
 
 from app.modules.orders.utils.whatsapp_messenger import link

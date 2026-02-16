@@ -10,6 +10,7 @@ from app.core.database import get_db
 from ..auth import get_password_hash
 from ..auth import get_current_user, get_current_admin_user
 from ..auth.schemas import TokenData
+from app.modules.otps.services import get_otp_service
 
 router = APIRouter()
 
@@ -23,7 +24,16 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="User already exists")
 
-    data = user.model_dump()
+    otp_service = get_otp_service()
+    is_valid = await otp_service.verify_otp(email=user.email, otp=user.otp)
+    
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Invalid or expired OTP"
+        )
+
+    data = user.model_dump(exclude={"otp"})
     data["password"] = await get_password_hash(data["password"])
 
     new_user = User(**data)

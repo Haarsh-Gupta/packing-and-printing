@@ -25,6 +25,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(min_length = 6)
+    otp: int = Field(gt = 100000 , lt = 999999)
 
     @field_validator("password")
     def check_password(cls , value):
