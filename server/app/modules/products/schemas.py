@@ -119,13 +119,14 @@ class ProductTemplateUpdate(BaseModel):
                 if section.type in ["dropdown", "radio"] and not section.options:
                     raise ValueError(f"Options are required for {section.type} type")
 
-        if self.slug is None:
+
+        if self.name and self.slug is None:
             self.slug = slugify(self.name)
-        else:
+        elif self.slug:
             self.slug = slugify(self.slug)
 
-        if self.slug is None and self.name is None and self.base_price is None and self.minimum_quantity is None and self.config_schema is None:
-            raise ValueError("At least one field must be provided")
+        if self.slug is None and self.name is None and self.base_price is None and self.minimum_quantity is None and self.config_schema is None and self.is_active is None:
+             raise ValueError("At least one field must be provided")
 
         return self
 

@@ -26,6 +26,7 @@ from .schemas import (
 
 import sys
 import os
+import tempfile
 sys.path.append(os.path.dirname(__file__))
 
 from .utils.qr_generator import generate_upi_qr, generate_payment_qr
@@ -52,7 +53,7 @@ async def create_order(order : OrderCreate , current_user : User = Depends(get_c
     if not inquiry:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Inquiry not found")
 
-    if inquiry.quote_valid_until < datetime.now(timezone.utc):
+    if inquiry.quote_valid_until and inquiry.quote_valid_until < datetime.now(timezone.utc):
         inquiry.status = "EXPIRED"
         await db.commit()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail="This quote has expired. Please request a new quotation.")
@@ -352,7 +353,9 @@ async def generate_order_invoice(
     }
     
     # Generate invoice
-    invoice_filename = f"/tmp/invoice_{order_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    # invoice_filename = f"/tmp/invoice_{order_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        invoice_filename = tmp.name
     
     invoice_data = {
         'invoice_number': f"INV-{order_id:06d}",

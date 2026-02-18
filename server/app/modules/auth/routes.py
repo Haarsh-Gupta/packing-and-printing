@@ -1,7 +1,7 @@
 from app.modules.auth import get_current_user
 from fastapi import APIRouter , Depends, status, HTTPException
 from fastapi.requests import Request
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response, JSONResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select 
@@ -150,21 +150,15 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
     access_token = await create_access_token(data = payload.model_dump())
     refresh_token = await create_refresh_token(data = payload.model_dump())
 
-    #TODO: redirect to the frontend 
-    #frontend_url = "http://localhost:3000/dashboard"
-    # response = RedirectResponse(url=frontend_url)
-
-    response = JSONResponse(content={
-        "access_token": access_token, 
-        "token_type": "bearer",
-        "message": "Login Successful! Copy the access_token."
-    })
+    # Redirect to frontend with token
+    frontend_url = f"http://localhost:3000/auth/success?access_token={access_token}"
+    response = RedirectResponse(url=frontend_url)
 
     response.set_cookie(
         key = "refresh_token",
         value = refresh_token,
         httponly = True,
-        secure = True,
+        secure = True, 
         samesite = "lax",
         max_age = REFRESH_TOKEN_EXPIRE_DAYS*24*60*60
     )

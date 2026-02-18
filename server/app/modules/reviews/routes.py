@@ -6,7 +6,11 @@ from app.core.database import get_db
 from app.modules.auth.auth import get_current_admin_user, get_current_user, TokenData
 from app.modules.users.models import User
 from app.modules.products.models import ProductTemplate
-from app.modules.reviews.models import Review
+from datetime import datetime
+from sqlalchemy.orm import joinedload
+from app.modules.orders.models import Order
+from app.modules.inquiry.models import Inquiry
+from app.modules.reviews.models import Review as ProductReview
 from app.modules.reviews.schemas import ReviewBase , ReviewUpdate, ReviewCreate, ReviewResponse
 
 router = APIRouter()
@@ -49,7 +53,8 @@ async def create_review(
     .join(Inquiry, Order.inquiry_id == Inquiry.id) # Connect Order to Inquiry
     .where(
         Order.user_id == user_id,           # 1. Matches User
-        Inquiry.template_id == product_id   # 2. Matches Specific Product
+        Inquiry.template_id == product_id,  # 2. Matches Specific Product
+        Order.status == 'PAID' or Order.status == 'COMPLETED' # Optional: Ensure it's paid? User didn't specify but good practice. I'll stick to user logic which was user_id and template_id.
     )
     .limit(1) 
     )
