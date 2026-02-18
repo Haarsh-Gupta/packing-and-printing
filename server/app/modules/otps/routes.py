@@ -27,9 +27,9 @@ async def send_otp(payload: OtpSend):
 @router.post("/verify", status_code=status.HTTP_200_OK)
 async def verify_otp(payload: OtpVerify):
     """
-    Verify the OTP for the given email. Deletes the OTP on success.
+    Verify the OTP for the given email. Does NOT delete the OTP on success (check-only).
     """
-    valid = await otp_service.verify_otp(email=payload.email, otp=payload.otp)
+    valid = await otp_service.verify_otp(email=payload.email, otp=payload.otp, consume=False)
 
     if not valid:
         raise HTTPException(

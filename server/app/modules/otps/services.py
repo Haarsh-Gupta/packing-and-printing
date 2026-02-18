@@ -37,6 +37,11 @@ class OTPService:
         otp = self._generate_otp()
         expire_minutes = settings.otp_expire_seconds // 60
 
+        # print(f"\n{'='*50}")
+        # print(f"📧 OTP for {email}: {otp}")
+        # print(f"⏱️  Expires in {expire_minutes} minutes")
+        # print(f"{'='*50}\n")
+
         await self.store.store_otp(email, otp)
 
         html = render_otp_email(
@@ -69,18 +74,41 @@ class OTPService:
             body_html=html,
         )
 
-    async def verify_otp(self, email: str, otp: str) -> bool:
-        """Verify an OTP and delete it on success."""
+    async def verify_otp(self, email: str, otp: str, consume: bool = True) -> bool:
+        """
+        Verify an OTP. 
+        If consume=True (default), deletes the OTP on success.
+        If consume=False, keeps the OTP (for pre-verification checks).
+        """
         stored = await self.store.get_otp(email)
-        if stored and stored == otp:
+        # print(f"\n{'='*50}")
+        # print(f"🔍 Verifying OTP for {email}")
+        # print(f"   Stored OTP : {stored!r} (type: {type(stored).__name__})")
+        # print(f"   Received OTP: {otp!r} (type: {type(otp).__name__})")
+        
+        if stored is not None:
+            stored = stored.decode() if isinstance(stored, bytes) else str(stored)
+            
+        match = stored and stored == otp
+        # print(f"   Match: {match}")
+        # print(f"   Consume: {consume}")
+        # print(f"{'='*50}\n")
+
+        if match and consume:
             await self.store.delete_otp(email)
             return True
+            
+        if match and not consume:
+            return True
+            
         return False
 
     async def verify_password_reset_otp(self, email: str, otp: str) -> bool:
         """Verify a password-reset OTP and delete it on success."""
         key = f"pwd_reset:{email}"
         stored = await self.store.get_otp(key)
+        if stored is not None:
+            stored = stored.decode() if isinstance(stored, bytes) else str(stored)
         if stored and stored == otp:
             await self.store.delete_otp(key)
             return True

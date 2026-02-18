@@ -1,7 +1,7 @@
 from app.modules.auth import get_current_user
 from fastapi import APIRouter , Depends, status, HTTPException
 from fastapi.requests import Request
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select 
@@ -109,7 +109,7 @@ async def logout(response: Response, db : AsyncSession = Depends(get_db), curren
 @router.get("/google/login")
 async def google_login(request: Request):
 
-    redirect_uri = request.url_for("google_callback")
+    redirect_uri = request.url_for("auth_google_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @router.get("/google/callback", name = "auth_google_callback")
@@ -139,7 +139,7 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
         user = User(
             email=email,
             name=name,
-            picture=picture,
+            profile_picture=picture,
             admin=False
         )
         db.add(user)
@@ -153,6 +153,12 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
     #TODO: redirect to the frontend 
     #frontend_url = "http://localhost:3000/dashboard"
     # response = RedirectResponse(url=frontend_url)
+
+    response = JSONResponse(content={
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "message": "Login Successful! Copy the access_token."
+    })
 
     response.set_cookie(
         key = "refresh_token",

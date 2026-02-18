@@ -1,14 +1,22 @@
 from datetime import datetime
 from typing import Optional, Literal, List
 from pydantic import BaseModel, Field
-
+from enum import Enum
 
 # ==================== Transaction Schemas ====================
+
+class PaymentMode(str, Enum):
+    CASH = "CASH"
+    UPI = "UPI"
+    CARD = "CARD"
+    BANK_TRANSFER = "BANK_TRANSFER"
+    CHEQUE = "CHEQUE"
+    ONLINE = "ONLINE"
 
 class TransactionCreate(BaseModel):
     """Schema for creating a transaction/payment"""
     amount: float = Field(..., gt=0, description="Payment amount must be positive")
-    payment_mode: Literal['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE']
+    payment_mode: PaymentMode
     notes: Optional[str] = None
 
 
@@ -17,7 +25,7 @@ class TransactionResponse(BaseModel):
     id: int
     order_id: int
     amount: float
-    payment_mode: str
+    payment_mode: PaymentMode
     created_at: datetime
 
     class Config:
@@ -26,6 +34,15 @@ class TransactionResponse(BaseModel):
 
 # ==================== Order Schemas ====================
 
+class Status(str, Enum):
+    WAITING_PAYMENT = "WAITING_PAYMENT"
+    PARTIALLY_PAID = "PARTIALLY_PAID"
+    PAID = "PAID"
+    PROCESSING = "PROCESSING"
+    READY = "READY"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
 class OrderCreate(BaseModel):
     """Schema for creating an order from an accepted inquiry"""
     inquiry_id: int
@@ -33,15 +50,7 @@ class OrderCreate(BaseModel):
 
 class OrderUpdate(BaseModel):
     """Schema for updating order status"""
-    status: Literal[
-        'WAITING_PAYMENT',
-        'PARTIALLY_PAID',
-        'PAID',
-        'PROCESSING',
-        'READY',
-        'COMPLETED',
-        'CANCELLED'
-    ]
+    status: Status
 
 
 class OrderResponse(BaseModel):
@@ -51,7 +60,7 @@ class OrderResponse(BaseModel):
     user_id: int
     total_amount: float
     amount_paid: float
-    status: str
+    status: Status
     created_at: datetime
     updated_at: datetime
     
@@ -69,7 +78,7 @@ class OrderListResponse(BaseModel):
     user_id: int
     total_amount: float
     amount_paid: float
-    status: str
+    status: Status
     created_at: datetime
 
     class Config:

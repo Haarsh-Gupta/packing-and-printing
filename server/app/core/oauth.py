@@ -7,5 +7,6 @@ oauth.register(
     name="google",
     client_id=settings.client_id,
     client_secret=settings.client_secret,
-    client_kwargs={"scope": "openid email profile"},
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"}
 )

@@ -32,8 +32,25 @@ class Settings(BaseSettings):
     redis_db: int = 0
     redis_ssl: bool = False
 
+    # Razorpay (Payment Gateway)
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+
     # OTP
     otp_expire_seconds: int = 300  # 5 minutes
+
+    # Company Details (invoices, emails, etc.)
+    company_name: str = "BookBind Printing"
+    company_address: str = ""
+    company_phone: str = ""
+    company_email: str = ""
+    company_gstin: str = ""
+    company_upi_id: str = ""
+    company_website: str = ""
+
+    # Rate Limiter
+    rate_limit_requests: int = 200
+    rate_limit_window_seconds: int = 60
 
     # Brevo SMTP (Email)
     brevo_smtp_host: str = "smtp-relay.brevo.com"

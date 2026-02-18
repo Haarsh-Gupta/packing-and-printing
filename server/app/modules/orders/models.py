@@ -13,6 +13,7 @@ class Order(Base):
     total_amount = Column(Float, nullable=False)
     amount_paid = Column(Float, default=0.0)
     status = Column(String, default='WAITING_PAYMENT')
+    payment_gateway_order_id = Column(String, nullable=True)  # e.g. razorpay order_id
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -30,6 +31,8 @@ class Transaction(Base):
     amount = Column(Float, nullable=False)
     payment_mode = Column(String, nullable=False)
     notes = Column(String, nullable=True)
+    gateway_payment_id = Column(String, nullable=True)   # e.g. razorpay payment_id
+    gateway_signature = Column(String, nullable=True)     # e.g. razorpay signature
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationship

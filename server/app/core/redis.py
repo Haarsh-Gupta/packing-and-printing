@@ -28,6 +28,15 @@ redis_client = redis.Redis(
     ssl=settings.redis_ssl
 )
 
+async def check_redis_connection():
+    try:
+        await redis_client.ping()
+        print("✅ Redis: Connected")
+        return True
+    except Exception as e:
+        print(f"❌ Redis: Connection Failed - {e}")
+        return False
+        
 
 async def get_redis() -> redis.Redis:
     """FastAPI dependency that yields a Redis connection."""

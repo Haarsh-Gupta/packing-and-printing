@@ -317,11 +317,11 @@ async def generate_order_invoice(
     
     # Prepare invoice data
     company_info = {
-        'name': 'Your Company Name',  # TODO: Get from settings
-        'address': 'Your Company Address',
-        'phone': '+91-XXXXXXXXXX',
-        'email': 'info@yourcompany.com',
-        'gstin': 'GSTIN123456789'  # Optional
+        'name': settings.company_name,
+        'address': settings.company_address,
+        'phone': settings.company_phone,
+        'email': settings.company_email,
+        'gstin': settings.company_gstin or None,
     }
     
     customer_info = {

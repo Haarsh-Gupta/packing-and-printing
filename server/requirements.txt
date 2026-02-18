@@ -30,3 +30,6 @@ Pillow
 
 # WhatsApp integration (optional)
 # twilio  # Uncomment if using Twilio for WhatsApp API
+
+# Payment Gateway
+razorpay

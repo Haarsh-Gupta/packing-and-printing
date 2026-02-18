@@ -2,12 +2,13 @@ from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from app.core.redis import redis_client 
+from app.core.config import settings
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, limit: int = 200, window: int = 60):
+    def __init__(self, app, limit: int = None, window: int = None):
         super().__init__(app)
-        self.limit = limit
-        self.window = window
+        self.limit = limit or settings.rate_limit_requests
+        self.window = window or settings.rate_limit_window_seconds
 
     async def dispatch(self, request: Request, call_next):
         # 1. Get Real IP (Behind Proxy)

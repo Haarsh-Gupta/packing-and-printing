@@ -1,6 +1,14 @@
 from typing import List, Optional, Literal, Union, Dict, Any
 from pydantic import BaseModel, Field, validator , model_validator
 from slugify import slugify
+from enum import Enum
+
+class Selection(str, Enum):
+    DROPDOWN = "dropdown"
+    RADIO = "radio"
+    NUMBER_INPUT = "number_input"
+    TEXT_INPUT = "text_input"
+
 
 
 class Option(BaseModel):
@@ -13,7 +21,7 @@ class FormSection(BaseModel):
     """Represents a dropdown or input field in the form"""
     key: str                     # e.g., "binding_type"
     label: str                   # e.g., "Select Binding Style"
-    type: Literal['dropdown', 'radio', 'number_input', 'text_input']
+    type: Selection              # e.g., "dropdown", "radio", "number_input", "text_input"
     
     # Validation: 'options' is required for dropdown/radio, but not for inputs
     options: Optional[List[Option]] = None 
@@ -39,7 +47,7 @@ class ProductTemplateCreate(BaseModel):
     def validate_config_schema(self):
         if self.config_schema:
             for section in self.config_schema.sections:
-                if section.type in ["dropdown", "radio"] and not section.options:
+                if section.type in [Selection.DROPDOWN, Selection.RADIO] and not section.options:
                     raise ValueError(f"Options are required for {section.type} type")
 
         if self.slug is None:
