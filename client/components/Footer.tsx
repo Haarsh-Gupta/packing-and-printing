@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="border-t-2 border-black bg-white mt-auto">
+    <footer className="border-t-2 border-black bg-[#d2d9f7] mt-auto">
       <div className="max-w-7xl mx-auto px-4 py-12 grid md:grid-cols-4 gap-8">
         <div className="col-span-2">
           <div className="text-xl font-black mb-4">BookBind.</div>

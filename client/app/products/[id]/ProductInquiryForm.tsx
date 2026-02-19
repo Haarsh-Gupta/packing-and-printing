@@ -120,7 +120,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                         min={product.minimum_quantity}
                         value={quantity}
                         onChange={(e) => setQuantity(Number(e.target.value))}
-                        className="border-2 border-black rounded-none text-lg h-12"
+                        className="border-2 border-black rounded-md text-lg h-12"
                     />
                 </div>
 
@@ -155,9 +155,9 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                                         <Label
                                             key={option.value}
                                             className={`
-                        relative flex items-center justify-between p-4 border-2 border-black cursor-pointer transition-all rounded-xl
+                        relative flex items-center justify-between p-4 border-2 border-black cursor-pointer transition-all rounded-md
                         ${isSelected
-                                                    ? "bg-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1"
+                                                    ? "bg-[#4be794] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1"
                                                     : "bg-white hover:bg-zinc-50"
                                                 }
                       `}
@@ -189,7 +189,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                                 max={section.max_val}
                                 value={answers[section.key] || ""}
                                 onChange={(e) => handleAnswerChange(section.key, e.target.value)}
-                                className="border-2 border-black rounded-none text-lg h-12"
+                                className="border-2 border-black rounded-md text-lg h-12"
                             />
                         )}
 
@@ -200,7 +200,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                                 placeholder="Enter details..."
                                 value={answers[section.key] || ""}
                                 onChange={(e) => handleAnswerChange(section.key, e.target.value)}
-                                className="border-2 border-black rounded-none text-lg h-12"
+                                className="border-2 border-black rounded-md text-lg h-12"
                             />
                         )}
                     </div>
@@ -209,7 +209,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                 {/* File Upload Section (Static addition for printing jobs) */}
                 <div className="space-y-3">
                     <Label className="text-lg font-bold">Design File (.cdr, .ai, .pdf)</Label>
-                    <div className="rounded-lg border-2 border-dashed border-black bg-zinc-50 p-8 text-center hover:bg-zinc-100 transition-colors cursor-pointer flex flex-col items-center justify-center gap-2">
+                    <div className="rounded-md border-2 border-dashed border-black bg-zinc-50 p-8 text-center hover:bg-zinc-100 transition-colors cursor-pointer flex flex-col items-center justify-center gap-2">
                         <UploadCloud className="h-10 w-10 text-zinc-500" />
                         <span className="font-medium">Upload your vector or PDF design</span>
                     </div>
@@ -226,7 +226,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                     </div>
                 </div>
 
-                <Button type="submit" className="w-full h-16 bg-black text-white text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded-none" disabled={isLoading}>
+                <Button type="submit" className="w-full h-16 bg-[#4be794] text-black text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded-md font-bold border-2 border-black" disabled={isLoading}>
                     {isLoading ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : "Request Official Quote"}
                 </Button>
             </div>

@@ -8,7 +8,8 @@ interface Product {
     slug: string;
     name: string;
     base_price: number;
-    description?: string; // API currently doesn't return description, making optional
+    description?: string;
+    images?: string[]; // Added images array
 }
 
 async function getProducts(): Promise<Product[]> {
@@ -47,9 +48,21 @@ export default async function ProductsPage() {
                             className="flex flex-col border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 bg-white"
                         >
                             <CardHeader>
-                                <Package className="h-10 w-10 mb-4 text-black" />
+                                {product.images && product.images.length > 0 ? (
+                                    <div className="w-full h-48 border-2 border-black mb-4 overflow-hidden bg-zinc-100 relative">
+                                        <img
+                                            src={product.images[0]}
+                                            alt={product.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="w-full h-48 border-2 border-black mb-4 flex items-center justify-center bg-zinc-100">
+                                        <Package className="h-16 w-16 text-zinc-400" />
+                                    </div>
+                                )}
                                 <CardTitle className="text-2xl font-bold">{product.name}</CardTitle>
-                                <CardDescription className="text-base text-zinc-600">
+                                <CardDescription className="text-base text-zinc-600 line-clamp-3">
                                     {product.description || "Premium quality printing solutions."}
                                 </CardDescription>
                             </CardHeader>
