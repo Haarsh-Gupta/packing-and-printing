@@ -12,7 +12,7 @@ import { Loader2, UploadCloud } from "lucide-react";
 interface Option {
     label: string;
     value: string;
-    price_mod?: number;
+    price_mod: number;
 }
 
 interface SchemaSection {
@@ -30,15 +30,7 @@ interface ProductSchema {
     base_price: number;
     minimum_quantity: number;
     config_schema: {
-        sections: Array<{
-            key: string;
-            label: string;
-            type: "dropdown" | "radio" | "number_input" | "text_input";
-            options?: Array<Option>; // Use the Option interface
-            min_val?: number;
-            max_val?: number;
-            price_per_unit?: number;
-        }>;
+        sections: SchemaSection[];
     };
 }
 
@@ -134,36 +126,58 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
 
                 {/* Dynamic Fields from Schema */}
                 {product.config_schema.sections.map((section) => (
-                    <div key={section.key} className="space-y-4 pb-6">
-                        <div className="bg-black p-3">
-                            <Label className="text-lg font-bold flex items-center justify-between text-white">
-                                {section.label}
-                                {section.type === "number_input" && section.price_per_unit && (
-                                    <span className="text-sm font-normal text-zinc-300">
-                                        (+₹{section.price_per_unit} per unit)
-                                    </span>
-                                )}
-                            </Label>
-                        </div>
+                    <div key={section.key} className="space-y-3 border-b-2 border-zinc-200 pb-6">
+                        <Label className="text-lg font-bold flex items-center justify-between">
+                            {section.label}
+                            {section.type === "number_input" && section.price_per_unit && (
+                                <span className="text-sm font-normal text-zinc-500">
+                                    (+₹{section.price_per_unit} per unit)
+                                </span>
+                            )}
+                        </Label>
 
-                        {/* Render both 'dropdown' and 'radio' as RadioGroups */}
+                        {/* Render both 'dropdown' and 'radio' as RadioGroups with Gumroad-style cards */}
                         {(section.type === "dropdown" || section.type === "radio") && section.options && (
                             <RadioGroup
                                 value={answers[section.key]}
                                 onValueChange={(val) => handleAnswerChange(section.key, val)}
-                                className="grid gap-3"
+                                className="flex flex-col gap-4"
                             >
-                                {section.options.map((option) => (
-                                    <div key={option.value} className="flex items-center space-x-2 border-2 border-transparent hover:border-black p-2 transition-colors cursor-pointer">
-                                        <RadioGroupItem value={option.value} id={`${section.key}-${option.value}`} className="border-2 border-black border-black text-black" />
-                                        <Label htmlFor={`${section.key}-${option.value}`} className="flex-grow cursor-pointer text-base">
-                                            {option.label}
+                                {section.options.map((option) => {
+                                    const isSelected = answers[section.key] === option.value;
+                                    const priceDisplay = (option.price_mod || 0) > 0
+                                        ? `+₹${option.price_mod}`
+                                        : (option.price_mod || 0) < 0
+                                            ? `-₹${Math.abs(option.price_mod || 0)}`
+                                            : "Free";
+
+                                    return (
+                                        <Label
+                                            key={option.value}
+                                            className={`
+                        relative flex items-center justify-between p-4 border-2 border-black cursor-pointer transition-all rounded-xl
+                        ${isSelected
+                                                    ? "bg-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1"
+                                                    : "bg-white hover:bg-zinc-50"
+                                                }
+                      `}
+                                        >
+                                            {/* Hidden Radio Input */}
+                                            <RadioGroupItem value={option.value} id={`${section.key}-${option.value}`} className="sr-only" />
+
+                                            {/* Left: Label and Selection Text */}
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-lg font-bold">{option.label}</span>
+                                                {isSelected && <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Selected</span>}
+                                            </div>
+
+                                            {/* Right: Price Pill */}
+                                            <div className="bg-white border-2 border-black px-3 py-1 text-sm font-bold min-w-[70px] text-center rounded-full shadow-sm">
+                                                {priceDisplay}
+                                            </div>
                                         </Label>
-                                        <span className="text-sm font-bold bg-zinc-100 px-2 py-1 border border-black">
-                                            {(option.price_mod || 0) > 0 ? `+₹${option.price_mod}` : (option.price_mod || 0) < 0 ? `-₹${Math.abs(option.price_mod || 0)}` : "Included"}
-                                        </span>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </RadioGroup>
                         )}
 
@@ -195,7 +209,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                 {/* File Upload Section (Static addition for printing jobs) */}
                 <div className="space-y-3">
                     <Label className="text-lg font-bold">Design File (.cdr, .ai, .pdf)</Label>
-                    <div className="border-2 border-dashed border-black bg-zinc-50 p-8 text-center hover:bg-zinc-100 transition-colors cursor-pointer flex flex-col items-center justify-center gap-2">
+                    <div className="rounded-lg border-2 border-dashed border-black bg-zinc-50 p-8 text-center hover:bg-zinc-100 transition-colors cursor-pointer flex flex-col items-center justify-center gap-2">
                         <UploadCloud className="h-10 w-10 text-zinc-500" />
                         <span className="font-medium">Upload your vector or PDF design</span>
                     </div>

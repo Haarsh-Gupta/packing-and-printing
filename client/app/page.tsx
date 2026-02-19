@@ -1,10 +1,36 @@
 import { Button } from "@/components/ui/button";
+import Testimonials from "@/components/Testimonials";
+import FeaturesSection from "@/components/FeaturesSection";
 import { ArrowRight, Package, Printer } from "lucide-react";
 import Link from "next/link";
 
+const testimonials = [
+  {
+    name: "Arjun Mehta",
+    role: "Founder, QuickBite Foods",
+    content: "BookBind completely transformed our packaging. The custom corrugated boxes are incredibly sturdy, and the print quality is flawless. It gave our brand the premium feel we desperately needed.",
+    rating: 5,
+    avatarSeed: "ArjunM" // We'll use this for the Notion-style avatars
+  },
+  {
+    name: "Priya Sharma",
+    role: "Operations Manager, TechNova",
+    content: "Getting custom invoice books printed used to be a massive headache. With BookBind, I just uploaded our logo, configured the triplicate pages, and they arrived perfectly bound in 3 days. Phenomenal service.",
+    rating: 5,
+    avatarSeed: "PriyaS"
+  },
+  {
+    name: "Rohan Desai",
+    role: "Marketing Director, Bloom Cafe",
+    content: "The premium business cards with gold-foil embossing were an absolute hit at our last networking event. The interface to configure the print job was so intuitive. We won't go anywhere else.",
+    rating: 5,
+    avatarSeed: "RohanD"
+  }
+];
+
 export default function Hero() {
   return (
-    <section className="py-20 px-4">
+    <section className="py-20">
       <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
         <div className="space-y-6">
           <h1 className="text-6xl md:text-7xl font-black leading-none tracking-tight">
@@ -41,6 +67,11 @@ export default function Hero() {
           />
         </div>
       </div>
+
+      <Testimonials />
+      <FeaturesSection />
     </section>
+    
   );
 }
+
