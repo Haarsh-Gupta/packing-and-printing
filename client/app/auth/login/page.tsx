@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -68,6 +69,9 @@ export default function LoginPage() {
               <FcGoogle className="mr-2 h-5 w-5" /> Sign in with Google
             </Button>
           </form>
+          <div className="mt-6 text-center text-sm">
+              Don't have an account? <Link href="/auth/signup" className="underline font-medium">Sign up</Link>
+          </div>
         </CardContent>
       </Card>
     </div>

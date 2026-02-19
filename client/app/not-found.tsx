@@ -51,9 +51,6 @@ export default function NotFound() {
               className="w-full bg-black text-white hover:bg-zinc-800" 
               asChild
             >
-              <Link href="/dashboard">
-                <Home className="mr-2 h-4 w-4" /> Dashboard
-              </Link>
             </Button>
           </div>
 

@@ -22,7 +22,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchUser = async () => {
       const token = localStorage.getItem("access_token");
-      
+
       if (!token) {
         router.replace("/login");
         return;
@@ -39,9 +39,11 @@ export default function DashboardPage() {
 
         const data = await res.json();
         setUser(data);
-      } catch (error) {
-        localStorage.removeItem("access_token");
-        router.replace("/login");
+      } catch (error: any) {
+        console.error("Dashboard fetch error:", error);
+        // localStorage.removeItem("access_token");
+        // router.replace("/login");
+        alert("Failed to load dashboard: " + error.message);
       } finally {
         setIsLoading(false);
       }
@@ -73,13 +75,13 @@ export default function DashboardPage() {
 
   // THE AVATAR LOGIC:
   // Use the Google picture if it exists. Otherwise, generate a Notion face using their name!
-  const avatarUrl = user?.profile_picture 
-    ? user.profile_picture 
-    : `https://api.dicebear.com/7.x/notionists/svg?seed=${user?.name}&backgroundColor=ffffff`;
+  const avatarUrl = user?.profile_picture
+    ? user.profile_picture
+    : `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(user?.name || "")}&backgroundColor=ffffff`;
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      
+
       {/* Sidebar Navigation */}
       <aside className="w-64 border-r-2 border-black bg-white p-6 hidden md:flex flex-col">
         <div className="font-bold text-2xl mb-8 tracking-tighter">PrintPack.</div>
@@ -105,7 +107,7 @@ export default function DashboardPage() {
       {/* Main Content Area */}
       <main className="flex-1 p-8">
         <div className="max-w-4xl mx-auto space-y-8">
-          
+
           <header className="flex justify-between items-end">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Welcome back, {user?.name?.split(' ')[0]}</h1>
@@ -114,7 +116,7 @@ export default function DashboardPage() {
           </header>
 
           <div className="grid gap-6 md:grid-cols-2">
-            
+
             {/* Profile Card */}
             <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
               <CardHeader>
@@ -123,11 +125,11 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="flex items-center gap-6">
                 <div className="h-24 w-24 rounded-full border-2 border-black bg-white flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
-                  <img 
-                    src={avatarUrl} 
-                    alt="Profile Avatar" 
-                    className="h-full w-full object-cover" 
-                    referrerPolicy="no-referrer" 
+                  <img
+                    src={avatarUrl}
+                    alt="Profile Avatar"
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
                   />
                 </div>
                 <div className="space-y-1">

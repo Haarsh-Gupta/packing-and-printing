@@ -145,7 +145,7 @@ export default function SignUpPage() {
           )}
 
           <div className="mt-6 text-center text-sm">
-            Already have an account? <Link href="/login" className="underline font-medium">Sign in</Link>
+            Already have an account? <Link href="/auth/login" className="underline font-medium">Sign in</Link>
           </div>
         </CardContent>
       </Card>

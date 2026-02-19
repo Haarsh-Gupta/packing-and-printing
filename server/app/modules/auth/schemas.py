@@ -10,6 +10,9 @@ class TokenData(BaseModel):
     admin : bool
     token_version : int = 1
 
+    class Config:
+        extra = "ignore"
+
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr

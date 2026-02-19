@@ -23,7 +23,7 @@ async def create_service(
 ):
     # FIXED: Use comma for AND, or use & operator
     stmt = select(Service).where(
-        (Service.slug == service_in.slug.lower()) & 
+        (Service.slug == service_in.slug.lower()) |
         (Service.name == service_in.name.lower())
     )
     result = await db.execute(stmt)
@@ -44,7 +44,7 @@ async def create_service(
 @router.get("/", response_model=List[ServiceResponse])
 async def get_services(
     skip: int = 0, 
-    limit: int = 10, # FIXED: Syntax was 'limit : int : 10'
+    limit: int = 10,
     db: AsyncSession = Depends(get_db)
 ):
     # FIXED: Added selectinload to fetch variants efficiently

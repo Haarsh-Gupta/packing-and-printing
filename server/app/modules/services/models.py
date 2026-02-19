@@ -11,7 +11,7 @@ class Service(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone = True) , server_default=func.now())
 
-    variants = relationship("ServiceVariant", back_populates="service")
+    variants = relationship("ServiceVariant", back_populates="service", lazy="selectin")
 
 class ServiceVariant(Base):
     __tablename__ = "service_variants"
