@@ -45,6 +45,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True, # Critical for setting the refresh_token cookie!
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 app.add_middleware(RateLimitMiddleware, limit=200, window=60)
 app.add_middleware(SessionMiddleware , secret_key=settings.secret_key)

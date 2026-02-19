@@ -30,7 +30,7 @@ async def create_product_template(template : ProductTemplateCreate , current_use
     return new_template
 
 
-@router.get("/admin")
+@router.get("/")
 async def get_product_templates(skip : int = 0 , limit : int = 10 , db : AsyncSession = Depends(get_db)):
     """
     Returns a list of available products.
