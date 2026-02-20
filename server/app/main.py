@@ -33,7 +33,8 @@ async def lifespan(app: FastAPI):
     # Run checks (The logic is now hidden in the modules)
     await check_db_connection()
     await check_redis_connection()
-    await check_smtp_connection()
+    from app.core.seed import seed_db
+    await seed_db()
     
     print("----------------------------------\n")
     

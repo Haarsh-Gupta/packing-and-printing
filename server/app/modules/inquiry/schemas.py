@@ -7,10 +7,18 @@ from pydantic import BaseModel, Field, model_validator
 
 class InquiryCreate(BaseModel):
     """Schema for user creating a new inquiry"""
-    template_id: int
+    template_id: Optional[int] = None
+    service_id: Optional[int] = None
+    variant_id: Optional[int] = None
     quantity: int = Field(..., gt=0, description="Must be greater than 0")
     selected_options: Dict[str, Union[str, int, float]]
     notes: Optional[str] = None
+
+    @model_validator(mode="after")
+    def check_template_or_service(self):
+        if not self.template_id and not self.service_id:
+            raise ValueError("Either template_id or service_id must be provided")
+        return self
 
 
 class InquiryMessageCreate(BaseModel):
@@ -65,11 +73,16 @@ class InquiryResponse(BaseModel):
     """Response schema for inquiry data"""
     id: int
     user_id: int
-    template_id: int
+    template_id: Optional[int] = None
+    service_id: Optional[int] = None
+    variant_id: Optional[int] = None
     quantity: int
     selected_options: Dict[str, Union[str, int, float]]
     notes: Optional[str]
     status: str
+    template_name: Optional[str] = None
+    service_name: Optional[str] = None
+    variant_name: Optional[str] = None
     images : Optional[List[str]] = None
     quoted_price: Optional[float]
     admin_notes: Optional[str]
@@ -86,9 +99,13 @@ class InquiryResponse(BaseModel):
 class InquiryListResponse(BaseModel):
     """Response schema for listing inquiries"""
     id: int
-    template_id: int
+    template_id: Optional[int] = None
+    service_id: Optional[int] = None
     quantity: int
     status: str
+    template_name: Optional[str] = None
+    service_name: Optional[str] = None
+    variant_name: Optional[str] = None
     images : Optional[List[str]] = None
     quoted_price: Optional[float]
     created_at: datetime

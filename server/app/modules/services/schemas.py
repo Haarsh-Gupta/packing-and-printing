@@ -6,9 +6,18 @@ from slugify import slugify
 # --- SHARED PROPERTIES ---
 class ServiceVariantBase(BaseModel):
     name: str = Field(..., description="Name of the service variant")
+    slug: Optional[str] = Field(None, description="URL-friendly identifier")
     base_price: float = Field(..., description="Base price (setup cost)")
     price_per_unit: float = Field(..., description="Price per unit")
     description: Optional[str] = Field(None, description="Description")
+
+    @model_validator(mode="after")
+    def generate_slug(self):
+        if self.slug is None:
+            self.slug = slugify(self.name).lower()
+        else:
+            self.slug = slugify(self.slug).lower()
+        return self
 
 # --- CREATE (All fields required) ---
 class ServiceVariantCreate(ServiceVariantBase):
@@ -18,6 +27,7 @@ class ServiceVariantCreate(ServiceVariantBase):
 # This allows you to send {"price_per_unit": 12.0} without sending the name again.
 class ServiceVariantUpdate(BaseModel):
     name: Optional[str] = None
+    slug: Optional[str] = None
     base_price: Optional[float] = None
     price_per_unit: Optional[float] = None
     description: Optional[str] = None

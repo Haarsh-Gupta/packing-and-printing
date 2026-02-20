@@ -19,6 +19,7 @@ class ServiceVariant(Base):
     id = Column(Integer, primary_key=True, index=True)
     service_id = Column(Integer, ForeignKey("services.id", ondelete="CASCADE")) 
     name = Column(String, nullable=False) 
+    slug = Column(String, unique=True, nullable=True)
     base_price = Column(Float, default=0.0)       
     price_per_unit = Column(Float, default=0.0)
     description = Column(String, nullable=True)

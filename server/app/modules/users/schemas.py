@@ -51,7 +51,7 @@ class UserUpdate(BaseModel):
 
     @model_validator(mode="after")
     def is_all_none(self):
-        if self.name is None and self.phone is None and self.password is None:
+        if self.name is None and self.phone is None and self.password is None and self.profile_picture is None:
             raise ValueError("At least one field must be provided")
         return self
     

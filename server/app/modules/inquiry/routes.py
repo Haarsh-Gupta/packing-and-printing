@@ -9,6 +9,7 @@ from ..auth.auth import get_current_user, get_current_admin_user
 from ..auth.schemas import TokenData
 from ..users.models import User
 from ..products.models import ProductTemplate
+from ..services.models import Service
 from .models import Inquiry, InquiryMessage
 from .schemas import (
     InquiryCreate,
@@ -37,27 +38,42 @@ async def create_inquiry(
     Create a new inquiry for a product template.
     User selects product options and submits for admin quotation.
     """
-    # Verify template exists
-    stmt = select(ProductTemplate).where(ProductTemplate.id == inquiry.template_id)
-    result = await db.execute(stmt)
-    template = result.scalar_one_or_none()
+    if inquiry.template_id:
+        # Verify template exists
+        stmt = select(ProductTemplate).where(ProductTemplate.id == inquiry.template_id)
+        result = await db.execute(stmt)
+        template = result.scalar_one_or_none()
+        
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product template not found"
+            )
+        
+        # Check minimum quantity
+        if inquiry.quantity < template.minimum_quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Minimum quantity for this product is {template.minimum_quantity}"
+            )
     
-    if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product template not found"
-        )
-    
-    # Check minimum quantity
-    if inquiry.quantity < template.minimum_quantity:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Minimum quantity for this product is {template.minimum_quantity}"
-        )
-    
+    elif inquiry.service_id:
+        # Verify service exists
+        stmt = select(Service).where(Service.id == inquiry.service_id)
+        result = await db.execute(stmt)
+        service = result.scalar_one_or_none()
+        
+        if not service:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service not found"
+            )
+
     new_inquiry = Inquiry(
         user_id=current_user.id,
         template_id=inquiry.template_id,
+        service_id=inquiry.service_id,
+        variant_id=inquiry.variant_id,
         quantity=inquiry.quantity,
         selected_options=inquiry.selected_options,
         notes=inquiry.notes,
@@ -150,13 +166,26 @@ async def get_my_inquiries(
     """
     stmt = (
         select(Inquiry)
+        .options(
+            selectinload(Inquiry.template),
+            selectinload(Inquiry.service),
+            selectinload(Inquiry.variant)
+        )
         .where(Inquiry.user_id == current_user.id)
         .order_by(Inquiry.created_at.desc())
         .offset(skip)
         .limit(limit)
     )
     result = await db.execute(stmt)
-    return result.scalars().all()
+    inquiries = result.scalars().all()
+    
+    # Populate display names
+    for inq in inquiries:
+        inq.template_name = inq.template.name if inq.template else None
+        inq.service_name = inq.service.name if inq.service else None
+        inq.variant_name = inq.variant.name if inq.variant else None
+
+    return inquiries
 
 
 @router.get("/my/{inquiry_id}", response_model=InquiryResponse)
@@ -168,7 +197,12 @@ async def get_my_inquiry(
     """
     Get a specific inquiry by ID (only if owned by current user).
     """
-    stmt = select(Inquiry).options(selectinload(Inquiry.messages)).where(
+    stmt = select(Inquiry).options(
+        selectinload(Inquiry.messages),
+        selectinload(Inquiry.template),
+        selectinload(Inquiry.service),
+        selectinload(Inquiry.variant)
+    ).where(
         Inquiry.id == inquiry_id,
         Inquiry.user_id == current_user.id
     )
@@ -180,6 +214,11 @@ async def get_my_inquiry(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Inquiry not found"
         )
+    
+    # Populate display names
+    inquiry.template_name = inquiry.template.name if inquiry.template else None
+    inquiry.service_name = inquiry.service.name if inquiry.service else None
+    inquiry.variant_name = inquiry.variant.name if inquiry.variant else None
     
     return inquiry
 

@@ -15,7 +15,9 @@ class Inquiry(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    template_id = Column(Integer, ForeignKey('product_templates.id'), nullable=False)
+    template_id = Column(Integer, ForeignKey('product_templates.id'), nullable=True)
+    service_id = Column(Integer, ForeignKey('services.id'), nullable=True)
+    variant_id = Column(Integer, ForeignKey('service_variants.id'), nullable=True)
     
     quantity = Column(Integer, nullable=False)
     
@@ -43,10 +45,12 @@ class Inquiry(Base):
     # Relationships
     user = relationship("User", back_populates="inquiries")
     template = relationship("ProductTemplate", back_populates="inquiries")
+    service = relationship("Service")
+    variant = relationship("ServiceVariant")
     messages = relationship("InquiryMessage", back_populates="inquiry", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"Inquiry(id={self.id}, user_id={self.user_id}, template_id={self.template_id}, status={self.status})"
+        return f"Inquiry(id={self.id}, user_id={self.user_id}, template_id={self.template_id}, service_id={self.service_id}, status={self.status})"
 
 
 class InquiryMessage(Base):
