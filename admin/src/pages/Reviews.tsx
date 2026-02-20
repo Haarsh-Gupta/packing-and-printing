@@ -14,6 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+const mono: React.CSSProperties = { fontFamily: "'DM Mono', monospace" };
+
 export default function Reviews() {
     const [pid, setPid] = useState("");
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -38,121 +40,160 @@ export default function Reviews() {
         try {
             await api(`/reviews/${id}`, { method: "DELETE" });
             fetchReviews();
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontFamily: "'DM Sans', system-ui" }}>
+
+            {/* Header */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'space-between',
+                paddingBottom: '24px',
+                borderBottom: '1px solid var(--border)',
+            }}>
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight">Product Reviews</h1>
-                    <p className="text-muted-foreground font-medium mt-1">Monitor and moderate customer feedback</p>
+                    <p style={{
+                        fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em',
+                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
+                        ...mono, marginBottom: '4px',
+                    }}>Moderation</p>
+                    <h1 style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
+                        Product Reviews
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)', marginLeft: '12px', letterSpacing: 0, ...mono }}>
+                            [ID SEARCH MODE]
+                        </span>
+                    </h1>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative w-full md:w-64">
-                        <Package size={16} className="absolute left-3 top-3 text-muted-foreground" />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ position: 'relative' }}>
+                        <Package size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
                         <Input
-                            placeholder="Enter Product ID (e.g. 1)"
+                            placeholder="PRODUCT ID..."
                             value={pid}
                             onChange={e => setPid(e.target.value)}
-                            className="pl-9 h-10 font-bold"
                             onKeyDown={(e) => e.key === 'Enter' && fetchReviews()}
+                            style={{ width: '180px', height: '40px', paddingLeft: '36px', ...mono, fontSize: '11px', fontWeight: 700 }}
                         />
                     </div>
-                    <Button onClick={fetchReviews} className="font-black" disabled={loading || !pid}>
+                    <Button onClick={fetchReviews} disabled={loading || !pid} style={{ height: '40px', fontWeight: 800 }}>
                         {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} className="mr-2" />}
-                        Find Reviews
+                        FETCH FEEDBACK
                     </Button>
                 </div>
             </div>
 
-            <div className="border border-border rounded-xl bg-card overflow-hidden shadow-sm">
+            {/* Content Area */}
+            <div style={{ borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--card)' }}>
                 {loading ? (
-                    <div className="p-24 flex flex-col items-center justify-center gap-3">
-                        <Loader2 className="w-10 h-10 animate-spin text-muted-foreground" />
-                        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mt-2">Connecting to review database...</p>
+                    <div style={{ padding: '100px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                        <Loader2 size={32} className="animate-spin text-muted-foreground" />
+                        <p style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', ...mono, color: 'var(--muted-foreground)' }}>Synchronizing Database...</p>
                     </div>
                 ) : !hasSearched ? (
-                    <div className="p-24 flex flex-col items-center justify-center gap-4">
-                        <div className="p-4 rounded-full bg-secondary">
-                            <MessageSquare size={48} className="text-muted-foreground opacity-20" />
+                    <div style={{ padding: '120px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <MessageSquare size={32} style={{ opacity: 0.1 }} />
                         </div>
-                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest text-center">
-                            Search via Product ID to moderate reviews
-                        </p>
+                        <p style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', ...mono, color: 'var(--muted-foreground)' }}>Search by Product ID to begin moderation</p>
                     </div>
                 ) : reviews.length === 0 ? (
-                    <div className="p-24 flex flex-col items-center justify-center gap-3">
-                        <AlertCircle size={48} className="text-muted-foreground opacity-10" />
-                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">No reviews found for this target</p>
+                    <div style={{ padding: '120px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+                        <AlertCircle size={48} style={{ opacity: 0.1 }} />
+                        <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted-foreground)' }}>No reviews found for product #{pid}</p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-border">
-                        <div className="p-4 bg-secondary/50 border-b flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Found {reviews.length} feedback entries</span>
-                            <div className="flex items-center gap-2">
-                                <Select defaultValue="newest">
-                                    <SelectTrigger className="h-8 w-40 text-[10px] font-bold uppercase tracking-widest">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="newest">Sort By: Newest</SelectItem>
-                                        <SelectItem value="rating">Sort By: Rating</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '16px 24px', background: 'var(--secondary)/50', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', ...mono, color: 'var(--muted-foreground)' }}>
+                                {reviews.length} ENTRIES FOUND FOR PRODUCT #{pid}
+                            </span>
+                            <Select defaultValue="newest">
+                                <SelectTrigger style={{ height: '32px', width: '160px', fontSize: '10px', fontWeight: 800, ...mono }}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="newest" style={{ fontWeight: 600 }}>SORT: NEWEST FIRST</SelectItem>
+                                    <SelectItem value="rating" style={{ fontWeight: 600 }}>SORT: HIGHEST RATING</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
-                        {reviews.map((r) => (
-                            <div key={r.id} className="p-6 flex items-start gap-6 hover:bg-secondary/20 transition-colors group">
-                                <div className="shrink-0 pt-1">
-                                    <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center border-2 border-border shadow-sm">
-                                        <User size={20} className="text-zinc-400" />
+
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            {reviews.map((r, i) => (
+                                <div key={r.id} style={{
+                                    padding: '24px',
+                                    display: 'flex',
+                                    gap: '24px',
+                                    borderBottom: i === reviews.length - 1 ? 'none' : '1px solid var(--border)',
+                                    transition: 'background 0.2s',
+                                }} className="group hover:bg-zinc-50/50">
+                                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' }}>
+                                        <User size={20} style={{ opacity: 0.3 }} />
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <h3 style={{ fontSize: '14px', fontWeight: 900, letterSpacing: '-0.01em' }}>USER_ID::{r.user_id}</h3>
+                                                <span style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                    padding: '2px 8px', background: 'white', border: '1px solid var(--border)',
+                                                    borderRadius: '4px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', ...mono
+                                                }}>
+                                                    <BadgeCheck size={10} style={{ color: '#16a34a' }} /> VERIFIED
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '2px' }}>
+                                                {[1, 2, 3, 4, 5].map((s) => (
+                                                    <Star
+                                                        key={s}
+                                                        size={12}
+                                                        className={s <= r.rating ? "fill-zinc-900 text-zinc-900" : "text-zinc-200"}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <p style={{ fontSize: '14px', fontWeight: 500, lineHeight: 1.6, color: 'var(--foreground)', marginBottom: '16px' }}>
+                                            "{r.comment || "No comment content provided."}"
+                                        </p>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', ...mono }}>
+                                                <Calendar size={12} /> {new Date(r.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', ...mono }}>
+                                                <ShieldAlert size={12} /> REPORTS::0
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            style={{ color: '#dc2626' }}
+                                            className="opacity-0 group-hover:opacity-100 transition-all"
+                                            onClick={() => deleteReview(r.id)}
+                                        >
+                                            <Trash2 size={18} />
+                                        </Button>
                                     </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-3">
-                                            <h3 className="font-black text-sm tracking-tight text-foreground">User ID: {r.user_id}</h3>
-                                            <Badge variant="outline" className="text-[9px] font-bold uppercase border-2 flex items-center gap-1">
-                                                <BadgeCheck size={10} className="text-green-600" /> Verified Purchase
-                                            </Badge>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            {[1, 2, 3, 4, 5].map((s) => (
-                                                <Star
-                                                    key={s}
-                                                    size={12}
-                                                    className={s <= r.rating ? "fill-zinc-900 text-zinc-900" : "text-zinc-200"}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <p className="text-sm font-medium leading-relaxed text-muted-foreground mb-4">
-                                        "{r.comment || "No comment provided."}"
-                                    </p>
-                                    <div className="flex items-center gap-6">
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2">
-                                            <Calendar size={12} /> Published {new Date(r.created_at).toLocaleDateString()}
-                                        </span>
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2">
-                                            <ShieldAlert size={12} /> Reported: 0
-                                        </span>
-                                    </div>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => deleteReview(r.id)}
-                                >
-                                    <Trash2 size={18} />
-                                </Button>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 )}
+            </div>
+
+            {/* Warning Footer */}
+            <div style={{ padding: '16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', display: 'flex', gap: '12px' }}>
+                <ShieldAlert size={16} style={{ color: '#dc2626', marginTop: '2px' }} />
+                <div>
+                    <p style={{ fontSize: '11px', fontWeight: 800, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', ...mono }}>Moderator Advisory</p>
+                    <p style={{ fontSize: '11px', fontWeight: 500, color: '#991b1b', opacity: 0.8, lineHeight: 1.5 }}>
+                        Deletion requests are immediate and cannot be reversed. Ensure reviews violate community standards (spam, hate speech, or off-topic content) before proceeding with removal.
+                    </p>
+                </div>
             </div>
         </div>
     );

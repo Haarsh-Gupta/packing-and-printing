@@ -3,251 +3,597 @@ import { api } from "@/lib/api";
 import type { Service, ServiceVariant } from "@/types";
 import {
     Wrench, Plus, Pencil, Trash2, X, Loader2, Save,
-    ChevronDown, ChevronUp, Layers, IndianRupee,
-    Info, Activity, MoreVertical, Archive
+    ChevronDown, ChevronUp, Layers
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose
+    Dialog, DialogContent, DialogDescription, DialogFooter,
+    DialogHeader, DialogTitle, DialogClose
 } from "@/components/ui/dialog";
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+const mono: React.CSSProperties = { fontFamily: "'DM Mono', monospace" };
+
+const FieldLabel = ({ children }: { children: React.ReactNode }) => (
+    <label style={{
+        display: 'block', fontSize: '9px', fontWeight: 700,
+        letterSpacing: '0.14em', textTransform: 'uppercase',
+        color: 'var(--muted-foreground)', ...mono, marginBottom: '5px',
+    }}>{children}</label>
+);
 
 export default function Services() {
     const [services, setServices] = useState<Service[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showForm, setShowForm] = useState(false);
-    const [editing, setEditing] = useState<Service | null>(null);
-    const [saving, setSaving] = useState(false);
-    const [form, setForm] = useState({ name: "", is_active: true });
-    const [showVariant, setShowVariant] = useState<{ svcSlug: string; variant?: ServiceVariant } | null>(null);
-    const [varForm, setVarForm] = useState({ name: "", base_price: "", price_per_unit: "", description: "" });
     const [expanded, setExpanded] = useState<number | null>(null);
+
+    // Service form
+    const [showServiceForm, setShowServiceForm] = useState(false);
+    const [editingService, setEditingService] = useState<Service | null>(null);
+    const [serviceForm, setServiceForm] = useState({ name: "", is_active: true });
+    const [savingService, setSavingService] = useState(false);
+
+    // Variant form
+    const [showVariantForm, setShowVariantForm] = useState<{ svcSlug: string; variant?: ServiceVariant } | null>(null);
+    const [varForm, setVarForm] = useState({ name: "", base_price: "", price_per_unit: "", description: "" });
+    const [savingVariant, setSavingVariant] = useState(false);
 
     const fetchServices = () => {
         setLoading(true);
-        api<Service[]>("/services/").then(setServices).catch(console.error).finally(() => setLoading(false));
+        api<Service[]>("/services/")
+            .then(setServices).catch(console.error).finally(() => setLoading(false));
     };
 
     useEffect(() => { fetchServices(); }, []);
 
-    const openCreate = () => {
-        setEditing(null);
-        setForm({ name: "", is_active: true });
-        setShowForm(true);
+    const openCreateService = () => {
+        setEditingService(null);
+        setServiceForm({ name: "", is_active: true });
+        setShowServiceForm(true);
     };
 
-    const openEdit = (s: Service) => {
-        setEditing(s);
-        setForm({ name: s.name, is_active: s.is_active });
-        setShowForm(true);
+    const openEditService = (s: Service) => {
+        setEditingService(s);
+        setServiceForm({ name: s.name, is_active: s.is_active });
+        setShowServiceForm(true);
     };
 
-    const handleSave = async () => {
-        setSaving(true);
+    const saveService = async () => {
+        setSavingService(true);
         try {
-            if (editing) { await api(`/services/${editing.slug}`, { method: "PUT", body: JSON.stringify(form) }); }
-            else { await api("/services/", { method: "POST", body: JSON.stringify(form) }); }
-            setShowForm(false); fetchServices();
-        } catch (e) { console.error(e); } finally { setSaving(false); }
+            if (editingService) {
+                await api(`/services/${editingService.slug}`, { method: "PUT", body: JSON.stringify(serviceForm) });
+            } else {
+                await api("/services/", { method: "POST", body: JSON.stringify(serviceForm) });
+            }
+            setShowServiceForm(false);
+            fetchServices();
+        } catch (e) { console.error(e); } finally { setSavingService(false); }
     };
 
     const deleteService = async (slug: string) => {
-        if (!confirm("Permanently archive this service?")) return;
+        if (!confirm("Permanently delete this service and all its variants?")) return;
         try { await api(`/services/${slug}`, { method: "DELETE" }); fetchServices(); } catch (e) { console.error(e); }
     };
 
-    const openVariantForm = (svcSlug: string, v?: ServiceVariant) => {
-        setShowVariant({ svcSlug, variant: v });
-        setVarForm(v ? {
+    const openCreateVariant = (svcSlug: string) => {
+        setShowVariantForm({ svcSlug });
+        setVarForm({ name: "", base_price: "", price_per_unit: "", description: "" });
+    };
+
+    const openEditVariant = (svcSlug: string, v: ServiceVariant) => {
+        setShowVariantForm({ svcSlug, variant: v });
+        setVarForm({
             name: v.name,
             base_price: String(v.base_price),
             price_per_unit: String(v.price_per_unit),
-            description: v.description || ""
-        } : { name: "", base_price: "", price_per_unit: "", description: "" });
+            description: v.description || "",
+        });
     };
 
     const saveVariant = async () => {
-        if (!showVariant) return; setSaving(true);
+        if (!showVariantForm) return;
+        setSavingVariant(true);
         const body = {
             name: varForm.name,
             base_price: parseFloat(varForm.base_price),
             price_per_unit: parseFloat(varForm.price_per_unit),
-            description: varForm.description || undefined
+            description: varForm.description || undefined,
         };
         try {
-            if (showVariant.variant) { await api(`/services/${showVariant.svcSlug}/variants/${showVariant.variant.id}`, { method: "PUT", body: JSON.stringify(body) }); }
-            else { await api(`/services/${showVariant.svcSlug}/variants`, { method: "POST", body: JSON.stringify(body) }); }
-            setShowVariant(null); fetchServices();
-        } catch (e) { console.error(e); } finally { setSaving(false); }
+            if (showVariantForm.variant) {
+                await api(`/services/${showVariantForm.svcSlug}/variants/${showVariantForm.variant.id}`, {
+                    method: "PUT", body: JSON.stringify(body),
+                });
+            } else {
+                await api(`/services/${showVariantForm.svcSlug}/variants`, {
+                    method: "POST", body: JSON.stringify(body),
+                });
+            }
+            setShowVariantForm(null);
+            fetchServices();
+        } catch (e) { console.error(e); } finally { setSavingVariant(false); }
+    };
+
+    const deleteVariant = async (svcSlug: string, variantId: number) => {
+        if (!confirm("Delete this variant?")) return;
+        try {
+            await api(`/services/${svcSlug}/variants/${variantId}`, { method: "DELETE" });
+            fetchServices();
+        } catch (e) { console.error(e); }
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between">
+        <div className="animate-fade-in" style={{ fontFamily: "'DM Sans', system-ui" }}>
+
+            {/* Header */}
+            <div style={{
+                display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+                paddingBottom: '24px', borderBottom: '1px solid var(--border)', marginBottom: '28px',
+            }}>
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight">Services</h1>
-                    <p className="text-muted-foreground font-medium mt-1">Configure service offerings and pricing tiers</p>
+                    <p style={{
+                        fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em',
+                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
+                        ...mono, marginBottom: '4px',
+                    }}>
+                        Service Catalog
+                    </p>
+                    <h1 style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
+                        Services
+                        <span style={{
+                            fontSize: '14px', fontWeight: 500, color: 'var(--muted-foreground)',
+                            marginLeft: '10px', letterSpacing: 0,
+                        }}>
+                            {services.length} categories
+                        </span>
+                    </h1>
                 </div>
-                <Button onClick={openCreate} className="font-bold">
-                    <Plus size={16} className="mr-2" /> New Service
-                </Button>
+                <button onClick={openCreateService} style={{
+                    height: '36px', padding: '0 16px', background: 'var(--foreground)',
+                    color: 'var(--background)', border: 'none', borderRadius: '6px',
+                    fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    fontFamily: "'DM Sans', system-ui",
+                }}>
+                    <Plus size={14} /> New Service
+                </button>
             </div>
 
-            <div className="grid gap-4">
-                {loading ? (
-                    [1, 2, 3, 4].map(i => <Card key={i} className="h-16 animate-pulse border-border bg-secondary/20" />)
-                ) : services.length === 0 ? (
-                    <div className="text-center py-20 border-2 border-dashed border-border rounded-xl">
-                        <Wrench size={48} className="mx-auto mb-4 opacity-10" />
-                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Service Catalog Empty</p>
-                    </div>
-                ) : (
-                    services.map(s => (
-                        <Card key={s.id} className="border-border overflow-hidden transition-all">
+            {/* Services List */}
+            {loading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {[1, 2, 3].map(i => (
+                        <div key={i} style={{
+                            height: '64px', background: 'var(--secondary)',
+                            borderRadius: '8px', border: '1px solid var(--border)',
+                            animation: 'pulse 1.5s ease-in-out infinite',
+                        }} />
+                    ))}
+                </div>
+            ) : services.length === 0 ? (
+                <div style={{
+                    padding: '80px', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', gap: '12px',
+                    border: '1px dashed var(--border)', borderRadius: '8px',
+                }}>
+                    <Wrench size={40} style={{ color: 'var(--border)' }} />
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)' }}>
+                        No services yet
+                    </p>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {services.map(s => (
+                        <div key={s.id} style={{
+                            border: '1px solid var(--border)', borderRadius: '8px',
+                            background: 'var(--card)', overflow: 'hidden',
+                            transition: 'border-color 0.15s',
+                        }}>
+                            {/* Service Row */}
                             <div
-                                className="p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/30"
                                 onClick={() => setExpanded(expanded === s.id ? null : s.id)}
+                                style={{
+                                    padding: '16px 20px', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '16px',
+                                    transition: 'background 0.1s',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className={`p-2 rounded-lg ${s.is_active ? 'bg-primary/10 text-primary' : 'bg-zinc-100 text-zinc-400'}`}>
-                                        <Wrench size={18} />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-lg font-black tracking-tight">{s.name}</CardTitle>
-                                        <CardDescription className="text-[10px] font-bold uppercase font-mono">{s.slug} · {s.variants.length} Variants</CardDescription>
+                                {/* Status dot */}
+                                <div style={{
+                                    width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+                                    background: s.is_active ? '#16a34a' : '#d4d4d4',
+                                }} />
+
+                                {/* Name + slug */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                                        <span style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                            {s.name}
+                                        </span>
+                                        <span style={{
+                                            fontSize: '10px', color: 'var(--muted-foreground)',
+                                            ...mono, fontWeight: 500,
+                                        }}>
+                                            {s.slug}
+                                        </span>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <Badge variant={s.is_active ? 'default' : 'secondary'} className="font-black text-[10px] tracking-widest uppercase">
-                                        {s.is_active ? 'Active' : 'Archived'}
-                                    </Badge>
-                                    <div className="hidden md:flex gap-1">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(s); }}>
-                                            <Pencil size={14} />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); deleteService(s.slug); }}>
-                                            <Trash2 size={14} />
-                                        </Button>
-                                    </div>
-                                    {expanded === s.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+
+                                {/* Variant count */}
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '5px',
+                                    padding: '3px 9px', background: 'var(--secondary)',
+                                    border: '1px solid var(--border)', borderRadius: '4px',
+                                }}>
+                                    <Layers size={11} style={{ color: 'var(--muted-foreground)' }} />
+                                    <span style={{ fontSize: '11px', fontWeight: 700, ...mono }}>
+                                        {s.variants.length} tier{s.variants.length !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+
+                                {/* Status badge */}
+                                <span style={{
+                                    padding: '2px 8px', borderRadius: '3px', fontSize: '9px',
+                                    fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', ...mono,
+                                    background: s.is_active ? '#f0fdf4' : 'var(--secondary)',
+                                    color: s.is_active ? '#16a34a' : '#737373',
+                                    border: `1px solid ${s.is_active ? '#bbf7d0' : 'var(--border)'}`,
+                                }}>
+                                    {s.is_active ? 'Active' : 'Archived'}
+                                </span>
+
+                                {/* Action buttons */}
+                                <div style={{ display: 'flex', gap: '4px' }} onClick={e => e.stopPropagation()}>
+                                    <button
+                                        onClick={() => openEditService(s)}
+                                        style={{
+                                            width: '30px', height: '30px', background: 'var(--secondary)',
+                                            border: '1px solid var(--border)', borderRadius: '5px',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                            justifyContent: 'center', color: 'var(--muted-foreground)',
+                                        }}
+                                    >
+                                        <Pencil size={12} />
+                                    </button>
+                                    <button
+                                        onClick={() => deleteService(s.slug)}
+                                        style={{
+                                            width: '30px', height: '30px', background: 'var(--secondary)',
+                                            border: '1px solid var(--border)', borderRadius: '5px',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                            justifyContent: 'center', color: '#dc2626',
+                                        }}
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
+                                </div>
+
+                                {/* Expand icon */}
+                                <div style={{ color: 'var(--muted-foreground)', flexShrink: 0 }}>
+                                    {expanded === s.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                 </div>
                             </div>
 
+                            {/* Expanded Variants Panel */}
                             {expanded === s.id && (
-                                <div className="border-t border-border bg-zinc-50/50 p-6 animate-fade-in">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5"><Layers size={12} /> Service Tiers / Variants</Label>
-                                        <Button variant="outline" size="sm" className="font-bold border-2 h-8 text-[10px]" onClick={() => openVariantForm(s.slug)}>
-                                            <Plus size={12} className="mr-1.5" /> Add Tier
-                                        </Button>
+                                <div style={{
+                                    borderTop: '1px solid var(--border)',
+                                    background: 'var(--secondary)',
+                                    padding: '20px',
+                                    animation: 'fade-in 0.15s ease-out',
+                                }}>
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center',
+                                        justifyContent: 'space-between', marginBottom: '14px',
+                                    }}>
+                                        <p style={{
+                                            fontSize: '9px', fontWeight: 700, letterSpacing: '0.14em',
+                                            textTransform: 'uppercase', color: 'var(--muted-foreground)', ...mono,
+                                        }}>
+                                            Service Tiers · {s.variants.length}
+                                        </p>
+                                        <button
+                                            onClick={() => openCreateVariant(s.slug)}
+                                            style={{
+                                                height: '28px', padding: '0 10px',
+                                                background: 'var(--background)',
+                                                border: '1px solid var(--border)', borderRadius: '5px',
+                                                fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', gap: '4px',
+                                                fontFamily: "'DM Sans', system-ui", color: 'var(--foreground)',
+                                            }}
+                                        >
+                                            <Plus size={11} /> Add Tier
+                                        </button>
                                     </div>
 
-                                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {s.variants.length === 0 ? (
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase py-4">No variants defined for this service.</p>
-                                        ) : s.variants.map(v => (
-                                            <Card key={v.id} className="border-border bg-white shadow-sm flex flex-col group">
-                                                <CardHeader className="p-3 pb-0">
-                                                    <div className="flex items-center justify-between">
-                                                        <CardTitle className="text-sm font-black tracking-tight">{v.name}</CardTitle>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => openVariantForm(s.slug, v)}>
-                                                            <Pencil size={12} />
-                                                        </Button>
-                                                    </div>
-                                                </CardHeader>
-                                                <CardContent className="p-3 pt-2">
-                                                    {v.description && <p className="text-[10px] text-muted-foreground font-medium mb-3 line-clamp-2">{v.description}</p>}
-                                                    <div className="grid grid-cols-2 gap-2 mt-auto">
-                                                        <div className="p-2 rounded bg-secondary/50 border border-border">
-                                                            <p className="text-[8px] font-bold text-muted-foreground uppercase">Base</p>
-                                                            <p className="text-xs font-black">₹{v.base_price}</p>
+                                    {s.variants.length === 0 ? (
+                                        <div style={{
+                                            padding: '24px', border: '1px dashed var(--border)',
+                                            borderRadius: '6px', textAlign: 'center',
+                                        }}>
+                                            <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontWeight: 500 }}>
+                                                No tiers yet — add a tier to define pricing options
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                            gap: '8px',
+                                        }}>
+                                            {s.variants.map(v => (
+                                                <div key={v.id} style={{
+                                                    background: 'var(--card)',
+                                                    border: '1px solid var(--border)',
+                                                    borderRadius: '6px', overflow: 'hidden',
+                                                    transition: 'border-color 0.15s, box-shadow 0.15s',
+                                                }}
+                                                    onMouseEnter={e => {
+                                                        e.currentTarget.style.borderColor = 'var(--foreground)';
+                                                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
+                                                    }}
+                                                    onMouseLeave={e => {
+                                                        e.currentTarget.style.borderColor = 'var(--border)';
+                                                        e.currentTarget.style.boxShadow = 'none';
+                                                    }}
+                                                >
+                                                    <div style={{ padding: '12px 14px' }}>
+                                                        <div style={{
+                                                            display: 'flex', alignItems: 'flex-start',
+                                                            justifyContent: 'space-between', marginBottom: '10px',
+                                                        }}>
+                                                            <p style={{
+                                                                fontSize: '13px', fontWeight: 800,
+                                                                letterSpacing: '-0.02em', flex: 1, minWidth: 0,
+                                                            }}>
+                                                                {v.name}
+                                                            </p>
+                                                            <div style={{ display: 'flex', gap: '3px', flexShrink: 0, marginLeft: '6px' }}>
+                                                                <button
+                                                                    onClick={() => openEditVariant(s.slug, v)}
+                                                                    style={{
+                                                                        width: '24px', height: '24px', background: 'var(--secondary)',
+                                                                        border: '1px solid var(--border)', borderRadius: '4px',
+                                                                        cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                                                        justifyContent: 'center', color: 'var(--muted-foreground)',
+                                                                    }}
+                                                                >
+                                                                    <Pencil size={10} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteVariant(s.slug, v.id)}
+                                                                    style={{
+                                                                        width: '24px', height: '24px', background: 'var(--secondary)',
+                                                                        border: '1px solid var(--border)', borderRadius: '4px',
+                                                                        cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                                                        justifyContent: 'center', color: '#dc2626',
+                                                                    }}
+                                                                >
+                                                                    <Trash2 size={10} />
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                        <div className="p-2 rounded bg-secondary/50 border border-border">
-                                                            <p className="text-[8px] font-bold text-muted-foreground uppercase">Rate</p>
-                                                            <p className="text-xs font-black">₹{v.price_per_unit}/u</p>
+
+                                                        {v.description && (
+                                                            <p style={{
+                                                                fontSize: '11px', color: 'var(--muted-foreground)',
+                                                                lineHeight: 1.5, marginBottom: '10px',
+                                                                display: '-webkit-box', WebkitLineClamp: 2,
+                                                                WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                                                            }}>
+                                                                {v.description}
+                                                            </p>
+                                                        )}
+
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                                            {[
+                                                                { label: 'Base', value: `₹${v.base_price}` },
+                                                                { label: 'Per Unit', value: `₹${v.price_per_unit}` },
+                                                            ].map(item => (
+                                                                <div key={item.label} style={{
+                                                                    padding: '7px 10px', background: 'var(--secondary)',
+                                                                    border: '1px solid var(--border)', borderRadius: '4px',
+                                                                }}>
+                                                                    <p style={{
+                                                                        fontSize: '8px', fontWeight: 700, letterSpacing: '0.1em',
+                                                                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
+                                                                        ...mono, marginBottom: '2px',
+                                                                    }}>{item.label}</p>
+                                                                    <p style={{
+                                                                        fontSize: '15px', fontWeight: 900,
+                                                                        letterSpacing: '-0.03em',
+                                                                    }}>{item.value}</p>
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     </div>
-                                                </CardContent>
-                                            </Card>
-                                        ))}
-                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                        </Card>
-                    ))
-                )}
-            </div>
-
-            {/* Service Modal */}
-            <Dialog open={showForm} onOpenChange={setShowForm}>
-                <DialogContent className="max-w-md border-border shadow-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-bold tracking-tight">{editing ? "Update Service" : "Register New Service"}</DialogTitle>
-                        <DialogDescription className="font-medium text-sm">Basic metadata for your service catalog</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-6 py-4">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Service Name</Label>
-                            <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Spiral Binding" />
                         </div>
-                        <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/20 font-bold text-sm">
-                            <span>Enable Service Visibility</span>
-                            <Switch checked={form.is_active} onCheckedChange={c => setForm({ ...form, is_active: c })} />
+                    ))}
+                </div>
+            )}
+
+            {/* ── Service Form Modal ── */}
+            <Dialog open={showServiceForm} onOpenChange={setShowServiceForm}>
+                <DialogContent style={{
+                    maxWidth: '420px', padding: 0, overflow: 'hidden',
+                    border: '1px solid var(--border)',
+                }}>
+                    <DialogHeader style={{
+                        padding: '20px 24px', borderBottom: '1px solid var(--border)',
+                        background: 'var(--secondary)',
+                    }}>
+                        <DialogTitle style={{ fontSize: '18px', fontWeight: 900, letterSpacing: '-0.03em' }}>
+                            {editingService ? "Edit Service" : "New Service"}
+                        </DialogTitle>
+                        <DialogDescription style={{ fontSize: '12px' }}>
+                            {editingService ? "Update service name and visibility." : "Create a new service category."}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div>
+                            <FieldLabel>Service Name</FieldLabel>
+                            <Input
+                                value={serviceForm.name}
+                                onChange={e => setServiceForm({ ...serviceForm, name: e.target.value })}
+                                placeholder="e.g. Spiral Binding"
+                                style={{ height: '40px', fontSize: '13px' }}
+                            />
+                        </div>
+
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '12px 14px', border: '1px solid var(--border)',
+                            borderRadius: '6px', background: 'var(--secondary)',
+                        }}>
+                            <div>
+                                <p style={{ fontSize: '13px', fontWeight: 700, marginBottom: '1px' }}>Published</p>
+                                <p style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>
+                                    Visible to customers
+                                </p>
+                            </div>
+                            <Switch
+                                checked={serviceForm.is_active}
+                                onCheckedChange={c => setServiceForm({ ...serviceForm, is_active: c })}
+                            />
                         </div>
                     </div>
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="outline" className="font-bold">Cancel</Button></DialogClose>
-                        <Button className="font-black" onClick={handleSave} disabled={saving || !form.name}>
-                            {saving ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Save size={16} className="mr-2" />}
-                            Save Service
-                        </Button>
+
+                    <DialogFooter style={{
+                        padding: '14px 24px', borderTop: '1px solid var(--border)',
+                        background: 'var(--secondary)', display: 'flex', gap: '8px',
+                    }}>
+                        <DialogClose asChild>
+                            <Button variant="outline" style={{ fontWeight: 600 }}>Cancel</Button>
+                        </DialogClose>
+                        <button
+                            onClick={saveService}
+                            disabled={savingService || !serviceForm.name.trim()}
+                            style={{
+                                height: '36px', padding: '0 20px',
+                                background: savingService || !serviceForm.name.trim() ? 'var(--muted)' : 'var(--foreground)',
+                                color: 'var(--background)', border: 'none', borderRadius: '6px',
+                                fontSize: '13px', fontWeight: 700,
+                                cursor: savingService || !serviceForm.name.trim() ? 'not-allowed' : 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '7px',
+                                fontFamily: "'DM Sans', system-ui",
+                            }}
+                        >
+                            {savingService
+                                ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} />
+                                : <Save size={14} />
+                            }
+                            {editingService ? "Save Changes" : "Create Service"}
+                        </button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* Variant Modal */}
-            <Dialog open={!!showVariant} onOpenChange={(open) => !open && setShowVariant(null)}>
-                <DialogContent className="max-w-md border-border shadow-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-bold tracking-tight">{showVariant?.variant ? "Edit Service Tier" : "Add Service Tier"}</DialogTitle>
-                        <DialogDescription className="font-medium text-sm">Define pricing and details for this service option</DialogDescription>
+            {/* ── Variant Form Modal ── */}
+            <Dialog open={!!showVariantForm} onOpenChange={(open) => !open && setShowVariantForm(null)}>
+                <DialogContent style={{
+                    maxWidth: '460px', padding: 0, overflow: 'hidden',
+                    border: '1px solid var(--border)',
+                }}>
+                    <DialogHeader style={{
+                        padding: '20px 24px', borderBottom: '1px solid var(--border)',
+                        background: 'var(--secondary)',
+                    }}>
+                        <DialogTitle style={{ fontSize: '18px', fontWeight: 900, letterSpacing: '-0.03em' }}>
+                            {showVariantForm?.variant ? "Edit Tier" : "Add Tier"}
+                        </DialogTitle>
+                        <DialogDescription style={{ fontSize: '12px' }}>
+                            Define pricing and details for this service tier.
+                        </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Tier Name</Label>
-                            <Input value={varForm.name} onChange={e => setVarForm({ ...varForm, name: e.target.value })} placeholder="e.g. Classic Glossy" />
+
+                    <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div>
+                            <FieldLabel>Tier Name</FieldLabel>
+                            <Input
+                                value={varForm.name}
+                                onChange={e => setVarForm({ ...varForm, name: e.target.value })}
+                                placeholder="e.g. Classic Glossy A4"
+                                style={{ height: '40px', fontSize: '13px' }}
+                            />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground">Base Cost (₹)</Label>
-                                <Input type="number" value={varForm.base_price} onChange={e => setVarForm({ ...varForm, base_price: e.target.value })} placeholder="0" />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div>
+                                <FieldLabel>Base Price (₹)</FieldLabel>
+                                <Input
+                                    type="number"
+                                    value={varForm.base_price}
+                                    onChange={e => setVarForm({ ...varForm, base_price: e.target.value })}
+                                    placeholder="0"
+                                    style={{ height: '40px', fontSize: '13px' }}
+                                />
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground">Unit Rate (₹)</Label>
-                                <Input type="number" value={varForm.price_per_unit} onChange={e => setVarForm({ ...varForm, price_per_unit: e.target.value })} placeholder="0" />
+                            <div>
+                                <FieldLabel>Price Per Unit (₹)</FieldLabel>
+                                <Input
+                                    type="number"
+                                    value={varForm.price_per_unit}
+                                    onChange={e => setVarForm({ ...varForm, price_per_unit: e.target.value })}
+                                    placeholder="0"
+                                    style={{ height: '40px', fontSize: '13px' }}
+                                />
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Description</Label>
-                            <Textarea value={varForm.description} onChange={e => setVarForm({ ...varForm, description: e.target.value })} placeholder="Enter features, limitations, etc..." />
+
+                        <div>
+                            <FieldLabel>Description (optional)</FieldLabel>
+                            <Textarea
+                                value={varForm.description}
+                                onChange={e => setVarForm({ ...varForm, description: e.target.value })}
+                                placeholder="Describe features, specs, limitations..."
+                                style={{ minHeight: '80px', fontSize: '13px', resize: 'vertical' }}
+                            />
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" className="font-bold" onClick={() => setShowVariant(null)}>Cancel</Button>
-                        <Button className="font-black" onClick={saveVariant} disabled={saving || !varForm.name}>
-                            {saving ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Save size={16} className="mr-2" />}
-                            Confirm Tier
+
+                    <DialogFooter style={{
+                        padding: '14px 24px', borderTop: '1px solid var(--border)',
+                        background: 'var(--secondary)', display: 'flex', gap: '8px',
+                    }}>
+                        <Button variant="outline" onClick={() => setShowVariantForm(null)} style={{ fontWeight: 600 }}>
+                            Cancel
                         </Button>
+                        <button
+                            onClick={saveVariant}
+                            disabled={savingVariant || !varForm.name.trim() || !varForm.base_price}
+                            style={{
+                                height: '36px', padding: '0 20px',
+                                background: savingVariant || !varForm.name.trim() || !varForm.base_price
+                                    ? 'var(--muted)' : 'var(--foreground)',
+                                color: 'var(--background)', border: 'none', borderRadius: '6px',
+                                fontSize: '13px', fontWeight: 700,
+                                cursor: savingVariant || !varForm.name.trim() || !varForm.base_price
+                                    ? 'not-allowed' : 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '7px',
+                                fontFamily: "'DM Sans', system-ui",
+                            }}
+                        >
+                            {savingVariant
+                                ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} />
+                                : <Save size={14} />
+                            }
+                            {showVariantForm?.variant ? "Save Tier" : "Add Tier"}
+                        </button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

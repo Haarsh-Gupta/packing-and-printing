@@ -2,21 +2,15 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Order } from "@/types";
 import {
-    FileText, Download, Trash2, IndianRupee, CreditCard,
-    Calendar, Package, User, Clock, CheckCircle2, AlertCircle,
-    ChevronRight, Filter, Search, Loader2, ArrowRight
+    Download, Trash2, IndianRupee, CreditCard,
+    Calendar, Package, Clock, CheckCircle2, AlertCircle,
+    ChevronRight, Search, Loader2
 } from "lucide-react";
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
 import {
-    Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter
-} from "@/components/ui/card";
-import {
-    Tabs, TabsContent, TabsList, TabsTrigger
-} from "@/components/ui/tabs";
-import {
-    Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose
+    Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter, SheetClose
 } from "@/components/ui/sheet";
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -29,12 +23,36 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
 const STATUS_OPTIONS = ["ALL", "PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
-const statusBadge: Record<string, any> = {
-    PENDING: { variant: "destructive", icon: Clock },
-    PROCESSING: { variant: "default", icon: Loader2 },
-    SHIPPED: { variant: "outline", icon: Package },
-    DELIVERED: { variant: "secondary", icon: CheckCircle2 },
-    CANCELLED: { variant: "outline", icon: AlertCircle },
+
+const STATUS_CONFIG: Record<string, { color: string; bg: string; dot: string }> = {
+    PENDING: { color: '#dc2626', bg: '#fef2f2', dot: '#dc2626' },
+    PROCESSING: { color: '#2563eb', bg: '#eff6ff', dot: '#2563eb' },
+    SHIPPED: { color: '#d97706', bg: '#fffbeb', dot: '#d97706' },
+    DELIVERED: { color: '#16a34a', bg: '#f0fdf4', dot: '#16a34a' },
+    CANCELLED: { color: '#737373', bg: '#f5f5f5', dot: '#737373' },
+};
+
+const StatusPill = ({ status }: { status: string }) => {
+    const cfg = STATUS_CONFIG[status] || { color: '#737373', bg: '#f5f5f5', dot: '#737373' };
+    return (
+        <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '3px 8px',
+            background: cfg.bg,
+            borderRadius: '4px',
+            fontSize: '10px',
+            fontWeight: 700,
+            color: cfg.color,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            fontFamily: "'DM Mono', monospace",
+        }}>
+            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: cfg.dot, flexShrink: 0 }} />
+            {status}
+        </span>
+    );
 };
 
 export default function Orders() {
@@ -65,37 +83,25 @@ export default function Orders() {
             });
             fetchOrders();
             setSelected(null);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setUpdating(false);
-        }
+        } catch (e) { console.error(e); } finally { setUpdating(false); }
     };
 
     const recordPayment = async () => {
         if (!selected) return;
-        if (!confirm("Confirm cash payment receipt? This will move status to PROCESSING.")) return;
+        if (!confirm("Confirm cash payment receipt?")) return;
         setUpdating(true);
         try {
             await api(`/orders/admin/${selected.id}/cash-payment`, { method: "POST" });
-            fetchOrders();
-            setSelected(null);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setUpdating(false);
-        }
+            fetchOrders(); setSelected(null);
+        } catch (e) { console.error(e); } finally { setUpdating(false); }
     };
 
     const deleteOrder = async (id: number) => {
         if (!confirm("Permanently delete this order?")) return;
         try {
             await api(`/orders/admin/${id}`, { method: "DELETE" });
-            fetchOrders();
-            setSelected(null);
-        } catch (e) {
-            console.error(e);
-        }
+            fetchOrders(); setSelected(null);
+        } catch (e) { console.error(e); }
     };
 
     const downloadInvoice = async (id: number) => {
@@ -107,179 +113,223 @@ export default function Orders() {
             const blob = await res.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
-            a.href = url;
-            a.download = `invoice-order-${id}.pdf`;
-            a.click();
-        } catch {
-            alert("Failed to download invoice");
-        }
+            a.href = url; a.download = `invoice-${id}.pdf`; a.click();
+        } catch { alert("Failed to download invoice"); }
     };
 
     const filteredOrders = orders.filter(o =>
-        String(o.id).includes(search) ||
-        o.user_id.toString().includes(search)
+        String(o.id).includes(search) || o.user_id.toString().includes(search)
     );
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontFamily: "'DM Sans', system-ui" }}>
+
+            {/* Header */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'space-between',
+                paddingBottom: '24px',
+                borderBottom: '1px solid var(--border)',
+            }}>
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight">Orders</h1>
-                    <p className="text-muted-foreground font-medium mt-1">Manage customer purchases and shipments</p>
+                    <p style={{
+                        fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em',
+                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
+                        fontFamily: "'DM Mono', monospace", marginBottom: '4px',
+                    }}>Order Management</p>
+                    <h1 style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
+                        All Orders
+                    </h1>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative w-full md:w-64">
-                        <Search size={16} className="absolute left-3 top-3 text-muted-foreground" />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ position: 'relative' }}>
+                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
                         <Input
-                            placeholder="Search ID..."
+                            placeholder="Search orders..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="pl-9"
+                            style={{ paddingLeft: '32px', height: '36px', width: '200px', fontSize: '13px' }}
                         />
                     </div>
+                    <Select value={status} onValueChange={setStatus}>
+                        <SelectTrigger style={{ height: '36px', width: '140px', fontSize: '12px', fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
 
-            <Tabs value={status} onValueChange={setStatus} className="w-full">
-                <TabsList className="grid grid-cols-3 md:grid-cols-6 h-auto p-1 bg-secondary border border-border">
-                    {STATUS_OPTIONS.map(s => (
-                        <TabsTrigger key={s} value={s} className="font-bold text-[10px] md:text-xs uppercase py-2">
-                            {s}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-
-                <div className="mt-6 border border-border rounded-xl overflow-hidden bg-card shadow-sm">
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-3">
-                            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Fetching Orders...</p>
-                        </div>
-                    ) : filteredOrders.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-3">
-                            <Package size={48} className="text-muted-foreground opacity-20" />
-                            <p className="text-sm font-bold text-muted-foreground">No orders found matching criteria</p>
-                        </div>
-                    ) : (
-                        <Table>
-                            <TableHeader className="bg-secondary/50">
-                                <TableRow>
-                                    <TableHead className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Order ID</TableHead>
-                                    <TableHead className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Status</TableHead>
-                                    <TableHead className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Amount</TableHead>
-                                    <TableHead className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Customer</TableHead>
-                                    <TableHead className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Date</TableHead>
-                                    <TableHead className="text-right"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredOrders.map((order) => (
-                                    <TableRow key={order.id} className="cursor-pointer group" onClick={() => { setSelected(order); setNewStatus(order.status); }}>
-                                        <TableCell className="font-bold">ORD-{order.id}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={statusBadge[order.status]?.variant || "outline"} className="font-bold text-[10px] uppercase tracking-wide">
-                                                {order.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="font-black text-sm">₹{order.total_amount.toLocaleString()}</TableCell>
-                                        <TableCell className="text-muted-foreground font-medium text-xs">User #{order.user_id}</TableCell>
-                                        <TableCell className="text-muted-foreground font-medium text-xs whitespace-nowrap">{new Date(order.created_at).toLocaleDateString()}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <ChevronRight size={18} />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
+            {/* Table */}
+            <div style={{
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                background: 'var(--card)',
+            }}>
+                {loading ? (
+                    <div style={{ padding: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        <Loader2 size={24} style={{ color: 'var(--muted-foreground)', animation: 'spin 0.8s linear infinite' }} />
+                        <p style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>Fetching orders...</p>
+                    </div>
+                ) : filteredOrders.length === 0 ? (
+                    <div style={{ padding: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        <Package size={40} style={{ color: 'var(--border)' }} />
+                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)' }}>No orders found</p>
+                    </div>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow style={{ background: 'var(--secondary)', borderBottom: '1px solid var(--border)' }}>
+                                {['Order ID', 'Status', 'Amount', 'Customer', 'Date', ''].map((h, i) => (
+                                    <TableHead key={i} style={{
+                                        fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em',
+                                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
+                                        fontFamily: "'DM Mono', monospace", height: '36px',
+                                        textAlign: i === 5 ? 'right' : 'left',
+                                    }}>{h}</TableHead>
                                 ))}
-                            </TableBody>
-                        </Table>
-                    )}
-                </div>
-            </Tabs>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredOrders.map((order) => (
+                                <TableRow
+                                    key={order.id}
+                                    style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                                    onClick={() => { setSelected(order); setNewStatus(order.status); }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                    <TableCell style={{ fontFamily: "'DM Mono', monospace", fontSize: '12px', fontWeight: 700, color: 'var(--muted-foreground)' }}>
+                                        ORD-{order.id}
+                                    </TableCell>
+                                    <TableCell><StatusPill status={order.status} /></TableCell>
+                                    <TableCell style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                        ₹{order.total_amount.toLocaleString()}
+                                    </TableCell>
+                                    <TableCell style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>
+                                        #{order.user_id}
+                                    </TableCell>
+                                    <TableCell style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>
+                                        {new Date(order.created_at).toLocaleDateString()}
+                                    </TableCell>
+                                    <TableCell style={{ textAlign: 'right' }}>
+                                        <ChevronRight size={16} style={{ color: 'var(--muted-foreground)', display: 'inline' }} />
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </div>
 
-            {/* Order Detail Sheet */}
+            {/* Detail Sheet */}
             <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-                <SheetContent className="sm:max-w-md flex flex-col p-0 border-l border-border">
+                <SheetContent className="sm:max-w-md flex flex-col p-0">
                     {selected && (
                         <>
-                            <SheetHeader className="p-6 border-b bg-secondary/30">
-                                <div className="flex items-center justify-between mb-2">
-                                    <Badge variant="outline" className="font-black border-2 text-[10px] tracking-widest uppercase">ORD-{selected.id}</Badge>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                                        <Calendar size={10} /> {new Date(selected.created_at).toLocaleString()}
-                                    </p>
+                            <SheetHeader style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', letterSpacing: '0.1em' }}>
+                                        ORD-{selected.id}
+                                    </span>
+                                    <StatusPill status={selected.status} />
                                 </div>
-                                <SheetTitle className="text-2xl font-black tracking-tight">Order Details</SheetTitle>
-                                <SheetDescription className="font-medium text-sm">Manage status and review order information</SheetDescription>
+                                <SheetTitle style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em' }}>Order Details</SheetTitle>
+                                <SheetDescription style={{ fontSize: '13px' }}>Manage status and review order information</SheetDescription>
                             </SheetHeader>
 
-                            <ScrollArea className="flex-1 px-6">
-                                <div className="py-6 space-y-8">
-                                    {/* Status Section */}
-                                    <div className="space-y-4">
-                                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Update Status</Label>
-                                        <div className="flex gap-2">
+                            <ScrollArea className="flex-1">
+                                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                                    {/* Financials */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        {[
+                                            { label: 'Total Amount', value: `₹${selected.total_amount.toLocaleString()}`, color: 'var(--foreground)' },
+                                            { label: 'Amount Paid', value: `₹${selected.amount_paid.toLocaleString()}`, color: '#16a34a' },
+                                        ].map(item => (
+                                            <div key={item.label} style={{
+                                                padding: '16px',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: '6px',
+                                                background: 'var(--secondary)',
+                                            }}>
+                                                <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '6px' }}>{item.label}</p>
+                                                <p style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.04em', color: item.color }}>{item.value}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <Separator />
+
+                                    {/* Status Update */}
+                                    <div>
+                                        <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '8px' }}>Update Status</p>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
                                             <Select value={newStatus} onValueChange={setNewStatus}>
-                                                <SelectTrigger className="flex-1">
-                                                    <SelectValue />
-                                                </SelectTrigger>
+                                                <SelectTrigger style={{ flex: 1, fontSize: '12px' }}><SelectValue /></SelectTrigger>
                                                 <SelectContent>
                                                     {STATUS_OPTIONS.filter(s => s !== "ALL").map(s => (
                                                         <SelectItem key={s} value={s}>{s}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
-                                            <Button onClick={updateStatus} disabled={updating || newStatus === selected.status} className="font-bold">
-                                                {updating ? <Loader2 size={16} className="animate-spin" /> : "Update"}
+                                            <Button
+                                                onClick={updateStatus}
+                                                disabled={updating || newStatus === selected.status}
+                                                style={{ fontWeight: 700, fontSize: '13px' }}
+                                            >
+                                                {updating ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : "Update"}
                                             </Button>
                                         </div>
                                     </div>
 
                                     <Separator />
 
-                                    {/* Financial Section */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="p-4 rounded-xl border border-border bg-secondary/20">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Total Amount</p>
-                                            <p className="text-xl font-black">₹{selected.total_amount.toLocaleString()}</p>
-                                        </div>
-                                        <div className="p-4 rounded-xl border border-border bg-secondary/20">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Paid Amount</p>
-                                            <p className="text-xl font-black text-green-600">₹{selected.amount_paid.toLocaleString()}</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Actions Section */}
-                                    <div className="space-y-3">
-                                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Admin Actions</Label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <Button variant="outline" className="w-full font-bold justify-start" onClick={() => downloadInvoice(selected.id)}>
-                                                <Download className="mr-2 h-4 w-4" /> Invoice
+                                    {/* Actions */}
+                                    <div>
+                                        <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '8px' }}>Actions</p>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                            <Button variant="outline" onClick={() => downloadInvoice(selected.id)} style={{ fontWeight: 600, fontSize: '12px', gap: '6px' }}>
+                                                <Download size={14} /> Invoice
                                             </Button>
-                                            <Button variant="outline" className="w-full font-bold justify-start" onClick={recordPayment} disabled={selected.amount_paid >= selected.total_amount}>
-                                                <CreditCard className="mr-2 h-4 w-4" /> Mark Paid
+                                            <Button variant="outline" onClick={recordPayment} disabled={selected.amount_paid >= selected.total_amount} style={{ fontWeight: 600, fontSize: '12px', gap: '6px' }}>
+                                                <CreditCard size={14} /> Mark Paid
                                             </Button>
-                                            <Button variant="outline" className="w-full font-bold justify-start text-destructive hover:bg-destructive/10" onClick={() => deleteOrder(selected.id)}>
-                                                <Trash2 className="mr-2 h-4 w-4" /> Delete Order
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => deleteOrder(selected.id)}
+                                                style={{ fontWeight: 600, fontSize: '12px', gap: '6px', color: '#dc2626', borderColor: '#fecaca', gridColumn: '1 / -1' }}
+                                            >
+                                                <Trash2 size={14} /> Delete Order
                                             </Button>
                                         </div>
                                     </div>
 
-                                    <Separator />
-
-                                    {/* Info Section */}
-                                    <div className="space-y-4">
-                                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Transaction ID</Label>
-                                        <div className="p-3 rounded-lg bg-secondary/50 font-mono text-xs border border-border">
-                                            {selected.payment_id || "No active transaction ID found"}
+                                    {/* Transaction ID */}
+                                    <div>
+                                        <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '8px' }}>Transaction Reference</p>
+                                        <div style={{
+                                            padding: '10px 12px',
+                                            background: 'var(--secondary)',
+                                            border: '1px solid var(--border)',
+                                            borderRadius: '6px',
+                                            fontFamily: "'DM Mono', monospace",
+                                            fontSize: '12px',
+                                            color: 'var(--muted-foreground)',
+                                        }}>
+                                            {selected.payment_id || "No transaction reference"}
                                         </div>
                                     </div>
                                 </div>
                             </ScrollArea>
 
-                            <SheetFooter className="p-6 border-t bg-secondary/10">
+                            <SheetFooter style={{ padding: '16px', borderTop: '1px solid var(--border)', background: 'var(--secondary)' }}>
                                 <SheetClose asChild>
-                                    <Button variant="outline" className="w-full font-bold">Close Panel</Button>
+                                    <Button variant="outline" style={{ width: '100%', fontWeight: 600 }}>Close</Button>
                                 </SheetClose>
                             </SheetFooter>
                         </>

@@ -3,24 +3,61 @@ import { api } from "@/lib/api";
 import type { Product, FormSection, ProductOption } from "@/types";
 import {
     Package, Plus, Pencil, Trash2, X, Loader2, Save,
-    ChevronDown, ChevronUp, MoreVertical, Archive, Layout,
-    Settings2, Layers, IndianRupee, Hash, Power
+    Settings2, IndianRupee, Hash, MoreVertical, Copy, Eye, ExternalLink
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose
+    Dialog, DialogContent, DialogDescription, DialogFooter,
+    DialogHeader, DialogTitle, DialogClose
 } from "@/components/ui/dialog";
 import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+    DropdownMenuSeparator, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+
+const mono: React.CSSProperties = { fontFamily: "'DM Mono', monospace" };
+
+const SectionLabel = ({ children }: { children: React.ReactNode }) => (
+    <p style={{
+        fontSize: '9px', fontWeight: 700, letterSpacing: '0.14em',
+        textTransform: 'uppercase', color: 'var(--muted-foreground)',
+        ...mono, marginBottom: '8px',
+    }}>{children}</p>
+);
+
+const FieldLabel = ({ children }: { children: React.ReactNode }) => (
+    <label style={{
+        display: 'block', fontSize: '10px', fontWeight: 700,
+        letterSpacing: '0.1em', textTransform: 'uppercase',
+        color: 'var(--muted-foreground)', ...mono, marginBottom: '5px',
+    }}>{children}</label>
+);
+
+const StatusPill = ({ active }: { active: boolean }) => (
+    <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '5px',
+        padding: '3px 8px',
+        background: active ? '#f0fdf4' : '#f5f5f5',
+        borderRadius: '4px',
+        fontSize: '10px',
+        fontWeight: 700,
+        color: active ? '#16a34a' : '#737373',
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        fontFamily: "'DM Mono', monospace",
+        border: `1px solid ${active ? '#bbf7d0' : 'var(--border)'}`,
+    }}>
+        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: active ? '#16a34a' : '#737373', flexShrink: 0 }} />
+        {active ? 'Active' : 'Archived'}
+    </span>
+);
 
 export default function Products() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -29,20 +66,14 @@ export default function Products() {
     const [editing, setEditing] = useState<Product | null>(null);
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState({
-        name: "",
-        base_price: "",
-        minimum_quantity: "",
-        type: "product",
-        is_active: true,
-        sections: [] as FormSection[]
+        name: "", base_price: "", minimum_quantity: "",
+        type: "product", is_active: true, sections: [] as FormSection[]
     });
 
     const fetchProducts = () => {
         setLoading(true);
         api<Product[]>("/products/?skip=0&limit=100")
-            .then(setProducts)
-            .catch(console.error)
-            .finally(() => setLoading(false));
+            .then(setProducts).catch(console.error).finally(() => setLoading(false));
     };
 
     useEffect(() => { fetchProducts(); }, []);
@@ -56,273 +87,358 @@ export default function Products() {
     const openEdit = (p: Product) => {
         setEditing(p);
         setForm({
-            name: p.name,
-            base_price: String(p.base_price),
-            minimum_quantity: String(p.minimum_quantity),
-            type: p.type,
-            is_active: p.is_active,
-            sections: p.config_schema.sections
+            name: p.name, base_price: String(p.base_price),
+            minimum_quantity: String(p.minimum_quantity), type: p.type,
+            is_active: p.is_active, sections: [...p.config_schema.sections]
         });
         setShowForm(true);
     };
 
-    const addSection = () => {
-        setForm(f => ({ ...f, sections: [...f.sections, { key: "", label: "", type: "dropdown", options: [{ label: "", value: "", price_mod: 0 }] }] }));
-    };
+    const addSection = () => setForm(f => ({
+        ...f, sections: [...f.sections, { key: "", label: "", type: "dropdown", options: [{ label: "", value: "", price_mod: 0 }] }]
+    }));
 
-    const removeSection = (i: number) => {
-        setForm(f => ({ ...f, sections: f.sections.filter((_, j) => j !== i) }));
-    };
+    const removeSection = (i: number) => setForm(f => ({ ...f, sections: f.sections.filter((_, j) => j !== i) }));
 
-    const updateSection = (i: number, patch: Partial<FormSection>) => {
+    const updateSection = (i: number, patch: Partial<FormSection>) =>
         setForm(f => ({ ...f, sections: f.sections.map((s, j) => j === i ? { ...s, ...patch } : s) }));
-    };
 
-    const addOption = (si: number) => {
-        setForm(f => ({ ...f, sections: f.sections.map((s, j) => j === si ? { ...s, options: [...(s.options || []), { label: "", value: "", price_mod: 0 }] } : s) }));
-    };
+    const addOption = (si: number) => setForm(f => ({
+        ...f, sections: f.sections.map((s, j) => j === si
+            ? { ...s, options: [...(s.options || []), { label: "", value: "", price_mod: 0 }] } : s)
+    }));
 
-    const updateOption = (si: number, oi: number, patch: Partial<ProductOption>) => {
-        setForm(f => ({ ...f, sections: f.sections.map((s, j) => j === si ? { ...s, options: (s.options || []).map((o, k) => k === oi ? { ...o, ...patch } : o) } : s) }));
-    };
+    const updateOption = (si: number, oi: number, patch: Partial<ProductOption>) =>
+        setForm(f => ({
+            ...f, sections: f.sections.map((s, j) => j === si
+                ? { ...s, options: (s.options || []).map((o, k) => k === oi ? { ...o, ...patch } : o) } : s)
+        }));
 
     const handleSave = async () => {
         setSaving(true);
         const body = {
-            name: form.name,
-            base_price: parseFloat(form.base_price),
-            minimum_quantity: parseInt(form.minimum_quantity),
-            type: form.type,
-            is_active: form.is_active,
-            config_schema: { sections: form.sections }
+            name: form.name, base_price: parseFloat(form.base_price),
+            minimum_quantity: parseInt(form.minimum_quantity), type: form.type,
+            is_active: form.is_active, config_schema: { sections: form.sections }
         };
         try {
-            if (editing) { await api(`/products/${editing.slug}`, { method: "PUT", body: JSON.stringify(body) }); }
-            else { await api("/products/admin", { method: "POST", body: JSON.stringify(body) }); }
-            setShowForm(false);
-            fetchProducts();
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setSaving(false);
-        }
+            if (editing) await api(`/products/${editing.slug}`, { method: "PUT", body: JSON.stringify(body) });
+            else await api("/products/admin", { method: "POST", body: JSON.stringify(body) });
+            setShowForm(false); fetchProducts();
+        } catch (e) { console.error(e); } finally { setSaving(false); }
+    };
+
+    const deleteProduct = async (slug: string) => {
+        if (!confirm("Permanently delete this product?")) return;
+        try { await api(`/products/${slug}`, { method: "DELETE" }); fetchProducts(); } catch (e) { console.error(e); }
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between">
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontFamily: "'DM Sans', system-ui" }}>
+
+            {/* Header */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'space-between',
+                paddingBottom: '24px',
+                borderBottom: '1px solid var(--border)',
+            }}>
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight">Products</h1>
-                    <p className="text-muted-foreground font-medium mt-1">{products.length} catalog items managed</p>
+                    <p style={{
+                        fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em',
+                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
+                        fontFamily: "'DM Mono', monospace", marginBottom: '4px',
+                    }}>Catalog Management</p>
+                    <h1 style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
+                        Product Inventory
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)', marginLeft: '12px', letterSpacing: 0, fontFamily: "'DM Mono', monospace" }}>
+                            [{products.length} ITEMS]
+                        </span>
+                    </h1>
                 </div>
-                <Button onClick={openCreate} className="font-bold">
-                    <Plus size={16} className="mr-2" /> New Product
+                <Button onClick={openCreate} style={{ height: '36px', gap: '8px', fontWeight: 700, fontSize: '13px' }}>
+                    <Plus size={14} /> New Product
                 </Button>
             </div>
 
+            {/* Product Grid */}
             {loading ? (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[1, 2, 3, 4, 5, 6].map(i => <Card key={i} className="h-[200px] animate-pulse border-border bg-secondary/20" />)}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                        <div key={i} style={{ height: '240px', background: 'var(--secondary)', borderRadius: '8px', border: '1px solid var(--border)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                    ))}
                 </div>
             ) : products.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 gap-3">
-                    <Package size={64} className="text-muted-foreground opacity-20" />
-                    <p className="text-sm font-bold text-muted-foreground">No products found in catalog</p>
+                <div style={{ padding: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+                    <Package size={40} style={{ color: 'var(--border)' }} />
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)' }}>Your product catalog is empty</p>
                 </div>
             ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
                     {products.map(p => (
-                        <Card key={p.id} className="border-border overflow-hidden flex flex-col hover:border-zinc-400 group transition-all">
-                            <CardHeader className="bg-secondary/20 border-b p-4">
-                                <div className="flex items-start justify-between">
-                                    <div className="space-y-1">
-                                        <CardTitle className="text-lg font-black truncate max-w-[200px]">{p.name}</CardTitle>
-                                        <CardDescription className="text-[10px] font-bold uppercase tracking-tight font-mono">{p.slug}</CardDescription>
+                        <div key={p.id} style={{
+                            border: '1px solid var(--border)', borderRadius: '10px',
+                            background: 'var(--card)', overflow: 'hidden',
+                            display: 'flex', flexDirection: 'column',
+                            transition: 'all 0.2s ease',
+                        }}
+                            className="group hover:border-foreground hover:shadow-xl"
+                        >
+                            <div style={{ height: '4px', background: p.is_active ? 'var(--foreground)' : 'var(--muted)' }} />
+
+                            <div style={{ padding: '20px', flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <h3 style={{
+                                            fontSize: '16px', fontWeight: 800, letterSpacing: '-0.02em',
+                                            color: 'var(--foreground)', marginBottom: '4px',
+                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                        }}>{p.name}</h3>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <p style={{ fontSize: '10px', color: 'var(--muted-foreground)', ...mono, fontWeight: 700, textTransform: 'uppercase' }}>{p.slug}</p>
+                                        </div>
                                     </div>
-                                    <Badge variant={p.is_active ? "default" : "outline"} className="font-black text-[10px] tracking-widest uppercase">
-                                        {p.is_active ? "Active" : "Archived"}
-                                    </Badge>
+                                    <StatusPill active={p.is_active} />
                                 </div>
-                            </CardHeader>
-                            <CardContent className="p-5 flex-1 space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5"><IndianRupee size={10} /> Base Price</p>
-                                        <p className="text-lg font-black tracking-tighter">₹{p.base_price}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5"><Hash size={10} /> Min Qty</p>
-                                        <p className="text-lg font-black tracking-tighter">{p.minimum_quantity}</p>
-                                    </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+                                    {[
+                                        { label: 'Base Price', value: `₹${p.base_price}`, sub: 'INR' },
+                                        { label: 'Min Qty', value: p.minimum_quantity, sub: 'UNITS' },
+                                    ].map(item => (
+                                        <div key={item.label} style={{
+                                            padding: '12px', background: 'var(--secondary)',
+                                            borderRadius: '6px', border: '1px solid var(--border)',
+                                        }}>
+                                            <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', ...mono, marginBottom: '4px' }}>{item.label}</p>
+                                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px' }}>
+                                                <p style={{ fontSize: '20px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>{item.value}</p>
+                                                <span style={{ fontSize: '8px', fontWeight: 700, opacity: 0.5, ...mono }}>{item.sub}</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Badge variant="secondary" className="font-bold text-[10px] lowercase px-2">
-                                        {p.config_schema.sections.length} config sections
-                                    </Badge>
-                                    <Badge variant="outline" className="font-bold text-[10px] lowercase px-2">
-                                        {p.type}
-                                    </Badge>
+
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                    <span style={{
+                                        padding: '3px 8px', background: 'var(--secondary)', borderRadius: '4px',
+                                        fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)',
+                                        border: '1px solid var(--border)', fontFamily: "'DM Mono', monospace",
+                                        textTransform: 'uppercase', letterSpacing: '0.05em'
+                                    }}>{p.config_schema.sections.length} CONFIGS</span>
+                                    <span style={{
+                                        padding: '3px 8px', background: 'var(--secondary)', borderRadius: '4px',
+                                        fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)',
+                                        border: '1px solid var(--border)', fontFamily: "'DM Mono', monospace",
+                                        textTransform: 'uppercase', letterSpacing: '0.05em'
+                                    }}>{p.type}</span>
                                 </div>
-                            </CardContent>
-                            <CardFooter className="p-4 border-t bg-secondary/10 flex gap-2">
-                                <Button variant="outline" size="sm" className="flex-1 font-bold h-9" onClick={() => openEdit(p)}>
-                                    <Pencil size={14} className="mr-2" /> Edit Details
+                            </div>
+
+                            <div style={{
+                                padding: '12px 16px', borderTop: '1px solid var(--border)',
+                                background: 'var(--secondary)', display: 'flex', gap: '8px',
+                            }}>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => openEdit(p)}
+                                    style={{ flex: 1, height: '32px', fontSize: '12px', fontWeight: 700, background: 'var(--background)' }}
+                                >
+                                    <Pencil size={12} className="mr-2" /> Edit
                                 </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" size="icon" className="h-9 w-9">
-                                            <MoreVertical size={16} />
+                                        <Button variant="outline" size="icon" style={{ width: '32px', height: '32px', background: 'var(--background)' }}>
+                                            <MoreVertical size={14} />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-48">
-                                        <DropdownMenuItem className="font-bold text-xs" onClick={() => openEdit(p)}>Duplicate Product</DropdownMenuItem>
-                                        <DropdownMenuItem className="font-bold text-xs" onClick={() => openEdit(p)}>View Schema</DropdownMenuItem>
+                                    <DropdownMenuContent align="end" className="w-[180px]">
+                                        <DropdownMenuItem disabled style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Actions</DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-destructive font-bold text-xs">Delete Product</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => openEdit(p)}><Copy size={14} className="mr-2" /> Duplicate</DropdownMenuItem>
+                                        <DropdownMenuItem><Eye size={14} className="mr-2" /> View on Store</DropdownMenuItem>
+                                        <DropdownMenuItem><ExternalLink size={14} className="mr-2" /> Get API Link</DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => deleteProduct(p.slug)} className="text-destructive focus:text-destructive focus:bg-destructive/5"><Trash2 size={14} className="mr-2" /> Delete</DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
-                            </CardFooter>
-                        </Card>
+                            </div>
+                        </div>
                     ))}
                 </div>
             )}
 
             {/* Product Form Modal */}
             <Dialog open={showForm} onOpenChange={setShowForm}>
-                <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden flex flex-col border-border shadow-2xl">
-                    <DialogHeader className="p-6 border-b bg-secondary/30">
-                        <DialogTitle className="text-2xl font-bold tracking-tight">{editing ? "Update Product" : "Launch New Product"}</DialogTitle>
-                        <DialogDescription className="font-medium text-sm">Configure catalog details and dynamic order form sections</DialogDescription>
+                <DialogContent className="sm:max-w-[720px] p-0 overflow-hidden border-border shadow-2xl">
+                    <DialogHeader style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ padding: '3px 8px', background: 'var(--foreground)', color: 'var(--background)', borderRadius: '4px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', ...mono }}>
+                                {editing ? 'UPDATE' : 'CREATE'}
+                            </span>
+                        </div>
+                        <DialogTitle style={{ fontSize: '24px', fontWeight: 900, letterSpacing: '-0.04em' }}>
+                            {editing ? "Edit Product" : "New Catalog Item"}
+                        </DialogTitle>
+                        <DialogDescription style={{ fontSize: '14px', fontWeight: 500 }}>
+                            Define core attributes and build the interactive customization schema
+                        </DialogDescription>
                     </DialogHeader>
 
-                    <ScrollArea className="flex-1">
-                        <div className="p-6 space-y-8">
-                            {/* Core Information */}
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="prod-name" className="text-xs font-black uppercase text-muted-foreground">Product Title</Label>
-                                        <Input id="prod-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Premium Hardcover Book" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="prod-type" className="text-xs font-black uppercase text-muted-foreground">Catalog Category</Label>
-                                        <Select value={form.type} onValueChange={t => setForm({ ...form, type: t })}>
-                                            <SelectTrigger id="prod-type">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="product">Standard Product</SelectItem>
-                                                <SelectItem value="bundle">Product Bundle</SelectItem>
-                                                <SelectItem value="variant">Special Variant</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                    <ScrollArea style={{ maxHeight: '65vh' }}>
+                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+
+                            {/* Core fields */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                <div style={{ gridColumn: '1 / -1' }}>
+                                    <FieldLabel>Product Title</FieldLabel>
+                                    <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Premium Hardcover Book" style={{ height: '42px', fontWeight: 700 }} />
+                                </div>
+                                <div>
+                                    <FieldLabel>Type / Category</FieldLabel>
+                                    <Select value={form.type} onValueChange={t => setForm({ ...form, type: t })}>
+                                        <SelectTrigger style={{ height: '42px', fontSize: '13px', fontWeight: 600 }}><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="product">Standard Product</SelectItem>
+                                            <SelectItem value="bundle">Bundle Package</SelectItem>
+                                            <SelectItem value="variant">Product Variant</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <FieldLabel>Base Price (₹)</FieldLabel>
+                                    <div style={{ position: 'relative' }}>
+                                        <Input type="number" value={form.base_price} onChange={e => setForm({ ...form, base_price: e.target.value })} placeholder="0.00" style={{ height: '42px', fontWeight: 800, fontSize: '16px' }} />
                                     </div>
                                 </div>
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="prod-price" className="text-xs font-black uppercase text-muted-foreground">Base Price</Label>
-                                            <Input id="prod-price" type="number" value={form.base_price} onChange={e => setForm({ ...form, base_price: e.target.value })} placeholder="0.00" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="prod-mq" className="text-xs font-black uppercase text-muted-foreground">Min Qty</Label>
-                                            <Input id="prod-mq" type="number" value={form.minimum_quantity} onChange={e => setForm({ ...form, minimum_quantity: e.target.value })} placeholder="1" />
-                                        </div>
+                                <div>
+                                    <FieldLabel>Minimum Order Quantity</FieldLabel>
+                                    <Input type="number" value={form.minimum_quantity} onChange={e => setForm({ ...form, minimum_quantity: e.target.value })} placeholder="1" style={{ height: '42px', fontWeight: 700 }} />
+                                </div>
+                                <div style={{
+                                    gridColumn: '1 / -1',
+                                    padding: '16px',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    background: 'var(--secondary)/50',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                }}>
+                                    <div>
+                                        <p style={{ fontSize: '13px', fontWeight: 800 }}>Listed on Storefront</p>
+                                        <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', fontWeight: 500 }}>Uncheck to hide this product from public view</p>
                                     </div>
-                                    <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/20">
-                                        <div className="space-y-0.5">
-                                            <Label className="text-sm font-black">Publish Visibility</Label>
-                                            <p className="text-[10px] text-muted-foreground font-medium">Visible to customers in storefront</p>
-                                        </div>
-                                        <Switch checked={form.is_active} onCheckedChange={c => setForm({ ...form, is_active: c })} />
-                                    </div>
+                                    <Switch checked={form.is_active} onCheckedChange={c => setForm({ ...form, is_active: c })} />
                                 </div>
                             </div>
 
                             <Separator />
 
-                            {/* Dynamic Config Schema */}
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-0.5">
-                                        <Label className="text-sm font-black flex items-center gap-2"><Settings2 size={16} /> Dynamic Form Sections</Label>
-                                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Build user customisation options</p>
+                            {/* Config Sections */}
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <p style={{ fontSize: '15px', fontWeight: 800, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Settings2 size={16} /> Configuration Schema
+                                        </p>
+                                        <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontWeight: 500 }}>Customer customisation form builder</p>
                                     </div>
-                                    <Button variant="outline" size="sm" onClick={addSection} className="font-bold border-2">
-                                        <Plus size={14} className="mr-2" /> Add Section
+                                    <Button variant="outline" size="sm" onClick={addSection} style={{ height: '32px', fontWeight: 700, fontSize: '11px' }}>
+                                        <Plus size={14} className="mr-1" /> Add Section
                                     </Button>
                                 </div>
 
-                                <div className="space-y-4">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {form.sections.map((sec, si) => (
-                                        <Card key={si} className="border-border bg-zinc-50 overflow-hidden">
-                                            <div className="flex items-center justify-between p-3 bg-zinc-100 border-b">
-                                                <Badge variant="outline" className="font-black bg-white text-[10px] tracking-tighter uppercase px-3 py-1">Section #{si + 1}</Badge>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeSection(si)}><X size={14} /></Button>
+                                        <div key={si} style={{
+                                            border: '1px solid var(--border)', borderRadius: '8px',
+                                            overflow: 'hidden', background: 'var(--secondary)',
+                                        }}>
+                                            <div style={{
+                                                padding: '10px 16px', background: 'var(--card)',
+                                                borderBottom: '1px solid var(--border)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', ...mono }}>
+                                                        Section 0{si + 1}
+                                                    </span>
+                                                </div>
+                                                <Button variant="ghost" size="icon" onClick={() => removeSection(si)} style={{ height: '24px', width: '24px', color: '#dc2626' }}>
+                                                    <X size={14} />
+                                                </Button>
                                             </div>
-                                            <CardContent className="p-4 space-y-4">
-                                                <div className="grid grid-cols-3 gap-3">
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Unique Key</Label>
-                                                        <Input value={sec.key} onChange={e => updateSection(si, { key: e.target.value })} className="h-9 bg-white" placeholder="paper_type" />
+                                            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', gap: '12px' }}>
+                                                    <div>
+                                                        <FieldLabel>ID Key</FieldLabel>
+                                                        <Input value={sec.key} onChange={e => updateSection(si, { key: e.target.value })} placeholder="paper_type" style={{ height: '36px', fontSize: '12px', background: 'var(--background)', fontWeight: 600, ...mono }} />
                                                     </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Display Label</Label>
-                                                        <Input value={sec.label} onChange={e => updateSection(si, { label: e.target.value })} className="h-9 bg-white" placeholder="Paper Quality" />
+                                                    <div>
+                                                        <FieldLabel>Display Label</FieldLabel>
+                                                        <Input value={sec.label} onChange={e => updateSection(si, { label: e.target.value })} placeholder="Paper Quality" style={{ height: '36px', fontSize: '13px', background: 'var(--background)', fontWeight: 700 }} />
                                                     </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Input Type</Label>
-                                                        <Select value={sec.type} onValueChange={v => updateSection(si, { type: v as any })}>
-                                                            <SelectTrigger className="h-9 bg-white">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
+                                                    <div>
+                                                        <FieldLabel>Input UI</FieldLabel>
+                                                        <Select value={sec.type} onValueChange={v => updateSection(si, { type: v as FormSection['type'] })}>
+                                                            <SelectTrigger style={{ height: '36px', fontSize: '12px', background: 'var(--background)', fontWeight: 600 }}><SelectValue /></SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value="dropdown">Dropdown</SelectItem>
-                                                                <SelectItem value="radio">Radio Group</SelectItem>
-                                                                <SelectItem value="number_input">Number Input</SelectItem>
-                                                                <SelectItem value="text_input">Text Input</SelectItem>
+                                                                <SelectItem value="radio">Radio Buttons</SelectItem>
+                                                                <SelectItem value="number_input">Numeric</SelectItem>
+                                                                <SelectItem value="text_input">Short Text</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
                                                 </div>
 
-                                                {/* Options Builder for Dropdown/Radio */}
                                                 {(sec.type === 'dropdown' || sec.type === 'radio') && (
-                                                    <div className="space-y-3 pt-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.1em]">Value Options</p>
-                                                            <Button variant="ghost" size="sm" onClick={() => addOption(si)} className="text-[10px] font-bold h-6 text-primary hover:bg-primary/10">+ New Value</Button>
+                                                    <div style={{ padding: '16px', background: 'var(--background)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                                            <SectionLabel>Option Mapping</SectionLabel>
+                                                            <Button variant="secondary" size="sm" onClick={() => addOption(si)} style={{ height: '24px', fontSize: '10px', fontWeight: 800 }}>+ ADD OPTION</Button>
                                                         </div>
-                                                        <div className="space-y-2">
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                             {(sec.options || []).map((opt, oi) => (
-                                                                <div key={oi} className="flex gap-2 items-center">
-                                                                    <Input placeholder="Label" value={opt.label} onChange={e => updateOption(si, oi, { label: e.target.value })} className="h-8 text-xs bg-white" />
-                                                                    <Input placeholder="Value" value={opt.value} onChange={e => updateOption(si, oi, { value: e.target.value })} className="h-8 text-xs bg-white" />
-                                                                    <div className="relative w-32">
-                                                                        <div className="absolute left-2 top-2 text-[10px] font-black text-muted-foreground">₹</div>
-                                                                        <Input type="number" placeholder="Price ±" value={opt.price_mod} onChange={e => updateOption(si, oi, { price_mod: parseFloat(e.target.value) })} className="h-8 text-xs bg-white pl-5" />
+                                                                <div key={oi} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                    <Input placeholder="Label" value={opt.label} onChange={e => updateOption(si, oi, { label: e.target.value })} style={{ height: '32px', fontSize: '12px', fontWeight: 600 }} />
+                                                                    <Input placeholder="Value" value={opt.value} onChange={e => updateOption(si, oi, { value: e.target.value })} style={{ height: '32px', fontSize: '11px', fontWeight: 600, ...mono }} />
+                                                                    <div style={{ position: 'relative', width: '120px' }}>
+                                                                        <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 800, color: 'var(--muted-foreground)' }}>₹</span>
+                                                                        <Input type="number" placeholder="0.00" value={opt.price_mod} onChange={e => updateOption(si, oi, { price_mod: parseFloat(e.target.value) })} style={{ height: '32px', fontSize: '12px', paddingLeft: '20px', fontWeight: 800 }} />
                                                                     </div>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><X size={12} /></Button>
+                                                                    <Button variant="ghost" size="icon" onClick={() => { }} style={{ height: '32px', width: '32px', opacity: 0.3 }}><X size={12} /></Button>
                                                                 </div>
                                                             ))}
                                                         </div>
                                                     </div>
                                                 )}
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
                                     ))}
+                                    {form.sections.length === 0 && (
+                                        <div style={{
+                                            padding: '40px', border: '1px dashed var(--border)', borderRadius: '8px',
+                                            textAlign: 'center', color: 'var(--muted-foreground)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px'
+                                        }}>
+                                            <Settings2 size={24} style={{ opacity: 0.2 }} />
+                                            <p style={{ fontSize: '13px', fontWeight: 500 }}>Customize the inquiry form by adding interactive sections.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     </ScrollArea>
 
-                    <DialogFooter className="p-6 border-t bg-secondary/30">
+                    <DialogFooter style={{ padding: '20px 24px', borderTop: '1px solid var(--border)', background: 'var(--secondary)', gap: '12px' }}>
                         <DialogClose asChild>
-                            <Button variant="outline" className="font-bold">Cancel</Button>
+                            <Button variant="outline" style={{ fontWeight: 700, height: '40px' }}>Cancel</Button>
                         </DialogClose>
-                        <Button className="font-black px-8" onClick={handleSave} disabled={saving || !form.name}>
-                            {saving ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Save size={16} className="mr-2" />}
-                            {editing ? "Save Product Changes" : "Confirm & Launch Product"}
+                        <Button onClick={handleSave} disabled={saving || !form.name} style={{ height: '40px', padding: '0 30px', fontWeight: 800 }}>
+                            {saving ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
+                            {editing ? "Save Product Settings" : "Finalize Catalog Entry"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

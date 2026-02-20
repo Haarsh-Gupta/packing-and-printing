@@ -1,44 +1,57 @@
 import { useState } from "react";
-import { api } from "@/lib/api";
 import {
-    Mail, Send, Users, User, FileText,
-    Paperclip, Eye, History, Loader2,
-    CheckCircle2, AlertCircle, Trash2,
-    Image as ImageIcon, FileJson, Info
+    Mail, Send, Users, User, Paperclip, Eye,
+    Loader2, Trash2, Info
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+
+const mono: React.CSSProperties = { fontFamily: "'DM Mono', monospace" };
+
+const FieldLabel = ({ children }: { children: React.ReactNode }) => (
+    <label style={{
+        display: 'block', fontSize: '10px', fontWeight: 800,
+        letterSpacing: '0.12em', textTransform: 'uppercase',
+        color: 'var(--muted-foreground)', ...mono, marginBottom: '8px',
+    }}>{children}</label>
+);
+
+const Chip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
+    <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: '8px',
+        padding: '5px 10px', background: 'var(--foreground)',
+        borderRadius: '6px', fontSize: '11px', fontWeight: 700, color: 'var(--background)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    }}>
+        <Paperclip size={11} />
+        {label.length > 24 ? label.slice(0, 24) + '…' : label}
+        <button onClick={onRemove} style={{
+            background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer',
+            color: 'white', display: 'flex', padding: '2px', borderRadius: '4px',
+        }}><Trash2 size={10} /></button>
+    </div>
+);
 
 export default function Email() {
     const [form, setForm] = useState({
-        subject: "",
-        message: "",
-        user_id: "",
-        attachments: [] as File[]
+        subject: "", message: "", user_id: "", attachments: [] as File[]
     });
     const [sending, setSending] = useState(false);
-    const [tab, setTab] = useState("compose");
+    const [mode, setMode] = useState<'single' | 'broadcast'>('single');
 
     const sendEmail = async (global = false) => {
         if (!form.subject || !form.message) return;
         if (!global && !form.user_id) return;
-
         setSending(true);
         const formData = new FormData();
         formData.append("subject", form.subject);
         formData.append("message", form.message);
         if (form.user_id && !global) formData.append("user_id", form.user_id);
         form.attachments.forEach(file => formData.append("files", file));
-
         const path = global ? "/admin/send-custom-email-to-all" : "/admin/send-custom-email-to-user";
-
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL}${path}`, {
                 method: "POST",
@@ -48,155 +61,240 @@ export default function Email() {
             if (!res.ok) throw new Error();
             alert("Email dispatched successfully!");
             setForm({ subject: "", message: "", user_id: "", attachments: [] });
-        } catch (e) {
-            alert("Failed to send email");
-        } finally {
-            setSending(false);
-        }
+        } catch { alert("Failed to send email."); } finally { setSending(false); }
     };
 
     const addFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            setForm(f => ({ ...f, attachments: [...f.attachments, ...Array.from(e.target.files!)] }));
-        }
+        if (e.target.files) setForm(f => ({ ...f, attachments: [...f.attachments, ...Array.from(e.target.files!)] }));
     };
 
+    const canSend = form.subject && form.message && (mode === 'broadcast' || form.user_id);
+
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div>
-                <h1 className="text-3xl font-black tracking-tight text-foreground">Email Dispatcher</h1>
-                <p className="text-muted-foreground font-medium mt-1">Direct communication with customer base</p>
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontFamily: "'DM Sans', system-ui" }}>
+
+            {/* Header */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'space-between',
+                paddingBottom: '24px',
+                borderBottom: '1px solid var(--border)',
+            }}>
+                <div>
+                    <p style={{
+                        fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em',
+                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
+                        ...mono, marginBottom: '4px',
+                    }}>Communication</p>
+                    <h1 style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
+                        Email Dispatcher
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)', marginLeft: '12px', letterSpacing: 0, ...mono }}>
+                            [MTA SERVICE READY]
+                        </span>
+                    </h1>
+                </div>
+                <div style={{ display: 'flex', background: 'var(--secondary)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <button
+                        onClick={() => setMode('single')}
+                        style={{
+                            padding: '6px 16px', borderRadius: '6px', fontSize: '11px', fontWeight: 800,
+                            textTransform: 'uppercase', letterSpacing: '0.05em', ...mono,
+                            background: mode === 'single' ? 'var(--background)' : 'transparent',
+                            color: mode === 'single' ? 'var(--foreground)' : 'var(--muted-foreground)',
+                            border: mode === 'single' ? '1px solid var(--border)' : '1px solid transparent',
+                            boxShadow: mode === 'single' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                            transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px'
+                        }}
+                    ><User size={13} /> Direct</button>
+                    <button
+                        onClick={() => setMode('broadcast')}
+                        style={{
+                            padding: '6px 16px', borderRadius: '6px', fontSize: '11px', fontWeight: 800,
+                            textTransform: 'uppercase', letterSpacing: '0.05em', ...mono,
+                            background: mode === 'broadcast' ? 'var(--background)' : 'transparent',
+                            color: mode === 'broadcast' ? 'var(--foreground)' : 'var(--muted-foreground)',
+                            border: mode === 'broadcast' ? '1px solid var(--border)' : '1px solid transparent',
+                            boxShadow: mode === 'broadcast' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                            transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px'
+                        }}
+                    ><Users size={13} /> Broadcast</button>
+                </div>
             </div>
 
-            <div className="grid lg:grid-cols-5 gap-8">
-                {/* Editor Side */}
-                <div className="lg:col-span-3 space-y-6">
-                    <Card className="border-border shadow-2xl">
-                        <CardHeader className="bg-secondary/30 border-b">
-                            <CardTitle className="text-lg font-black tracking-tight">Compose Message</CardTitle>
-                            <CardDescription className="text-xs font-semibold uppercase tracking-widest">Construct your professional email outgoing</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-6 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Recipient Target</Label>
-                                    <div className="relative">
-                                        <User size={14} className="absolute left-3 top-3 text-muted-foreground" />
-                                        <Input
-                                            placeholder="User ID (Required for single)"
-                                            value={form.user_id}
-                                            onChange={e => setForm({ ...form, user_id: e.target.value })}
-                                            className="pl-9 h-10 font-bold"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Subject Header</Label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 420px', gap: '32px', alignItems: 'start' }}>
+
+                {/* Composition Terminal */}
+                <div style={{
+                    background: 'var(--card)', border: '1px solid var(--border)',
+                    borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                }}>
+                    <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)/50', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <Mail size={18} />
+                        <div>
+                            <h2 style={{ fontSize: '16px', fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1 }}>Compose Terminal</h2>
+                            <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', ...mono }}>Ready for dispatch</p>
+                        </div>
+                        {mode === 'broadcast' && (
+                            <div style={{ marginLeft: 'auto', padding: '3px 8px', background: '#dc2626', color: 'white', borderRadius: '4px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', ...mono }}>
+                                BROADCAST ACTIVE
+                            </div>
+                        )}
+                    </div>
+
+                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        {mode === 'single' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <FieldLabel>Target Recipient</FieldLabel>
+                                <div style={{ position: 'relative' }}>
+                                    <User size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
                                     <Input
-                                        placeholder="Important Update Regarding Your Order..."
-                                        value={form.subject}
-                                        onChange={e => setForm({ ...form, subject: e.target.value })}
-                                        className="font-bold h-10"
+                                        placeholder="Enter numeric User ID..."
+                                        value={form.user_id}
+                                        onChange={e => setForm({ ...form, user_id: e.target.value })}
+                                        style={{ height: '44px', paddingLeft: '36px', fontWeight: 700, fontSize: '14px', ...mono }}
                                     />
                                 </div>
                             </div>
+                        )}
 
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground">HTML Content Body</Label>
-                                <Textarea
-                                    placeholder="Enter your email message here. Standard HTML tags are supported for formatting."
-                                    value={form.message}
-                                    onChange={e => setForm({ ...form, message: e.target.value })}
-                                    className="min-h-[250px] font-medium leading-relaxed"
-                                />
-                            </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <FieldLabel>Subject Line</FieldLabel>
+                            <Input
+                                placeholder="Formal subject of the communication..."
+                                value={form.subject}
+                                onChange={e => setForm({ ...form, subject: e.target.value })}
+                                style={{ height: '44px', fontWeight: 800, fontSize: '15px' }}
+                            />
+                        </div>
 
-                            <div className="space-y-4">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground">File Attachments</Label>
-                                <div className="flex flex-wrap gap-2">
-                                    {form.attachments.map((file, i) => (
-                                        <Badge key={i} variant="secondary" className="pl-2 pr-1 font-bold h-7 flex items-center gap-2 border border-border">
-                                            <Paperclip size={12} /> {file.name.slice(0, 15)}...
-                                            <Button variant="ghost" size="icon" className="h-4 w-4 rounded-full" onClick={() => setForm(f => ({ ...f, attachments: f.attachments.filter((_, j) => j !== i) }))}>
-                                                <Trash2 size={10} className="text-destructive" />
-                                            </Button>
-                                        </Badge>
-                                    ))}
-                                    <div className="relative">
-                                        <Input
-                                            type="file"
-                                            multiple
-                                            className="absolute inset-0 opacity-0 cursor-pointer"
-                                            onChange={addFiles}
-                                        />
-                                        <Button variant="outline" size="sm" className="font-bold h-7 border-dashed border-2">
-                                            <Paperclip size={12} className="mr-2" /> Attach Files
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                        <CardFooter className="p-6 border-t bg-secondary/10 flex gap-3">
-                            <Button className="flex-1 font-black" onClick={() => sendEmail(false)} disabled={sending || !form.user_id || !form.subject}>
-                                {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                                Send to User
-                            </Button>
-                            <Button variant="outline" className="flex-1 font-black border-2" onClick={() => sendEmail(true)} disabled={sending || !form.subject}>
-                                {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Users className="mr-2 h-4 w-4" />}
-                                Send to Everyone
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <FieldLabel>Message Content (HTML Allowed)</FieldLabel>
+                            <Textarea
+                                placeholder="Write your message here. Basic HTML supported for rich formatting."
+                                value={form.message}
+                                onChange={e => setForm({ ...form, message: e.target.value })}
+                                style={{ minHeight: '320px', fontSize: '14px', fontWeight: 500, lineHeight: 1.6 }}
+                            />
+                        </div>
 
-                {/* Preview Side */}
-                <div className="lg:col-span-2 space-y-6">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                        <Eye size={14} /> Live Preview (External Client Simulation)
-                    </Label>
-                    <Card className="border-border shadow-lg overflow-hidden flex flex-col min-h-[500px] bg-white text-zinc-900 border-zinc-200">
-                        <div className="px-6 py-4 bg-zinc-50 border-b border-zinc-200">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <FieldLabel>Attachments</FieldLabel>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: form.attachments.length > 0 ? '8px' : '0' }}>
+                                {form.attachments.map((file, i) => (
+                                    <Chip key={i} label={file.name} onRemove={() => setForm(f => ({ ...f, attachments: f.attachments.filter((_, j) => j !== i) }))} />
+                                ))}
                             </div>
-                            <div className="flex flex-col gap-1.5 pt-2">
-                                <p className="text-[10px] text-zinc-400 font-bold uppercase">To: <span className="text-zinc-600 italic">customer@bookbind.com</span></p>
-                                <p className="text-[10px] text-zinc-400 font-bold uppercase">From: <span className="text-zinc-600">administrator@bookbind.com</span></p>
-                                <p className="text-sm font-black text-zinc-800 tracking-tight">{form.subject || "No Subject Defined"}</p>
+                            <div style={{ position: 'relative', display: 'inline-flex' }}>
+                                <input type="file" multiple onChange={addFiles} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', zIndex: 10 }} title="" />
+                                <Button variant="outline" style={{ height: '36px', fontWeight: 800, border: '2px dashed var(--border)', ...mono, fontSize: '10px' }}>
+                                    <Paperclip size={12} className="mr-2" /> SELECT FILES
+                                </Button>
                             </div>
                         </div>
-                        <ScrollArea className="flex-1 p-8 bg-white">
-                            <div className="prose prose-sm max-w-none">
-                                {form.message ? (
-                                    <div dangerouslySetInnerHTML={{ __html: form.message.replace(/\n/g, '<br/>') }} className="text-sm font-medium leading-relaxed text-zinc-700" />
-                                ) : (
-                                    <div className="h-40 flex flex-col items-center justify-center gap-4 opacity-10">
-                                        <Mail size={48} />
-                                        <p className="text-xs font-black uppercase tracking-widest text-center px-10">Compose message to reveal content preview</p>
-                                    </div>
-                                )}
+                    </div>
+
+                    <div style={{ padding: '24px', borderTop: '1px solid var(--border)', background: 'var(--secondary)/30' }}>
+                        <Button
+                            onClick={() => sendEmail(mode === 'broadcast')}
+                            disabled={sending || !canSend}
+                            style={{
+                                width: '100%', height: '48px',
+                                background: 'var(--foreground)', color: 'var(--background)',
+                                fontWeight: 900, fontSize: '14px', letterSpacing: '0.05em',
+                            }}
+                        >
+                            {sending ? (
+                                <><Loader2 size={18} className="mr-2 animate-spin" /> DISPATCHING...</>
+                            ) : mode === 'single' ? (
+                                <><Send size={18} className="mr-2" /> DISPATCH TO RECIPIENT</>
+                            ) : (
+                                <><Users size={18} className="mr-2" /> COMMIT GLOBAL BROADCAST</>
+                            )}
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Live Output Preview */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: 'sticky', top: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <p style={{ fontSize: '10px', fontWeight: 800, color: 'var(--muted-foreground)', textTransform: 'uppercase', ...mono }}>Live Render Terminal</p>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff5f57' }} />
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#febc2e' }} />
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#28c840' }} />
+                        </div>
+                    </div>
+
+                    <div style={{
+                        background: 'white', border: '1px solid var(--border)',
+                        borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                        display: 'flex', flexDirection: 'column', minHeight: '600px',
+                    }}>
+                        {/* Headers */}
+                        <div style={{ padding: '24px', borderBottom: '1px solid #eee', background: '#fafafa' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '8px', fontSize: '11px', color: '#666' }}>
+                                    <span style={{ fontWeight: 800, color: '#999', ...mono }}>FROM:</span>
+                                    <span style={{ fontWeight: 600, color: '#111' }}>no-reply@bookbind.in</span>
+
+                                    <span style={{ fontWeight: 800, color: '#999', ...mono }}>TO:</span>
+                                    <span style={{ fontWeight: 800, color: '#2563eb' }}>
+                                        {mode === 'broadcast' ? 'all-active-users@bookbind.in' : form.user_id ? `UserID #${form.user_id}` : '...'}
+                                    </span>
+
+                                    <span style={{ fontWeight: 800, color: '#999', ...mono }}>SUBJECT:</span>
+                                    <span style={{ fontWeight: 900, color: '#000', fontSize: '14px', letterSpacing: '-0.02em' }}>
+                                        {form.subject || 'UNLISTED SUBJECT'}
+                                    </span>
+                                </div>
                             </div>
+                        </div>
+
+                        {/* Body */}
+                        <ScrollArea style={{ flex: 1, padding: '24px', background: '#fff' }}>
+                            {form.message ? (
+                                <div style={{
+                                    fontSize: '14px', lineHeight: 1.7, color: '#333',
+                                    fontFamily: 'serif', whiteSpace: 'pre-wrap'
+                                }}>
+                                    <div dangerouslySetInnerHTML={{ __html: form.message }} />
+                                </div>
+                            ) : (
+                                <div style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
+                                    <Mail size={48} />
+                                    <p style={{ fontSize: '12px', fontWeight: 800, ...mono, marginTop: '12px' }}>AWAITING INPUT</p>
+                                </div>
+                            )}
+
                             {form.attachments.length > 0 && (
-                                <div className="mt-12 pt-6 border-t border-zinc-100">
-                                    <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-3">Attachments ({form.attachments.length})</p>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {form.attachments.map((file, i) => (
-                                            <div key={i} className="flex items-center gap-2 p-2 rounded bg-zinc-50 border border-zinc-200">
-                                                <FileJson size={14} className="text-zinc-400" />
-                                                <span className="text-[10px] font-bold text-zinc-600 truncate">{file.name}</span>
+                                <div style={{ marginTop: '32px', paddingTop: '20px', borderTop: '2px solid #f0f0f0' }}>
+                                    <p style={{ fontSize: '10px', fontWeight: 900, color: '#999', ...mono, marginBottom: '12px' }}>MANIFESTED ATTACHMENTS ({form.attachments.length})</p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {form.attachments.map((f, i) => (
+                                            <div key={i} style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #eee', background: '#fcfcfc', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Paperclip size={12} style={{ color: '#aaa' }} />
+                                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#444' }}>{f.name}</span>
+                                                <span style={{ marginLeft: 'auto', fontSize: '9px', fontWeight: 700, color: '#ccc', ...mono }}>{(f.size / 1024).toFixed(1)} KB</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
                         </ScrollArea>
-                    </Card>
-                    <div className="p-4 rounded-xl border-border bg-secondary/50 flex gap-3">
-                        <Info size={16} className="text-zinc-600 shrink-0 mt-0.5" />
-                        <p className="text-[10px] font-bold text-muted-foreground leading-normal uppercase">
-                            You can use HTML tags like <b>&lt;b&gt;</b>, <i>&lt;i&gt;</i>, and lists for professional formatting. Custom CSS is not supported in most email clients.
+
+                        {/* Footer */}
+                        <div style={{ padding: '20px', borderTop: '1px solid #f0f0f0', background: '#fafafa', textAlign: 'center' }}>
+                            <p style={{ fontSize: '9px', fontWeight: 800, color: '#bbb', ...mono, letterSpacing: '0.1em' }}>
+                                © 2026 BOOKBIND AUTOMATED DISPATCH SERVICE
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style={{ padding: '16px', background: 'var(--secondary)/30', border: '1px solid var(--border)', borderRadius: '12px', display: 'flex', gap: '12px' }}>
+                        <Info size={16} className="text-muted-foreground shrink-0 mt-0.5" />
+                        <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
+                            The live render terminal uses standard serif fonts to simulate common email client interpretation. Use inline styles for cross-client reliability.
                         </p>
                     </div>
                 </div>
