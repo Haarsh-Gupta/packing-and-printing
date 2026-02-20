@@ -60,6 +60,7 @@ class UserUpdate(BaseModel):
 
 class UserOut(UserBase):
     id: int
+    admin: bool = False
     phone : Optional[str] = None
     profile_picture: Optional[str] = None
     created_at: datetime
