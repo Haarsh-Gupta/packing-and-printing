@@ -1,24 +1,13 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, PenTool, LayoutTemplate, MonitorPlay, Layers } from "lucide-react";
+import { ArrowRight, Package, Layers } from "lucide-react";
+import { ServiceItem } from "@/types/service";
+import { ServiceCard } from "@/components/services/ServiceCard";
 
-// Define the shape based on your FastAPI schema
-interface ServiceItem {
-    id: number | string;
-    name: string;
-    description: string;
-    base_price: number;
-    images?: string[]; // Updated to match backend schema
-}
-
-// Fetch the services dynamically from your backend
 async function getServices(): Promise<ServiceItem[]> {
     try {
-        // Adjust this endpoint based on how your FastAPI backend filters products vs services
-        // Example: /products?type=service OR /services
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?type=service`, {
-            next: { revalidate: 3600 } // Revalidate cache every hour
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services/`, {
+            next: { revalidate: 3600 }
         });
 
         if (!res.ok) return [];
@@ -32,82 +21,66 @@ async function getServices(): Promise<ServiceItem[]> {
 export default async function ServicesCatalogPage() {
     const services = await getServices();
 
-    // A helper function to assign random icons to dynamic services if no image is provided
-    const getIconForIndex = (index: number) => {
-        const icons = [
-            <PenTool key="1" className="h-10 w-10 mb-4 text-black" />,
-            <LayoutTemplate key="2" className="h-10 w-10 mb-4 text-black" />,
-            <MonitorPlay key="3" className="h-10 w-10 mb-4 text-black" />,
-            <Layers key="4" className="h-10 w-10 mb-4 text-black" />
-        ];
-        return icons[index % icons.length];
-    };
-
     return (
-        <div className="min-h-screen bg-slate-50 py-16 px-4">
-            <div className="max-w-7xl mx-auto space-y-12">
+        <div className="min-h-screen bg-white relative overflow-hidden">
+            {/* Background Decorative Pattern */}
+            <div className="absolute inset-0 z-0 opacity-40 pointer-events-none bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] bg-size-[24px_24px]"></div>
 
-                {/* Page Header */}
-                <div className="space-y-4 max-w-2xl">
-                    <h1 className="text-5xl font-black tracking-tighter uppercase text-black">
-                        Professional <span className="text-zinc-400">Services</span>
-                    </h1>
-                    <p className="text-xl text-zinc-600">
-                        Need help before we hit print? Book our specialized services including pre-press formatting, custom structural design, and 3D mockups.
-                    </p>
+            <div className="max-w-7xl mx-auto px-4 py-20 relative z-10">
+                {/* Energetic Page Header */}
+                <div className="relative mb-10">
+                    <div className="inline-block bg-[#ff90e8] border-4 border-black px-4 py-2 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] -rotate-1 mb-6">
+                        <span className="text-sm font-black uppercase tracking-[0.2em]">Our Expertise</span>
+                    </div>
+                    <div className="space-y-4 max-w-4xl">
+                        <h1 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none text-black">
+                            Service <span className="text-[#90e8ff]">Perfected</span>
+                        </h1>
+                        <p className="text-lg md:text-xl font-bold text-zinc-600 leading-tight border-l-8 border-black pl-6 py-1">
+                            Professional design and structural prototyping for premium packaging.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Section Divider */}
+                <div className="flex items-center gap-4 mb-12">
+                    <div className="h-4 w-4 rounded-full bg-black"></div>
+                    <div className="h-[2px] flex-1 bg-black"></div>
+                    <span className="font-black uppercase tracking-widest text-xs">Consultancy & Design</span>
                 </div>
 
                 {services.length === 0 ? (
-                    <div className="border-2 border-dashed border-black p-12 text-center bg-zinc-50">
-                        <h3 className="text-xl font-bold">No services available right now</h3>
-                        <p className="text-zinc-500">Please check back later or contact support.</p>
+                    <div className="col-span-full text-center py-20 bg-zinc-50 border-4 border-dashed border-black">
+                        <Layers className="w-16 h-16 mx-auto text-zinc-300 mb-4" />
+                        <h3 className="text-2xl font-bold uppercase">No services available right now</h3>
+                        <p className="text-zinc-500">Our team is updating our service catalog. Please check back later.</p>
                     </div>
                 ) : (
-                    /* Services Grid */
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {services.map((service, index) => (
-                            <Card
-                                key={service.id}
-                                className="flex flex-col border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 bg-white rounded-md"
-                            >
-                                <CardHeader>
-                                    {/* Show image if exists in DB, otherwise show a dynamic icon */}
-                                    {service.images && service.images.length > 0 ? (
-                                        <div className="w-full h-48 border-2 border-black mb-4 overflow-hidden bg-zinc-100 rounded-md">
-                                            <img src={service.images[0]} alt={service.name} className="w-full h-full object-cover" />
-                                        </div>
-                                    ) : (
-                                        getIconForIndex(index)
-                                    )}
-
-                                    <CardTitle className="text-2xl font-bold uppercase">{service.name}</CardTitle>
-                                    <CardDescription className="text-base text-zinc-600 line-clamp-3">
-                                        {service.description}
-                                    </CardDescription>
-                                </CardHeader>
-
-                                <CardContent className="flex-grow">
-                                    <div className="inline-block bg-zinc-100 px-3 py-1 border-2 border-black text-sm font-bold mt-2 rounded-md">
-                                        Starts at ₹{service.base_price.toLocaleString()}
-                                    </div>
-                                </CardContent>
-
-                                <CardFooter>
-                                    <Button
-                                        className="w-full bg-black text-white hover:bg-zinc-800 text-lg h-12 rounded-md border-2 border-black"
-                                        asChild
-                                    >
-                                        {/* Routes to the dynamic detail page where they can fill out the JSON schema form */}
-                                        <Link href={`/services/${service.id}`}>
-                                            Configure Request <ArrowRight className="ml-2 h-5 w-5" />
-                                        </Link>
-                                    </Button>
-                                </CardFooter>
-                            </Card>
+                    <div className="grid md:grid-cols-2 gap-10">
+                        {services.map((service) => (
+                            <ServiceCard key={service.id} service={service} />
                         ))}
                     </div>
                 )}
 
+                {/* High Impact Call-to-Action */}
+                <div className="mt-24 relative">
+                    <div className="absolute inset-0 bg-[#4be794] border-4 border-black translate-x-3 translate-y-3 z-0"></div>
+                    <div className="relative bg-white border-4 border-black p-10 md:p-16 z-10 flex flex-col md:flex-row items-center justify-between gap-10">
+                        <div className="space-y-4 max-w-xl">
+                            <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter leading-none">
+                                Custom <br />
+                                <span className="underline decoration-[#ff90e8] decoration-8 underline-offset-4">Engineering?</span>
+                            </h2>
+                            <p className="text-lg font-bold text-zinc-600">
+                                Can't find exactly what you're looking for? Our master binders handle bespoke requests every day. Talk to our studio directly.
+                            </p>
+                        </div>
+                        <Button size="lg" className="bg-black text-white hover:bg-[#ff90e8] hover:text-black border-4 border-black shadow-[8px_8px_0px_0px_rgba(255,144,232,1)] hover:shadow-none transition-all text-xl h-20 px-12 font-black uppercase shrink-0" asChild>
+                            <Link href="/#contact">Contact Studio <ArrowRight className="ml-4 h-8 w-8" /></Link>
+                        </Button>
+                    </div>
+                </div>
             </div>
         </div>
     );

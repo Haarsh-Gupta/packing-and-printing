@@ -1,14 +1,27 @@
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { AlertProvider } from "@/components/CustomAlert";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const bgColor = process.env.NEXT_PUBLIC_SITE_BG_COLOR || "#f8fafc";
+
   return (
     <html lang="en">
-      <body className="flex flex-col min-h-screen bg-slate-50" suppressHydrationWarning>
-        <Header />
-        <main className="flex-grow">{children}</main>
-        <Footer />
+      <body
+        className="flex flex-col min-h-screen"
+        style={{
+          backgroundColor: bgColor,
+          // @ts-ignore
+          "--site-bg": bgColor
+        } as React.CSSProperties}
+        suppressHydrationWarning
+      >
+        <AlertProvider>
+          <Header />
+          <main className="flex-grow">{children}</main>
+          <Footer />
+        </AlertProvider>
       </body>
     </html>
   );

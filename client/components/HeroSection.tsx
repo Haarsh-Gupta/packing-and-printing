@@ -4,7 +4,12 @@ import { ArrowRight, Star, Truck } from "lucide-react";
 
 export default function HeroSection() {
     return (
-        <section className="relative bg-white overflow-hidden border-b-2 border-black bg-[repeating-linear-gradient(45deg,#d2d9f7_0px,#d2d9f7_10px,#ffffff_10px,#ffffff_20px)]">
+        <section
+            className="relative overflow-hidden border-b-2 border-black"
+            style={{
+                backgroundColor: 'var(--site-bg, #ffffff)'
+            }}
+        >
             {/* Background Graphic Element - Large Text */}
             <div className="absolute -top-20 -right-20 select-none pointer-events-none opacity-20">
                 <span className="text-[30rem] font-black leading-none text-white mix-blend-overlay">PRINT</span>
@@ -28,8 +33,9 @@ export default function HeroSection() {
                         From custom packaging to intricate binding, we bring your vision to life with precision and style. Simple pricing, fast delivery.
                     </p>
 
+
                     <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                        <Button size="lg" className="bg-[#4be794] text-black h-16 px-8 text-xl font-bold rounded-none border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all" asChild>
+                        <Button size="lg" className="bg-[#4be794] text-black h-16 px-8 text-xl font-bold rounded-none border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:bg-[#4be794] transition-all" asChild>
                             <Link href="/products">
                                 Start Printing <ArrowRight className="ml-3 w-6 h-6" />
                             </Link>

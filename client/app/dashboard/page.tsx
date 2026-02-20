@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { Card } from "@/components/ui/card";
+import { DashboardSkeleton } from "./DashboardSkeleton";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut, Package, FileText, Settings, LayoutDashboard } from "lucide-react";
+import { Loader2, Package, FileText, ArrowUpRight, ShoppingBag, Truck, Bell, MessageSquare, Settings, ChevronRight } from "lucide-react";
 
-interface User {
+interface UserData {
   id: number;
   name: string;
   email: string;
@@ -14,158 +16,174 @@ interface User {
   profile_picture: string | null;
 }
 
+interface Stats {
+  totalOrders: number;
+  pendingInquiries: number;
+  inTransit: number;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
+  const [stats, setStats] = useState<Stats>({ totalOrders: 0, pendingInquiries: 0, inTransit: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchAll = async () => {
       const token = localStorage.getItem("access_token");
-
-      if (!token) {
-        router.replace("/login");
-        return;
-      }
+      if (!token) { router.replace("/auth/login"); return; }
 
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
+        const [userRes, ordersRes, inquiriesRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+
+        if (userRes.status === 401) {
+          localStorage.removeItem("access_token");
+          router.replace("/auth/login");
+          return;
+        }
+
+        if (userRes.ok) setUser(await userRes.json());
+
+        let ordersData: any[] = [];
+        let inquiriesData: any[] = [];
+        if (ordersRes.ok) ordersData = await ordersRes.json();
+        if (inquiriesRes.ok) inquiriesData = await inquiriesRes.json();
+
+        setStats({
+          totalOrders: ordersData.length,
+          pendingInquiries: inquiriesData.filter((i: any) => i.status === "PENDING").length,
+          inTransit: ordersData.filter((o: any) => o.status === "SHIPPED" || o.status === "IN_PRODUCTION").length,
         });
-
-        if (!res.ok) throw new Error("Session expired");
-
-        const data = await res.json();
-        setUser(data);
-      } catch (error: any) {
+      } catch (error) {
         console.error("Dashboard fetch error:", error);
-        // localStorage.removeItem("access_token");
-        // router.replace("/login");
-        alert("Failed to load dashboard: " + error.message);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchUser();
+    fetchAll();
   }, [router]);
 
-  const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-    } finally {
-      localStorage.removeItem("access_token");
-      router.replace("/login");
-    }
-  };
+  if (isLoading) return <DashboardSkeleton />;
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-black" />
-      </div>
-    );
-  }
-
-  // THE AVATAR LOGIC:
-  // Use the Google picture if it exists. Otherwise, generate a Notion face using their name!
   const avatarUrl = user?.profile_picture
     ? user.profile_picture
-    : `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(user?.name || "")}&backgroundColor=ffffff`;
+    : `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(user?.name || "")}&backgroundColor=fdf567`;
+
+  const statCards = [
+    {
+      label: "Total Orders",
+      value: stats.totalOrders,
+      icon: ShoppingBag,
+      bg: "bg-[#90e8ff]",
+      href: "/dashboard/orders",
+    },
+    {
+      label: "Pending Quotes",
+      value: stats.pendingInquiries,
+      icon: FileText,
+      bg: "bg-[#ff90e8]",
+      href: "/dashboard/inquiries",
+    },
+    {
+      label: "In Transit",
+      value: stats.inTransit,
+      icon: Truck,
+      bg: "bg-[#fdf567]",
+      href: "/dashboard/orders",
+    },
+  ];
+
+  const quickLinks = [
+    { label: "Browse Products", href: "/products", icon: Package },
+    { label: "My Inquiries", href: "/dashboard/inquiries", icon: MessageSquare },
+    { label: "Support Tickets", href: "/dashboard/support", icon: Bell },
+    { label: "Settings", href: "/dashboard/settings", icon: Settings },
+  ];
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="p-8 md:p-12 space-y-12 bg-white min-h-screen">
 
-      {/* Sidebar Navigation */}
-      <aside className="w-64 border-r-2 border-black bg-white p-6 hidden md:flex flex-col">
-        <div className="font-bold text-2xl mb-8 tracking-tighter">PrintPack.</div>
-        <nav className="space-y-2 flex-1">
-          <Button variant="secondary" className="w-full justify-start bg-zinc-100 hover:bg-zinc-200 text-black">
-            <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+      {/* Header Section */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-4 border-black pb-8">
+        <div>
+          <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-2">
+            Hello, <span className="text-zinc-400 decoration-4 underline decoration-[#fdf567] underline-offset-8">{user?.name?.split(' ')[0]}</span>
+          </h1>
+          <p className="text-xl font-bold text-zinc-500 max-w-xl leading-relaxed">
+            Ready to bring your ideas to life? Manage your orders, track shipments, and update your profile here.
+          </p>
+        </div>
+        <div className="flex gap-4">
+          <Button asChild className="h-14 px-8 text-lg font-black uppercase border-4 border-black bg-[#fdf567] text-black hover:bg-black hover:text-white hover:border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all rounded-none">
+            <Link href="/products">
+              <Package className="mr-3 h-5 w-5" /> New Order
+            </Link>
           </Button>
-          <Button variant="ghost" className="w-full justify-start hover:bg-zinc-100">
-            <Package className="mr-2 h-4 w-4" /> My Orders
-          </Button>
-          <Button variant="ghost" className="w-full justify-start hover:bg-zinc-100">
-            <FileText className="mr-2 h-4 w-4" /> Invoices
-          </Button>
-          <Button variant="ghost" className="w-full justify-start hover:bg-zinc-100">
-            <Settings className="mr-2 h-4 w-4" /> Settings
-          </Button>
-        </nav>
-        <Button variant="outline" className="w-full justify-start border-2 border-black text-red-600 hover:bg-red-50" onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" /> Logout
-        </Button>
-      </aside>
+        </div>
+      </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-8">
-        <div className="max-w-4xl mx-auto space-y-8">
-
-          <header className="flex justify-between items-end">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Welcome back, {user?.name?.split(' ')[0]}</h1>
-              <p className="text-zinc-500 mt-1">Manage your printing orders and packaging details.</p>
+      {/* Live Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {statCards.map(({ label, value, icon: Icon, bg, href }) => (
+          <Link key={label} href={href}>
+            <div className={`${bg} border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer group`}>
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-black text-white border-2 border-black">
+                  <Icon className="h-6 w-6" />
+                </div>
+                <ArrowUpRight className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <h3 className="text-5xl font-black mb-1">{value}</h3>
+              <p className="font-bold text-lg uppercase tracking-wider">{label}</p>
             </div>
-          </header>
+          </Link>
+        ))}
+      </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+      {/* Main Content Split */}
+      <div className="grid md:grid-cols-3 gap-8">
 
-            {/* Profile Card */}
-            <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-              <CardHeader>
-                <CardTitle>Profile Details</CardTitle>
-                <CardDescription>Your personal information</CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-center gap-6">
-                <div className="h-24 w-24 rounded-full border-2 border-black bg-white flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
-                  <img
-                    src={avatarUrl}
-                    alt="Profile Avatar"
-                    className="h-full w-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+        {/* Quick Actions */}
+        <div className="md:col-span-2 border-4 border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white">
+          <div className="flex justify-between items-center mb-6 border-b-4 border-zinc-100 pb-4">
+            <h2 className="text-2xl font-black uppercase tracking-tight">Quick Links</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {quickLinks.map(({ label, href, icon: Icon }) => (
+              <Link key={label} href={href}>
+                <div className="flex items-center justify-between p-4 border-2 border-black bg-zinc-50 hover:bg-[#fdf567] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all group">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-black text-white">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <span className="font-black uppercase tracking-tight text-lg">{label}</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-                <div className="space-y-1">
-                  <h2 className="text-xl font-semibold">{user?.name}</h2>
-                  <p className="text-zinc-600">{user?.email}</p>
-                  <p className="text-sm text-zinc-500 font-mono mt-2">
-                    {user?.phone ? `Phone: ${user.phone}` : "No phone number added"}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Stats / Action Card */}
-            <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between">
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Overview of your printing account</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center py-2 border-b border-zinc-200">
-                  <span className="text-zinc-600">Active Orders</span>
-                  <span className="font-bold text-lg">0</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-zinc-200">
-                  <span className="text-zinc-600">Pending Invoices</span>
-                  <span className="font-bold text-lg">0</span>
-                </div>
-                <Button className="w-full mt-4 bg-black text-white hover:bg-zinc-800">
-                  <Package className="mr-2 h-4 w-4" /> Start New Order
-                </Button>
-              </CardContent>
-            </Card>
-
+              </Link>
+            ))}
           </div>
         </div>
-      </main>
+
+        {/* User Card */}
+        <div className="md:col-span-1 border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white text-center">
+          <div className="h-32 w-32 mx-auto border-4 border-black rounded-full overflow-hidden mb-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <img src={avatarUrl} className="h-full w-full object-cover" alt="User Avatar" />
+          </div>
+          <h3 className="text-xl font-black uppercase">{user?.name}</h3>
+          <p className="text-zinc-500 font-medium mb-2">{user?.email}</p>
+          {user?.phone && <p className="text-zinc-500 font-medium mb-6">{user?.phone}</p>}
+          <Button asChild variant="outline" className="w-full font-black border-2 border-black hover:bg-zinc-100 rounded-none h-12 mt-4">
+            <Link href="/dashboard/settings">Edit Profile</Link>
+          </Button>
+        </div>
+
+      </div>
     </div>
   );
 }

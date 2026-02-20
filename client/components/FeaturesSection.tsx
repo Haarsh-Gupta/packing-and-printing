@@ -36,9 +36,12 @@ const features = [
 
 export default function FeaturesSection() {
   return (
-    <section className="py-24 px-4 bg-slate-50 border-t-2 border-black">
+    <section
+      className="py-24 px-4 border-t-2 border-black"
+      style={{ backgroundColor: 'var(--site-bg, #f8fafc)' }}
+    >
       <div className="max-w-7xl mx-auto">
-        
+
         {/* Section Header matching the image style */}
         <div className="mb-12">
           <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-4 text-black">
@@ -54,11 +57,11 @@ export default function FeaturesSection() {
           {features.map((feature) => (
             <Link key={feature.id} href={feature.href} className="group">
               <Card className="h-full border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all overflow-hidden rounded-none bg-white">
-                
+
                 {/* Image Container */}
                 <div className="aspect-[4/3] sm:aspect-[21/9] md:aspect-[16/9] w-full border-b-2 border-black overflow-hidden relative">
-                   <img 
-                    src={feature.image} 
+                  <img
+                    src={feature.image}
                     alt={feature.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
@@ -74,10 +77,10 @@ export default function FeaturesSection() {
                       {feature.description}
                     </p>
                   </div>
-                  
+
                   {/* Arrow Icon that rotates on hover */}
                   <div className="bg-zinc-100 border-2 border-black p-3 shrink-0 group-hover:bg-black group-hover:text-white transition-colors duration-300">
-                     <ArrowUpRight className="h-6 w-6 group-hover:rotate-45 transition-transform" />
+                    <ArrowUpRight className="h-6 w-6 group-hover:rotate-45 transition-transform" />
                   </div>
                 </CardContent>
 

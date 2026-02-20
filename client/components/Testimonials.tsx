@@ -30,7 +30,10 @@ const testimonials = [
 
 export default function Testimonials() {
     return (
-        <section className="py-24 px-4 bg-[#d2d9f7] border-t-2 border-black">
+        <section
+            className="py-24 px-4 border-t-2 border-black"
+            style={{ backgroundColor: 'var(--site-bg, #d2d9f7)' }}
+        >
             <div className="max-w-7xl mx-auto space-y-16">
 
                 {/* Section Header */}

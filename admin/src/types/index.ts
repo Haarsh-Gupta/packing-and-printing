@@ -1,0 +1,227 @@
+// ============ Auth ============
+export interface LoginPayload {
+    email: string;
+    password: string;
+}
+
+export interface AuthUser {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+    admin: boolean;
+    avatar_url?: string;
+    profile_picture?: string;
+    created_at: string;
+}
+
+// ============ Dashboard ============
+export interface DashboardOverview {
+    total_users: number;
+    total_orders: number;
+    total_revenue: number;
+    total_inquiries: number;
+    total_products: number;
+    total_services: number;
+    daily_orders: { date: string; count: number }[];
+    order_pipeline: Record<string, number>;
+    recent_activity: ActivityItem[];
+}
+
+export interface RevenueData {
+    total_billed: number;
+    total_collected: number;
+    total_pending: number;
+    payment_modes: Record<string, number>;
+    daily_trend: { date: string; amount: number }[];
+    top_unpaid: { order_id: number; amount: number; user_email: string }[];
+}
+
+export interface OrderStats {
+    status_breakdown: Record<string, number>;
+    avg_order_value: number;
+    daily_trend: { date: string; count: number }[];
+}
+
+export interface InquiryStats {
+    status_breakdown: Record<string, number>;
+    conversion_rate: number;
+    popular_products: { name: string; count: number }[];
+}
+
+export interface UserStats {
+    total: number;
+    new_signups: number;
+    trend: { date: string; count: number }[];
+    top_spenders: { name: string; total: number }[];
+}
+
+export interface ActivityItem {
+    type: string;
+    description: string;
+    timestamp: string;
+    metadata?: Record<string, unknown>;
+}
+
+// ============ Orders ============
+export interface Transaction {
+    id: number;
+    order_id: number;
+    amount: number;
+    payment_mode: string;
+    created_at: string;
+    notes?: string;
+    gateway_payment_id?: string;
+}
+
+export interface Order {
+    id: number;
+    inquiry_id: number;
+    user_id: number;
+    total_amount: number;
+    amount_paid: number;
+    status: string;
+    product_name?: string;
+    payment_id?: string;
+    created_at: string;
+    updated_at: string;
+    transactions?: Transaction[];
+}
+
+// ============ Inquiries ============
+export interface InquiryMessage {
+    id: number;
+    inquiry_id: number;
+    sender_id: number;
+    message: string;
+    is_admin: boolean;
+    created_at: string;
+}
+
+export interface Inquiry {
+    id: number;
+    user_id: number;
+    template_id?: number;
+    product_id?: number;
+    service_id?: number;
+    variant_id?: number;
+    quantity: number;
+    selected_options: Record<string, unknown>;
+    requirements?: Record<string, unknown>;
+    notes?: string;
+    status: string;
+    template_name?: string;
+    service_name?: string;
+    variant_name?: string;
+    images?: string[];
+    quoted_price?: number;
+    admin_notes?: string;
+    quoted_at?: string;
+    created_at: string;
+    updated_at: string;
+    messages: InquiryMessage[];
+}
+
+// ============ Products ============
+export interface ProductOption {
+    label: string;
+    value: string;
+    price_mod: number;
+}
+
+export interface FormSection {
+    key: string;
+    label: string;
+    type: "dropdown" | "radio" | "number_input" | "text_input";
+    options?: ProductOption[];
+    min_val?: number;
+    max_val?: number;
+    price_per_unit?: number;
+}
+
+export interface Product {
+    id: number;
+    slug: string;
+    name: string;
+    type: string;
+    base_price: number;
+    minimum_quantity: number;
+    images?: string[];
+    is_active: boolean;
+    config_schema: { sections: FormSection[] };
+}
+
+// ============ Services ============
+export interface ServiceVariant {
+    id: number;
+    service_id: number;
+    name: string;
+    slug: string;
+    base_price: number;
+    price_per_unit: number;
+    description?: string;
+}
+
+export interface Service {
+    id: number;
+    name: string;
+    slug: string;
+    is_active: boolean;
+    variants: ServiceVariant[];
+}
+
+// ============ Users ============
+export interface User {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+    admin: boolean;
+    avatar_url?: string;
+    created_at?: string;
+}
+
+// ============ Tickets ============
+export interface TicketMessage {
+    id: number;
+    ticket_id: number;
+    sender_id: number;
+    message: string;
+    is_admin: boolean;
+    is_read: boolean;
+    created_at: string;
+}
+
+export interface Ticket {
+    id: number;
+    user_id: number;
+    subject: string;
+    description: string;
+    priority: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+    messages?: TicketMessage[];
+}
+
+// ============ Notifications ============
+export interface Notification {
+    id: number;
+    user_id: number;
+    title: string;
+    message: string;
+    is_read: boolean;
+    created_at: string;
+}
+
+// ============ Reviews ============
+export interface Review {
+    id: number;
+    user_id: number;
+    product_id: number;
+    rating: number;
+    comment: string;
+    is_verified: boolean;
+    created_at: string;
+    user?: { name: string; avatar_url?: string };
+}

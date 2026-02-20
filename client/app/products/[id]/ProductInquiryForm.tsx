@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, UploadCloud } from "lucide-react";
+import { useAlert } from "@/components/CustomAlert";
 
 // Types based on your FastAPI JSON schema
 interface Option {
@@ -26,6 +28,7 @@ interface SchemaSection {
 }
 
 interface ProductSchema {
+    id: number;
     name: string;
     base_price: number;
     minimum_quantity: number;
@@ -35,6 +38,7 @@ interface ProductSchema {
 }
 
 export default function ProductInquiryForm({ product }: { product: ProductSchema }) {
+    const { showAlert } = useAlert();
     const [isLoading, setIsLoading] = useState(false);
     const [quantity, setQuantity] = useState<number>(product.minimum_quantity);
 
@@ -87,23 +91,50 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         };
     }, [answers, quantity, product]);
 
+    const router = useRouter();
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
 
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+            showAlert("Please login to submit an inquiry.", "error");
+            router.push("/auth/login");
+            return;
+        }
+
         const payload = {
-            product_name: product.name,
-            quantity,
-            configuration: answers,
-            estimated_total: totalPrice,
+            template_id: product.id,
+            quantity: quantity,
+            selected_options: answers,
+            notes: "Custom request via website", // You could add a notes field
+            status: "PENDING"
         };
 
-        console.log("Submitting Inquiry:", payload);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/create`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
 
-        setTimeout(() => {
+            if (res.ok) {
+                showAlert("Inquiry submitted successfully!", "success");
+                router.push("/dashboard/inquiries");
+            } else {
+                const err = await res.json();
+                showAlert(`Submission failed: ${err.detail || "Unknown error"}`, "error");
+                setIsLoading(false);
+            }
+        } catch (error) {
+            console.error("Submission error:", error);
+            showAlert("Network error. Please try again.", "error");
             setIsLoading(false);
-            alert("Inquiry submitted successfully!");
-        }, 1500);
+        }
     };
 
     return (
@@ -157,8 +188,8 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                                             className={`
                         relative flex items-center justify-between p-4 border-2 border-black cursor-pointer transition-all rounded-md
                         ${isSelected
-                                                    ? "bg-[#4be794] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1"
-                                                    : "bg-white hover:bg-zinc-50"
+                                                    ? "bg-zinc-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1"
+                                                    : "bg-white hover:bg-zinc-100"
                                                 }
                       `}
                                         >
@@ -220,9 +251,12 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
             {/* Sticky Price Summary Footer */}
             <div className="sticky bottom-0 bg-white border-t-4 border-black pt-6 pb-2 mt-8 flex flex-col gap-4 z-10">
                 <div className="flex justify-between items-end">
-                    <div className="space-y-1">
-                        <p className="text-zinc-500 font-medium">Price per unit: <span className="text-black font-bold">₹{unitPrice.toFixed(2)}</span></p>
-                        <p className="text-3xl font-black">Total: ₹{totalPrice.toLocaleString()}</p>
+                    <div className="flex flex-col gap-1">
+                        <span className="text-xs uppercase font-black text-zinc-500 tracking-widest leading-none">Estimated Total</span>
+                        <span className="text-3xl font-black tracking-tighter">₹{totalPrice.toLocaleString()}</span>
+                        {/* <div className="inline-flex items-baseline gap-1 bg-[#fdf567] px-4 py-1 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -rotate-1 self-start">
+                        </div> */}
+                        <p className="text-zinc-500 text-sm font-medium mt-1">Unit Price: <span className="text-black font-bold">₹{unitPrice.toFixed(2)}</span></p>
                     </div>
                 </div>
 
