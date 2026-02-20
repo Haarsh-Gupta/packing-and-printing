@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float , DateTime , func
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float , DateTime , func 
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -17,7 +17,7 @@ class ServiceVariant(Base):
     __tablename__ = "service_variants"
 
     id = Column(Integer, primary_key=True, index=True)
-    service_id = Column(Integer, ForeignKey("services.id")) 
+    service_id = Column(Integer, ForeignKey("services.id", ondelete="CASCADE")) 
     name = Column(String, nullable=False) 
     base_price = Column(Float, default=0.0)       
     price_per_unit = Column(Float, default=0.0)

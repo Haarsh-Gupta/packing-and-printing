@@ -38,6 +38,7 @@ class ProductConfigSchema(BaseModel):
 class ProductTemplateCreate(BaseModel):
     slug: Optional[str] = None
     name: str
+    type: str = "product" # default to product
     base_price: float = Field(..., ge=0)
     minimum_quantity: Optional[int] = Field(..., ge=1)
     images : Optional[List[str]] = None

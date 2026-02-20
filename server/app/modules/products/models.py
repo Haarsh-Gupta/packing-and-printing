@@ -15,6 +15,9 @@ class ProductTemplate(Base):
     minimum_quantity = Column(Integer , nullable = False)
     is_active = Column(Boolean , nullable = False , default = True)
     
+    # New field: 'product' or 'service'
+    type = Column(String, default="product", nullable=False)
+    
     config_schema = Column(JSONB , nullable = False)
 
     created_at = Column(DateTime(timezone = True) , server_default=func.now())

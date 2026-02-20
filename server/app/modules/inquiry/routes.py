@@ -2,19 +2,23 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from ..auth.auth import get_current_user, get_current_admin_user
+from ..auth.schemas import TokenData
 from ..users.models import User
 from ..products.models import ProductTemplate
-from .models import Inquiry
+from .models import Inquiry, InquiryMessage
 from .schemas import (
     InquiryCreate,
     InquiryUpdate,
     InquiryQuotation,
     InquiryStatusUpdate,
     InquiryResponse,
-    InquiryListResponse
+    InquiryListResponse,
+    InquiryMessageCreate,
+    InquiryMessageResponse
 )
 
 
@@ -26,7 +30,7 @@ router = APIRouter()
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=InquiryResponse)
 async def create_inquiry(
     inquiry: InquiryCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -67,11 +71,78 @@ async def create_inquiry(
     return new_inquiry
 
 
+@router.get("/my/{inquiry_id}/messages", response_model=list[InquiryMessageResponse])
+async def get_inquiry_messages(
+    inquiry_id: int,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all messages for a specific inquiry.
+    """
+    # Verify ownership
+    stmt = select(Inquiry).where(
+        Inquiry.id == inquiry_id,
+        Inquiry.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    inquiry = result.scalar_one_or_none()
+
+    if not inquiry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inquiry not found"
+        )
+
+    # Fetch messages
+    msg_stmt = select(InquiryMessage).where(InquiryMessage.inquiry_id == inquiry_id).order_by(InquiryMessage.created_at)
+    msg_result = await db.execute(msg_stmt)
+    return msg_result.scalars().all()
+
+
+@router.post("/my/{inquiry_id}/messages", response_model=InquiryMessageResponse)
+async def send_inquiry_message(
+    inquiry_id: int,
+    message: InquiryMessageCreate,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Send a message in an inquiry thread.
+    """
+    # Verify ownership
+    stmt = select(Inquiry).where(
+        Inquiry.id == inquiry_id,
+        Inquiry.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    inquiry = result.scalar_one_or_none()
+
+    if not inquiry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inquiry not found"
+        )
+
+    new_message = InquiryMessage(
+        inquiry_id=inquiry_id,
+        sender_id=current_user.id,
+        content=message.content,
+        file_urls=message.file_urls
+    )
+
+    db.add(new_message)
+    await db.commit()
+    await db.refresh(new_message)
+
+    return new_message
+
+
 @router.get("/my", response_model=list[InquiryListResponse])
 async def get_my_inquiries(
     skip: int = 0,
     limit: int = 20,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -91,13 +162,13 @@ async def get_my_inquiries(
 @router.get("/my/{inquiry_id}", response_model=InquiryResponse)
 async def get_my_inquiry(
     inquiry_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get a specific inquiry by ID (only if owned by current user).
     """
-    stmt = select(Inquiry).where(
+    stmt = select(Inquiry).options(selectinload(Inquiry.messages)).where(
         Inquiry.id == inquiry_id,
         Inquiry.user_id == current_user.id
     )
@@ -117,13 +188,13 @@ async def get_my_inquiry(
 async def update_my_inquiry(
     inquiry_id: int,
     inquiry_update: InquiryUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Update an inquiry (only if PENDING status).
     """
-    stmt = select(Inquiry).where(
+    stmt = select(Inquiry).options(selectinload(Inquiry.messages)).where(
         Inquiry.id == inquiry_id,
         Inquiry.user_id == current_user.id
     )
@@ -156,14 +227,14 @@ async def update_my_inquiry(
 async def respond_to_quotation(
     inquiry_id: int,
     status_update: InquiryStatusUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Accept or reject an admin quotation.
     Can only respond to inquiries with QUOTED status.
     """
-    stmt = select(Inquiry).where(
+    stmt = select(Inquiry).options(selectinload(Inquiry.messages)).where(
         Inquiry.id == inquiry_id,
         Inquiry.user_id == current_user.id
     )
@@ -187,12 +258,12 @@ async def respond_to_quotation(
     await db.refresh(inquiry)
     
     return inquiry
-
+    
 
 @router.delete("/my/{inquiry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_inquiry(
     inquiry_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -234,7 +305,7 @@ async def get_all_inquiries(
     """
     [ADMIN] Get all inquiries with optional status filter.
     """
-    stmt = select(Inquiry).order_by(Inquiry.created_at.desc())
+    stmt = select(Inquiry).options(selectinload(Inquiry.messages)).order_by(Inquiry.created_at.desc())
     
     if status_filter:
         stmt = stmt.where(Inquiry.status == status_filter.upper())
@@ -254,7 +325,7 @@ async def get_inquiry_by_id(
     """
     [ADMIN] Get a specific inquiry by ID.
     """
-    stmt = select(Inquiry).where(Inquiry.id == inquiry_id)
+    stmt = select(Inquiry).options(selectinload(Inquiry.messages)).where(Inquiry.id == inquiry_id)
     result = await db.execute(stmt)
     inquiry = result.scalar_one_or_none()
     

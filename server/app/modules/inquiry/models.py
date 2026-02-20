@@ -43,6 +43,28 @@ class Inquiry(Base):
     # Relationships
     user = relationship("User", back_populates="inquiries")
     template = relationship("ProductTemplate", back_populates="inquiries")
+    messages = relationship("InquiryMessage", back_populates="inquiry", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"Inquiry(id={self.id}, user_id={self.user_id}, template_id={self.template_id}, status={self.status})"
+
+
+class InquiryMessage(Base):
+    """
+    Message model - represents a single message in an inquiry thread.
+    Can be from User or Admin.
+    """
+    __tablename__ = 'inquiry_messages'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    inquiry_id = Column(Integer, ForeignKey('inquiries.id'), nullable=False)
+    sender_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    
+    content = Column(Text, nullable=False)
+    file_urls = Column(ARRAY(String), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    inquiry = relationship("Inquiry", back_populates="messages")
+    sender = relationship("User")

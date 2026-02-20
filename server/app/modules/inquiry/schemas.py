@@ -13,6 +13,25 @@ class InquiryCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class InquiryMessageCreate(BaseModel):
+    """Schema for posting a message in an inquiry"""
+    content: str
+    file_urls: Optional[List[str]] = None
+
+
+class InquiryMessageResponse(BaseModel):
+    """Response schema for a message"""
+    id: int
+    inquiry_id: int
+    sender_id: int
+    content: str
+    file_urls: Optional[List[str]] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class InquiryUpdate(BaseModel):
     """Schema for user updating their pending inquiry"""
     quantity: Optional[int] = Field(None, gt=0)
@@ -57,6 +76,8 @@ class InquiryResponse(BaseModel):
     quoted_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    
+    messages: List[InquiryMessageResponse] = []
 
     class Config:
         from_attributes = True

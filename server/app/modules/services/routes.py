@@ -70,13 +70,13 @@ async def get_service(slug: str, db: AsyncSession = Depends(get_db)):
 @router.put("/{slug}", response_model=ServiceResponse)
 async def update_service(
     slug: str, 
-    service_in: ServiceUpdate, # FIXED: Renamed input variable
+    service_in: ServiceUpdate, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
     stmt = select(Service).options(selectinload(Service.variants)).where(Service.slug == slug)
     result = await db.execute(stmt)
-    existing_service = result.scalar_one_or_none() # FIXED: Renamed DB variable
+    existing_service = result.scalar_one_or_none() 
 
     if not existing_service:
         raise HTTPException(
@@ -94,6 +94,34 @@ async def update_service(
     await db.commit()
     await db.refresh(existing_service)
     return existing_service
+
+@router.put("/{slug}/variants/{variant_id}", response_model=ServiceVariantResponse)
+async def update_service_variant(
+    slug: str, 
+    variant_id: int, 
+    variant_in: ServiceVariantUpdate, 
+    current_user: User = Depends(get_current_admin_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(ServiceVariant).where(ServiceVariant.id == variant_id)
+    result = await db.execute(stmt)
+    existing_variant = result.scalar_one_or_none() 
+
+    if not existing_variant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Service variant not found"
+        )
+    
+    update_data = variant_in.model_dump(exclude_unset=True)
+    
+    for key, value in update_data.items():
+        setattr(existing_variant, key, value)
+    
+    db.add(existing_variant)
+    await db.commit()
+    await db.refresh(existing_variant)
+    return existing_variant
 
 @router.delete("/{slug}", response_model=ServiceResponse)
 async def delete_service(

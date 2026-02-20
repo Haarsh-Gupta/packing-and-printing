@@ -31,11 +31,16 @@ async def create_product_template(template : ProductTemplateCreate , current_use
 
 
 @router.get("/")
-async def get_product_templates(skip : int = 0 , limit : int = 10 , db : AsyncSession = Depends(get_db)):
+async def get_product_templates(skip : int = 0 , limit : int = 10 , type : str = None , db : AsyncSession = Depends(get_db)):
     """
     Returns a list of available products.
     """
-    stmt = select(ProductTemplate).where(ProductTemplate.is_active == True).offset(skip).limit(limit)
+    query = select(ProductTemplate).where(ProductTemplate.is_active == True)
+    
+    if type:
+        query = query.where(ProductTemplate.type == type)
+        
+    stmt = query.offset(skip).limit(limit)
     result = await db.execute(stmt)
     return result.scalars().all()
 
