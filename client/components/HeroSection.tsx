@@ -1,15 +1,48 @@
+"use client"; // This is required for useState and useEffect in Next.js
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Star, Truck } from "lucide-react";
 
 export default function HeroSection() {
+    // 1. State to track if the user has started scrolling
+    const [isScrolled, setIsScrolled] = useState(false);
+
+    // 2. Effect to listen for window scrolling
+    useEffect(() => {
+        const handleScroll = () => {
+            // If the user scrolls down more than 50 pixels, trigger the color change
+            if (window.scrollY > 50) {
+                setIsScrolled(true);
+            } else {
+                setIsScrolled(false);
+            }
+        };
+
+        window.addEventListener("scroll", handleScroll);
+        // Cleanup the event listener when the component unmounts
+        return () => window.removeEventListener("scroll", handleScroll);
+    }, []);
+
     return (
         <section
             className="relative overflow-hidden border-b-2 border-black"
             style={{
-                backgroundColor: 'var(--site-bg, #ffffff)'
+                backgroundColor: '#F9F6F0',
             }}
         >
+            <div
+                className="absolute inset-0 z-0 opacity-50 pointer-events-none"
+                style={{
+                    backgroundImage: "url('/background_doodle.png')",
+                    backgroundSize: '1400px auto',
+                    backgroundRepeat: 'repeat',
+                    mixBlendMode: 'multiply',
+                    opacity: 0.3,
+                }}
+            />
+
             {/* Background Graphic Element - Large Text */}
             <div className="absolute -top-20 -right-20 select-none pointer-events-none opacity-20">
                 <span className="text-[30rem] font-black leading-none text-white mix-blend-overlay">PRINT</span>
@@ -32,7 +65,6 @@ export default function HeroSection() {
                     <p className="text-xl text-zinc-600 max-w-lg leading-relaxed font-bold bg-white/80 p-2 rounded-lg">
                         From custom packaging to intricate binding, we bring your vision to life with precision and style. Simple pricing, fast delivery.
                     </p>
-
 
                     <div className="flex flex-col sm:flex-row gap-4 pt-4">
                         <Button size="lg" className="bg-[#4be794] text-black h-16 px-8 text-xl font-bold rounded-none border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:bg-[#4be794] transition-all" asChild>
@@ -65,10 +97,14 @@ export default function HeroSection() {
                     {/* Main Image with Brutalist Frame */}
                     <div className="relative z-20 border-4 border-black bg-white p-2 shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] rotate-2 hover:rotate-0 transition-transform duration-500 ease-out origin-center w-full max-w-md ml-auto">
                         <div className="relative w-full aspect-[4/5] overflow-hidden border-2 border-black">
+                            {/* 3. Dynamic classes added to the image to trigger based on scroll state */}
                             <img
                                 src="https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=800&auto=format&fit=crop"
                                 alt="Premium Book Binding"
-                                className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-700 scale-105 hover:scale-100"
+                                className={`w-full h-full object-cover transition-all duration-700 ${isScrolled
+                                        ? "grayscale-0 scale-100"
+                                        : "grayscale hover:grayscale-0 scale-105 hover:scale-100"
+                                    }`}
                             />
                         </div>
 
