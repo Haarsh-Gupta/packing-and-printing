@@ -216,3 +216,26 @@ button {
 input, textarea, select {
   font-family: inherit;
 }
+/* Dark mode hover states */
+.dark .group:hover .group-hover\:bg-zinc-50\/50 {
+  background-color: rgba(39, 39, 42, 0.5);
+}
+
+/* Sheet animations */
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.slide-in-from-bottom-4 {
+  animation: slide-in-from-bottom 0.3s ease-out;
+}
+
+@keyframes slide-in-from-bottom {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* But don't transition everything on load */
+.no-transition, .no-transition * {
+  transition: none !important;
+}

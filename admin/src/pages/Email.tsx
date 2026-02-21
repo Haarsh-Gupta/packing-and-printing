@@ -37,30 +37,31 @@ const Chip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
 
 export default function Email() {
     const [form, setForm] = useState({
-        subject: "", message: "", user_id: "", attachments: [] as File[]
+        subject: "", message: "", to_email: "", attachments: [] as File[]
     });
     const [sending, setSending] = useState(false);
     const [mode, setMode] = useState<'single' | 'broadcast'>('single');
 
     const sendEmail = async (global = false) => {
         if (!form.subject || !form.message) return;
-        if (!global && !form.user_id) return;
+        if (!global && !form.to_email) return;
         setSending(true);
         const formData = new FormData();
         formData.append("subject", form.subject);
+        formData.append("heading", form.subject);
         formData.append("message", form.message);
-        if (form.user_id && !global) formData.append("user_id", form.user_id);
+        if (form.to_email && !global) formData.append("to_email", form.to_email);
         form.attachments.forEach(file => formData.append("files", file));
-        const path = global ? "/admin/send-custom-email-to-all" : "/admin/send-custom-email-to-user";
+        const path = global ? "/admin/email/send-bulk-email" : "/admin/email/send-custom-email";
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}${path}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}${path}`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${localStorage.getItem("admin_token")}` },
                 body: formData,
             });
             if (!res.ok) throw new Error();
             alert("Email dispatched successfully!");
-            setForm({ subject: "", message: "", user_id: "", attachments: [] });
+            setForm({ subject: "", message: "", to_email: "", attachments: [] });
         } catch { alert("Failed to send email."); } finally { setSending(false); }
     };
 
@@ -68,7 +69,7 @@ export default function Email() {
         if (e.target.files) setForm(f => ({ ...f, attachments: [...f.attachments, ...Array.from(e.target.files!)] }));
     };
 
-    const canSend = form.subject && form.message && (mode === 'broadcast' || form.user_id);
+    const canSend = form.subject && form.message && (mode === 'broadcast' || form.to_email);
 
     return (
         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontFamily: "'DM Sans', system-ui" }}>
@@ -149,9 +150,9 @@ export default function Email() {
                                 <div style={{ position: 'relative' }}>
                                     <User size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
                                     <Input
-                                        placeholder="Enter numeric User ID..."
-                                        value={form.user_id}
-                                        onChange={e => setForm({ ...form, user_id: e.target.value })}
+                                        placeholder="Enter recipient email address..."
+                                        value={form.to_email}
+                                        onChange={e => setForm({ ...form, to_email: e.target.value })}
                                         style={{ height: '44px', paddingLeft: '36px', fontWeight: 700, fontSize: '14px', ...mono }}
                                     />
                                 </div>
@@ -240,7 +241,7 @@ export default function Email() {
 
                                     <span style={{ fontWeight: 800, color: '#999', ...mono }}>TO:</span>
                                     <span style={{ fontWeight: 800, color: '#2563eb' }}>
-                                        {mode === 'broadcast' ? 'all-active-users@bookbind.in' : form.user_id ? `UserID #${form.user_id}` : '...'}
+                                        {mode === 'broadcast' ? 'all-active-users@bookbind.in' : form.to_email ? form.to_email : '...'}
                                     </span>
 
                                     <span style={{ fontWeight: 800, color: '#999', ...mono }}>SUBJECT:</span>

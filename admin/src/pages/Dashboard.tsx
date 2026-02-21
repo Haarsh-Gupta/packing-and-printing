@@ -38,12 +38,26 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function Dashboard() {
     const [data, setData] = useState<DashboardOverview | null>(null);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState("30");
+    const [period, setPeriod] = useState("month");
 
     useEffect(() => {
         setLoading(true);
-        api<DashboardOverview>(`/admin-dashboard/overview?days=${period}`)
-            .then(setData)
+        api<any>(`/admin/dashboard/overview?period=${period}`)
+            .then((raw) => {
+                // Normalize nested backend response to flat UI shape
+                const normalized: DashboardOverview = {
+                    total_users: raw.users?.total ?? raw.total_users ?? 0,
+                    total_orders: raw.orders?.total ?? raw.total_orders ?? 0,
+                    total_revenue: raw.revenue?.total_collected ?? raw.total_revenue ?? 0,
+                    total_inquiries: raw.inquiries?.total ?? raw.total_inquiries ?? 0,
+                    total_products: raw.products?.total ?? raw.total_products ?? 0,
+                    total_services: raw.services?.total ?? raw.total_services ?? 0,
+                    daily_orders: raw.daily_orders ?? [],
+                    order_pipeline: raw.orders?.by_status ?? raw.order_pipeline ?? {},
+                    recent_activity: raw.recent_activity ?? [],
+                };
+                setData(normalized);
+            })
             .catch(console.error)
             .finally(() => setLoading(false));
     }, [period]);
@@ -51,8 +65,8 @@ export default function Dashboard() {
     const stats = data ? [
         {
             label: "Revenue",
-            value: `₹${(data.total_revenue / 100000).toFixed(1)}L`,
-            sub: `₹${data.total_revenue.toLocaleString()} total`,
+            value: `₹${((data.total_revenue || 0) / 100000).toFixed(1)}L`,
+            sub: `₹${(data.total_revenue || 0).toLocaleString()} total`,
             change: "+12.5%",
             trend: "up",
             icon: IndianRupee,
@@ -60,7 +74,7 @@ export default function Dashboard() {
         },
         {
             label: "Orders",
-            value: data.total_orders.toLocaleString(),
+            value: (data.total_orders || 0).toLocaleString(),
             sub: "total processed",
             change: "+8.2%",
             trend: "up",
@@ -69,7 +83,7 @@ export default function Dashboard() {
         },
         {
             label: "Inquiries",
-            value: data.total_inquiries.toLocaleString(),
+            value: (data.total_inquiries || 0).toLocaleString(),
             sub: "customer requests",
             change: "-3.1%",
             trend: "down",
@@ -78,7 +92,7 @@ export default function Dashboard() {
         },
         {
             label: "Customers",
-            value: data.total_users.toLocaleString(),
+            value: (data.total_users || 0).toLocaleString(),
             sub: "registered users",
             change: "+24.5%",
             trend: "up",
@@ -89,13 +103,14 @@ export default function Dashboard() {
 
     if (loading && !data) return <DashboardSkeleton />;
 
-    const chartData = data?.daily_orders.map(d => ({
+    const chartData = (data?.daily_orders || []).map(d => ({
         date: d.date.split('-').slice(2).join('/'),
         amount: d.count * 1200,
         count: d.count,
-    })) || [];
+    }));
 
     const pipelineData = Object.entries(data?.order_pipeline || {}).map(([name, value]) => ({ name, value }));
+
 
     return (
         <div className="space-y-0 animate-fade-in" style={{ fontFamily: "'DM Sans', 'DM Mono', system-ui" }}>
@@ -143,9 +158,11 @@ export default function Dashboard() {
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="7">Last 7 days</SelectItem>
-                        <SelectItem value="30">Last 30 days</SelectItem>
-                        <SelectItem value="90">Last quarter</SelectItem>
+                        <SelectItem value="week">Last 7 days</SelectItem>
+                        <SelectItem value="month">Last 30 days</SelectItem>
+                        <SelectItem value="quarter">Last quarter</SelectItem>
+                        <SelectItem value="year">Last year</SelectItem>
+                        <SelectItem value="all">All time</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

@@ -129,7 +129,8 @@ export default function Reviews() {
                                     gap: '24px',
                                     borderBottom: i === reviews.length - 1 ? 'none' : '1px solid var(--border)',
                                     transition: 'background 0.2s',
-                                }} className="group hover:bg-zinc-50/50">
+                                    cursor: 'pointer',
+                                }}>
                                     <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' }}>
                                         <User size={20} style={{ opacity: 0.3 }} />
                                     </div>

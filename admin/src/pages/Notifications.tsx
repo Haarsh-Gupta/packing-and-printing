@@ -27,7 +27,7 @@ export default function Notifications() {
 
     const fetchHistory = () => {
         setLoading(true);
-        api<Notification[]>("/notifications/history?limit=50")
+        api<Notification[]>("/notifications/admin/all?limit=50")
             .then(setHistory)
             .catch(console.error)
             .finally(() => setLoading(false));
@@ -39,9 +39,9 @@ export default function Notifications() {
         if (!form.user_id || !form.title || !form.message) return;
         setSending(true);
         try {
-            await api(`/notifications/send?user_id=${form.user_id}`, {
+            await api(`/notifications/`, {
                 method: "POST",
-                body: JSON.stringify({ title: form.title, message: form.message }),
+                body: JSON.stringify({ title: form.title, message: form.message, user_id: parseInt(form.user_id) }),
             });
             setForm({ title: "", message: "", user_id: "" });
             setTab("history");
@@ -58,7 +58,7 @@ export default function Notifications() {
         if (!confirm("Send this broadcast to ALL registered users?")) return;
         setSending(true);
         try {
-            await api("/notifications/send-to-all", {
+            await api("/notifications/bulk", {
                 method: "POST",
                 body: JSON.stringify({ title: form.title, message: form.message }),
             });
