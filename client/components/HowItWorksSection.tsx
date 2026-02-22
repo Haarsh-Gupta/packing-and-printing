@@ -44,7 +44,7 @@ const processSteps = [
 
 export default function HowItWorksSection() {
     return (
-        <section id="how-it-works" className="py-16 px-6 bg-black text-white border-b-4 border-black relative overflow-hidden">
+        <section id="how-it-works" className="py-16 px-6 bg-black text-white relative overflow-hidden">
             {/* Decorative dot pattern */}
             <div className="absolute inset-0 opacity-[0.05]" style={{
                 backgroundImage: `radial-gradient(circle, #fff 1px, transparent 1px)`,

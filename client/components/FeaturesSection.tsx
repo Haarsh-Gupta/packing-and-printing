@@ -43,7 +43,7 @@ const features = [
 
 export default function FeaturesSection() {
   return (
-    <section className="py-16 px-6 bg-white border-b-4 border-black relative overflow-hidden">
+    <section className="py-16 px-6 bg-white relative overflow-hidden">
       <div className="max-w-6xl mx-auto">
 
         {/* Section Header */}

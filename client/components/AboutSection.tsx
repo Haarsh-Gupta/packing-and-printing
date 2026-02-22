@@ -4,7 +4,7 @@ import { ArrowRight, CheckCircle2 } from "lucide-react";
 
 export default function AboutSection() {
     return (
-        <section id="about" className="py-16 px-6 bg-[#FDF567] border-b-4 border-black overflow-hidden relative">
+        <section id="about" className="py-16 px-6 bg-[#FDF567] overflow-hidden relative">
             {/* Decorative */}
             <div className="absolute top-10 right-10 text-[20rem] font-black text-black/[0.03] leading-none select-none pointer-events-none hidden lg:block">
                 PRINT

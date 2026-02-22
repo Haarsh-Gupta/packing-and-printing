@@ -49,7 +49,7 @@ export default function Testimonials() {
     const prev = () => setActive((prev) => (prev - 1 + testimonials.length) % testimonials.length);
 
     return (
-        <section className="py-16 px-6 bg-white border-b-4 border-black">
+        <section className="py-16 px-6 bg-white">
             <div className="max-w-6xl mx-auto">
 
                 {/* Section Header */}
