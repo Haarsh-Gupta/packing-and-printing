@@ -6,6 +6,7 @@ Admins → view all tickets, reply, update status, see read flags
 """
 
 from typing import Optional
+from uuid import 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func

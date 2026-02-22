@@ -1,21 +1,57 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Text, func , ARRAY
+from sqlalchemy import Column, Integer, Double, String, DateTime, ForeignKey, Text, func , ARRAY, Uuid, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.core.database import Base
 
+class InquiryGroup(Base):
+    """
+    The Parent Container (The RFQ Cart).
+    This holds the overall status, total price, and links to the user.
+    """
+    __tablename__ = 'inquiry_groups'
+    id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
+    user_id = Column(Uuid, ForeignKey('users.id'), nullable=False)
+    status = Column(String, default='PENDING', nullable=False)
 
-class Inquiry(Base):
+    # Total price of all items combined (Set by Admin)
+    total_quoted_price = Column(Double, nullable=True)
+    admin_notes = Column(Text, nullable=True)
+    quoted_at = Column(DateTime(timezone=True), nullable=True)
+    quote_valid_until = Column(DateTime(timezone=True), nullable=True)
+
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", back_populates="inquiry_groups")
+    
+    # One-to-Many link to the items in this quote. 
+    # cascade ensures if the group is deleted, the items are deleted too.
+    items = relationship("InquiryItem", back_populates="group", cascade="all, delete-orphan")
+    
+    # Messages happen at the group level (discussing the whole quote)
+    messages = relationship("InquiryMessage", back_populates="group", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"InquiryGroup(id={self.id}, user_id={self.user_id}, status={self.status}, items={len(self.items)})"
+    
+
+class InquiryItem(Base):
     """
     Inquiry model - represents a user's product inquiry/request.
     Admin reviews and sends a quotation with pricing.
     """
-    __tablename__ = 'inquiries'
+    __tablename__ = 'inquiry_items'
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
+    group_id = Column(Uuid, ForeignKey('inquiry_groups.id'), nullable=False)
+
+    #product or the service
     template_id = Column(Integer, ForeignKey('product_templates.id'), nullable=True)
+    #service and service variant
     service_id = Column(Integer, ForeignKey('services.id'), nullable=True)
     variant_id = Column(Integer, ForeignKey('service_variants.id'), nullable=True)
     
@@ -27,30 +63,20 @@ class Inquiry(Base):
     
     # Additional notes/requirements from user
     notes = Column(Text, nullable=True)
-    
-    # Status workflow: PENDING -> QUOTED -> ACCEPTED/REJECTED
-    status = Column(String, default='PENDING', nullable=False)
-
     images = Column(ARRAY(String) , nullable = True)
     
     # Admin sets these after reviewing the inquiry
-    quoted_price = Column(Float, nullable=True)
-    admin_notes = Column(Text, nullable=True)  # Admin can add notes/comments
-    quoted_at = Column(DateTime(timezone=True), nullable=True)
-    quote_valid_until = Column(DateTime(timezone=True), nullable=True)
-    
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    line_item_price = Column(Double, nullable=True)
+
     
     # Relationships
-    user = relationship("User", back_populates="inquiries")
-    template = relationship("ProductTemplate", back_populates="inquiries")
+    group = relationship("InquiryGroup", back_populates="items")
+    template = relationship("ProductTemplate")
     service = relationship("Service")
     variant = relationship("ServiceVariant")
-    messages = relationship("InquiryMessage", back_populates="inquiry", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"Inquiry(id={self.id}, user_id={self.user_id}, template_id={self.template_id}, service_id={self.service_id}, status={self.status})"
+        return f"InquiryItem(id={self.id}, group_id={self.group_id}, template_id={self.template_id}, service_id={self.service_id}, variant_id={self.variant_id})"
 
 
 class InquiryMessage(Base):
@@ -61,7 +87,7 @@ class InquiryMessage(Base):
     __tablename__ = 'inquiry_messages'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    inquiry_id = Column(Integer, ForeignKey('inquiries.id'), nullable=False)
+    inquiry_group_id = Column(Uuid, ForeignKey('inquiry_groups.id'), nullable=False)
     sender_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     
     content = Column(Text, nullable=False)
@@ -70,5 +96,5 @@ class InquiryMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    inquiry = relationship("Inquiry", back_populates="messages")
+    group = relationship("InquiryGroup", back_populates="messages")
     sender = relationship("User")

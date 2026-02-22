@@ -8,12 +8,12 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.config import settings
-from ..auth.auth import get_current_user, get_current_admin_user
-from ..users.models import User
-from ..inquiry.models import Inquiry
-from ..products.models import ProductTemplate
-from .models import Order, Transaction
-from .schemas import (
+from app.modules.auth.auth import get_current_user, get_current_admin_user
+from app.modules.users.models import User
+from app.modules.inquiry.models import InquiryGroup, InquiryItem, InquiryMessage
+from app.modules.products.models import ProductTemplate
+from app.modules.orders.models import Order, Transaction
+from app.modules.orders.schemas import (
     OrderCreate,
     OrderUpdate,
     OrderResponse,
@@ -24,10 +24,8 @@ from .schemas import (
 )
 
 
-import sys
 import os
 import tempfile
-sys.path.append(os.path.dirname(__file__))
 
 from .utils.qr_generator import generate_upi_qr, generate_payment_qr
 from .utils.invoice_generator import InvoiceGenerator, generate_simple_invoice

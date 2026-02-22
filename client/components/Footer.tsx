@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Twitter, Instagram, Linkedin, Mail, MapPin } from "lucide-react";
+import { ArrowRight, Github, Twitter, Instagram, Linkedin, Mail } from "lucide-react";
 
 import { useAlert } from "@/components/CustomAlert";
 
@@ -11,16 +11,16 @@ export default function Footer() {
   const { showAlert } = useAlert();
 
   return (
-    <footer className="bg-black border-t-4 border-black mt-auto z-10 relative text-white">
+    <footer className="bg-black mt-auto z-10 relative text-white">
 
-      {/* 1. Bold Newsletter CTA Section */}
-      <div className="border-b-4 border-white bg-[#fdf567] px-4 py-12 md:py-16">
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-8">
+      {/* Newsletter CTA */}
+      <div className="border-b-4 border-zinc-800 bg-[#FF90E8] px-6 py-14 md:py-20">
+        <div className="max-w-6xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-10">
           <div className="max-w-2xl text-center lg:text-left">
-            <h3 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-black">
+            <h3 className="text-4xl md:text-6xl font-black tracking-tighter mb-4 text-black leading-[0.9]">
               Join the Press Club.
             </h3>
-            <p className="text-zinc-800 font-bold text-lg md:text-xl">
+            <p className="text-black/70 font-bold text-lg md:text-xl">
               Subscribe for exclusive print discounts, packaging trends, and early access to new materials.
             </p>
           </div>
@@ -30,83 +30,82 @@ export default function Footer() {
           >
             <Input
               type="email"
-              placeholder="Enter your email address"
-              className="border-4 border-black rounded-none h-16 text-lg px-6 md:w-96 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] focus-visible:ring-0 focus-visible:shadow-none transition-all bg-white text-black"
+              placeholder="you@company.com"
+              className="border-4 border-black rounded-full h-14 text-base px-6 md:w-80 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus-visible:ring-0 focus-visible:shadow-none transition-all bg-white text-black"
               required
             />
-            <Button className="h-16 px-8 bg-black text-white text-lg font-black uppercase rounded-none border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[4px] hover:translate-y-[4px] hover:shadow-none transition-all">
-              Subscribe <ArrowRight className="ml-2 h-6 w-6" />
+            <Button className="h-14 px-8 bg-black text-white text-base font-bold rounded-full border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] transition-all cursor-pointer">
+              Subscribe <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </form>
         </div>
       </div>
 
-      {/* 2. Main Footer Links Area */}
-      <div className="max-w-7xl mx-auto px-4 py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+      {/* Main Footer Links */}
+      <div className="max-w-6xl mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
 
-        {/* Column 1: Brand & Socials */}
-        <div className="space-y-8">
-          <Link href="/" className="text-4xl font-black tracking-tighter inline-block text-white">
+        {/* Col 1: Brand */}
+        <div className="space-y-6">
+          <Link href="/" className="text-3xl font-black tracking-tighter inline-block text-white">
             BookBind.
           </Link>
-          <p className="text-zinc-400 font-medium leading-relaxed text-lg">
+          <p className="text-zinc-500 font-medium leading-relaxed">
             The ultimate platform for modern printing and packaging. We turn your digital designs into premium physical reality.
           </p>
-          <div className="flex gap-4">
-            {/* Brutalist Social Icons */}
-            {[Twitter, Instagram, Linkedin, MapPin].map((Icon, idx) => (
+          <div className="flex gap-3">
+            {[Twitter, Instagram, Linkedin].map((Icon, idx) => (
               <a
                 key={idx}
                 href="#"
-                className="h-14 w-14 border-4 border-white bg-black flex items-center justify-center hover:bg-[#fdf567] hover:text-black hover:border-black hover:-translate-y-1 transition-all shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] text-white"
+                className="h-12 w-12 border-3 border-zinc-700 rounded-full flex items-center justify-center hover:bg-[#FF90E8] hover:text-black hover:border-black transition-all text-zinc-500"
               >
-                <Icon className="h-6 w-6" />
+                <Icon className="h-5 w-5" />
               </a>
             ))}
           </div>
         </div>
 
-        {/* Column 2: Products */}
+        {/* Col 2: Products */}
         <div>
-          <h4 className="font-black uppercase text-xl mb-6 text-white border-b-4 border-white pb-2 inline-block">Products</h4>
-          <ul className="space-y-4 font-bold text-zinc-400 text-lg">
-            <li><Link href="/products" className="hover:text-white hover:underline underline-offset-4">Custom Packaging</Link></li>
-            <li><Link href="/products" className="hover:text-white hover:underline underline-offset-4">Corporate Diaries</Link></li>
-            <li><Link href="/products" className="hover:text-white hover:underline underline-offset-4">Invoice Books</Link></li>
-            <li><Link href="/services" className="hover:text-white hover:underline underline-offset-4">Pre-Press Services</Link></li>
+          <h4 className="font-black uppercase text-sm tracking-widest mb-6 text-white">Products</h4>
+          <ul className="space-y-3 font-medium text-zinc-500">
+            <li><Link href="/products" className="hover:text-[#FF90E8] transition-colors">Custom Packaging</Link></li>
+            <li><Link href="/products" className="hover:text-[#FF90E8] transition-colors">Corporate Diaries</Link></li>
+            <li><Link href="/products" className="hover:text-[#FF90E8] transition-colors">Invoice Books</Link></li>
+            <li><Link href="/services" className="hover:text-[#FF90E8] transition-colors">Pre-Press Services</Link></li>
           </ul>
         </div>
 
-        {/* Column 3: Support */}
+        {/* Col 3: Support */}
         <div>
-          <h4 className="font-black uppercase text-xl mb-6 text-white border-b-4 border-white pb-2 inline-block">Support</h4>
-          <ul className="space-y-4 font-bold text-zinc-400 text-lg">
-            <li><Link href="/dashboard" className="hover:text-white hover:underline underline-offset-4">My Dashboard</Link></li>
-            <li><Link href="/dashboard/inquiries" className="hover:text-white hover:underline underline-offset-4">Track Inquiries</Link></li>
-            <li><Link href="/dashboard/support" className="hover:text-white hover:underline underline-offset-4">Help Desk / Tickets</Link></li>
-            <li><Link href="/contact" className="hover:text-white hover:underline underline-offset-4">Contact Us</Link></li>
+          <h4 className="font-black uppercase text-sm tracking-widest mb-6 text-white">Support</h4>
+          <ul className="space-y-3 font-medium text-zinc-500">
+            <li><Link href="/dashboard" className="hover:text-[#FF90E8] transition-colors">My Dashboard</Link></li>
+            <li><Link href="/dashboard/inquiries" className="hover:text-[#FF90E8] transition-colors">Track Inquiries</Link></li>
+            <li><Link href="/dashboard/support" className="hover:text-[#FF90E8] transition-colors">Help Desk</Link></li>
+            <li><Link href="/contact" className="hover:text-[#FF90E8] transition-colors">Contact Us</Link></li>
           </ul>
         </div>
 
-        {/* Column 4: Company & Contact */}
+        {/* Col 4: Company */}
         <div>
-          <h4 className="font-black uppercase text-xl mb-6 text-white border-b-4 border-white pb-2 inline-block">Company</h4>
-          <ul className="space-y-4 font-bold text-zinc-400 text-lg">
-            <li><Link href="/about" className="hover:text-white hover:underline underline-offset-4">About Us</Link></li>
-            <li><Link href="/terms" className="hover:text-white hover:underline underline-offset-4">Terms of Service</Link></li>
-            <li><Link href="/privacy" className="hover:text-white hover:underline underline-offset-4">Privacy Policy</Link></li>
-            <li className="pt-4">
-              <a href="mailto:hello@bookbind.com" className="inline-flex items-center text-black hover:underline underline-offset-4 bg-white p-2 border-2 border-white hover:bg-[#fdf567] hover:border-black transition-colors">
-                <Mail className="h-5 w-5 mr-3" /> hello@bookbind.com
+          <h4 className="font-black uppercase text-sm tracking-widest mb-6 text-white">Company</h4>
+          <ul className="space-y-3 font-medium text-zinc-500">
+            <li><Link href="/about" className="hover:text-[#FF90E8] transition-colors">About Us</Link></li>
+            <li><Link href="/terms" className="hover:text-[#FF90E8] transition-colors">Terms of Service</Link></li>
+            <li><Link href="/privacy" className="hover:text-[#FF90E8] transition-colors">Privacy Policy</Link></li>
+            <li className="pt-2">
+              <a href="mailto:hello@bookbind.com" className="inline-flex items-center text-white hover:text-[#FF90E8] transition-colors font-bold">
+                <Mail className="h-4 w-4 mr-2" /> hello@bookbind.com
               </a>
             </li>
           </ul>
         </div>
       </div>
 
-      {/* 3. Bottom Bar */}
-      <div className="border-t-4 border-white bg-black py-6">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4 font-bold text-sm uppercase tracking-wider text-zinc-400">
+      {/* Bottom Bar */}
+      <div className="border-t border-zinc-800 py-6">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-zinc-600">
           <p>© {new Date().getFullYear()} BookBind Printing & Packaging.</p>
           <p>Built with precision in Delhi.</p>
         </div>

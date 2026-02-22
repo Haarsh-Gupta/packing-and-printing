@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import ForeignKey , Column , Integer , String , DateTime, Boolean, func , Float
+from sqlalchemy import ForeignKey , Column , Integer , String , DateTime, func , Double, Uuid, text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -7,11 +7,11 @@ from app.core.database import Base
 
 class Order(Base):
     __tablename__ = 'orders'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    inquiry_id = Column(Integer, ForeignKey('inquiries.id'), nullable=False)
+    id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
+    inquiry_id = Column(Integer, ForeignKey('inquiry_groups.id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    total_amount = Column(Float, nullable=False)
-    amount_paid = Column(Float, default=0.0)
+    total_amount = Column(Double, nullable=False)
+    amount_paid = Column(Double, default=0.0)
     status = Column(String, default='WAITING_PAYMENT')
     payment_gateway_order_id = Column(String, nullable=True)  # e.g. razorpay order_id
     
@@ -20,15 +20,15 @@ class Order(Base):
     
     # Relationships
     # user = relationship("User", back_populates="orders")
-    # inquiry = relationship("Inquiry", back_populates="order", uselist=False)
+    # inquiry = relationship("InquiryGroup", back_populates="order", uselist=False)
     # transactions = relationship("Transaction", back_populates="order", cascade="all, delete-orphan")
 
 
 class Transaction(Base):
     __tablename__ = 'transactions'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(Integer, ForeignKey('orders.id'), nullable=False)
-    amount = Column(Float, nullable=False)
+    id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
+    order_id = Column(Uuid, ForeignKey('orders.id'), nullable=False)
+    amount = Column(Double, nullable=False)
     payment_mode = Column(String, nullable=False)
     notes = Column(String, nullable=True)
     gateway_payment_id = Column(String, nullable=True)   # e.g. razorpay payment_id

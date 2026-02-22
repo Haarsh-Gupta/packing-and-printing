@@ -1,137 +1,104 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Printer, PenTool, Package, Truck, BookOpen, Layers, ArrowRight } from "lucide-react";
 
 const services = [
   {
-    icon: <Printer className="h-10 w-10 mb-4 text-black" />,
+    icon: <Printer className="h-10 w-10" />,
     title: "High-Volume Offset Printing",
-    description: "Ideal for massive runs of catalogs, magazines, and marketing materials. We guarantee color consistency and crisp details across thousands of copies.",
-    color: "bg-[#fdf567]"
+    description: "Ideal for massive runs of catalogs, magazines, and marketing materials. Color consistency across thousands of copies.",
+    color: "#FF90E8"
   },
   {
-    icon: <Package className="h-10 w-10 mb-4 text-black" />,
+    icon: <Package className="h-10 w-10" />,
     title: "Custom Structural Packaging",
-    description: "Need a unique box shape? We offer die-cutting, custom molds, and structural design for rigid boxes, corrugated mailers, and product packaging.",
-    color: "bg-[#ff90e8]"
+    description: "Die-cutting, custom molds, and structural design for rigid boxes, corrugated mailers, and product packaging.",
+    color: "#90E8FF"
   },
   {
-    icon: <BookOpen className="h-10 w-10 mb-4 text-black" />,
+    icon: <BookOpen className="h-10 w-10" />,
     title: "Professional Book Binding",
-    description: "From perfect binding for corporate reports to saddle-stitching for zines and premium hardbound covers with gold foil stamping.",
-    color: "bg-[#90e8ff]"
+    description: "Perfect binding for reports, saddle-stitching for zines, and premium hardbound covers with gold foil stamping.",
+    color: "#FDF567"
   },
   {
-    icon: <PenTool className="h-10 w-10 mb-4 text-black" />,
+    icon: <PenTool className="h-10 w-10" />,
     title: "Pre-Press & Design Support",
-    description: "Upload your raw .cdr, .ai, or .pdf files. Our pre-press team will review your vectors, fix bleed margins, and ensure they are 100% print-ready.",
-    color: "bg-white"
+    description: "Upload your raw files. Our pre-press team will review vectors, fix bleed margins, and ensure they're print-ready.",
+    color: "#B8FF90"
   },
   {
-    icon: <Layers className="h-10 w-10 mb-4 text-black" />,
+    icon: <Layers className="h-10 w-10" />,
     title: "Premium Finishings",
-    description: "Elevate your brand with spot UV coating, embossing, debossing, matte/gloss lamination, and metallic foil stamping.",
-    color: "bg-[#fdf567]"
+    description: "Spot UV coating, embossing, debossing, matte/gloss lamination, and metallic foil stamping to elevate your brand.",
+    color: "#FFB890"
   },
   {
-    icon: <Truck className="h-10 w-10 mb-4 text-black" />,
+    icon: <Truck className="h-10 w-10" />,
     title: "Fulfillment & Drop-shipping",
-    description: "We don't just print; we pack and ship. We can split your bulk order and ship it directly to your different franchise locations or customers.",
-    color: "bg-[#ff90e8]"
+    description: "We don't just print — we pack and ship. Split your bulk order to multiple locations or ship directly to customers.",
+    color: "#FF90E8"
   }
 ];
 
-const processSteps = [
-  { step: "01", title: "Submit Inquiry", desc: "Choose your specs and upload your design files.", icon: <PenTool className="h-10 w-10 text-white" /> },
-  { step: "02", title: "Get Official Quote", desc: "Our admins review your request and set a final price.", icon: <BookOpen className="h-10 w-10 text-white" /> },
-  { step: "03", title: "Accept & Pay", desc: "Approve the quote and make a secure payment.", icon: <Layers className="h-10 w-10 text-white" /> },
-  { step: "04", title: "Production", desc: "Your job hits the press. Track progress live.", icon: <Printer className="h-10 w-10 text-white" /> },
-  { step: "05", title: "Delivery", desc: "Receive your premium printed goods at your doorstep.", icon: <Truck className="h-10 w-10 text-white" /> },
-];
-
-
-
 export default function ServicesPage() {
   return (
-    <div className="min-h-screen bg-zinc-50 pt-16 pb-24 px-4 font-sans">
-      <div className="max-w-7xl mx-auto space-y-24">
+    <div className="bg-white pt-16 pb-24 px-6">
+      <div className="max-w-6xl mx-auto space-y-24">
 
         {/* Page Header */}
         <div className="space-y-6 max-w-4xl mx-auto text-center">
-          <div className="inline-block bg-[#ff90e8] text-black px-4 py-2 font-black text-sm uppercase tracking-wider border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -rotate-2">
+          <div className="inline-block bg-[#ff90e8] text-black px-4 py-2 font-black text-sm uppercase tracking-widest border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -rotate-2 rounded-full">
             Professional Printing
           </div>
-          <h1 className="text-6xl md:text-7xl font-black tracking-tighter uppercase text-black leading-none">
-            We Print <span className="bg-[#fdf567] px-2">Everything.</span>
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-black leading-[0.85]">
+            We Print <span className="bg-[#fdf567] px-3 inline-block -rotate-1">Everything.</span>
           </h1>
-          <p className="text-2xl text-black font-bold max-w-2xl mx-auto border-l-4 border-black pl-6 text-left md:text-center md:border-none md:pl-0">
+          <p className="text-xl md:text-2xl text-black/60 font-medium max-w-2xl mx-auto">
             Beyond standard products, we provide end-to-end commercial printing capabilities. From structural design to final delivery.
           </p>
         </div>
 
         {/* Services Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((service, idx) => (
-            <Card
+            <div
               key={idx}
-              className={`border-4 border-black rounded-xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-2 hover:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 ${service.color} flex flex-col group`}
+              className="border-4 border-black rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-2 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 flex flex-col group overflow-hidden"
+              style={{ backgroundColor: service.color }}
             >
-              <CardHeader className="border-b-4 border-black pb-4">
-                <div className="bg-white border-2 border-black w-16 h-16 flex items-center justify-center rounded-full mb-4 group-hover:rotate-12 transition-transform">
+              <div className="p-8 border-b-4 border-black">
+                <div className="bg-white border-4 border-black w-16 h-16 flex items-center justify-center rounded-full mb-5 group-hover:rotate-12 transition-transform text-black">
                   {service.icon}
                 </div>
-                <CardTitle className="text-3xl font-black uppercase tracking-tight leading-none">{service.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-grow pt-6">
-                <p className="text-black font-medium text-lg leading-snug">
+                <h3 className="text-2xl font-black uppercase tracking-tight leading-tight text-black">
+                  {service.title}
+                </h3>
+              </div>
+              <div className="p-8 flex-grow">
+                <p className="text-black/70 font-medium text-base leading-relaxed">
                   {service.description}
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
 
-        {/* How It Works Section */}
-        <div id="how-it-works" className="bg-black text-white p-8 md:p-16 border-4 border-black shadow-[12px_12px_0px_0px_#90e8ff] relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="inline-block bg-[#90e8ff] text-black px-3 py-1 font-bold text-sm uppercase tracking-wider mb-6 rotate-1">
-              Workflow
-            </div>
-            <h2 className="text-5xl md:text-6xl font-black uppercase mb-16 tracking-tighter">How It Works</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
-              {processSteps.map((item, idx) => (
-                <div key={idx} className="space-y-4 relative group">
-
-                  {/* Step Number & Icon */}
-                  <div className="flex items-end gap-3 mb-2">
-                    <div className="text-7xl font-black text-transparent stroke-text leading-none" style={{ WebkitTextStroke: "2px #fdf567" }}>
-                      {item.step}
-                    </div>
-                    <div className="mb-2 transition-transform group-hover:scale-110 group-hover:-rotate-6 duration-300">
-                      {item.icon}
-                    </div>
-                  </div>
-
-                  <h3 className="text-2xl font-black uppercase bg-white text-black inline-block px-1 transform group-hover:-skew-x-12 transition-transform">{item.title}</h3>
-                  <p className="text-zinc-300 font-medium leading-relaxed">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Call to Action */}
-        <div id="contact" className="text-center space-y-8 border-4 border-black bg-[#fdf567] p-12 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-          <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tight">Have a complex print job?</h2>
-          <p className="text-xl font-bold max-w-2xl mx-auto">
-            Select a product to start your inquiry. You can add custom requirements, upload files, and chat with our team directly in the order thread.
+        {/* CTA */}
+        <div className="text-center space-y-8 border-4 border-black bg-[#fdf567] p-12 md:p-16 rounded-3xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-black leading-[0.9]">
+            Have a complex print job?
+          </h2>
+          <p className="text-xl font-medium text-black/60 max-w-2xl mx-auto">
+            Select a product to start your inquiry. Upload files, add custom requirements, and chat with our team in the order thread.
           </p>
-          <Button size="lg" className="bg-black text-white rounded-none border-2 border-black text-xl h-16 px-10 hover:bg-white hover:text-black hover:scale-105 transition-all shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]" asChild>
+          <Button
+            size="lg"
+            className="bg-black text-white rounded-full border-4 border-black text-xl h-16 px-10 hover:bg-[#FF90E8] hover:text-black transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] cursor-pointer"
+            asChild
+          >
             <Link href="/products">
               Start New Inquiry <ArrowRight className="ml-2 h-6 w-6" />
             </Link>

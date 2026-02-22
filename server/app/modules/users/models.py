@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column , Integer , String , DateTime, Boolean, func
+from sqlalchemy import Column , Integer , String , DateTime, Boolean, func , Uuid , text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -10,7 +10,7 @@ from app.core.database import Base
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(Integer , primary_key = True , nullable = False , autoincrement = True)
+    id = Column(Uuid , primary_key = True , nullable = False, server_default=text("uuidv7()"))
     profile_picture = Column(String , nullable = True , default = "")
     name = Column(String , nullable = True)
     email = Column(String , nullable = False , index=True , unique=True)

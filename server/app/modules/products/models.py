@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column , Integer , String , DateTime, Boolean, func , Float , ARRAY
+from sqlalchemy import Column , Integer , String , DateTime, Boolean, func , Double , ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from typing import List
@@ -11,7 +11,7 @@ class ProductTemplate(Base):
     id = Column(Integer , primary_key = True , nullable = False , autoincrement = True)
     slug = Column(String , nullable = False)
     name = Column(String , nullable = False)
-    base_price = Column(Float , nullable = False)
+    base_price = Column(Double , nullable = False)
     minimum_quantity = Column(Integer , nullable = False)
     is_active = Column(Boolean , nullable = False , default = True)
     

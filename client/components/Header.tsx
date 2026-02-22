@@ -15,16 +15,22 @@ export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
     checkAuthAndFetch();
 
-    // Listen for updates from Settings page
     const handleUserUpdate = () => checkAuthAndFetch();
     window.addEventListener("user-updated", handleUserUpdate);
 
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+
     return () => {
       window.removeEventListener("user-updated", handleUserUpdate);
+      window.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
@@ -50,52 +56,57 @@ export default function Header() {
   };
 
   return (
-    <header className="border-b-4 border-white bg-black text-white sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+    <header
+      className={`sticky top-0 z-50 bg-black transition-all duration-300 ${isScrolled
+        ? 'shadow-[0_4px_20px_rgba(0,0,0,0.3)] border-b border-white/10'
+        : 'border-b border-transparent'
+        }`}
+    >
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="text-3xl font-black tracking-tighter hover:text-zinc-300 transition-colors">
+        <Link href="/" className="text-2xl font-black tracking-tighter text-white hover:text-[#FF90E8] transition-colors">
           BookBind.
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex gap-6 font-bold text-lg">
-          <Link href="/products" className="hover:text-[#fdf567] hover:underline underline-offset-4 transition-all">Products</Link>
-          <Link href="/services" className="hover:text-[#fdf567] hover:underline underline-offset-4 transition-all">Services</Link>
-          <Link href="/#how-it-works" className="hover:text-[#fdf567] hover:underline underline-offset-4 transition-all">How it works</Link>
-          <Link href="/#about" className="hover:text-[#fdf567] hover:underline underline-offset-4 transition-all">About</Link>
-          <Link href="/#contact" className="hover:text-[#fdf567] hover:underline underline-offset-4 transition-all">Contact</Link>
+        <nav className="hidden md:flex gap-8 font-bold text-sm uppercase tracking-wider text-white/70">
+          <Link href="/products" className="hover:text-[#FF90E8] transition-colors">Products</Link>
+          <Link href="/services" className="hover:text-[#FF90E8] transition-colors">Services</Link>
+          <Link href="/#how-it-works" className="hover:text-[#FF90E8] transition-colors">How it works</Link>
+          <Link href="/#about" className="hover:text-[#FF90E8] transition-colors">About</Link>
+          <Link href="/#contact" className="hover:text-[#FF90E8] transition-colors">Contact</Link>
         </nav>
 
         {/* Desktop Actions */}
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden md:flex items-center gap-3">
           {isLoggedIn ? (
             <>
               <NotificationsBell />
 
-              <Link href="/dashboard" className="flex items-center gap-3 pl-4 border-l-2 border-zinc-800">
-                <div className="h-10 w-10 bg-white rounded-full flex items-center justify-center border-2 border-white hover:bg-[#fdf567] transition-colors text-black overflow-hidden relative">
+              <Link href="/dashboard" className="flex items-center gap-3">
+                <div className="h-9 w-9 bg-[#FF90E8] rounded-full flex items-center justify-center border-2 border-white/20 hover:border-[#FF90E8] hover:scale-110 transition-all text-black overflow-hidden relative">
                   {userData?.profile_picture ? (
                     <img src={userData.profile_picture} alt="Profile" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
-                    <User className="h-6 w-6" />
+                    <User className="h-4 w-4" />
                   )}
                 </div>
               </Link>
             </>
           ) : (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 asChild
-                className="text-white hover:text-black hover:bg-white text-lg font-bold"
+                className="text-white/80 hover:text-white hover:bg-white/10 text-sm font-bold uppercase tracking-wider cursor-pointer"
               >
-                <Link href="/auth/login">Sign In</Link>
+                <Link href="/auth/login">Log in</Link>
               </Button>
               <Button
                 asChild
-                className="bg-[#fdf567] text-black text-lg font-black uppercase rounded-none border-2 border-transparent hover:border-white hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]"
+                className="bg-[#FF90E8] text-black text-sm font-black uppercase tracking-wider rounded-full border-2 border-[#FF90E8] px-6 h-10 hover:bg-white hover:border-white hover:text-black transition-all cursor-pointer"
               >
-                <Link href="/auth/signup">Get Started</Link>
+                <Link href="/auth/signup">Sign up</Link>
               </Button>
             </div>
           )}
@@ -106,23 +117,23 @@ export default function Header() {
           className="md:hidden text-white"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
-          {isMobileMenuOpen ? <X className="h-8 w-8" /> : <Menu className="h-8 w-8" />}
+          {isMobileMenuOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
         </button>
       </div>
 
       {/* Mobile Navigation */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t-2 border-zinc-800 bg-black p-4 flex flex-col gap-4 absolute w-full left-0 z-50 shadow-xl">
-          <Link href="/products" className="text-xl font-bold hover:text-[#fdf567]" onClick={() => setIsMobileMenuOpen(false)}>Products</Link>
-          <Link href="/services" className="text-xl font-bold hover:text-[#fdf567]" onClick={() => setIsMobileMenuOpen(false)}>Services</Link>
-          <Link href="/#how-it-works" className="text-xl font-bold hover:text-[#fdf567]" onClick={() => setIsMobileMenuOpen(false)}>How it works</Link>
-          <Link href="/#about" className="text-xl font-bold hover:text-[#fdf567]" onClick={() => setIsMobileMenuOpen(false)}>About</Link>
-          <Link href="/#contact" className="text-xl font-bold hover:text-[#fdf567]" onClick={() => setIsMobileMenuOpen(false)}>Contact</Link>
-          <div className="h-px bg-zinc-800 my-2" />
+        <div className="md:hidden border-t border-white/10 bg-black p-6 flex flex-col gap-4 absolute w-full left-0 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+          <Link href="/products" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>Products</Link>
+          <Link href="/services" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>Services</Link>
+          <Link href="/#how-it-works" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>How it works</Link>
+          <Link href="/#about" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>About</Link>
+          <Link href="/#contact" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>Contact</Link>
+          <div className="h-px bg-white/10 my-2" />
           {isLoggedIn ? (
             <div className="flex flex-col gap-4">
-              <Link href="/dashboard" className="flex items-center gap-3 text-xl font-bold hover:text-[#fdf567]">
-                <div className="h-8 w-8 bg-white rounded-full flex items-center justify-center border-white hover:bg-[#fdf567] text-black overflow-hidden relative">
+              <Link href="/dashboard" className="flex items-center gap-3 text-lg font-bold hover:text-[#FF90E8] text-white" onClick={() => setIsMobileMenuOpen(false)}>
+                <div className="h-10 w-10 bg-[#FF90E8] rounded-full flex items-center justify-center border-2 border-white/20 text-black overflow-hidden relative">
                   {userData?.profile_picture ? (
                     <img src={userData.profile_picture} alt="Profile" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
@@ -136,9 +147,14 @@ export default function Header() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
-              <Link href="/auth/login" className="text-xl font-bold hover:text-[#fdf567]">Sign In</Link>
-              <Link href="/auth/signup" className="text-xl font-bold hover:text-[#fdf567]">Get Started</Link>
+            <div className="flex flex-col gap-3 pt-2">
+              <Link href="/auth/login" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white" onClick={() => setIsMobileMenuOpen(false)}>Log in</Link>
+              <Button
+                asChild
+                className="bg-[#FF90E8] text-black text-lg font-black uppercase rounded-full border-2 border-[#FF90E8] h-12 hover:bg-white hover:border-white transition-all cursor-pointer"
+              >
+                <Link href="/auth/signup" onClick={() => setIsMobileMenuOpen(false)}>Sign up</Link>
+              </Button>
             </div>
           )}
         </div>
