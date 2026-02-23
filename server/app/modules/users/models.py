@@ -20,7 +20,7 @@ class User(Base):
     created_at = Column(DateTime(timezone = True) , server_default=func.now())
     token_version = Column(Integer , nullable = False , default = 1)
 
-    inquiries = relationship("Inquiry", back_populates="user")
+    inquiry_groups = relationship("InquiryGroup", back_populates="user")
     # orders = relationship("Order", back_populates="user")
 
     def __repr__(self):

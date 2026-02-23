@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-"use client"; // This is required for useState and useEffect in Next.js
-
-import { useState, useEffect } from "react";
-=======
 "use client";
 
 import { useState, useEffect, useRef } from "react";
->>>>>>> d8eeee2 (just need to fix the backend but improve the landing page)
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
@@ -140,49 +134,6 @@ function AnimatedCounter({ target, label }: { target: number; label: string }) {
 /* ── Hero Section ───────────────────────── */
 
 export default function HeroSection() {
-<<<<<<< HEAD
-    // 1. State to track if the user has started scrolling
-    const [isScrolled, setIsScrolled] = useState(false);
-
-    // 2. Effect to listen for window scrolling
-    useEffect(() => {
-        const handleScroll = () => {
-            // If the user scrolls down more than 50 pixels, trigger the color change
-            if (window.scrollY > 50) {
-                setIsScrolled(true);
-            } else {
-                setIsScrolled(false);
-            }
-        };
-
-        window.addEventListener("scroll", handleScroll);
-        // Cleanup the event listener when the component unmounts
-        return () => window.removeEventListener("scroll", handleScroll);
-    }, []);
-
-    return (
-        <section
-            className="relative overflow-hidden border-b-2 border-black"
-            style={{
-                backgroundColor: '#F9F6F0',
-            }}
-        >
-            <div
-                className="absolute inset-0 z-0 opacity-50 pointer-events-none"
-                style={{
-                    backgroundImage: "url('/background_doodle.png')",
-                    backgroundSize: '1400px auto',
-                    backgroundRepeat: 'repeat',
-                    mixBlendMode: 'multiply',
-                    opacity: 0.3,
-                }}
-            />
-
-            {/* Background Graphic Element - Large Text */}
-            <div className="absolute -top-20 -right-20 select-none pointer-events-none opacity-20">
-                <span className="text-[30rem] font-black leading-none text-white mix-blend-overlay">PRINT</span>
-            </div>
-=======
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -196,8 +147,6 @@ export default function HeroSection() {
                 backgroundImage: `radial-gradient(circle, #000 1px, transparent 1px)`,
                 backgroundSize: '24px 24px'
             }} />
->>>>>>> d8eeee2 (just need to fix the backend but improve the landing page)
-
             {/* ── Floating Doodles ── */}
             {/* Top-left book */}
             <DoodleBook className="absolute top-16 left-[5%] w-16 md:w-20 opacity-20 doodle-float-1 hidden sm:block" />
@@ -269,11 +218,6 @@ export default function HeroSection() {
                         From custom packaging to intricate binding, we bring your vision to life
                         with precision and style. Simple pricing, fast delivery.
                     </p>
-
-<<<<<<< HEAD
-                    <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                        <Button size="lg" className="bg-[#4be794] text-black h-16 px-8 text-xl font-bold rounded-none border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:bg-[#4be794] transition-all" asChild>
-=======
                     {/* CTA Buttons */}
                     <div
                         className={`flex flex-col sm:flex-row gap-4 justify-center pt-4 transition-all duration-700 delay-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
@@ -283,7 +227,6 @@ export default function HeroSection() {
                             className="bg-black text-white h-12 px-8 text-base font-bold rounded-full border-3 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,0.3)] transition-all cursor-pointer"
                             asChild
                         >
->>>>>>> d8eeee2 (just need to fix the backend but improve the landing page)
                             <Link href="/products">
                                 Start Printing <ArrowRight className="ml-3 w-6 h-6" />
                             </Link>
@@ -317,41 +260,6 @@ export default function HeroSection() {
                         </p>
                     </div>
                 </div>
-<<<<<<< HEAD
-
-                {/* Right Content - The Visual */}
-                <div className="relative hidden lg:block h-full min-h-[500px] flex items-center justify-center">
-                    {/* Main Image with Brutalist Frame */}
-                    <div className="relative z-20 border-4 border-black bg-white p-2 shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] rotate-2 hover:rotate-0 transition-transform duration-500 ease-out origin-center w-full max-w-md ml-auto">
-                        <div className="relative w-full aspect-[4/5] overflow-hidden border-2 border-black">
-                            {/* 3. Dynamic classes added to the image to trigger based on scroll state */}
-                            <img
-                                src="https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=800&auto=format&fit=crop"
-                                alt="Premium Book Binding"
-                                className={`w-full h-full object-cover transition-all duration-700 ${isScrolled
-                                        ? "grayscale-0 scale-100"
-                                        : "grayscale hover:grayscale-0 scale-105 hover:scale-100"
-                                    }`}
-                            />
-                        </div>
-
-                        {/* Badge Overlay 1 */}
-                        <div className="absolute -bottom-8 -left-8 bg-[#fdf567] border-4 border-black p-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] z-30 transform -rotate-3 hover:rotate-0 transition-transform">
-                            <p className="font-black text-xl uppercase leading-none text-center">Fast<br />Shipping</p>
-                        </div>
-
-                        {/* Badge Overlay 2 */}
-                        <div className="absolute -top-6 -right-6 bg-[#4be794] border-4 border-black p-3 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] z-30 transform rotate-3 hover:rotate-0 transition-transform">
-                            <Truck className="w-8 h-8 text-black" />
-                        </div>
-                    </div>
-
-                    {/* Decorative Element Behind */}
-                    <div className="absolute top-20 right-0 w-3/4 h-3/4 border-4 border-black bg-white -z-10 translate-x-10 translate-y-10 opacity-50" />
-                </div>
-
-=======
->>>>>>> d8eeee2 (just need to fix the backend but improve the landing page)
             </div>
 
             {/* Bottom wave / transition */}

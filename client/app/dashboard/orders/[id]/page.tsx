@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Package, CheckCircle2, Truck, CircleDot, Loader2, CreditCard, Download } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 import { useRazorpay } from "@/hooks/useRazorpay";
+import { useAuth } from "@/context/AuthContext";
 interface Transaction {
     id: number;
     amount: number;
@@ -54,7 +55,7 @@ export default function OrderDetailPage() {
 
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [userEmail, setUserEmail] = useState("");
+    const { user } = useAuth();
     const { initiatePayment, isProcessing } = useRazorpay();
 
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
@@ -62,10 +63,9 @@ export default function OrderDetailPage() {
     useEffect(() => {
         if (!token) { router.replace("/auth/login"); return; }
         fetchOrder();
-        // Fetch user email for Razorpay prefill
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } })
-            .then(r => r.json()).then(u => setUserEmail(u.email || "")).catch(() => { });
     }, [orderId]);
+
+    const userEmail = user?.email || "";
 
     const fetchOrder = async () => {
         setIsLoading(true);
@@ -107,7 +107,7 @@ export default function OrderDetailPage() {
             </Link>
 
             {/* Order Header */}
-            <div className="border-4 border-black p-6 bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <div className="border-2 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl">
                 <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
                     <div>
                         <h1 className="text-3xl font-black uppercase tracking-tighter">
@@ -128,7 +128,7 @@ export default function OrderDetailPage() {
                             const isActive = idx <= currentStep;
                             return (
                                 <div key={step.key} className="flex flex-col items-center gap-1 text-center">
-                                    <div className={`h-8 w-8 border-2 border-black flex items-center justify-center transition-colors ${isActive ? "bg-black text-white" : "bg-white text-zinc-300"}`}>
+                                    <div className={`h-8 w-8 border-2 border-black flex items-center justify-center transition-colors rounded-full ${isActive ? "bg-black text-white" : "bg-white text-zinc-300"}`}>
                                         <StepIcon className="h-4 w-4" />
                                     </div>
                                     <span className={`text-[10px] font-black uppercase tracking-tight hidden sm:block ${isActive ? "text-black" : "text-zinc-400"}`}>
@@ -138,7 +138,7 @@ export default function OrderDetailPage() {
                             );
                         })}
                     </div>
-                    <div className="h-2 bg-zinc-200 border border-black">
+                    <div className="h-2 bg-zinc-200 border border-black rounded-full overflow-hidden">
                         <div className="h-full bg-black transition-all duration-700" style={{ width: `${progressPct}%` }} />
                     </div>
                 </div>
@@ -146,15 +146,15 @@ export default function OrderDetailPage() {
 
             {/* Price Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="border-4 border-black p-5 bg-[#90e8ff] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div className="border-4 border-black p-5 bg-[#90e8ff] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl">
                     <p className="text-xs font-black uppercase tracking-widest">Total Amount</p>
                     <p className="text-3xl font-black mt-1">₹{order.total_amount.toLocaleString()}</p>
                 </div>
-                <div className="border-4 border-black p-5 bg-[#4be794] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div className="border-4 border-black p-5 bg-[#4be794] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl">
                     <p className="text-xs font-black uppercase tracking-widest">Amount Paid</p>
                     <p className="text-3xl font-black mt-1">₹{order.amount_paid.toLocaleString()}</p>
                 </div>
-                <div className={`border-4 border-black p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${balanceDue > 0 ? "bg-[#ff90e8]" : "bg-zinc-100"}`}>
+                <div className={`border-4 border-black p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl ${balanceDue > 0 ? "bg-[#ff90e8]" : "bg-zinc-100"}`}>
                     <p className="text-xs font-black uppercase tracking-widest">Balance Due</p>
                     <p className="text-3xl font-black mt-1">₹{balanceDue.toLocaleString()}</p>
                 </div>
@@ -164,7 +164,7 @@ export default function OrderDetailPage() {
             <div className="flex flex-wrap gap-4">
                 {balanceDue > 0 && (
                     <Button
-                        className="h-12 px-8 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-none disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="h-12 px-8 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full disabled:opacity-70 disabled:cursor-not-allowed"
                         disabled={isProcessing}
                         onClick={() => initiatePayment({
                             orderId: order.id,
@@ -188,7 +188,7 @@ export default function OrderDetailPage() {
                 )}
                 <Button
                     variant="outline"
-                    className="h-12 px-8 border-2 border-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-none"
+                    className="h-12 px-8 border-2 border-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full"
                     onClick={async () => {
                         try {
                             const token = localStorage.getItem("access_token");
@@ -214,7 +214,7 @@ export default function OrderDetailPage() {
                     <Download className="h-4 w-4 mr-2" /> Download Invoice
                 </Button>
                 {order.inquiry_id && (
-                    <Button asChild variant="outline" className="h-12 px-8 border-2 border-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-none">
+                    <Button asChild variant="outline" className="h-12 px-8 border-2 border-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full">
                         <Link href={`/dashboard/inquiries`}>View Inquiry</Link>
                     </Button>
                 )}
@@ -222,8 +222,8 @@ export default function OrderDetailPage() {
 
             {/* Transaction History */}
             {order.transactions && order.transactions.length > 0 && (
-                <div className="border-4 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-                    <div className="border-b-4 border-black p-4 bg-zinc-50">
+                <div className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden">
+                    <div className="border-b-2 border-black p-4 bg-zinc-50">
                         <h2 className="font-black uppercase tracking-tight">Transaction History</h2>
                     </div>
                     <div className="divide-y-2 divide-zinc-100">

@@ -4,10 +4,12 @@ import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Suspense } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 function CallbackHandler() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { refreshUser } = useAuth();
 
     useEffect(() => {
         const access_token = searchParams.get("access_token");
@@ -20,13 +22,14 @@ function CallbackHandler() {
 
         if (access_token) {
             localStorage.setItem("access_token", access_token);
-            // Notify header to re-check auth state
-            window.dispatchEvent(new Event("user-updated"));
-            router.replace("/dashboard");
+            // Sync the global auth state
+            refreshUser().then(() => {
+                router.replace("/dashboard");
+            });
         } else {
             router.replace("/auth/login?error=no_token");
         }
-    }, [searchParams, router]);
+    }, [searchParams, router, refreshUser]);
 
     return (
         <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6">

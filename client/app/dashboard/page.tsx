@@ -22,31 +22,30 @@ interface Stats {
   inTransit: number;
 }
 
+import { useAuth } from "@/context/AuthContext";
+
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserData | null>(null);
+  const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({ totalOrders: 0, pendingInquiries: 0, inTransit: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAll = async () => {
+    const fetchStats = async () => {
       const token = localStorage.getItem("access_token");
       if (!token) { router.replace("/auth/login"); return; }
 
       try {
-        const [userRes, ordersRes, inquiriesRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my`, { headers: { Authorization: `Bearer ${token}` } }),
+        const [ordersRes, inquiriesRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my`, {
+            headers: { Authorization: `Bearer ${token}` },
+            credentials: "include"
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my`, {
+            headers: { Authorization: `Bearer ${token}` },
+            credentials: "include"
+          }),
         ]);
-
-        if (userRes.status === 401) {
-          localStorage.removeItem("access_token");
-          router.replace("/auth/login");
-          return;
-        }
-
-        if (userRes.ok) setUser(await userRes.json());
 
         let ordersData: any[] = [];
         let inquiriesData: any[] = [];
@@ -59,13 +58,13 @@ export default function DashboardPage() {
           inTransit: ordersData.filter((o: any) => o.status === "SHIPPED" || o.status === "IN_PRODUCTION").length,
         });
       } catch (error) {
-        console.error("Dashboard fetch error:", error);
+        console.error("Dashboard stats fetch error:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchAll();
+    fetchStats();
   }, [router]);
 
   if (isLoading) return <DashboardSkeleton />;
@@ -131,9 +130,9 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {statCards.map(({ label, value, icon: Icon, bg, href }) => (
           <Link key={label} href={href}>
-            <div className={`${bg} border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer group`}>
+            <div className={`${bg} border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-px hover:translate-y-px hover:shadow-sm transition-all cursor-pointer group rounded-xl`}>
               <div className="flex justify-between items-start mb-4">
-                <div className="p-3 bg-black text-white border-2 border-black">
+                <div className="p-3 bg-black text-white border-2 border-black rounded-lg">
                   <Icon className="h-6 w-6" />
                 </div>
                 <ArrowUpRight className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -149,16 +148,16 @@ export default function DashboardPage() {
       <div className="grid md:grid-cols-3 gap-8">
 
         {/* Quick Actions */}
-        <div className="md:col-span-2 border-4 border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white">
-          <div className="flex justify-between items-center mb-6 border-b-4 border-zinc-100 pb-4">
+        <div className="md:col-span-2 border-2 border-black p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] bg-white rounded-xl">
+          <div className="flex justify-between items-center mb-6 border-b-2 border-zinc-100 pb-4">
             <h2 className="text-2xl font-black uppercase tracking-tight">Quick Links</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {quickLinks.map(({ label, href, icon: Icon }) => (
               <Link key={label} href={href}>
-                <div className="flex items-center justify-between p-4 border-2 border-black bg-zinc-50 hover:bg-[#fdf567] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all group">
+                <div className="flex items-center justify-between p-4 border-2 border-black bg-zinc-50 hover:bg-[#fdf567] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all group rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-black text-white">
+                    <div className="p-2 bg-black text-white rounded-md">
                       <Icon className="h-5 w-5" />
                     </div>
                     <span className="font-black uppercase tracking-tight text-lg">{label}</span>
@@ -171,14 +170,14 @@ export default function DashboardPage() {
         </div>
 
         {/* User Card */}
-        <div className="md:col-span-1 border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white text-center">
+        <div className="md:col-span-1 border-2 border-black p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] bg-white text-center rounded-xl">
           <div className="h-32 w-32 mx-auto border-4 border-black rounded-full overflow-hidden mb-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <img src={avatarUrl} className="h-full w-full object-cover" alt="User Avatar" />
           </div>
           <h3 className="text-xl font-black uppercase">{user?.name}</h3>
           <p className="text-zinc-500 font-medium mb-2">{user?.email}</p>
           {user?.phone && <p className="text-zinc-500 font-medium mb-6">{user?.phone}</p>}
-          <Button asChild variant="outline" className="w-full font-black border-2 border-black hover:bg-zinc-100 rounded-none h-12 mt-4">
+          <Button asChild variant="outline" className="w-full font-black border-2 border-black hover:bg-zinc-100 rounded-full h-12 mt-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all">
             <Link href="/dashboard/settings">Edit Profile</Link>
           </Button>
         </div>

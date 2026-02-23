@@ -25,21 +25,25 @@ export default function LoginPage() {
 
     try {
       const formBody = new URLSearchParams();
-      formBody.append("username", formData.email); 
+      formBody.append("username", formData.email);
       formBody.append("password", formData.password);
 
       const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formBody,
+        credentials: "include",
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Invalid credentials");
-      
+      if (!res.ok) {
+        const detail = typeof data.detail === 'object' ? JSON.stringify(data.detail) : data.detail;
+        throw new Error(detail || "Invalid credentials");
+      }
+
       // Save the access token
       localStorage.setItem("access_token", data.access_token);
-      
+
       // The refresh token is automatically set in HttpOnly cookies by your backend!
       router.push("/dashboard");
     } catch (err: any) {
@@ -60,8 +64,8 @@ export default function LoginPage() {
         <CardContent>
           {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2"><Label>Email</Label><Input name="email" type="email" required onChange={(e) => setFormData({...formData, email: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Password</Label><Input name="password" type="password" required onChange={(e) => setFormData({...formData, password: e.target.value})} /></div>
+            <div className="space-y-2"><Label>Email</Label><Input name="email" type="email" required onChange={(e) => setFormData({ ...formData, email: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Password</Label><Input name="password" type="password" required onChange={(e) => setFormData({ ...formData, password: e.target.value })} /></div>
             <Button type="submit" className="w-full bg-black" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 animate-spin" /> : "Sign In"}
             </Button>
@@ -70,7 +74,7 @@ export default function LoginPage() {
             </Button>
           </form>
           <div className="mt-6 text-center text-sm">
-              Don't have an account? <Link href="/auth/signup" className="underline font-medium">Sign up</Link>
+            Don't have an account? <Link href="/auth/signup" className="underline font-medium">Sign up</Link>
           </div>
         </CardContent>
       </Card>

@@ -8,8 +8,8 @@ from app.core.database import Base
 class Order(Base):
     __tablename__ = 'orders'
     id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
-    inquiry_id = Column(Integer, ForeignKey('inquiry_groups.id'), nullable=False)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    inquiry_id = Column(Uuid, ForeignKey('inquiry_groups.id'), nullable=False)
+    user_id = Column(Uuid, ForeignKey('users.id'), nullable=False)
     total_amount = Column(Double, nullable=False)
     amount_paid = Column(Double, default=0.0)
     status = Column(String, default='WAITING_PAYMENT')

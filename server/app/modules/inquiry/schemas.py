@@ -30,7 +30,7 @@ class InquiryItemCreate(BaseModel):
     def check_template_or_service(self):
         if not self.template_id and not self.service_id:
             raise ValueError("Either template_id or service_id must be provided")
-        if service_id and not variant_id:
+        if self.service_id and not self.variant_id:
             raise ValueError("variant_id must be provided when service_id is provided")
         return self
 

@@ -15,7 +15,7 @@ export function ServiceCard({ service }: { service: ServiceItem }) {
 
     return (
         <Card
-            className="flex flex-col border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 bg-white h-full"
+            className="flex flex-col border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-xl transition-all duration-200 bg-white h-full rounded-xl overflow-hidden"
         >
             <CardHeader className="bg-zinc-50 border-b-2 border-black p-6">
                 <div className="flex justify-between items-start">

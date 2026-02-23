@@ -1,5 +1,6 @@
 import asyncio
 from typing import Optional
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, or_
@@ -78,7 +79,7 @@ async def user_detail(current_user : TokenData = Depends(get_current_user), db :
 
 
 @router.get("/{id}" , response_model=UserOut)
-async def get_user_by_id(id : int , db : AsyncSession = Depends(get_db), current_user: TokenData = Depends(get_current_user)):
+async def get_user_by_id(id : UUID , db : AsyncSession = Depends(get_db), current_user: TokenData = Depends(get_current_user)):
 
     stmt = select(User).where(User.id == id)
     result = await db.execute(stmt)
@@ -121,7 +122,7 @@ async def update_user(
 
 @router.delete("/delete", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
-    user_id: int,
+    user_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
 ):

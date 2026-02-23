@@ -66,7 +66,7 @@ export default function ProductReviews({ productId }: { productId: number }) {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) { showAlert("Please log in to leave a review.", "error"); return; }
-        setIsSubmitting(true);
+        if (comment.length < 10) { showAlert("Comment must be at least 10 characters long.", "error"); setIsSubmitting(false); return; }
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/review?product_id=${productId}`, {
                 method: "POST",
@@ -131,8 +131,10 @@ export default function ProductReviews({ productId }: { productId: number }) {
                         <StarRating value={rating} onChange={setRating} />
                     </div>
                     <div>
-                        <p className="font-black text-sm uppercase tracking-widest mb-2">Comment (optional)</p>
+                        <p className="font-black text-sm uppercase tracking-widest mb-2">Comment <span className="text-red-500">*</span></p>
                         <Textarea
+                            required
+                            minLength={10}
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
                             placeholder="Share your experience with this product..."
@@ -162,7 +164,7 @@ export default function ProductReviews({ productId }: { productId: number }) {
             ) : (
                 <div className="space-y-4">
                     {reviews.map((review) => (
-                        <div key={review.id} className="border-2 border-black bg-white p-6">
+                        <div key={review.id} className="border-2 border-black bg-white p-6 rounded-xl shadow-sm">
                             <div className="flex items-start justify-between gap-4 mb-3">
                                 <div className="flex items-center gap-3">
                                     <div className="h-10 w-10 border-2 border-black rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center shrink-0">

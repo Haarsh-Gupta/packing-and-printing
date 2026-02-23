@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User
 from app.modules.orders.models import Order, Transaction
-from app.modules.inquiry.models import Inquiry
+from app.modules.inquiry.models import InquiryGroup, InquiryItem, InquiryMessage
 from app.modules.products.models import ProductTemplate
 from app.modules.services.models import Service
 
@@ -97,17 +97,17 @@ class DashboardService:
 
         # --- Inquiries ---
         total_inquiries = (await self.db.execute(
-            select(func.count(Inquiry.id))
+            select(func.count(InquiryGroup.id))
         )).scalar() or 0
 
         pending_inquiries = (await self.db.execute(
-            select(func.count(Inquiry.id)).where(Inquiry.status == "PENDING")
+            select(func.count(InquiryGroup.id)).where(InquiryGroup.status == "PENDING")
         )).scalar() or 0
 
         inquiries_in_period = 0
         if start:
             inquiries_in_period = (await self.db.execute(
-                select(func.count(Inquiry.id)).where(Inquiry.created_at >= start)
+                select(func.count(InquiryGroup.id)).where(InquiryGroup.created_at >= start)
             )).scalar() or 0
 
         # --- Products & Services ---
@@ -337,17 +337,17 @@ class DashboardService:
     async def get_inquiries(self, period: PeriodType = "all") -> dict:
         start = _period_start(period)
 
-        total = (await self.db.execute(select(func.count(Inquiry.id)))).scalar() or 0
+        total = (await self.db.execute(select(func.count(InquiryGroup.id)))).scalar() or 0
 
         in_period = 0
         if start:
             in_period = (await self.db.execute(
-                select(func.count(Inquiry.id)).where(Inquiry.created_at >= start)
+                select(func.count(InquiryGroup.id)).where(InquiryGroup.created_at >= start)
             )).scalar() or 0
 
         # By status
         status_rows = (await self.db.execute(
-            select(Inquiry.status, func.count(Inquiry.id)).group_by(Inquiry.status)
+            select(InquiryGroup.status, func.count(InquiryGroup.id)).group_by(InquiryGroup.status)
         )).all()
         by_status = {r[0]: r[1] for r in status_rows}
 
@@ -357,18 +357,18 @@ class DashboardService:
 
         # Average quoted price
         avg_quoted = (await self.db.execute(
-            select(func.coalesce(func.avg(Inquiry.quoted_price), 0))
-            .where(Inquiry.quoted_price.isnot(None))
+            select(func.coalesce(func.avg(InquiryGroup.total_quoted_price), 0))
+            .where(InquiryGroup.total_quoted_price.isnot(None))
         )).scalar()
 
-        # Popular products (top 10 by inquiry count)
+        # Popular products (top 10 by inquiry item count)
         popular_q = (
             select(
                 ProductTemplate.id,
                 ProductTemplate.name,
-                func.count(Inquiry.id).label("inquiry_count"),
+                func.count(InquiryItem.id).label("inquiry_count"),
             )
-            .join(Inquiry, Inquiry.template_id == ProductTemplate.id)
+            .join(InquiryItem, InquiryItem.template_id == ProductTemplate.id)
             .group_by(ProductTemplate.id, ProductTemplate.name)
             .order_by(desc("inquiry_count"))
             .limit(10)
@@ -432,14 +432,13 @@ class DashboardService:
 
         # Recent inquiries
         inqs = (await self.db.execute(
-            select(Inquiry.id, Inquiry.status, Inquiry.created_at, ProductTemplate.name)
-            .join(ProductTemplate, ProductTemplate.id == Inquiry.template_id)
-            .order_by(desc(Inquiry.created_at)).limit(limit)
+            select(InquiryGroup.id, InquiryGroup.status, InquiryGroup.created_at)
+            .order_by(desc(InquiryGroup.created_at)).limit(limit)
         )).all()
         for i in inqs:
             activities.append({
                 "type": "NEW_INQUIRY",
-                "description": f"Inquiry #{i[0]} for {i[3]} — {i[1]}",
+                "description": f"Inquiry #{i[0]} — {i[1]}",
                 "timestamp": i[2].isoformat() if i[2] else None,
             })
 

@@ -144,7 +144,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
             <div className="space-y-8 flex-grow">
 
                 {/* Fixed Quantity Field */}
-                <div className="space-y-3 bg-zinc-50 p-4 border-2 border-black">
+                <div className="space-y-3 bg-zinc-50 px-2 py-4 border-2 border-black rounded-lg">
                     <Label className="text-lg font-bold">Quantity (Min: {product.minimum_quantity})</Label>
                     <Input
                         type="number"
@@ -186,9 +186,9 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                                         <Label
                                             key={option.value}
                                             className={`
-                        relative flex items-center justify-between p-4 border-2 border-black cursor-pointer transition-all rounded-md
+                        relative flex items-center justify-between p-4 border-2 border-black cursor-pointer transition-all rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]
                         ${isSelected
-                                                    ? "bg-zinc-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1"
+                                                    ? "bg-zinc-300 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] -translate-y-1"
                                                     : "bg-white hover:bg-zinc-100"
                                                 }
                       `}
@@ -260,7 +260,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                     </div>
                 </div>
 
-                <Button type="submit" className="w-full h-16 bg-[#4be794] text-black text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded-md font-bold border-2 border-black" disabled={isLoading}>
+                <Button type="submit" className="w-full h-12 bg-[#45ec93] text-black text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none hover:bg-[#00af29] transition-all rounded-md font-bold border-2 border-black" disabled={isLoading}>
                     {isLoading ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : "Request Official Quote"}
                 </Button>
             </div>

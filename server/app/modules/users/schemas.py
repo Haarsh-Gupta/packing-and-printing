@@ -1,6 +1,7 @@
 from pydantic import BaseModel , EmailStr, model_validator , field_validator, Field
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 
 def valid_password(password):
         """ Must have the captial , small letter , number """
@@ -26,7 +27,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(min_length = 6)
     profile_picture: Optional[str] = None
-    otp: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+    otp: int = Field(ge=100000, le=999999)
 
     @field_validator("password")
     def check_password(cls , value):
@@ -59,7 +60,7 @@ class UserUpdate(BaseModel):
         from_attributes = True
 
 class UserOut(UserBase):
-    id: int
+    id: UUID
     admin: bool = False
     phone : Optional[str] = None
     profile_picture: Optional[str] = None

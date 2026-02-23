@@ -6,6 +6,7 @@ import { LayoutDashboard, Package, FileText, Settings, LogOut, ChevronLeft, Chev
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NotificationCenter from "@/components/NotificationCenter";
+import { useAuth } from "@/context/AuthContext";
 
 export default function DashboardLayout({
     children,
@@ -13,6 +14,7 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const { user, logout } = useAuth();
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -28,20 +30,7 @@ export default function DashboardLayout({
     }, [pathname]);
 
     const handleLogout = async () => {
-        try {
-            const token = localStorage.getItem("access_token");
-            if (token) {
-                await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
-                    method: "POST",
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-            }
-        } catch (e) {
-            console.error("Logout error", e);
-        } finally {
-            localStorage.removeItem("access_token");
-            router.replace("/auth/login");
-        }
+        await logout();
     };
 
     if (!mounted) return null;
@@ -102,14 +91,14 @@ export default function DashboardLayout({
                     })}
                 </nav>
 
-                <div className={`pt-8 border-t-2 border-zinc-800 ${(isCollapsed && !isMobileMenuOpen) ? 'flex justify-center' : ''}`}>
+                <div className={`pt-6 border-t-2 border-zinc-800 ${(isCollapsed && !isMobileMenuOpen) ? 'flex justify-center' : ''}`}>
                     <button
                         onClick={handleLogout}
-                        className={`flex items-center text-lg font-bold text-red-400 hover:bg-red-950/30 hover:text-red-300 border-2 border-transparent transition-all ${(isCollapsed && !isMobileMenuOpen) ? 'justify-center p-3 aspect-square' : 'w-full p-4'}`}
+                        className={`flex items-center text-lg font-black uppercase tracking-tight transition-all border-2 border-transparent hover:border-red-500 hover:bg-red-500/10 text-red-400 hover:text-red-500 ${(isCollapsed && !isMobileMenuOpen) ? 'justify-center p-3 aspect-square' : 'w-full p-4 mb-2'}`}
                         title="Logout"
                     >
                         <LogOut className={`${isCollapsed && !isMobileMenuOpen ? 'h-6 w-6' : 'mr-3 h-5 w-5'}`} />
-                        {(!isCollapsed || isMobileMenuOpen) && "Logout"}
+                        {(!isCollapsed || isMobileMenuOpen) && "Sign Out"}
                     </button>
                 </div>
             </aside>
@@ -127,7 +116,7 @@ export default function DashboardLayout({
                         <span className="font-bold text-lg uppercase tracking-tight md:hidden">BookBind.</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <span className="text-sm font-bold hidden md:inline-block">Welcome back, User</span>
+                        <span className="text-sm font-bold hidden md:inline-block">Welcome back, {user?.name || "User"}</span>
                         <NotificationCenter />
                     </div>
                 </header>

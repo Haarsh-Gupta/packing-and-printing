@@ -3,8 +3,8 @@ from passlib.context import CryptContext
 from .schemas import TokenData
 from jose import JWTError , jwt
 from datetime import datetime , timedelta , timezone
-from fastapi import HTTPException , Depends , status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import HTTPException , Depends , status, Request
+from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from ..users.models import User
@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.core.config import settings
 import random
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
@@ -34,7 +34,7 @@ async def generate_otp():
 
 async def create_access_token(data : dict):
     payload = TokenData(**data) 
-    to_encode = payload.model_dump()
+    to_encode = payload.model_dump(mode="json")
     expire = datetime.now(timezone.utc) + timedelta(minutes = ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp" : expire , "type" : "access_token"})
     encoded_jwt = jwt.encode(to_encode , SECRET_KEY , algorithm = ALGORITHM)
@@ -42,7 +42,7 @@ async def create_access_token(data : dict):
 
 async def create_refresh_token(data : dict):
     payload = TokenData(**data)
-    to_encode = payload.model_dump()
+    to_encode = payload.model_dump(mode="json")
     expire = datetime.now(timezone.utc) + timedelta(days = REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp" : expire , "type" : "refresh_token"})
     encoded_jwt = jwt.encode(to_encode , SECRET_KEY , algorithm = ALGORITHM)
@@ -56,12 +56,20 @@ async def verify_token(token : str, credintials_exception : HTTPException) -> To
         raise credintials_exception
     return token_data
 
-async def get_current_user(token : str = Depends(oauth2_scheme)) -> TokenData:
+async def get_current_user(request: Request, token : str = Depends(oauth2_scheme)) -> TokenData:
     credintials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED , 
         detail="Could not validate credentials" ,
         headers={"WWW-Authenticate" : "Bearer"} 
     )
+    
+    # If token is not in header or is string "undefined"/"null", check cookies
+    if not token or token in ["undefined", "null"]:
+        token = request.cookies.get("access_token")
+        
+    if not token:
+        raise credintials_exception
+
     token_data = await verify_token(token , credintials_exception) 
     return token_data
 

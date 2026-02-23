@@ -2,6 +2,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { AlertProvider } from "@/components/CustomAlert";
+import { AuthProvider } from "@/context/AuthContext";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const bgColor = process.env.NEXT_PUBLIC_SITE_BG_COLOR || "#f8fafc";
@@ -18,9 +19,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
       >
         <AlertProvider>
-          <Header />
-          <main className="flex-grow">{children}</main>
-          <Footer />
+          <AuthProvider>
+            <Header />
+            <main className="flex-grow">{children}</main>
+            <Footer />
+          </AuthProvider>
         </AlertProvider>
       </body>
     </html>

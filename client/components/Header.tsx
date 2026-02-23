@@ -5,55 +5,23 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { User, Menu, X } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
-
-interface UserData {
-  name: string;
-  profile_picture: string | null;
-}
+import { useAuth } from "@/context/AuthContext";
 
 export default function Header() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const { user, isLoggedIn } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
-    checkAuthAndFetch();
-
-    const handleUserUpdate = () => checkAuthAndFetch();
-    window.addEventListener("user-updated", handleUserUpdate);
-
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
     window.addEventListener("scroll", handleScroll);
 
     return () => {
-      window.removeEventListener("user-updated", handleUserUpdate);
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
-
-  const checkAuthAndFetch = async () => {
-    const token = localStorage.getItem("access_token");
-    setIsLoggedIn(!!token);
-
-    if (token) {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUserData(data);
-        }
-      } catch (e) {
-        console.error("Failed to fetch user in header", e);
-      }
-    } else {
-      setUserData(null);
-    }
-  };
 
   return (
     <header
@@ -85,8 +53,8 @@ export default function Header() {
 
               <Link href="/dashboard" className="flex items-center gap-3">
                 <div className="h-9 w-9 bg-[#FF90E8] rounded-full flex items-center justify-center border-2 border-white/20 hover:border-[#FF90E8] hover:scale-110 transition-all text-black overflow-hidden relative">
-                  {userData?.profile_picture ? (
-                    <img src={userData.profile_picture} alt="Profile" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                  {user?.profile_picture ? (
+                    <img src={user.profile_picture} alt="Profile" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
                     <User className="h-4 w-4" />
                   )}
@@ -134,8 +102,8 @@ export default function Header() {
             <div className="flex flex-col gap-4">
               <Link href="/dashboard" className="flex items-center gap-3 text-lg font-bold hover:text-[#FF90E8] text-white" onClick={() => setIsMobileMenuOpen(false)}>
                 <div className="h-10 w-10 bg-[#FF90E8] rounded-full flex items-center justify-center border-2 border-white/20 text-black overflow-hidden relative">
-                  {userData?.profile_picture ? (
-                    <img src={userData.profile_picture} alt="Profile" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                  {user?.profile_picture ? (
+                    <img src={user.profile_picture} alt="Profile" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
                     <User className="h-5 w-5" />
                   )}

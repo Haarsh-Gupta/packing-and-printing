@@ -15,15 +15,19 @@ from authlib.integrations.base_client import OAuthError
 from app.core.rate_limiter import RateLimiter
 
 REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 router = APIRouter()
 
 
 @router.post("/login", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-async def login(response : Response , db : AsyncSession = Depends(get_db), form_data : OAuth2PasswordRequestForm = Depends()):
+async def login(request: Request, response : Response , db : AsyncSession = Depends(get_db), form_data : OAuth2PasswordRequestForm = Depends()):
     username = form_data.username
     password = form_data.password
 
+    # Determine if we should use secure cookies (False for localhost)
+    is_secure = request.url.scheme == "https" and "localhost" not in request.url.hostname
+    
     result = await db.execute(select(User).where(User.email == username))
     user = result.scalar_one_or_none() 
 
@@ -41,22 +45,35 @@ async def login(response : Response , db : AsyncSession = Depends(get_db), form_
     #create the refresh token
     refresh_token = await create_refresh_token(data = payload.model_dump())
 
-    #setting the refresh token in cookies 
+    #setting the tokens in cookies 
+    response.set_cookie(
+        key = "access_token",
+        value = access_token,
+        httponly = True,
+        secure = is_secure,
+        samesite = "lax",
+        max_age = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
     response.set_cookie(
         key = "refresh_token",
         value = refresh_token,
         httponly = True,
-        secure = True,
+        secure = is_secure,
         samesite = "lax",
-        max_age = REFRESH_TOKEN_EXPIRE_DAYS*24*60*60
+        max_age = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
 
-    return Token(access_token = access_token)
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
 
 @router.post("/refresh")
 async def refresh(response: Response, request: Request, db : AsyncSession = Depends(get_db)):
     #get the refresh token from cookies
     refresh_token = request.cookies.get("refresh_token")
+    is_secure = request.url.scheme == "https" and "localhost" not in request.url.hostname
 
     if not refresh_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not found")
@@ -86,7 +103,16 @@ async def refresh(response: Response, request: Request, db : AsyncSession = Depe
     new_payload = TokenData(id=user.id, email=user.email, admin=user.admin)
     access_token = await create_access_token(data = new_payload.model_dump())
 
-    return Token(access_token = access_token)
+    response.set_cookie(
+        key = "access_token",
+        value = access_token,
+        httponly = True,
+        secure = is_secure,
+        samesite = "lax",
+        max_age = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+
+    return {"message": "Token refreshed successfully"}
 
 
 @router.post("/logout")
@@ -102,6 +128,7 @@ async def logout(response: Response, db : AsyncSession = Depends(get_db), curren
     user.token_version += 1
     await db.commit()
 
+    response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
     return {"message" : "Logged out successfully"}
 
@@ -119,7 +146,7 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
     except OAuthError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google authentication failed")
 
-
+    is_secure = request.url.scheme == "https" and "localhost" not in request.url.hostname
     user_info = token.get("userinfo")
 
     if not user_info:
@@ -150,17 +177,27 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
     access_token = await create_access_token(data = payload.model_dump())
     refresh_token = await create_refresh_token(data = payload.model_dump())
 
-    # Redirect to frontend with token
-    frontend_url = f"http://localhost:3000/auth/success?access_token={access_token}"
+    # Redirect to frontend
+    # We still keep the token in the URL for the frontend success page to catch it
+    # until the frontend is fully migrated to use cookies.
+    frontend_url = f"http://localhost:3000/auth/success?access_token={access_token}&refresh_token={refresh_token}"
     response = RedirectResponse(url=frontend_url)
 
+    response.set_cookie(
+        key = "access_token",
+        value = access_token,
+        httponly = True,
+        secure = is_secure,
+        samesite = "lax",
+        max_age = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
     response.set_cookie(
         key = "refresh_token",
         value = refresh_token,
         httponly = True,
-        secure = True, 
+        secure = is_secure, 
         samesite = "lax",
-        max_age = REFRESH_TOKEN_EXPIRE_DAYS*24*60*60
+        max_age = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
 
     return response

@@ -9,7 +9,7 @@ from app.modules.products.models import ProductTemplate
 from datetime import datetime
 from sqlalchemy.orm import joinedload
 from app.modules.orders.models import Order
-from app.modules.inquiry.models import Inquiry
+from app.modules.inquiry.models import InquiryGroup, InquiryItem
 from app.modules.reviews.models import Review as ProductReview
 from app.modules.reviews.schemas import ReviewBase , ReviewUpdate, ReviewCreate, ReviewResponse
 
@@ -50,11 +50,12 @@ async def create_review(
    
     stmt = (
     select(Order)
-    .join(Inquiry, Order.inquiry_id == Inquiry.id) # Connect Order to Inquiry
+    .join(InquiryGroup, Order.inquiry_id == InquiryGroup.id)
+    .join(InquiryItem, InquiryItem.group_id == InquiryGroup.id)
     .where(
-        Order.user_id == user_id,           # 1. Matches User
-        Inquiry.template_id == product_id,  # 2. Matches Specific Product
-        Order.status == 'PAID' or Order.status == 'COMPLETED' # Optional: Ensure it's paid? User didn't specify but good practice. I'll stick to user logic which was user_id and template_id.
+        Order.user_id == user_id,
+        InquiryItem.template_id == product_id,
+        Order.status.in_(['PAID', 'COMPLETED'])
     )
     .limit(1) 
     )

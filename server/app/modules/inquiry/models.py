@@ -71,7 +71,7 @@ class InquiryItem(Base):
     
     # Relationships
     group = relationship("InquiryGroup", back_populates="items")
-    template = relationship("ProductTemplate")
+    template = relationship("ProductTemplate", back_populates="inquiry_items")
     service = relationship("Service")
     variant = relationship("ServiceVariant")
 
@@ -88,7 +88,7 @@ class InquiryMessage(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     inquiry_group_id = Column(Uuid, ForeignKey('inquiry_groups.id'), nullable=False)
-    sender_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    sender_id = Column(Uuid, ForeignKey('users.id'), nullable=False)
     
     content = Column(Text, nullable=False)
     file_urls = Column(ARRAY(String), nullable=True)

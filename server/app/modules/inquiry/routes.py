@@ -45,7 +45,7 @@ async def create_inquiry_group(
     # 2. Add the child items to the container
     for item in inquiry_data.items:
         new_item = InquiryItem(
-            inquiry_group_id=new_group.id,
+            group_id=new_group.id,
             template_id=item.template_id,
             service_id=item.service_id,
             variant_id=item.variant_id,

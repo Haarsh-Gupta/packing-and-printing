@@ -38,7 +38,7 @@ class TicketMessage(Base):
 
     # Relationships
     ticket = relationship("Ticket", back_populates="messages")
-    sender = relationship("User", back_populates="messages")
+    sender = relationship("User")
 
     def __repr__(self):
         return f"TicketMessage(id={self.id}, ticket_id={self.ticket_id}, is_read={self.is_read})"

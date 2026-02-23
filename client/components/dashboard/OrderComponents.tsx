@@ -22,7 +22,7 @@ export function OrderCard({ order }: { order: Order }) {
     const quantity = order.quantity || 100;
 
     return (
-        <Card className="overflow-hidden border-2 border-black shadow-none hover:shadow-xl transition-all duration-300 group">
+        <Card className="overflow-hidden border-2 border-black shadow-none hover:shadow-xl transition-all duration-300 group rounded-xl bg-white">
             <div className="flex flex-col sm:flex-row">
                 <div className="w-full sm:w-48 h-48 sm:h-auto bg-zinc-100 relative shrink-0 flex items-center justify-center overflow-hidden">
                     <div className="absolute inset-0 bg-neutral-100 flex items-center justify-center group-hover:bg-neutral-200 transition-colors">
@@ -122,7 +122,7 @@ export function OrderListRow({ order }: { order: Order }) {
     const productName = order.product_name || `Order #${order.id}`;
 
     return (
-        <div className="bg-white border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all">
+        <div className="bg-white border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-xl">
             <div className="flex items-center gap-4 flex-1">
                 <div className="w-12 h-12 bg-zinc-100 border border-black flex items-center justify-center shrink-0">
                     <Package className="w-6 h-6 text-zinc-400" />

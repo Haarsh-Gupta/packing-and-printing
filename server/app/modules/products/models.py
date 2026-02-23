@@ -24,7 +24,7 @@ class ProductTemplate(Base):
 
     images = Column(ARRAY(String) , nullable = True)
     
-    inquiries = relationship("Inquiry", back_populates="template")
+    inquiry_items = relationship("InquiryItem", back_populates="template")
 
     def __repr__(self):
         return f"Product(id={self.id}, name={self.name}, base_price={self.base_price}, config_schema={self.config_schema})"

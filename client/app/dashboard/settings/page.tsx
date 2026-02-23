@@ -22,10 +22,11 @@ interface User {
 const MALE_AVATARS = ["Alexander", "Liam", "Noah", "Oliver", "William", "James", "Benjamin", "Lucas"].map(seed => `https://api.dicebear.com/9.x/open-peeps/svg?seed=${seed}&backgroundColor=b6e3f4`);
 const FEMALE_AVATARS = ["Sophia", "Emma", "Olivia", "Ava", "Isabella", "Mia", "Charlotte", "Amelia"].map(seed => `https://api.dicebear.com/9.x/open-peeps/svg?seed=${seed}&backgroundColor=c0aede`);
 
+import { useAuth } from "@/context/AuthContext";
+
 export default function SettingsPage() {
-  // Global User State
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, refreshUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(false); // Context handles initial load, but for settings specific local loads
 
   // Form States
   const [avatarTab, setAvatarTab] = useState("upload");
@@ -50,7 +51,13 @@ export default function SettingsPage() {
   const { showAlert } = useAlert();
 
   useEffect(() => {
-    fetchUser();
+    if (user) {
+      setPersonalInfo({ name: user.name, phone: user.phone || "" });
+      setSelectedAvatar(user.profile_picture || "");
+    }
+  }, [user]);
+
+  useEffect(() => {
     // Load mocked address
     const savedAddr = localStorage.getItem("client_shipping_address");
     if (savedAddr) {
@@ -59,22 +66,6 @@ export default function SettingsPage() {
       setIsEditingAddress(false);
     }
   }, []);
-
-  const fetchUser = async () => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
-        setPersonalInfo({ name: data.name, phone: data.phone || "" });
-        setSelectedAvatar(data.profile_picture || "");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // --- 1. Profile Picture Handlers ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,10 +177,7 @@ export default function SettingsPage() {
       body: JSON.stringify(payload)
     });
     if (res.ok) {
-      const data = await res.json();
-      setUser(data);
-      // Notify other components (Header) about the update
-      window.dispatchEvent(new Event("user-updated"));
+      await refreshUser();
     } else {
       throw new Error("Update failed");
     }
@@ -209,9 +197,9 @@ export default function SettingsPage() {
       <div className="grid gap-8">
 
         {/* SECTION 1: Profile Picture */}
-        <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-none">
+        <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden">
           <CardHeader className="bg-zinc-50 border-b-2 border-black">
-            <CardTitle className="flex items-center gap-2"><ImageIcon className="w-5 h-5" /> Profile Appearance</CardTitle>
+            <CardTitle className="flex items-center gap-2 font-black uppercase tracking-tight"><ImageIcon className="w-5 h-5" /> Profile Appearance</CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-8 items-start">
@@ -230,7 +218,7 @@ export default function SettingsPage() {
               {/* Controls */}
               <div className="flex-1 w-full">
                 <div className="w-full">
-                  <div className="grid w-full grid-cols-2 border-2 border-black h-12 bg-white mb-6">
+                  <div className="grid w-full grid-cols-2 border-2 border-black h-12 bg-white mb-6 rounded-full overflow-hidden">
                     <button
                       onClick={() => setAvatarTab("upload")}
                       className={`font-bold text-md transition-colors ${avatarTab === "upload" ? "bg-black text-white" : "bg-white text-black hover:bg-zinc-50"}`}
@@ -247,14 +235,14 @@ export default function SettingsPage() {
 
                   {avatarTab === "upload" && (
                     <div className="space-y-4">
-                      <div className="border-2 border-dashed border-zinc-300 p-8 text-center hover:bg-zinc-50 transition-colors cursor-pointer relative">
+                      <div className="border-2 border-dashed border-zinc-300 p-8 text-center hover:bg-zinc-50 transition-colors cursor-pointer relative rounded-2xl">
                         <input type="file" onChange={handleFileSelect} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
                         <UploadCloud className="w-10 h-10 mx-auto text-zinc-400 mb-2" />
                         <p className="font-bold text-zinc-600">Click to upload or drag and drop</p>
                         <p className="text-xs text-zinc-400">JPG, PNG or GIF (Max 2MB)</p>
                       </div>
                       {uploadFile && <p className="text-sm font-bold text-green-600 flex items-center"><CheckCircle2 className="w-4 h-4 mr-1" /> Selected: {uploadFile.name}</p>}
-                      <Button onClick={saveProfilePicture} disabled={!uploadFile || isUploading} className="w-full bg-black text-white rounded-none border-2 border-black hover:bg-zinc-800">
+                      <Button onClick={saveProfilePicture} disabled={!uploadFile || isUploading} className="w-full bg-black text-white rounded-full border-2 border-black hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all uppercase tracking-widest font-black">
                         {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Upload & Save Photo"}
                       </Button>
                     </div>
@@ -273,7 +261,7 @@ export default function SettingsPage() {
                           </div>
                         ))}
                       </div>
-                      <Button onClick={saveProfilePicture} disabled={isUploading} className="w-full bg-[#90e8ff] text-black rounded-none border-2 border-black hover:bg-[#7dd3ea]">
+                      <Button onClick={saveProfilePicture} disabled={isUploading} className="w-full bg-[#90e8ff] text-black rounded-full border-2 border-black hover:bg-[#7dd3ea] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all uppercase tracking-widest font-black">
                         {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Use Selected Avatar"}
                       </Button>
                     </div>
@@ -287,9 +275,9 @@ export default function SettingsPage() {
         <div className="grid md:grid-cols-2 gap-8">
 
           {/* SECTION 2: Personal Details */}
-          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-none h-fit">
+          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden h-fit">
             <CardHeader className="bg-zinc-50 border-b-2 border-black">
-              <CardTitle className="flex items-center gap-2"><UserIcon className="w-5 h-5" /> Personal Details</CardTitle>
+              <CardTitle className="flex items-center gap-2 font-black uppercase tracking-tight"><UserIcon className="w-5 h-5" /> Personal Details</CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <form onSubmit={savePersonalInfo} className="space-y-4">
@@ -298,10 +286,10 @@ export default function SettingsPage() {
                   <Input value={personalInfo.name} onChange={e => setPersonalInfo({ ...personalInfo, name: e.target.value })} className="border-2 border-black rounded-none" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-bold">Phone Number</Label>
-                  <Input value={personalInfo.phone} onChange={e => setPersonalInfo({ ...personalInfo, phone: e.target.value })} className="border-2 border-black rounded-none" />
+                  <Label className="font-bold uppercase text-[10px] tracking-widest text-zinc-500">Phone Number</Label>
+                  <Input value={personalInfo.phone} onChange={e => setPersonalInfo({ ...personalInfo, phone: e.target.value })} className="border-2 border-black rounded-lg" />
                 </div>
-                <Button disabled={isSavingInfo} className="w-full bg-black text-white rounded-none border-2 border-black hover:bg-zinc-800">
+                <Button disabled={isSavingInfo} className="w-full bg-black text-white rounded-full border-2 border-black hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black uppercase tracking-widest">
                   {isSavingInfo ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save Details"}
                 </Button>
               </form>
@@ -309,10 +297,10 @@ export default function SettingsPage() {
           </Card>
 
           {/* SECTION 3: Address (With Special Logic) */}
-          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-none h-fit">
+          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden h-fit">
             <CardHeader className="bg-zinc-50 border-b-2 border-black">
-              <CardTitle className="flex items-center gap-2"><MapPin className="w-5 h-5" /> Shipping Address</CardTitle>
-              <CardDescription>
+              <CardTitle className="flex items-center gap-2 font-black uppercase tracking-tight"><MapPin className="w-5 h-5" /> Shipping Address</CardTitle>
+              <CardDescription className="font-bold text-xs uppercase tracking-widest">
                 {isAddressNew ? "Add your primary shipping address." : "Secure address management."}
               </CardDescription>
             </CardHeader>
@@ -333,9 +321,9 @@ export default function SettingsPage() {
                         placeholder="Current Password"
                         value={addressAuthPassword}
                         onChange={(e) => setAddressAuthPassword(e.target.value)}
-                        className="border-2 border-black rounded-none"
+                        className="border-2 border-black rounded-lg"
                       />
-                      <Button onClick={handleUnlockAddress} className="bg-black text-white border-2 border-black rounded-none hover:bg-zinc-800">Unlock</Button>
+                      <Button onClick={handleUnlockAddress} className="bg-black text-white border-2 border-black rounded-full hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black uppercase">Unlock</Button>
                     </div>
                   </div>
                 </div>
@@ -371,7 +359,7 @@ export default function SettingsPage() {
                       />
                     </div>
                   </div>
-                  <Button className="w-full bg-[#fdf567] text-black rounded-none border-2 border-black hover:bg-[#e6de5a]">
+                  <Button className="w-full bg-[#fdf567] text-black rounded-full border-2 border-black hover:bg-[#e6de5a] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black uppercase transition-all">
                     Save Address
                   </Button>
                   {!isAddressNew && (
@@ -389,9 +377,9 @@ export default function SettingsPage() {
           </Card>
 
           {/* SECTION 4: Security */}
-          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-none h-fit md:col-span-2">
+          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden h-fit md:col-span-2">
             <CardHeader className="bg-zinc-50 border-b-2 border-black">
-              <CardTitle className="flex items-center gap-2"><Lock className="w-5 h-5" /> Security</CardTitle>
+              <CardTitle className="flex items-center gap-2 font-black uppercase tracking-tight"><Lock className="w-5 h-5" /> Security</CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <form onSubmit={savePassword} className="space-y-4 max-w-md">
@@ -406,10 +394,10 @@ export default function SettingsPage() {
                     value={passwordData.password}
                     onChange={e => setPasswordData({ password: e.target.value })}
                     placeholder="Enter new password"
-                    className="border-2 border-black rounded-none"
+                    className="border-2 border-black rounded-lg"
                   />
                 </div>
-                <Button disabled={isSavingPassword} className="bg-black text-white rounded-none border-2 border-black hover:bg-zinc-800">
+                <Button disabled={isSavingPassword} className="bg-black text-white rounded-full border-2 border-black hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black uppercase px-8">
                   {isSavingPassword ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Update Password"}
                 </Button>
               </form>

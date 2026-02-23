@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
+from uuid import UUID
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -43,16 +44,24 @@ async def create_order(order : OrderCreate , current_user : User = Depends(get_c
     """
 
 
-    stmt = select(Inquiry).selectinload(Inquiry.template).where(Inquiry.id == order.inquiry_id , Inquiry.status == "ACCEPTED" , Inquiry.user_id == current_user.id)
+    stmt = (
+        select(InquiryGroup)
+        .options(selectinload(InquiryGroup.items).selectinload(InquiryItem.template))
+        .where(
+            InquiryGroup.id == order.inquiry_id,
+            InquiryGroup.status == "ACCEPTED",
+            InquiryGroup.user_id == current_user.id
+        )
+    )
 
     result = await db.execute(stmt)
-    inquiry = result.scalar_one_or_none()
+    group = result.scalar_one_or_none()
 
-    if not inquiry:
+    if not group:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Inquiry not found")
 
-    if inquiry.quote_valid_until and inquiry.quote_valid_until < datetime.now(timezone.utc):
-        inquiry.status = "EXPIRED"
+    if group.quote_valid_until and group.quote_valid_until < datetime.now(timezone.utc):
+        group.status = "EXPIRED"
         await db.commit()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail="This quote has expired. Please request a new quotation.")
 
@@ -66,9 +75,9 @@ async def create_order(order : OrderCreate , current_user : User = Depends(get_c
 
 
     new_order = Order(
-        inquiry_id=inquiry.id,
+        inquiry_id=group.id,
         user_id=current_user.id,
-        total_amount=inquiry.total_amount,
+        total_amount=group.total_quoted_price,
         amount_paid=0,
         status="WAITING_PAYMENT"
     )
@@ -103,7 +112,7 @@ async def get_my_orders(
 
 @router.get("/my/{order_id}" , response_model=OrderResponse)
 async def get_my_order(
-    order_id : int,
+    order_id : UUID,
     current_user : User = Depends(get_current_user) ,
     db : AsyncSession = Depends(get_db)
 ):
@@ -124,7 +133,7 @@ async def get_my_order(
 
 @router.post("/my/{order_id}/payment" , response_model=TransactionResponse)
 async def pay_for_order(
-    order_id : int,
+    order_id : UUID,
     payment_data : TransactionCreate,
     current_user : User = Depends(get_current_admin_user) ,
     db : AsyncSession = Depends(get_db)
@@ -165,34 +174,12 @@ async def pay_for_order(
 
     return new_transaction
 
-@router.get("{order_id}/payments" , response_model = List[TransactionResponse])
-async def get_order_payments(
-    order_id : int,
-    current_user : User = Depends(get_current_user) ,
-    db : AsyncSession = Depends(get_db)
-):
-    """
-    Get all payments for a specific order (only if owned by current user).
-    """
-
-    stmt = select(Order).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Order not found")
-
-    if order.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN , detail="You are not authorized to access this order")
-
-    stmt = select(Transaction).where(Transaction.order_id == order_id)
-    result = await db.execute(stmt)
-    return result.scalars().all()
+# Removed duplicate get_order_payments route at line 168
 
 
 @router.get("/{order_id}/payments", response_model=list[TransactionResponse])
 async def get_order_payments(
-    order_id: int,
+    order_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -226,7 +213,7 @@ async def get_order_payments(
 
 @router.get("/{order_id}/payment-qr")
 async def generate_payment_qr_code(
-    order_id: int,
+    order_id: UUID,
     upi_id: str = Query(..., description="UPI ID for payment"),
     payee_name: str = Query(..., description="Payee name"),
     current_user: User = Depends(get_current_user),
@@ -281,7 +268,7 @@ async def generate_payment_qr_code(
 
 @router.get("/{order_id}/invoice")
 async def generate_order_invoice(
-    order_id: int,
+    order_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -292,7 +279,6 @@ async def generate_order_invoice(
     stmt = (
         select(Order)
         .options(
-            selectinload(Order.inquiry).selectinload(Inquiry.template),
             selectinload(Order.user),
             selectinload(Order.transactions)
         )
@@ -306,6 +292,18 @@ async def generate_order_invoice(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Order not found"
         )
+
+    # Need to manually load inquiry items because of the polymorphism/structure
+    stmt = (
+        select(InquiryGroup)
+        .options(selectinload(InquiryGroup.items).selectinload(InquiryItem.template))
+        .where(InquiryGroup.id == order.inquiry_id)
+    )
+    res = await db.execute(stmt)
+    group = res.scalar_one_or_none()
+    
+    if not group:
+         raise HTTPException(status_code=404, detail="Inquiry group not found")
     
     # Check authorization
     if order.user_id != current_user.id and not current_user.admin:
@@ -331,16 +329,20 @@ async def generate_order_invoice(
     }
     
     # Prepare invoice items
-    items = [{
-        'description': f"{order.inquiry.template.name} (Custom Order)",
-        'quantity': order.inquiry.quantity,
-        'unit_price': order.total_amount / order.inquiry.quantity,
-        'total': order.total_amount
-    }]
-    
-    # Add selected options as additional description
-    options_desc = ", ".join([f"{k}: {v}" for k, v in order.inquiry.selected_options.items()])
-    items[0]['description'] += f"\nOptions: {options_desc}"
+    # We take the first item as a summary or could list all
+    items = []
+    for itm in group.items:
+        items.append({
+            'description': f"{itm.template.name if itm.template else 'Service'} (Custom Order)",
+            'quantity': itm.quantity,
+            'unit_price': (itm.line_item_price or 0) / itm.quantity if itm.quantity > 0 else 0,
+            'total': itm.line_item_price or 0
+        })
+        
+        # Add selected options as additional description
+        if itm.selected_options:
+            options_desc = ", ".join([f"{k}: {v}" for k, v in itm.selected_options.items()])
+            items[-1]['description'] += f"\nOptions: {options_desc}"
     
     order_data = {
         'total_amount': order.total_amount,
@@ -400,7 +402,7 @@ async def get_all_orders(
 
 @router.patch("/admin/{order_id}/status", response_model=OrderResponse)
 async def update_order_status(
-    order_id: int,
+    order_id: UUID,
     status_update: OrderUpdate,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
@@ -428,7 +430,7 @@ async def update_order_status(
 
 @router.delete("/admin/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def admin_delete_order(
-    order_id: int,
+    order_id: UUID,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):

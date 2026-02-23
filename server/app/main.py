@@ -29,12 +29,10 @@ from app.core.email.service import check_smtp_connection
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("\n--------- STARTUP CHECKS ---------")
-    
-    # Run checks (The logic is now hidden in the modules)
+
     await check_db_connection()
     await check_redis_connection()
-    from app.core.seed import seed_db
-    await seed_db()
+    await check_smtp_connection()
     
     print("----------------------------------\n")
     

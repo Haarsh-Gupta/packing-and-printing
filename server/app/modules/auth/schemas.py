@@ -1,3 +1,4 @@
+from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
 class Token(BaseModel):
@@ -5,7 +6,7 @@ class Token(BaseModel):
     token_type: str = "Bearer"
 
 class TokenData(BaseModel):
-    id: int
+    id: UUID
     email: EmailStr
     admin : bool
     token_version : int = 1
