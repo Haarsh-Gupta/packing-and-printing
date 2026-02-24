@@ -6,6 +6,7 @@ Admins → view all tickets, reply, update status, see read flags
 """
 
 from typing import Optional
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -13,6 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.modules.auth import get_current_user, get_current_admin_user
+from app.modules.auth.schemas import TokenData
 from app.modules.users.models import User
 
 from .models import Ticket, TicketMessage
@@ -33,7 +35,7 @@ router = APIRouter()
 @router.post("/", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
     payload: TicketCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new support ticket with an initial message."""
@@ -63,7 +65,7 @@ async def list_my_tickets(
     skip: int = 0,
     limit: int = 20,
     status_filter: Optional[str] = Query(None, description="Filter by status"),
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """List all tickets for the current user."""
@@ -78,8 +80,8 @@ async def list_my_tickets(
 
 @router.get("/{ticket_id}", response_model=TicketDetailResponse)
 async def get_ticket_detail(
-    ticket_id: int,
-    current_user: User = Depends(get_current_user),
+    ticket_id: UUID,
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific ticket with all its messages."""
@@ -102,9 +104,9 @@ async def get_ticket_detail(
 
 @router.post("/{ticket_id}/messages", response_model=TicketMessageResponse, status_code=status.HTTP_201_CREATED)
 async def add_message(
-    ticket_id: int,
+    ticket_id: UUID,
     payload: TicketMessageCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a message to a ticket (user or admin can reply)."""
@@ -140,9 +142,9 @@ async def add_message(
 
 @router.patch("/{ticket_id}/messages/{message_id}/read", response_model=TicketMessageResponse)
 async def mark_message_read(
-    ticket_id: int,
+    ticket_id: UUID,
     message_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Mark a specific ticket message as read."""
@@ -196,7 +198,7 @@ async def admin_list_all_tickets(
 
 @router.patch("/admin/{ticket_id}/status", response_model=TicketResponse)
 async def admin_update_ticket_status(
-    ticket_id: int,
+    ticket_id: UUID,
     payload: TicketStatusUpdate,
     admin: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db),

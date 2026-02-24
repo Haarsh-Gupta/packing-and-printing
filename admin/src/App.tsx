@@ -12,6 +12,8 @@ import Tickets from "@/pages/Tickets";
 import Notifications from "@/pages/Notifications";
 import Email from "@/pages/Email";
 import Reviews from "@/pages/Reviews";
+import InquiryDetail from "@/pages/InquiryDetail";
+import Settings from "@/pages/Settings";
 
 export default function App() {
   return (
@@ -23,6 +25,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/inquiries" element={<Inquiries />} />
+            <Route path="/inquiries/:id" element={<InquiryDetail />} />
             <Route path="/products" element={<Products />} />
             <Route path="/services" element={<Services />} />
             <Route path="/users" element={<Users />} />
@@ -30,6 +33,7 @@ export default function App() {
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/email" element={<Email />} />
             <Route path="/reviews" element={<Reviews />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>
       </AuthProvider>

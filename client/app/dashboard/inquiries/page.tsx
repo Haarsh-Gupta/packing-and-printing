@@ -17,7 +17,7 @@ export default function MyInquiriesPage() {
     const { showAlert } = useAlert();
     const [inquiries, setInquiries] = useState<Inquiry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState<number | null>(null);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [searchQuery, setSearchQuery] = useState("");
     const [filteredInquiries, setFilteredInquiries] = useState<Inquiry[]>([]);
@@ -63,15 +63,20 @@ export default function MyInquiriesPage() {
         const filtered = inquiries.filter(inquiry =>
             inquiry.id.toString().includes(query) ||
             inquiry.status.toLowerCase().includes(query) ||
-            (inquiry.notes && inquiry.notes.toLowerCase().includes(query))
+            (inquiry.admin_notes && inquiry.admin_notes.toLowerCase().includes(query)) ||
+            (inquiry.items && inquiry.items.some(item =>
+                item.notes?.toLowerCase().includes(query) ||
+                item.template_name?.toLowerCase().includes(query) ||
+                item.service_name?.toLowerCase().includes(query)
+            ))
         );
         setFilteredInquiries(filtered);
     }, [searchQuery, inquiries]);
 
-    const handleStatusUpdate = async (id: number, status: "ACCEPTED" | "REJECTED") => {
+    const handleStatusUpdate = async (id: string, status: "ACCEPTED" | "REJECTED") => {
         setActionLoading(id);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/${id}/status`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${id}/respond`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -82,6 +87,30 @@ export default function MyInquiriesPage() {
 
             if (res.ok) {
                 setInquiries(prev => prev.map(inq => inq.id === id ? { ...inq, status } : inq));
+
+                if (status === "ACCEPTED") {
+                    try {
+                        const orderRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${localStorage.getItem("access_token")}`
+                            },
+                            body: JSON.stringify({ inquiry_id: id })
+                        });
+                        if (orderRes.ok) {
+                            showAlert("Inquiry accepted and order placed successfully!", "success");
+                            setTimeout(() => router.push("/dashboard/orders"), 1500);
+                        } else {
+                            showAlert("Inquiry accepted, but failed to create order.", "error");
+                        }
+                    } catch (e) {
+                        console.error("Order creation error:", e);
+                        showAlert("Failed to create order.", "error");
+                    }
+                } else {
+                    showAlert("Inquiry declined.", "success");
+                }
             } else {
                 showAlert("Failed to update status.", "error");
             }

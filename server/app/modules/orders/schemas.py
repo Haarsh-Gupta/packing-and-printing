@@ -1,3 +1,4 @@
+from uuid import UUID
 from datetime import datetime
 from typing import Optional, Literal, List
 from pydantic import BaseModel, Field
@@ -22,8 +23,8 @@ class TransactionCreate(BaseModel):
 
 class TransactionResponse(BaseModel):
     """Response schema for transaction data"""
-    id: int
-    order_id: int
+    id: UUID
+    order_id: UUID
     amount: float
     payment_mode: PaymentMode
     created_at: datetime
@@ -45,7 +46,7 @@ class Status(str, Enum):
 
 class OrderCreate(BaseModel):
     """Schema for creating an order from an accepted inquiry"""
-    inquiry_id: int
+    inquiry_id: UUID
 
 
 class OrderUpdate(BaseModel):
@@ -55,14 +56,14 @@ class OrderUpdate(BaseModel):
 
 class OrderResponse(BaseModel):
     """Response schema for order data"""
-    id: int
-    inquiry_id: int
-    user_id: int
+    id: UUID
+    inquiry_id: UUID
+    user_id: UUID
     total_amount: float
     amount_paid: float
     status: Status
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
     
     # Include transactions if needed
     transactions: Optional[List[TransactionResponse]] = []
@@ -73,9 +74,9 @@ class OrderResponse(BaseModel):
 
 class OrderListResponse(BaseModel):
     """Simplified response for listing orders"""
-    id: int
-    inquiry_id: int
-    user_id: int
+    id: UUID
+    inquiry_id: UUID
+    user_id: UUID
     total_amount: float
     amount_paid: float
     status: Status
@@ -89,7 +90,7 @@ class OrderListResponse(BaseModel):
 
 class InvoiceData(BaseModel):
     """Data required for generating an invoice"""
-    order_id: int
+    order_id: UUID
     company_name: str = "Your Company Name"
     company_address: str = "Your Address"
     company_phone: str = "Your Phone"
@@ -101,5 +102,5 @@ class InvoiceData(BaseModel):
 
 class WhatsAppEstimationMessage(BaseModel):
     """Schema for WhatsApp estimation message data"""
-    inquiry_id: int
+    inquiry_id: UUID
     phone_number: str = Field(..., description="Phone number with country code (e.g., +91XXXXXXXXXX)")

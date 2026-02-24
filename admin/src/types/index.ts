@@ -17,15 +17,12 @@ export interface AuthUser {
 
 // ============ Dashboard ============
 export interface DashboardOverview {
-    total_users: number;
-    total_orders: number;
-    total_revenue: number;
-    total_inquiries: number;
-    total_products: number;
-    total_services: number;
-    daily_orders: { date: string; count: number }[];
-    order_pipeline: Record<string, number>;
-    recent_activity: ActivityItem[];
+    users: { total: number; new_in_period: number };
+    orders: { total: number; in_period: number; by_status: Record<string, number> };
+    revenue: { total_billed: number; total_collected: number; total_pending: number; collected_in_period: number };
+    inquiries: { total: number; pending: number; in_period: number };
+    products: { total: number; active: number };
+    services: { total: number; active: number };
 }
 
 export interface RevenueData {
@@ -65,8 +62,8 @@ export interface ActivityItem {
 
 // ============ Orders ============
 export interface Transaction {
-    id: number;
-    order_id: number;
+    id: string;
+    order_id: string;
     amount: number;
     payment_mode: string;
     created_at: string;
@@ -75,9 +72,9 @@ export interface Transaction {
 }
 
 export interface Order {
-    id: number;
-    inquiry_id: number;
-    user_id: number;
+    id: string;
+    inquiry_id: string;
+    user_id: string;
     total_amount: number;
     amount_paid: number;
     status: string;

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { User, Menu, X } from "lucide-react";
+import { User, Menu, X, ShoppingCart } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
+import InquiryCartSidebar from "@/components/InquiryCartSidebar";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Header() {
@@ -46,7 +47,9 @@ export default function Header() {
         </nav>
 
         {/* Desktop Actions */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-4">
+          <InquiryCartSidebar />
+
           {isLoggedIn ? (
             <>
               <NotificationsBell />
@@ -80,13 +83,15 @@ export default function Header() {
           )}
         </div>
 
-        {/* Mobile Menu Toggle */}
-        <button
-          className="md:hidden text-white"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
-          {isMobileMenuOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
-        </button>
+        {/* Mobile Menu Actions */}
+        <div className="md:hidden flex items-center gap-4 text-white">
+          <InquiryCartSidebar />
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Navigation */}

@@ -74,11 +74,11 @@ export default function Tickets() {
 
     const fetchTickets = () => {
         setLoading(true);
-        let url = "/support/tickets/admin/all";
+        let url = `/tickets/admin/all?skip=0&limit=100`;
         const params = new URLSearchParams();
-        if (status !== "ALL") params.append("status", status);
-        if (priority !== "ALL") params.append("priority", priority);
-        if (params.toString()) url += `?${params.toString()}`;
+        if (status !== "ALL") params.append("status_filter", status);
+        if (priority !== "ALL") params.append("priority_filter", priority);
+        if (params.toString()) url += `&${params.toString()}`; // Changed from `?` to `&` because base URL already has `?`
         api<Ticket[]>(url).then(setTickets).catch(console.error).finally(() => setLoading(false));
     };
 
@@ -88,7 +88,7 @@ export default function Tickets() {
         setSelected(t);
         setNewStatus(t.status);
         try {
-            const data = await api<Ticket>(`/support/tickets/${t.id}`);
+            const data = await api<Ticket>(`/tickets/${t.id}`);
             setMsgs(data.messages || []);
         } catch (e) { console.error(e); }
     };
@@ -97,11 +97,11 @@ export default function Tickets() {
         if (!selected || !reply.trim()) return;
         setSending(true);
         try {
-            await api(`/support/tickets/${selected.id}/messages`, {
+            await api(`/tickets/${selected.id}/messages`, {
                 method: "POST", body: JSON.stringify({ message: reply }),
             });
             setReply("");
-            const data = await api<Ticket>(`/support/tickets/${selected.id}`);
+            const data = await api<Ticket>(`/tickets/${selected.id}`);
             setMsgs(data.messages || []);
         } catch (e) { console.error(e); } finally { setSending(false); }
     };
@@ -110,7 +110,7 @@ export default function Tickets() {
         if (!selected) return;
         setNewStatus(val);
         try {
-            await api(`/support/tickets/${selected.id}/status`, {
+            await api(`/tickets/admin/${selected.id}/status`, {
                 method: "PATCH", body: JSON.stringify({ status: val }),
             });
             fetchTickets();

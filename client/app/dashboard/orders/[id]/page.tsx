@@ -9,7 +9,7 @@ import { useAlert } from "@/components/CustomAlert";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { useAuth } from "@/context/AuthContext";
 interface Transaction {
-    id: number;
+    id: string;
     amount: number;
     payment_mode: string;
     notes: string | null;
@@ -18,8 +18,8 @@ interface Transaction {
 }
 
 interface Order {
-    id: number;
-    inquiry_id: number;
+    id: string;
+    inquiry_id: string;
     status: string;
     total_amount: number;
     amount_paid: number;

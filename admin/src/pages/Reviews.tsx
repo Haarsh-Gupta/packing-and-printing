@@ -136,7 +136,7 @@ export default function Reviews() {
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <h3 style={{ fontSize: '14px', fontWeight: 900, letterSpacing: '-0.01em' }}>USER_ID::{r.user_id}</h3>
+                                                <h3 style={{ fontSize: '14px', fontWeight: 900, letterSpacing: '-0.01em' }}>{r.user?.name || `USER_${r.user_id.slice(0, 8).toUpperCase()}`}</h3>
                                                 <span style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: '4px',
                                                     padding: '2px 8px', background: 'white', border: '1px solid var(--border)',

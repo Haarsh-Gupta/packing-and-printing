@@ -11,6 +11,8 @@ class InquiryStatus(str, Enum):
     QUOTED = "QUOTED"
     ACCEPTED = "ACCEPTED"
     REJECTED = "REJECTED"
+    WAITING_PAYMENT = "WAITING_PAYMENT"
+    PARTIALLY_PAID = "PARTIALLY_PAID"
 
 
 # ==========================================
@@ -23,7 +25,7 @@ class InquiryItemCreate(BaseModel):
     service_id: Optional[int] = None
     variant_id: Optional[int] = None
     quantity: int = Field(..., gt=0, description="Must be greater than 0")
-    selected_options: Dict[str, Union[str, int, float]]
+    selected_options: Dict[str, Union[str, int, float, bool, None]]
     notes: Optional[str] = None
     images: Optional[List[str]] = None
 
@@ -31,8 +33,8 @@ class InquiryItemCreate(BaseModel):
     def check_template_or_service(self):
         if not self.template_id and not self.service_id:
             raise ValueError("Either template_id or service_id must be provided")
-        if self.service_id and not self.variant_id:
-            raise ValueError("variant_id must be provided when service_id is provided")
+        if self.service_id and self.variant_id is None:
+            raise ValueError(f"variant_id is required for service_id {self.service_id}")
         return self
 
 

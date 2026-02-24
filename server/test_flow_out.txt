@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "N:\navart\packing-and-printing\server\test_flow.py", line 44, in <module>
+    go()
+  File "N:\navart\packing-and-printing\server\test_flow.py", line 19, in go
+    res = urllib.request.urlopen(req)
+  File "C:\Users\Niles\AppData\Local\Programs\Python\Python310\lib\urllib\request.py", line 216, in urlopen
+    return opener.open(url, data, timeout)
+  File "C:\Users\Niles\AppData\Local\Programs\Python\Python310\lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+  File "C:\Users\Niles\AppData\Local\Programs\Python\Python310\lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+  File "C:\Users\Niles\AppData\Local\Programs\Python\Python310\lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+  File "C:\Users\Niles\AppData\Local\Programs\Python\Python310\lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+  File "C:\Users\Niles\AppData\Local\Programs\Python\Python310\lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 401: Unauthorized

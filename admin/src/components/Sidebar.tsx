@@ -12,6 +12,7 @@ import {
     Mail,
     Star,
     LogOut,
+    Settings as SettingsIcon,
 } from "lucide-react";
 import {
     Sidebar,
@@ -36,6 +37,7 @@ const navItems = [
     { label: "Notifications", icon: Bell, path: "/notifications" },
     { label: "Email", icon: Mail, path: "/email" },
     { label: "Reviews", icon: Star, path: "/reviews" },
+    { label: "Settings", icon: SettingsIcon, path: "/settings" },
 ];
 
 export function AppSidebar() {
@@ -150,7 +152,7 @@ export function AppSidebar() {
                                 background: 'var(--sidebar-accent)',
                                 color: 'var(--sidebar-accent-foreground)',
                             }}>
-                                {user.name.charAt(0).toUpperCase()}
+                                {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
                             </AvatarFallback>
                         </Avatar>
                         <div style={{ flex: 1, minWidth: 0 }} className="group-data-[collapsible=icon]:hidden">
@@ -162,7 +164,7 @@ export function AppSidebar() {
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
-                            }}>{user.name}</p>
+                            }}>{user.name || "Administrator"}</p>
                             <p style={{
                                 fontSize: '9px',
                                 fontWeight: 700,
