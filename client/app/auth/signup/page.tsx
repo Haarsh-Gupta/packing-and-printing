@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,7 @@ export default function SignUpPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", password: "", otp: "" });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,8 +39,8 @@ export default function SignUpPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to send OTP.");
-      
-      setStep(2); 
+
+      setStep(2);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -48,8 +48,15 @@ export default function SignUpPage() {
     }
   };
 
+  const isSubmittingRef = React.useRef(false);
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Guard against double-submission (React StrictMode / fast clicks)
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     setError("");
     setIsLoading(true);
 
@@ -57,6 +64,7 @@ export default function SignUpPage() {
       const res = await fetch(`${API_URL}/users/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
@@ -67,15 +75,44 @@ export default function SignUpPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Registration failed.");
-      
-      router.push("/login?registered=true"); 
+
+      if (!res.ok) {
+        // If "User already exists", it means a prior request already succeeded
+        if (data.detail === "User already exists") {
+          router.push("/auth/login");
+          return;
+        }
+        throw new Error(data.detail || "Registration failed.");
+      }
+
+      // Auto-login: call login endpoint with the same credentials
+      const loginBody = new URLSearchParams();
+      loginBody.append("username", formData.email);
+      loginBody.append("password", formData.password);
+
+      const loginRes = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: loginBody,
+        credentials: "include",
+      });
+
+      if (loginRes.ok) {
+        const loginData = await loginRes.json();
+        localStorage.setItem("access_token", loginData.access_token);
+        router.push("/dashboard");
+      } else {
+        // Login failed but registration succeeded — redirect to login page
+        router.push("/auth/login");
+      }
     } catch (err: any) {
       setError(err.message);
+      isSubmittingRef.current = false; // Allow retry only on genuine error
     } finally {
       setIsLoading(false);
     }
   };
+
 
   // The Google Sign Up Trigger
   const handleGoogleSignUp = () => {
@@ -132,7 +169,7 @@ export default function SignUpPage() {
             <form onSubmit={handleRegister} className="space-y-6 flex flex-col items-center">
               <InputOTP maxLength={6} value={formData.otp} onChange={(val) => setFormData({ ...formData, otp: val })}>
                 <InputOTPGroup>
-                  {[0,1,2,3,4,5].map((i) => <InputOTPSlot key={i} index={i} className="border-black" />)}
+                  {[0, 1, 2, 3, 4, 5].map((i) => <InputOTPSlot key={i} index={i} className="border-black" />)}
                 </InputOTPGroup>
               </InputOTP>
               <Button type="submit" className="w-full bg-black" disabled={isLoading || formData.otp.length !== 6}>

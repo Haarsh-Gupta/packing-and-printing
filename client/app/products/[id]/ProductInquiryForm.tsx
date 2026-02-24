@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,23 +42,20 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
     const [isLoading, setIsLoading] = useState(false);
     const [quantity, setQuantity] = useState<number>(product.minimum_quantity);
 
-    // State to hold the user's current selections
-    const [answers, setAnswers] = useState<Record<string, any>>({});
-
-    // Initialize default answers when the component loads
-    useEffect(() => {
+    // Initialize default answers synchronously to avoid uncontrolled→controlled warning
+    const [answers, setAnswers] = useState<Record<string, any>>(() => {
         const initialAnswers: Record<string, any> = {};
         product.config_schema.sections.forEach((section) => {
             if ((section.type === "dropdown" || section.type === "radio") && section.options) {
-                initialAnswers[section.key] = section.options[0].value; // Select first option by default
+                initialAnswers[section.key] = section.options[0].value;
             } else if (section.type === "number_input") {
                 initialAnswers[section.key] = section.min_val || 0;
             } else {
                 initialAnswers[section.key] = "";
             }
         });
-        setAnswers(initialAnswers);
-    }, [product]);
+        return initialAnswers;
+    });
 
     // Handle changes to any field
     const handleAnswerChange = (key: string, value: any) => {
@@ -100,20 +97,22 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         const token = localStorage.getItem("access_token");
         if (!token) {
             showAlert("Please login to submit an inquiry.", "error");
+            setIsLoading(false);
             router.push("/auth/login");
             return;
         }
 
         const payload = {
-            template_id: product.id,
-            quantity: quantity,
-            selected_options: answers,
-            notes: "Custom request via website", // You could add a notes field
-            status: "PENDING"
+            items: [{
+                template_id: product.id,
+                quantity: quantity,
+                selected_options: answers,
+                notes: "Custom request via website",
+            }]
         };
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/create`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

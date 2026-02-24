@@ -5,7 +5,7 @@ export interface LoginPayload {
 }
 
 export interface AuthUser {
-    id: number;
+    id: string;
     name: string;
     email: string;
     phone?: string;
@@ -89,37 +89,52 @@ export interface Order {
 }
 
 // ============ Inquiries ============
-export interface InquiryMessage {
-    id: number;
-    inquiry_id: number;
-    sender_id: number;
-    message: string;
-    is_admin: boolean;
-    created_at: string;
-}
-
-export interface Inquiry {
-    id: number;
-    user_id: number;
+export interface InquiryItem {
+    id: string;
+    inquiry_group_id?: string;
     template_id?: number;
-    product_id?: number;
     service_id?: number;
     variant_id?: number;
     quantity: number;
     selected_options: Record<string, unknown>;
-    requirements?: Record<string, unknown>;
     notes?: string;
-    status: string;
+    images?: string[];
+    line_item_price?: number;
     template_name?: string;
     service_name?: string;
     variant_name?: string;
-    images?: string[];
-    quoted_price?: number;
+}
+
+export interface InquiryMessage {
+    id: number;
+    inquiry_group_id: string;
+    sender_id: string;
+    content: string;
+    file_urls?: string[];
+    created_at: string;
+}
+
+export interface InquiryGroup {
+    id: string;
+    user_id: string;
+    status: string;
+    total_quoted_price?: number;
     admin_notes?: string;
     quoted_at?: string;
+    quote_valid_until?: string;
     created_at: string;
     updated_at: string;
+    items: InquiryItem[];
     messages: InquiryMessage[];
+}
+
+export interface InquiryGroupList {
+    id: string;
+    user_id: string;
+    status: string;
+    total_quoted_price?: number;
+    created_at: string;
+    item_count: number;
 }
 
 // ============ Products ============
@@ -172,12 +187,13 @@ export interface Service {
 
 // ============ Users ============
 export interface User {
-    id: number;
+    id: string;
     name: string;
     email: string;
     phone?: string;
     admin: boolean;
     avatar_url?: string;
+    profile_picture?: string;
     created_at?: string;
 }
 
@@ -185,7 +201,7 @@ export interface User {
 export interface TicketMessage {
     id: number;
     ticket_id: number;
-    sender_id: number;
+    sender_id: string;
     message: string;
     is_admin: boolean;
     is_read: boolean;
@@ -194,7 +210,7 @@ export interface TicketMessage {
 
 export interface Ticket {
     id: number;
-    user_id: number;
+    user_id: string;
     subject: string;
     description: string;
     priority: string;
@@ -207,7 +223,7 @@ export interface Ticket {
 // ============ Notifications ============
 export interface Notification {
     id: number;
-    user_id: number;
+    user_id: string;
     title: string;
     message: string;
     is_read: boolean;
@@ -217,7 +233,7 @@ export interface Notification {
 // ============ Reviews ============
 export interface Review {
     id: number;
-    user_id: number;
+    user_id: string;
     product_id: number;
     rating: number;
     comment: string;

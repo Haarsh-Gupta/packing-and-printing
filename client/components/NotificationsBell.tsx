@@ -24,8 +24,29 @@ export default function NotificationsBell() {
     // Fetch unread count periodically
     useEffect(() => {
         if (!token) return;
-        fetchUnreadCount();
-        const interval = setInterval(fetchUnreadCount, 60000);
+
+        let stopped = false;
+        const doFetch = async () => {
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    credentials: "include",
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setUnread(data.unread || 0);
+                } else if (res.status === 401) {
+                    // Token is invalid/expired — stop polling
+                    stopped = true;
+                }
+            } catch (e) { /* silent */ }
+        };
+
+        doFetch();
+        const interval = setInterval(() => {
+            if (!stopped) doFetch();
+            else clearInterval(interval);
+        }, 60000);
         return () => clearInterval(interval);
     }, [token]);
 
@@ -40,17 +61,6 @@ export default function NotificationsBell() {
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-    const fetchUnreadCount = async () => {
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setUnread(data.unread || 0);
-            }
-        } catch (e) { /* silent */ }
-    };
 
     const fetchNotifications = async () => {
         setLoading(true);

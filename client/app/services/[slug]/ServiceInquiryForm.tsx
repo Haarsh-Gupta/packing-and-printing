@@ -55,6 +55,7 @@ export default function ServiceInquiryForm({ service }: { service: ServiceItem }
         const token = localStorage.getItem("access_token");
         if (!token) {
             showAlert("Please login to submit an inquiry.", "error");
+            setIsLoading(false);
             router.push("/auth/login");
             return;
         }
@@ -66,15 +67,16 @@ export default function ServiceInquiryForm({ service }: { service: ServiceItem }
         }
 
         const payload = {
-            service_id: service.id,
-            variant_id: parseInt(selectedVariantId),
-            quantity: quantity,
-            selected_options: {
-                variant_name: selectedVariant?.name,
-                service_slug: service.slug
-            },
-            notes: notes || `Service inquiry for ${service.name} (${selectedVariant?.name})`,
-            status: "PENDING"
+            items: [{
+                service_id: service.id,
+                variant_id: parseInt(selectedVariantId),
+                quantity: quantity,
+                selected_options: {
+                    variant_name: selectedVariant?.name,
+                    service_slug: service.slug
+                },
+                notes: notes || `Service inquiry for ${service.name} (${selectedVariant?.name})`,
+            }]
         };
 
         try {

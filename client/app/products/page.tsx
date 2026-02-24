@@ -6,9 +6,10 @@ import { ProductCard } from "@/components/products/ProductCard";
 
 async function getProducts(): Promise<Product[]> {
     try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?type=product`, { cache: 'no-store' });
+
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?_t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) {
-            throw new Error('Failed to fetch products');
+            throw new Error(`Failed to fetch products: ${res.status}`);
         }
         return res.json();
     } catch (error) {

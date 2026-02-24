@@ -51,17 +51,9 @@ export default function ProductReviews({ productId }: { productId: number }) {
 
     useEffect(() => {
         setIsLoggedIn(!!token);
-        fetchReviews();
+        // Reviews endpoint not yet implemented on the server
+        setIsLoading(false);
     }, [productId]);
-
-    const fetchReviews = async () => {
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/reviews/${productId}?limit=20`);
-            if (res.ok) setReviews(await res.json());
-        } catch (e) { /* silent */ } finally {
-            setIsLoading(false);
-        }
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -78,7 +70,7 @@ export default function ProductReviews({ productId }: { productId: number }) {
                 setShowForm(false);
                 setComment("");
                 setRating(5);
-                fetchReviews();
+                // TODO: refresh reviews once endpoint is implemented
             } else {
                 const err = await res.json();
                 showAlert(err.detail || "Failed to submit review.", "error");

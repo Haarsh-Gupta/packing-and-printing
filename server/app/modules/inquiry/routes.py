@@ -1,3 +1,4 @@
+from uuid import UUID
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -98,7 +99,7 @@ async def get_my_inquiries(
 
 @router.get("/my/{group_id}", response_model=InquiryGroupResponse)
 async def get_my_inquiry(
-    group_id: int,
+    group_id: UUID,
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -126,7 +127,7 @@ async def get_my_inquiry(
 
 @router.patch("/my/{group_id}/respond", response_model=InquiryGroupResponse)
 async def respond_to_quotation(
-    group_id: int,
+    group_id: UUID,
     status_update: InquiryStatusUpdate,
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -165,7 +166,7 @@ async def respond_to_quotation(
 
 @router.delete("/my/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_inquiry(
-    group_id: int,
+    group_id: UUID,
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -197,7 +198,7 @@ async def delete_my_inquiry(
 
 @router.post("/my/{group_id}/messages", response_model=InquiryMessageResponse)
 async def send_inquiry_message(
-    group_id: int,
+    group_id: UUID,
     message: InquiryMessageCreate,
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -261,7 +262,7 @@ async def get_all_inquiries(
 
 @router.get("/admin/{group_id}", response_model=InquiryGroupResponse)
 async def get_inquiry_by_id(
-    group_id: int,
+    group_id: UUID,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -284,7 +285,7 @@ async def get_inquiry_by_id(
 
 @router.patch("/admin/{group_id}/quote", response_model=InquiryGroupResponse)
 async def send_quotation(
-    group_id: int,
+    group_id: UUID,
     quotation: InquiryQuotation,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
@@ -332,7 +333,7 @@ async def send_quotation(
 
 @router.delete("/admin/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def admin_delete_inquiry(
-    group_id: int,
+    group_id: UUID,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -348,3 +349,34 @@ async def admin_delete_inquiry(
     
     await db.execute(delete(InquiryGroup).where(InquiryGroup.id == group_id))
     await db.commit()
+
+
+@router.post("/admin/{group_id}/messages", response_model=InquiryMessageResponse)
+async def admin_send_message(
+    group_id: UUID,
+    message: InquiryMessageCreate,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    [ADMIN] Send a message in any inquiry thread.
+    """
+    stmt = select(InquiryGroup).where(InquiryGroup.id == group_id)
+    result = await db.execute(stmt)
+    group = result.scalar_one_or_none()
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+
+    new_message = InquiryMessage(
+        inquiry_group_id=group_id,
+        sender_id=current_user.id,
+        content=message.content,
+        file_urls=message.file_urls
+    )
+
+    db.add(new_message)
+    await db.commit()
+    await db.refresh(new_message)
+
+    return new_message
