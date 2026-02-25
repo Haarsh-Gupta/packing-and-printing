@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional, Literal, List
 from pydantic import BaseModel, Field
 from enum import Enum
+from uuid import UUID
 
 # ==================== Transaction Schemas ====================
 

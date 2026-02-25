@@ -25,6 +25,7 @@ export default function HomePage() {
       <AboutSection />
       <WaveDivider topColor="#FDF567" bottomColor="#FF90E8" variant="blob" />
       <CTASection />
+      {/* <WaveDivider topColor="#FDF567" bottomColor="#FF90E8" variant="blob" /> */}
     </main>
   );
 }

@@ -6,7 +6,7 @@ email delivery (via BaseEmailService). Business logic is fully
 decoupled from vendors — swap Redis or Brevo without touching this file.
 """
 
-import random
+import secrets, string
 from app.core.config import settings
 from app.core.otp_store import BaseOTPStore, get_otp_store
 from app.core.email.service import BaseEmailService, get_email_service
@@ -30,7 +30,8 @@ class OTPService:
 
     @staticmethod
     def _generate_otp() -> str:
-        return str(random.randint(100000, 999999))
+        otp = "".join(secrets.choice(string.digits) for _ in range(6))
+        return otp
 
     async def send_otp(self, email: str, user_name: str | None = None) -> bool:
         """Generate, store, and email a verification OTP."""

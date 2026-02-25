@@ -1,11 +1,14 @@
+import secrets
 from fastapi import APIRouter, HTTPException, status, Depends
 from .schemas import OtpSend, OtpVerify
 from .services import get_otp_service
 from app.core.rate_limiter import RateLimiter
+import secrets, string
 
 
 router = APIRouter()
 otp_service = get_otp_service()
+
 
 
 @router.post("/send", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=3, seconds=60))])

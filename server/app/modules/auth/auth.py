@@ -10,7 +10,7 @@ from sqlalchemy import select
 from ..users.models import User
 from app.core.database import get_db
 from app.core.config import settings
-import random
+import secrets, string
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
@@ -29,7 +29,7 @@ async def verify_password(plain_password: str , hashed_password: str):
     return await asyncio.to_thread(pwd_context.verify , plain_password , hashed_password)
 
 async def generate_otp():
-    return random.randint(100000 , 999999)
+    return "".join(secrets.choice(string.digits) for _ in range(6))
 
 
 async def create_access_token(data : dict):

@@ -188,8 +188,6 @@ async def pay_for_order(
 
     return new_transaction
 
-# Removed duplicate get_order_payments route at line 168
-
 
 @router.get("/{order_id}/payments", response_model=list[TransactionResponse])
 async def get_order_payments(
