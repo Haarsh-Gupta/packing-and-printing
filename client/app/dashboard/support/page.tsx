@@ -14,7 +14,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 type Priority = "LOW" | "MEDIUM" | "HIGH";
 
 interface Ticket {
-    id: number;
+    id: string;
     subject: string;
     status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
     priority: Priority;

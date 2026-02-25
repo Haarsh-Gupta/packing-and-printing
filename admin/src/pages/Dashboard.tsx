@@ -37,13 +37,20 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function Dashboard() {
     const [data, setData] = useState<DashboardOverview | null>(null);
+    const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState("30");
+    const [period, setPeriod] = useState("month");
 
     useEffect(() => {
         setLoading(true);
-        api<DashboardOverview>(`/admin-dashboard/overview?days=${period}`)
-            .then(setData)
+        Promise.all([
+            api<DashboardOverview>(`/admin/dashboard/overview?period=${period}`),
+            api<{ activities: any[] }>(`/admin/dashboard/recent-activity?limit=6`)
+        ])
+            .then(([overviewData, activityData]) => {
+                setData(overviewData);
+                setRecentActivity(activityData.activities || []);
+            })
             .catch(console.error)
             .finally(() => setLoading(false));
     }, [period]);
@@ -51,36 +58,36 @@ export default function Dashboard() {
     const stats = data ? [
         {
             label: "Revenue",
-            value: `₹${(data.total_revenue / 100000).toFixed(1)}L`,
-            sub: `₹${data.total_revenue.toLocaleString()} total`,
-            change: "+12.5%",
+            value: `₹${(data.revenue.total_collected / 100000).toFixed(1)}L`,
+            sub: `₹${data.revenue.total_collected.toLocaleString()} total`,
+            change: "0%",
             trend: "up",
             icon: IndianRupee,
             accent: "#16a34a",
         },
         {
             label: "Orders",
-            value: data.total_orders.toLocaleString(),
+            value: data.orders.total.toLocaleString(),
             sub: "total processed",
-            change: "+8.2%",
+            change: "0%",
             trend: "up",
             icon: ShoppingBag,
             accent: "#2563eb",
         },
         {
             label: "Inquiries",
-            value: data.total_inquiries.toLocaleString(),
+            value: data.inquiries.total.toLocaleString(),
             sub: "customer requests",
-            change: "-3.1%",
+            change: "0%",
             trend: "down",
             icon: MessageSquare,
             accent: "#dc2626",
         },
         {
             label: "Customers",
-            value: data.total_users.toLocaleString(),
+            value: data.users.total.toLocaleString(),
             sub: "registered users",
-            change: "+24.5%",
+            change: "0%",
             trend: "up",
             icon: Users,
             accent: "#9333ea",
@@ -89,13 +96,8 @@ export default function Dashboard() {
 
     if (loading && !data) return <DashboardSkeleton />;
 
-    const chartData = data?.daily_orders.map(d => ({
-        date: d.date.split('-').slice(2).join('/'),
-        amount: d.count * 1200,
-        count: d.count,
-    })) || [];
-
-    const pipelineData = Object.entries(data?.order_pipeline || {}).map(([name, value]) => ({ name, value }));
+    const chartData: any[] = [];
+    const pipelineData = Object.entries(data?.orders.by_status || {}).map(([name, value]) => ({ name, value }));
 
     return (
         <div className="space-y-0 animate-fade-in" style={{ fontFamily: "'DM Sans', 'DM Mono', system-ui" }}>
@@ -143,9 +145,9 @@ export default function Dashboard() {
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="7">Last 7 days</SelectItem>
-                        <SelectItem value="30">Last 30 days</SelectItem>
-                        <SelectItem value="90">Last quarter</SelectItem>
+                        <SelectItem value="week">Last 7 days</SelectItem>
+                        <SelectItem value="month">Last 30 days</SelectItem>
+                        <SelectItem value="quarter">Last quarter</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -444,7 +446,7 @@ export default function Dashboard() {
                         }} />
                     </div>
                     <div style={{ padding: '8px' }}>
-                        {(data?.recent_activity || []).slice(0, 6).map((act, i) => (
+                        {recentActivity.slice(0, 6).map((act, i) => (
                             <div key={i} style={{
                                 display: 'flex',
                                 alignItems: 'flex-start',

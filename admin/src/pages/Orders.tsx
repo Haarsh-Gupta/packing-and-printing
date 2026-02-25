@@ -96,7 +96,7 @@ export default function Orders() {
         } catch (e) { console.error(e); } finally { setUpdating(false); }
     };
 
-    const deleteOrder = async (id: number) => {
+    const deleteOrder = async (id: string) => {
         if (!confirm("Permanently delete this order?")) return;
         try {
             await api(`/orders/admin/${id}`, { method: "DELETE" });
@@ -104,7 +104,7 @@ export default function Orders() {
         } catch (e) { console.error(e); }
     };
 
-    const downloadInvoice = async (id: number) => {
+    const downloadInvoice = async (id: string) => {
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL}/orders/${id}/invoice`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem("admin_token")}` },
@@ -118,7 +118,7 @@ export default function Orders() {
     };
 
     const filteredOrders = orders.filter(o =>
-        String(o.id).includes(search) || o.user_id.toString().includes(search)
+        String(o.id).includes(search) || String(o.user_id).includes(search)
     );
 
     return (
@@ -204,7 +204,7 @@ export default function Orders() {
                                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                 >
                                     <TableCell style={{ fontFamily: "'DM Mono', monospace", fontSize: '12px', fontWeight: 700, color: 'var(--muted-foreground)' }}>
-                                        ORD-{order.id}
+                                        ORD-{order.id.slice(0, 8).toUpperCase()}
                                     </TableCell>
                                     <TableCell><StatusPill status={order.status} /></TableCell>
                                     <TableCell style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '-0.02em' }}>
@@ -234,7 +234,7 @@ export default function Orders() {
                             <SheetHeader style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                     <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', letterSpacing: '0.1em' }}>
-                                        ORD-{selected.id}
+                                        ORD-{selected.id.slice(0, 8).toUpperCase()}
                                     </span>
                                     <StatusPill status={selected.status} />
                                 </div>

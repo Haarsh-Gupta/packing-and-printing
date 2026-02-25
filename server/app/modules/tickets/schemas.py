@@ -4,6 +4,7 @@ Pydantic schemas for tickets and ticket messages.
 
 from datetime import datetime
 from typing import Optional, List
+from uuid import UUID
 from enum import Enum
 from pydantic import BaseModel, Field
 
@@ -41,8 +42,8 @@ class TicketMessageCreate(BaseModel):
 # ── Responses ─────────────────────────────────────────────────
 class TicketMessageResponse(BaseModel):
     id: int
-    ticket_id: int
-    sender_id: int
+    ticket_id: UUID
+    sender_id: UUID
     message: str
     is_read: bool
     created_at: datetime
@@ -52,8 +53,8 @@ class TicketMessageResponse(BaseModel):
 
 
 class TicketResponse(BaseModel):
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     subject: str
     status: TicketStatus
     priority: TicketPriority
@@ -70,8 +71,8 @@ class TicketDetailResponse(TicketResponse):
 
 
 class TicketListResponse(BaseModel):
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     subject: str
     status: TicketStatus
     priority: TicketPriority

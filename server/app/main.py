@@ -14,6 +14,7 @@ from app.modules.admin_dashboard.routes import router as dashboard_router
 from app.modules.payments.routes import router as payment_router
 from app.modules.notifications.routes import router as notification_router
 from app.modules.tickets.routes import router as ticket_router
+from app.modules.reviews.routes import router as review_router
 
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -72,6 +73,7 @@ app.include_router(dashboard_router, prefix="/admin/dashboard", tags=["Admin Das
 app.include_router(payment_router, prefix="/payments", tags=["Payments"])
 app.include_router(notification_router, prefix="/notifications", tags=["Notifications"])
 app.include_router(ticket_router, prefix="/tickets", tags=["Tickets"])
+app.include_router(review_router, prefix="/reviews", tags=["Reviews"])
 
 
 from app.modules.orders.utils.whatsapp_messenger import link

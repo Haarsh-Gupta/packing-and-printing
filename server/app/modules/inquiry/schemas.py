@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Dict, Union, Optional, List
+from uuid import UUID
 from enum import Enum
 from pydantic import BaseModel, Field, model_validator, ConfigDict
 
@@ -10,6 +11,8 @@ class InquiryStatus(str, Enum):
     QUOTED = "QUOTED"
     ACCEPTED = "ACCEPTED"
     REJECTED = "REJECTED"
+    WAITING_PAYMENT = "WAITING_PAYMENT"
+    PARTIALLY_PAID = "PARTIALLY_PAID"
 
 
 # ==========================================
@@ -22,7 +25,7 @@ class InquiryItemCreate(BaseModel):
     service_id: Optional[int] = None
     variant_id: Optional[int] = None
     quantity: int = Field(..., gt=0, description="Must be greater than 0")
-    selected_options: Dict[str, Union[str, int, float]]
+    selected_options: Dict[str, Union[str, int, float, bool, None]]
     notes: Optional[str] = None
     images: Optional[List[str]] = None
 
@@ -30,8 +33,8 @@ class InquiryItemCreate(BaseModel):
     def check_template_or_service(self):
         if not self.template_id and not self.service_id:
             raise ValueError("Either template_id or service_id must be provided")
-        if self.service_id and not self.variant_id:
-            raise ValueError("variant_id must be provided when service_id is provided")
+        if self.service_id and self.variant_id is None:
+            raise ValueError(f"variant_id is required for service_id {self.service_id}")
         return self
 
 
@@ -54,7 +57,7 @@ class InquiryMessageCreate(BaseModel):
 
 class InquiryQuotationItem(BaseModel):
     """Admin schema for pricing individual line items"""
-    item_id: int
+    item_id: UUID
     line_item_price: float = Field(..., ge=0)
 
 
@@ -78,8 +81,8 @@ class InquiryStatusUpdate(BaseModel):
 class InquiryMessageResponse(BaseModel):
     """Base response schema for a message"""
     id: int
-    inquiry_group_id: int
-    sender_id: int
+    inquiry_group_id: UUID
+    sender_id: UUID
     content: str
     file_urls: Optional[List[str]] = None
     created_at: datetime
@@ -89,8 +92,8 @@ class InquiryMessageResponse(BaseModel):
 
 class InquiryItemResponse(BaseModel):
     """Base response schema for a single item in the cart"""
-    id: int
-    inquiry_group_id: int
+    id: UUID
+    inquiry_group_id: Optional[UUID] = None
     template_id: Optional[int] = None
     service_id: Optional[int] = None
     variant_id: Optional[int] = None
@@ -110,8 +113,8 @@ class InquiryItemResponse(BaseModel):
 
 class InquiryGroupResponse(BaseModel):
     """Detailed response schema for the entire Inquiry Group (Cart)"""
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     status: InquiryStatus
     total_quoted_price: Optional[float] = None
     admin_notes: Optional[str] = None
@@ -127,8 +130,8 @@ class InquiryGroupResponse(BaseModel):
 
 class InquiryGroupListResponse(BaseModel):
     """Lightweight response schema for listing all inquiries on the dashboard"""
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     status: InquiryStatus
     total_quoted_price: Optional[float] = None
     created_at: datetime

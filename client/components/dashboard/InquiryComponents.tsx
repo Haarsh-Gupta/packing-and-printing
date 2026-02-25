@@ -10,17 +10,19 @@ import Link from "next/link";
 
 interface InquiryActionProps {
     inquiry: Inquiry;
-    actionLoading: number | null;
-    handleStatusUpdate: (id: number, status: "ACCEPTED" | "REJECTED") => void;
+    actionLoading: string | null;
+    handleStatusUpdate: (id: string, status: "ACCEPTED" | "REJECTED") => void;
 }
 
 export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: InquiryActionProps) {
+    const item = inquiry.items && inquiry.items.length > 0 ? inquiry.items[0] : null;
+
     return (
         <Card key={inquiry.id} className="border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden bg-white">
             <CardHeader className="bg-zinc-50 border-b-2 border-black pb-4 flex flex-row items-center justify-between">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
-                        {inquiry.service_id ? (
+                        {item?.service_id ? (
                             <Badge className="bg-[#ff90e8] text-black border-2 border-black rounded-none flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5">
                                 <Layers className="w-3 h-3" /> Service
                             </Badge>
@@ -31,10 +33,10 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                         )}
                     </div>
                     <CardTitle className="text-2xl font-black uppercase tracking-tighter">
-                        {inquiry.service_id ? inquiry.service_name : inquiry.template_name}
+                        {item?.service_id ? item?.service_name : item?.template_name}
                     </CardTitle>
                     <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mt-1">
-                        ID #{inquiry.id} • {new Date(inquiry.created_at).toLocaleDateString()}
+                        ID #{inquiry.id.slice(0, 8).toUpperCase()} • {new Date(inquiry.created_at).toLocaleDateString()}
                     </p>
                 </div>
                 <InquiryStatusBadge status={inquiry.status} />
@@ -45,15 +47,14 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                     <h4 className="font-bold text-lg uppercase border-b-2 border-black inline-block">Your Request</h4>
                     <div className="grid grid-cols-2 gap-y-2 text-sm">
                         <span className="text-zinc-500 font-medium">Quantity:</span>
-                        <span className="font-bold">{inquiry.quantity} Units</span>
-                        {inquiry.variant_name && (
+                        <span className="font-bold">{item?.quantity || 0} Units</span>
+                        {item?.variant_name && (
                             <div className="contents">
                                 <span className="text-zinc-500 font-medium">Variant:</span>
-                                <span className="font-bold">{inquiry.variant_name}</span>
+                                <span className="font-bold">{item.variant_name}</span>
                             </div>
                         )}
-                        {Object.entries(inquiry.selected_options || {}).map(([key, value]) => {
-                            // Don't repeat the variant name if it's already in selected_options
+                        {Object.entries(item?.selected_options || {}).map(([key, value]) => {
                             if (key === 'variant_name') return null;
                             return (
                                 <div key={key} className="contents">
@@ -63,9 +64,9 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                             );
                         })}
                     </div>
-                    {inquiry.notes && (
+                    {item?.notes && (
                         <div className="bg-zinc-100 p-3 border border-black text-sm italic">
-                            "{inquiry.notes}"
+                            "{item.notes}"
                         </div>
                     )}
                 </div>
@@ -81,7 +82,7 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                         <div className="space-y-4">
                             <div className="text-4xl font-black text-black flex items-center">
                                 <IndianRupee className="w-8 h-8 mr-1" />
-                                {inquiry.quoted_price?.toLocaleString()}
+                                {inquiry.total_quoted_price?.toLocaleString() || "N/A"}
                             </div>
                             <p className="text-sm text-zinc-600 font-medium">Total estimated cost</p>
                             {inquiry.admin_notes && (
@@ -126,11 +127,13 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
 }
 
 export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: InquiryActionProps) {
+    const item = inquiry.items && inquiry.items.length > 0 ? inquiry.items[0] : null;
+
     return (
         <div className="bg-white border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-xl">
             <div className="flex items-center gap-4 flex-1">
                 <div className="w-12 h-12 bg-zinc-100 border border-black flex items-center justify-center shrink-0">
-                    {inquiry.service_id ? (
+                    {item?.service_id ? (
                         <Layers className="w-6 h-6 text-[#ff90e8]" />
                     ) : (
                         <Box className="w-6 h-6 text-[#90e8ff]" />
@@ -139,12 +142,12 @@ export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: I
                 <div>
                     <div className="flex items-center gap-2">
                         <h4 className="font-bold text-lg uppercase tracking-tight">
-                            {inquiry.service_id ? inquiry.service_name : inquiry.template_name}
+                            {item?.service_id ? item?.service_name : item?.template_name}
                         </h4>
-                        <span className="text-[10px] font-black bg-zinc-100 border border-black px-1.5 uppercase">ID #{inquiry.id}</span>
+                        <span className="text-[10px] font-black bg-zinc-100 border border-black px-1.5 uppercase">ID #{inquiry.id.slice(0, 8).toUpperCase()}</span>
                     </div>
                     <p className="text-xs text-zinc-500 font-medium">
-                        {inquiry.quantity} Units • {inquiry.variant_name || 'Standard'} • {new Date(inquiry.created_at).toLocaleDateString()}
+                        {item?.quantity || 0} Units • {item?.variant_name || 'Standard'} • {new Date(inquiry.created_at).toLocaleDateString()}
                     </p>
                 </div>
             </div>
@@ -152,7 +155,7 @@ export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: I
             <div className="flex flex-wrap items-center gap-6">
                 <div className="text-right hidden sm:block">
                     <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Quote</p>
-                    <p className="font-bold">{inquiry.quoted_price ? `₹${inquiry.quoted_price.toLocaleString()}` : "Pending"}</p>
+                    <p className="font-bold">{inquiry.total_quoted_price ? `₹${inquiry.total_quoted_price.toLocaleString()}` : "Pending"}</p>
                 </div>
 
                 <div className="shrink-0">

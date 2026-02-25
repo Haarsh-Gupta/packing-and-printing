@@ -1,14 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, UploadCloud } from "lucide-react";
+import { Loader2, UploadCloud, ShoppingCart } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
+import { useAppDispatch } from "@/lib/store/hooks";
+import { addToInquiry } from "@/lib/store/inquirySlice";
+
+// A basic helper to generate simple random strings for local cart IDs
+const generateId = () => Math.random().toString(36).substring(2, 9);
 
 // Types based on your FastAPI JSON schema
 interface Option {
@@ -39,26 +44,26 @@ interface ProductSchema {
 
 export default function ProductInquiryForm({ product }: { product: ProductSchema }) {
     const { showAlert } = useAlert();
+    const dispatch = useAppDispatch();
+    const router = useRouter();
+
     const [isLoading, setIsLoading] = useState(false);
     const [quantity, setQuantity] = useState<number>(product.minimum_quantity);
 
-    // State to hold the user's current selections
-    const [answers, setAnswers] = useState<Record<string, any>>({});
-
-    // Initialize default answers when the component loads
-    useEffect(() => {
+    // Initialize default answers synchronously to avoid uncontrolled→controlled warning
+    const [answers, setAnswers] = useState<Record<string, any>>(() => {
         const initialAnswers: Record<string, any> = {};
         product.config_schema.sections.forEach((section) => {
             if ((section.type === "dropdown" || section.type === "radio") && section.options) {
-                initialAnswers[section.key] = section.options[0].value; // Select first option by default
+                initialAnswers[section.key] = section.options[0].value;
             } else if (section.type === "number_input") {
                 initialAnswers[section.key] = section.min_val || 0;
             } else {
                 initialAnswers[section.key] = "";
             }
         });
-        setAnswers(initialAnswers);
-    }, [product]);
+        return initialAnswers;
+    });
 
     // Handle changes to any field
     const handleAnswerChange = (key: string, value: any) => {
@@ -91,52 +96,22 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         };
     }, [answers, quantity, product]);
 
-    const router = useRouter();
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
 
-        const token = localStorage.getItem("access_token");
-        if (!token) {
-            showAlert("Please login to submit an inquiry.", "error");
-            router.push("/auth/login");
-            return;
-        }
-
-        const payload = {
-            template_id: product.id,
+        dispatch(addToInquiry({
+            id: generateId(),
+            productId: product.id,
+            name: product.name,
             quantity: quantity,
-            selected_options: answers,
-            notes: "Custom request via website", // You could add a notes field
-            status: "PENDING"
-        };
+            options: answers,
+            estimatedPrice: totalPrice
+        }));
 
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/create`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                showAlert("Inquiry submitted successfully!", "success");
-                router.push("/dashboard/inquiries");
-            } else {
-                const err = await res.json();
-                showAlert(`Submission failed: ${err.detail || "Unknown error"}`, "error");
-                setIsLoading(false);
-            }
-        } catch (error) {
-            console.error("Submission error:", error);
-            showAlert("Network error. Please try again.", "error");
-            setIsLoading(false);
-        }
+        showAlert(`${product.name} added to cart!`, "success");
+        setIsLoading(false);
     };
-
     return (
         <form onSubmit={handleSubmit} className="space-y-8 flex flex-col h-full">
 

@@ -59,7 +59,7 @@ export default function UsersPage() {
         return () => clearTimeout(timer);
     }, [search, adminFilter]);
 
-    const deleteUser = async (id: number) => {
+    const deleteUser = async (id: string) => {
         if (!confirm("Permanently delete this user account? This action is irreversible.")) return;
         try {
             await api(`/users/delete?user_id=${id}`, { method: "DELETE" });
@@ -162,7 +162,7 @@ export default function UsersPage() {
                                             </Avatar>
                                             <div>
                                                 <p style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '-0.01em' }}>{u.name}</p>
-                                                <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', ...mono }}>ID: #{u.id.toString().padStart(4, '0')}</p>
+                                                <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', ...mono }}>{u.id.slice(0, 8).toUpperCase()}</p>
                                             </div>
                                         </div>
                                     </TableCell>
@@ -195,9 +195,6 @@ export default function UsersPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="w-[200px]">
                                                 <DropdownMenuLabel style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', ...mono }}>Account Actions</DropdownMenuLabel>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem style={{ fontWeight: 600 }}><ExternalLink size={14} className="mr-2" /> View Details</DropdownMenuItem>
-                                                <DropdownMenuItem style={{ fontWeight: 600 }}><ShieldAlert size={14} className="mr-2" /> Modify Privileges</DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem className="text-destructive" style={{ fontWeight: 700 }} onClick={() => deleteUser(u.id)}>
                                                     <Trash2 size={14} className="mr-2" /> Purge Account

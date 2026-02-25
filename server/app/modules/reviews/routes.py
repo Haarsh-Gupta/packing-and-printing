@@ -15,7 +15,7 @@ from app.modules.reviews.schemas import ReviewBase , ReviewUpdate, ReviewCreate,
 
 router = APIRouter()
 
-@router.post("/review", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
 async def create_review(
     product_id: int, 
     review: ReviewBase, 
@@ -83,7 +83,7 @@ async def create_review(
     
     return new_review_db
 
-@router.get("/reviews/{product_id}", response_model=list[ReviewResponse])
+@router.get("/product/{product_id}", response_model=list[ReviewResponse])
 async def get_reviews(
     product_id: int, 
     db: AsyncSession = Depends(get_db), 
@@ -102,7 +102,7 @@ async def get_reviews(
     reviews = result.scalars().all()
     return reviews
 
-@router.delete("/review/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_review(
     review_id: int, 
     db: AsyncSession = Depends(get_db), 

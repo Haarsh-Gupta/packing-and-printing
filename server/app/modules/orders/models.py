@@ -19,9 +19,8 @@ class Order(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    # user = relationship("User", back_populates="orders")
-    # inquiry = relationship("InquiryGroup", back_populates="order", uselist=False)
-    # transactions = relationship("Transaction", back_populates="order", cascade="all, delete-orphan")
+    user = relationship("User")
+    transactions = relationship("Transaction", back_populates="order", cascade="all, delete-orphan")
 
 
 class Transaction(Base):
@@ -36,4 +35,4 @@ class Transaction(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationship
-    # order = relationship("Order", back_populates="transactions")
+    order = relationship("Order", back_populates="transactions")

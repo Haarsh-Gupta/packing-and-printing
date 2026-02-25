@@ -10,6 +10,7 @@ from uuid import UUID
 from app.core.database import get_db
 from app.core.config import settings
 from app.modules.auth.auth import get_current_user, get_current_admin_user
+from app.modules.auth.schemas import TokenData
 from app.modules.users.models import User
 from app.modules.inquiry.models import InquiryGroup, InquiryItem, InquiryMessage
 from app.modules.products.models import ProductTemplate
@@ -36,14 +37,15 @@ from .utils.invoice_generator import InvoiceGenerator, generate_simple_invoice
 router = APIRouter()
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-async def create_order(order : OrderCreate , current_user : User = Depends(get_current_user) , db : AsyncSession = Depends(get_db)):
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=OrderResponse)
+async def create_order(order : OrderCreate , current_user : TokenData = Depends(get_current_user) , db : AsyncSession = Depends(get_db)):
     """
     Create an order from an accepted inquiry.
     Only inquiries with ACCEPTED status can be converted to orders.
     """
 
 
+    print(f"DEBUG: create_order for inquiry_id={order.inquiry_id} user_id={current_user.id}")
     stmt = (
         select(InquiryGroup)
         .options(selectinload(InquiryGroup.items).selectinload(InquiryItem.template))
@@ -58,7 +60,8 @@ async def create_order(order : OrderCreate , current_user : User = Depends(get_c
     group = result.scalar_one_or_none()
 
     if not group:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Inquiry not found")
+        print(f"DEBUG: Inquiry not found or not accepted. ID={order.inquiry_id}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Inquiry not found or not accepted")
 
     if group.quote_valid_until and group.quote_valid_until < datetime.now(timezone.utc):
         group.status = "EXPIRED"
@@ -82,18 +85,29 @@ async def create_order(order : OrderCreate , current_user : User = Depends(get_c
         status="WAITING_PAYMENT"
     )
 
-    await db.add(new_order)
+    db.add(new_order)
     await db.commit()
     await db.refresh(new_order)
-
-    return new_order
+    
+    # Explicitly return OrderResponse to avoid MissingGreenletError during Pydantic serialization
+    return OrderResponse(
+        id=new_order.id,
+        inquiry_id=new_order.inquiry_id,
+        user_id=new_order.user_id,
+        total_amount=new_order.total_amount,
+        amount_paid=new_order.amount_paid,
+        status=new_order.status,
+        created_at=new_order.created_at,
+        updated_at=new_order.updated_at,
+        transactions=[]
+    )
 
 @router.get("/my" , response_model=list[OrderListResponse])
 async def get_my_orders(
     skip : int = 0,
     limit : int = 20,
     status : Optional[str] = None,
-    current_user : User = Depends(get_current_user) ,
+    current_user : TokenData = Depends(get_current_user) ,
     db : AsyncSession = Depends(get_db)
 ):
     """
@@ -113,13 +127,13 @@ async def get_my_orders(
 @router.get("/my/{order_id}" , response_model=OrderResponse)
 async def get_my_order(
     order_id : UUID,
-    current_user : User = Depends(get_current_user) ,
+    current_user : TokenData = Depends(get_current_user) ,
     db : AsyncSession = Depends(get_db)
 ):
     """
     Get a specific order by ID (only if owned by current user).
     """
-    stmt = select(Order).where(Order.id == order_id , Order.user_id == current_user.id)
+    stmt = select(Order).options(selectinload(Order.transactions)).where(Order.id == order_id , Order.user_id == current_user.id)
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
 
@@ -141,15 +155,15 @@ async def pay_for_order(
     """
     Offline payment to be recorded by the admin 
     """
-    stmt = select(Order).where(Order.id == order_id , Order.user_id == current_user.id)
+    stmt = select(Order).where(Order.id == order_id)
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
 
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Order not found")
 
-    if order.status in ["WAITING_PAYMENT" , "PARTIALLY_PAID"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail="Order is not in WAITING_PAYMENT or PARTIALLY_PAID status")
+    if order.status not in ["WAITING_PAYMENT", "PARTIALLY_PAID"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order is not in WAITING_PAYMENT or PARTIALLY_PAID status")
 
     
 
@@ -168,7 +182,7 @@ async def pay_for_order(
     elif order.amount_paid > 0:
         order.status = "PARTIALLY_PAID"
 
-    await db.add(new_transaction)
+    db.add(new_transaction)
     await db.commit()
     await db.refresh(new_transaction)
 
@@ -180,7 +194,7 @@ async def pay_for_order(
 @router.get("/{order_id}/payments", response_model=list[TransactionResponse])
 async def get_order_payments(
     order_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Get all payment transactions for an order"""
@@ -216,7 +230,7 @@ async def generate_payment_qr_code(
     order_id: UUID,
     upi_id: str = Query(..., description="UPI ID for payment"),
     payee_name: str = Query(..., description="Payee name"),
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -269,7 +283,7 @@ async def generate_payment_qr_code(
 @router.get("/{order_id}/invoice")
 async def generate_order_invoice(
     order_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -410,7 +424,7 @@ async def update_order_status(
     """
     [ADMIN] Update order status
     """
-    stmt = select(Order).where(Order.id == order_id)
+    stmt = select(Order).options(selectinload(Order.transactions)).where(Order.id == order_id)
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
     
@@ -423,7 +437,9 @@ async def update_order_status(
     order.status = status_update.status
     
     await db.commit()
-    await db.refresh(order)
+    # Explicitly fetching transactions since db.refresh might drop the loaded relations
+    stmt = select(Order).options(selectinload(Order.transactions)).where(Order.id == order_id)
+    order = (await db.execute(stmt)).scalar_one_or_none()
     
     return order
 

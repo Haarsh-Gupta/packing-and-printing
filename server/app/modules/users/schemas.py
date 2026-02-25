@@ -27,7 +27,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(min_length = 6)
     profile_picture: Optional[str] = None
-    otp: int = Field(ge=100000, le=999999)
+    otp: str = Field(min_length=6, max_length=6)
 
     @field_validator("password")
     def check_password(cls , value):

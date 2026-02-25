@@ -19,42 +19,14 @@ import {
 } from "lucide-react";
 
 import Link from "next/link";
-import { MOCK_INQUIRIES, MOCK_MESSAGES } from "../../../../lib/mockData";
-
-// --- Types ---
-interface InquiryMessage {
-    id: number;
-    inquiry_id: number;
-    sender_id: number;
-    content: string;
-    file_urls?: string[];
-    created_at: string;
-}
-
-interface Inquiry {
-    id: number;
-    user_id: number;
-    template_id: number | null;
-    service_id: number | null;
-    variant_id: number | null;
-    quantity: number;
-    selected_options: Record<string, any>;
-    notes: string | null;
-    status: "PENDING" | "QUOTED" | "ACCEPTED" | "REJECTED";
-    quoted_price: number | null;
-    admin_notes: string | null;
-    quoted_at: string | null;
-    template_name?: string;
-    service_name?: string;
-    variant_name?: string;
-    created_at: string;
-    messages: InquiryMessage[];
-}
+import { Inquiry } from "@/types/dashboard";
+import { useAlert } from "@/components/CustomAlert";
 
 export default function InquiryDetailPage() {
     const params = useParams();
     const router = useRouter();
-    const inquiryId = params.id;
+    const { showAlert } = useAlert();
+    const inquiryId = params.id as string;
 
     const [inquiry, setInquiry] = useState<Inquiry | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -125,7 +97,7 @@ export default function InquiryDetailPage() {
                 const savedMessage = await res.json();
                 setInquiry(prev => prev ? {
                     ...prev,
-                    messages: [...prev.messages, savedMessage]
+                    messages: prev.messages ? [...prev.messages, savedMessage] : [savedMessage]
                 } : null);
                 setNewMessage("");
             } else if (res.status === 401) {
@@ -136,6 +108,55 @@ export default function InquiryDetailPage() {
             console.error("Failed to send message");
         } finally {
             setIsSending(false);
+        }
+    };
+
+    const handleStatusUpdate = async (status: "ACCEPTED" | "REJECTED") => {
+        setIsLoading(true);
+        try {
+            const token = localStorage.getItem("access_token");
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}/respond`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ status })
+            });
+
+            if (res.ok) {
+                setInquiry(prev => prev ? { ...prev, status } : null);
+
+                if (status === "ACCEPTED") {
+                    try {
+                        const orderRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ inquiry_id: inquiryId })
+                        });
+                        if (orderRes.ok) {
+                            showAlert("Inquiry accepted and order placed successfully!", "success");
+                            setTimeout(() => router.push("/dashboard/orders"), 1500);
+                        } else {
+                            showAlert("Inquiry accepted, but failed to create order.", "error");
+                        }
+                    } catch (e) {
+                        console.error("Order creation error:", e);
+                        showAlert("Failed to create order.", "error");
+                    }
+                } else {
+                    showAlert(`Inquiry ${status.toLowerCase()} successfully.`, "info");
+                }
+            } else {
+                showAlert("Failed to update status", "error");
+            }
+        } catch (error) {
+            showAlert("An error occurred", "error");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -162,6 +183,8 @@ export default function InquiryDetailPage() {
         return <div className="p-12 text-center">Inquiry not found.</div>;
     }
 
+    const item = inquiry.items && inquiry.items.length > 0 ? inquiry.items[0] : null;
+
     return (
         <div className="space-y-8 max-w-6xl mx-auto h-[calc(100vh-100px)] flex flex-col">
             {/* Header */}
@@ -174,18 +197,37 @@ export default function InquiryDetailPage() {
                     </Button>
                     <div>
                         <h1 className="text-3xl font-black uppercase tracking-tighter">
-                            {inquiry.service_id ? inquiry.service_name : inquiry.template_name}
+                            {item?.service_id ? item?.service_name : item?.template_name}
                         </h1>
                         <p className="text-sm font-medium text-zinc-500 flex items-center gap-2">
-                            ID #{inquiry.id} • Created on {new Date(inquiry.created_at).toLocaleDateString()}
+                            ID #{inquiry.id.slice(0, 8).toUpperCase()} • Created on {new Date(inquiry.created_at).toLocaleDateString()}
                         </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
                     {getStatusBadge(inquiry.status)}
-                    {inquiry.quoted_price && (
+                    {inquiry.total_quoted_price && (
                         <div className="text-2xl font-black bg-[#4be794] text-black border-2 border-black px-4 py-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                            ₹{inquiry.quoted_price.toLocaleString()}
+                            ₹{inquiry.total_quoted_price.toLocaleString()}
+                        </div>
+                    )}
+                    {inquiry.status === "QUOTED" && (
+                        <div className="flex gap-2">
+                            <Button
+                                onClick={() => handleStatusUpdate("ACCEPTED")}
+                                className="bg-[#4be794] text-black border-2 border-black rounded-none hover:bg-[#3bc27b] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase font-black"
+                            >
+                                <CheckCircle2 className="w-4 h-4 mr-2" />
+                                Accept Quote
+                            </Button>
+                            <Button
+                                onClick={() => handleStatusUpdate("REJECTED")}
+                                variant="outline"
+                                className="border-2 border-black rounded-none hover:bg-zinc-100 uppercase font-black"
+                            >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Reject
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -207,18 +249,18 @@ export default function InquiryDetailPage() {
 
                             <div>
                                 <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-1">Quantity</span>
-                                <div className="text-xl font-black">{inquiry.quantity} Units</div>
+                                <div className="text-xl font-black">{item?.quantity || 0} Units</div>
                             </div>
 
                             <div className="space-y-3">
                                 <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-1">Specifications</span>
-                                {inquiry.variant_name && (
+                                {item?.variant_name && (
                                     <div className="flex justify-between border-b border-zinc-100 pb-1">
                                         <span className="text-sm font-medium capitalize text-zinc-600">Variant</span>
-                                        <span className="text-sm font-bold capitalize">{inquiry.variant_name}</span>
+                                        <span className="text-sm font-bold capitalize">{item?.variant_name}</span>
                                     </div>
                                 )}
-                                {Object.entries(inquiry.selected_options || {}).map(([key, value]) => {
+                                {Object.entries(item?.selected_options || {}).map(([key, value]) => {
                                     if (key === 'variant_name') return null;
                                     return (
                                         <div key={key} className="flex justify-between border-b border-zinc-100 pb-1">
@@ -229,11 +271,11 @@ export default function InquiryDetailPage() {
                                 })}
                             </div>
 
-                            {inquiry.notes && (
+                            {item?.notes && (
                                 <div>
                                     <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-1">User Notes</span>
                                     <div className="bg-zinc-50 p-3 border border-black text-sm italic">
-                                        "{inquiry.notes}"
+                                        "{item.notes}"
                                     </div>
                                 </div>
                             )}
@@ -253,7 +295,7 @@ export default function InquiryDetailPage() {
 
                     {/* Messages Area */}
                     <div className="grow overflow-y-auto p-6 space-y-6" ref={scrollRef}>
-                        {inquiry.messages.length === 0 ? (
+                        {!inquiry.messages || inquiry.messages.length === 0 ? (
                             <div className="text-center text-zinc-400 py-12 flex flex-col items-center">
                                 <User className="w-12 h-12 mb-2 opacity-20" />
                                 <p>No messages yet. Start the conversation!</p>

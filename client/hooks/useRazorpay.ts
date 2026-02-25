@@ -11,7 +11,7 @@
 import { useState } from "react";
 
 interface RazorpayOptions {
-    orderId: number;
+    orderId: string;
     balanceDue: number;
     productName?: string;
     userContact?: string;

@@ -1,8 +1,29 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 
 export default function AboutSection() {
+    const [isVisible, setIsVisible] = useState(false);
+    const imgRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const el = imgRef.current;
+        if (!el) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) setIsVisible(true);
+            },
+            { rootMargin: "-50% 0px -50% 0px" }
+        );
+
+        observer.observe(el);
+        return () => observer.unobserve(el);
+    }, []);
+
     return (
         <section id="about" className="py-16 px-6 bg-[#FDF567] overflow-hidden relative">
             {/* Decorative */}
@@ -58,11 +79,11 @@ export default function AboutSection() {
                 {/* Right Content - Stats & Visual */}
                 <div className="relative">
                     {/* Main Image */}
-                    <div className="border-4 border-black rounded-3xl shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden relative z-10">
+                    <div ref={imgRef} className="border-4 border-black rounded-3xl shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden relative z-10">
                         <img
                             src="https://images.unsplash.com/photo-1562664377-709f2c337eb2?q=80&w=800&auto=format&fit=crop"
                             alt="Printing Press in Action"
-                            className="w-full aspect-[4/5] object-cover grayscale hover:grayscale-0 transition-all duration-700"
+                            className={`w-full aspect-[4/5] object-cover transition-all duration-700 ${isVisible ? "grayscale-0" : "grayscale"}`}
                         />
                     </div>
 

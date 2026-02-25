@@ -10,10 +10,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, UploadCloud, Info } from "lucide-react";
 import { ServiceItem } from "@/types/service";
 import { useAlert } from "@/components/CustomAlert";
+import { useAppDispatch } from "@/lib/store/hooks";
+import { addToInquiry } from "@/lib/store/inquirySlice";
+
+const generateId = () => Math.random().toString(36).substring(2, 9);
 
 export default function ServiceInquiryForm({ service }: { service: ServiceItem }) {
     const router = useRouter();
     const { showAlert } = useAlert();
+    const dispatch = useAppDispatch();
     const searchParams = useSearchParams();
     const variantSlug = searchParams.get("variant");
 
@@ -52,54 +57,28 @@ export default function ServiceInquiryForm({ service }: { service: ServiceItem }
         e.preventDefault();
         setIsLoading(true);
 
-        const token = localStorage.getItem("access_token");
-        if (!token) {
-            showAlert("Please login to submit an inquiry.", "error");
-            router.push("/auth/login");
-            return;
-        }
-
         if (!selectedVariantId) {
             showAlert("Please select a service variant.", "error");
             setIsLoading(false);
             return;
         }
 
-        const payload = {
-            service_id: service.id,
-            variant_id: parseInt(selectedVariantId),
+        dispatch(addToInquiry({
+            id: generateId(),
+            serviceId: service.id,
+            name: `${service.name} - ${selectedVariant?.name}`,
             quantity: quantity,
-            selected_options: {
-                variant_name: selectedVariant?.name,
-                service_slug: service.slug
+            options: {
+                variant_id: parseInt(selectedVariantId),
+                variant_name: selectedVariant?.name || "",
+                service_slug: service.slug,
+                notes: notes,
             },
-            notes: notes || `Service inquiry for ${service.name} (${selectedVariant?.name})`,
-            status: "PENDING"
-        };
+            estimatedPrice: totalPrice
+        }));
 
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                showAlert("Service inquiry submitted successfully! Our studio will review it shortly.", "success");
-                router.push("/dashboard/inquiries");
-            } else {
-                const err = await res.json();
-                showAlert(`Submission failed: ${err.detail || "Unknown error"}`, "error");
-                setIsLoading(false);
-            }
-        } catch (error) {
-            console.error("Submission error:", error);
-            showAlert("Network error. Please try again.", "error");
-            setIsLoading(false);
-        }
+        showAlert(`${service.name} added to cart!`, "success");
+        setIsLoading(false);
     };
 
     return (
@@ -197,7 +176,7 @@ export default function ServiceInquiryForm({ service }: { service: ServiceItem }
                     disabled={isLoading}
                     className="w-full h-16 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase text-xl border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all"
                 >
-                    {isLoading ? <Loader2 className="animate-spin h-8 w-8" /> : "Submit Studio Request"}
+                    {isLoading ? <Loader2 className="animate-spin h-8 w-8" /> : "Add to Cart"}
                 </Button>
 
                 <p className="text-[10px] font-bold text-center text-zinc-500 uppercase tracking-widest leading-relaxed">

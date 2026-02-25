@@ -16,6 +16,7 @@ const PAGE_LABELS: Record<string, string> = {
     "/notifications": "Notifications",
     "/email": "Email Dispatcher",
     "/reviews": "Reviews",
+    "/settings": "Settings",
 };
 
 export default function Layout() {
@@ -60,7 +61,15 @@ export default function Layout() {
         return <Navigate to="/login" replace />;
     }
 
-    const pageLabel = PAGE_LABELS[location.pathname] || "Dashboard";
+    // Dynamic label for parameter paths like /inquiries/:id
+    let pageLabel = "Dashboard";
+    if (location.pathname.startsWith("/inquiries/")) {
+        pageLabel = "Inquiry Details";
+    } else if (location.pathname.startsWith("/orders/")) {
+        pageLabel = "Order Details";
+    } else {
+        pageLabel = PAGE_LABELS[location.pathname] || "Dashboard";
+    }
 
     return (
         <SidebarProvider>
