@@ -2,13 +2,16 @@ from sqlalchemy import Column , Integer , String , DateTime , Boolean , func , F
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.modules.users.models import User
-from app.modules.products.models import ProductTemplate
+from app.modules.products.models import SubProduct
+
+from app.modules.services.models import SubService
 
 class Review(Base):
     __tablename__ = "reviews"
     id = Column(Integer , primary_key = True , nullable = False , autoincrement = True)
     user_id = Column(Uuid , ForeignKey("users.id"), nullable=False)
-    product_id = Column(Integer , ForeignKey("product_templates.id"), nullable=False)
+    product_id = Column(Integer , ForeignKey("sub_products.id"), nullable=True)
+    service_id = Column(Integer , ForeignKey("sub_service.id"), nullable=True)
 
     rating = Column(Integer , nullable = False)
     comment = Column(String , nullable = False)
@@ -18,7 +21,8 @@ class Review(Base):
 
     # Relationships
     user = relationship("User")
-    product = relationship("ProductTemplate")
+    product = relationship("SubProduct", back_populates="reviews")
+    service = relationship("SubService", back_populates="reviews")
 
     __table_args__ = (
         CheckConstraint(

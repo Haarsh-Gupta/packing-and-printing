@@ -50,16 +50,17 @@ class InquiryItem(Base):
     group_id = Column(Uuid, ForeignKey('inquiry_groups.id'), nullable=False)
 
     #product or the service
-    template_id = Column(Integer, ForeignKey('product_templates.id'), nullable=True)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=True)
+    subproduct_id = Column(Integer, ForeignKey('sub_products.id'), nullable=True)
     #service and service variant
     service_id = Column(Integer, ForeignKey('services.id'), nullable=True)
-    variant_id = Column(Integer, ForeignKey('service_variants.id'), nullable=True)
+    subservice_id = Column(Integer, ForeignKey('sub_service.id'), nullable=True)
     
     quantity = Column(Integer, nullable=False)
     
     # Stores the user's selected options as JSON
     # Example: {"binding_type": "spiral", "pages": 200, "paper_quality": "premium"}
-    selected_options = Column(JSONB, nullable=False)
+    selected_options = Column(JSONB, nullable=True)
     
     # Additional notes/requirements from user
     notes = Column(Text, nullable=True)
@@ -71,12 +72,29 @@ class InquiryItem(Base):
     
     # Relationships
     group = relationship("InquiryGroup", back_populates="items")
-    template = relationship("ProductTemplate", back_populates="inquiry_items")
-    service = relationship("Service")
-    variant = relationship("ServiceVariant")
+    product = relationship("Product", lazy="selectin")
+    sub_product = relationship("SubProduct", back_populates="inquiry_items", lazy="selectin")
+    service = relationship("Service", lazy="selectin")
+    sub_service = relationship("SubService", lazy="selectin")
+
+    @property
+    def product_name(self):
+        return self.product.name if self.product else None
+
+    @property
+    def subproduct_name(self):
+        return self.sub_product.name if self.sub_product else None
+
+    @property
+    def service_name(self):
+        return self.service.name if self.service else None
+
+    @property
+    def subservice_name(self):
+        return self.sub_service.name if self.sub_service else None
 
     def __repr__(self):
-        return f"InquiryItem(id={self.id}, group_id={self.group_id}, template_id={self.template_id}, service_id={self.service_id}, variant_id={self.variant_id})"
+        return f"InquiryItem(id={self.id}, group_id={self.group_id}, product_id={self.product_id}, subproduct_id={self.subproduct_id}, service_id={self.service_id}, subservice_id={self.subservice_id})"
 
 
 class InquiryMessage(Base):

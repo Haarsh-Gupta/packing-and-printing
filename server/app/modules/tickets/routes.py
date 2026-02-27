@@ -1,10 +1,3 @@
-"""
-Ticket / Support routes.
-
-Users  → create tickets, add messages, view own tickets
-Admins → view all tickets, reply, update status, see read flags
-"""
-
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -29,8 +22,6 @@ from .schemas import (
 
 router = APIRouter()
 
-
-# ==================== USER ENDPOINTS ====================
 
 @router.post("/", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
@@ -96,7 +87,7 @@ async def get_ticket_detail(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
 
     # Users can only see their own tickets; admins can see any
-    if not current_user.admin and ticket.user_id != current_user.id:
+    if ticket.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your ticket")
 
     return ticket
@@ -172,45 +163,3 @@ async def mark_message_read(
     await db.refresh(msg)
     return msg
 
-
-# ==================== ADMIN ENDPOINTS ====================
-
-@router.get("/admin/all", response_model=list[TicketResponse])
-async def admin_list_all_tickets(
-    skip: int = 0,
-    limit: int = 50,
-    status_filter: Optional[str] = Query(None, description="Filter by status"),
-    priority_filter: Optional[str] = Query(None, description="Filter by priority"),
-    admin: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """[ADMIN] List all tickets with optional filters."""
-    query = select(Ticket)
-    if status_filter:
-        query = query.where(Ticket.status == status_filter)
-    if priority_filter:
-        query = query.where(Ticket.priority == priority_filter)
-    query = query.order_by(Ticket.updated_at.desc()).offset(skip).limit(limit)
-
-    result = await db.execute(query)
-    return result.scalars().all()
-
-
-@router.patch("/admin/{ticket_id}/status", response_model=TicketResponse)
-async def admin_update_ticket_status(
-    ticket_id: UUID,
-    payload: TicketStatusUpdate,
-    admin: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """[ADMIN] Update a ticket's status."""
-    result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
-    ticket = result.scalar_one_or_none()
-
-    if not ticket:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
-
-    ticket.status = payload.status.value
-    await db.commit()
-    await db.refresh(ticket)
-    return ticket
