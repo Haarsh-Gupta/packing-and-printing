@@ -54,7 +54,7 @@ class InquiryItem(Base):
     subproduct_id = Column(Integer, ForeignKey('sub_products.id'), nullable=True)
     #service and service variant
     service_id = Column(Integer, ForeignKey('services.id'), nullable=True)
-    subservice_id = Column(Integer, ForeignKey('sub_service.id'), nullable=True)
+    subservice_id = Column(Integer, ForeignKey('sub_services.id'), nullable=True)
     
     quantity = Column(Integer, nullable=False)
     

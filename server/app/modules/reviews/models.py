@@ -11,7 +11,7 @@ class Review(Base):
     id = Column(Integer , primary_key = True , nullable = False , autoincrement = True)
     user_id = Column(Uuid , ForeignKey("users.id"), nullable=False)
     product_id = Column(Integer , ForeignKey("sub_products.id"), nullable=True)
-    service_id = Column(Integer , ForeignKey("sub_service.id"), nullable=True)
+    service_id = Column(Integer , ForeignKey("sub_services.id"), nullable=True)
 
     rating = Column(Integer , nullable = False)
     comment = Column(String , nullable = False)

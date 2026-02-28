@@ -19,7 +19,7 @@ class Service(Base):
         return f"Service(id={self.id}, name={self.name})"
 
 class SubService(Base):
-    __tablename__ = "sub_service"
+    __tablename__ = "sub_services"
 
     id = Column(Integer, primary_key=True, index=True)
     service_id = Column(Integer, ForeignKey("services.id", ondelete="CASCADE")) 
