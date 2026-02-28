@@ -57,7 +57,7 @@ async def update_product(
     await db.refresh(db_product)
     return db_product
 
-@router.delete("/admin/products/{slug}")
+@router.delete("/{slug}")
 async def delete_product(
     slug: str, 
     current_user: User = Depends(get_current_admin_user), 
@@ -101,7 +101,7 @@ async def create_sub_product(
     return new_sub_product
 
 
-@router.put("sub-products/{slug}", response_model=SubProductResponse)
+@router.put("/{slug}/sub-products", response_model=SubProductResponse)
 async def update_sub_product(
     slug: str, 
     update_data: SubProductUpdate, 
@@ -124,7 +124,7 @@ async def update_sub_product(
     await db.refresh(db_sub_product)
     return db_sub_product
 
-@router.delete("sub-products/{slug}")
+@router.delete("/{slug}/sub-products")
 async def delete_sub_product(
     slug: str, 
     current_user: User = Depends(get_current_admin_user), 

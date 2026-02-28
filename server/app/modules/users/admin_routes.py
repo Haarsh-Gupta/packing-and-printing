@@ -40,7 +40,7 @@ async def get_all_users(
     result = await db.execute(stmt)
     return result.scalars().all()
 
-@router.delete("/delete/{user_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{user_id}", status_code=status.HTTP_200_OK)
 async def soft_delete_user(
     user_id: UUID,
     db: AsyncSession = Depends(get_db),

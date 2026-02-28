@@ -16,7 +16,7 @@ from app.modules.products.schemas import (
 
 router = APIRouter()
 
-@router.get("/products", response_model=list[ProductResponse])
+@router.get("/", response_model=list[ProductResponse])
 async def get_products(skip: int = 0, limit: int = 10, db: AsyncSession = Depends(get_db)):
     """Returns a list of main categories, including their nested sub-products."""
     # selectinload automatically fetches the related sub_products to prevent N+1 query issues
@@ -24,7 +24,7 @@ async def get_products(skip: int = 0, limit: int = 10, db: AsyncSession = Depend
     result = await db.execute(stmt)
     return result.scalars().all()
 
-@router.get("/products/{slug}", response_model=ProductResponse)
+@router.get("/{slug}", response_model=ProductResponse)
 async def get_product(slug: str, db: AsyncSession = Depends(get_db)):
     """Fetches a specific category and all its available sub-products."""
     stmt = select(Product).where(Product.slug == slug, Product.is_active == True).options(selectinload(Product.sub_products))
@@ -40,7 +40,7 @@ async def get_product(slug: str, db: AsyncSession = Depends(get_db)):
 # 2. SUBPRODUCT ENDPOINTS (Specific Items)
 # ==========================================
 
-@router.get("/sub-products/{slug}", response_model=SubProductResponse)
+@router.get("/{slug}/sub-products", response_model=SubProductResponse)
 async def get_sub_product(slug: str, db: AsyncSession = Depends(get_db)):
     """Fetches the specific configuration for a sub-product. The frontend uses this to build the dynamic form."""
     stmt = select(SubProduct).where(SubProduct.slug == slug, SubProduct.is_active == True)

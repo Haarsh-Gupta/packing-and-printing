@@ -31,6 +31,9 @@ from app.modules.uploads.routes import router as upload_router
 from app.modules.admin_email.routes import router as admin_email_router
 from app.modules.admin_dashboard.routes import router as dashboard_router
 from app.modules.payments.routes import router as payment_router
+from app.modules.wishlist.routes import router as wishlist_router
+from app.modules.wishlist.admin_routes import router as admin_wishlist_router
+
 
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -77,27 +80,30 @@ app.add_middleware(RateLimitMiddleware, limit=200, window=60)
 app.add_middleware(SessionMiddleware , secret_key=settings.secret_key)
 
 app.include_router(user_router , prefix="/users" , tags=["Users"])
-app.include_router(admin_user_router, prefix="/admin", tags=["Admin Users"])
+app.include_router(admin_user_router, prefix="/admin/users", tags=["Admin Users"])
 
 app.include_router(auth_router , prefix="/auth" , tags=["Authentication"])
 
 app.include_router(product_router , prefix="/products" , tags=["Products"])
-app.include_router(admin_product_router, prefix="/admin", tags=["Admin Products"])
+app.include_router(admin_product_router, prefix="/admin/products", tags=["Admin Products"])
 
 app.include_router(inquiry_router , prefix="/inquiries" , tags=["Inquiries"])
-app.include_router(admin_inquiry_router, prefix="/admin", tags=["Admin Inquiries"])
+app.include_router(admin_inquiry_router, prefix="/admin/inquiries", tags=["Admin Inquiries"])
 
 app.include_router(service_router , prefix="/services" , tags=["Services"])
-app.include_router(admin_service_router, prefix="/admin", tags=["Admin Services"])
+app.include_router(admin_service_router, prefix="/admin/services", tags=["Admin Services"])
 
 app.include_router(order_router , prefix="/orders" , tags=["Orders"])
-app.include_router(admin_order_router, prefix="/admin", tags=["Admin Orders"])
+app.include_router(admin_order_router, prefix="/admin/orders", tags=["Admin Orders"])
 
 app.include_router(ticket_router, prefix="/tickets", tags=["Tickets"])
-app.include_router(admin_ticket_router, prefix="/admin", tags=["Admin Tickets"])
+app.include_router(admin_ticket_router, prefix="/admin/tickets", tags=["Admin Tickets"])
 
 app.include_router(review_router, prefix="/reviews", tags=["Reviews"])
-app.include_router(admin_review_router, prefix="/admin", tags=["Admin Reviews"])
+app.include_router(admin_review_router, prefix="/admin/reviews", tags=["Admin Reviews"])
+
+app.include_router(wishlist_router, prefix="/wishlist", tags=["Wishlist"])
+app.include_router(admin_wishlist_router, prefix="/admin/wishlist", tags=["Admin Wishlist"])
 
 app.include_router(otp_router , prefix="/otp" , tags=["OTP"])
 app.include_router(upload_router, prefix="/upload", tags=["Uploads"])
@@ -105,6 +111,9 @@ app.include_router(admin_email_router, prefix="/admin/email", tags=["Admin Email
 app.include_router(dashboard_router, prefix="/admin/dashboard", tags=["Admin Dashboard"])
 app.include_router(payment_router, prefix="/payments", tags=["Payments"])
 app.include_router(notification_router, prefix="/notifications", tags=["Notifications"])
+app.include_router(admin_notification_router, prefix="/admin/notifications", tags=["Admin Notifications"])
+
+
 
 
 from app.modules.orders.utils.whatsapp_messenger import link

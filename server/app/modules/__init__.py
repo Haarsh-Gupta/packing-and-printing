@@ -6,3 +6,5 @@ from .orders.models import Order, Transaction, OrderMilestone
 from .notifications.models import Notification
 from .tickets.models import Ticket, TicketMessage
 from .reviews.models import Review
+from .wishlist.models import Wishlist
+
