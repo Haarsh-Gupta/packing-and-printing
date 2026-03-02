@@ -1,7 +1,16 @@
-from typing import List, Optional, Literal, Union, Dict, Any
-from pydantic import BaseModel, Field, validator , model_validator
+from typing import List, Optional
+from pydantic import BaseModel, Field, model_validator
 from slugify import slugify
 from enum import Enum
+from datetime import datetime
+from fastapi import FastAPI
+
+app = FastAPI(title="Product Customization API")
+
+
+# =========================================================
+# 1️⃣ OPTIONS & CONFIG SCHEMAS
+# =========================================================
 
 class Selection(str, Enum):
     DROPDOWN = "dropdown"
@@ -10,131 +19,207 @@ class Selection(str, Enum):
     TEXT_INPUT = "text_input"
 
 
-
 class Option(BaseModel):
-    """Represents a single choice: e.g., 'Thermal Lamination'"""
-    label: str                   # What the user sees: "Thermal Matte"
-    value: str                   # What DB stores: "thermal_matte"
-    price_mod: float = 0.0       # Added cost: +5.00
-    
+    label: str
+    value: str
+    price_mod: float = 0.0
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "label": "Large",
+                "value": "L",
+                "price_mod": 20
+            }
+        }
+    }
+
+
 class FormSection(BaseModel):
-    """Represents a dropdown or input field in the form"""
-    key: str                     # e.g., "binding_type"
-    label: str                   # e.g., "Select Binding Style"
-    type: Selection              # e.g., "dropdown", "radio", "number_input", "text_input"
-    
-    # Validation: 'options' is required for dropdown/radio, but not for inputs
-    options: Optional[List[Option]] = None 
-    min_val: Optional[int] = None # For number inputs (e.g., min 50 pages)
+    key: str
+    label: str
+    type: Selection
+    options: Optional[List[Option]] = None
+    min_val: Optional[int] = None
     max_val: Optional[int] = None
-    price_per_unit: Optional[float] = 0.0 # Cost per page
+    price_per_unit: Optional[float] = 0.0
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "key": "size",
+                "label": "Select Size",
+                "type": "dropdown",
+                "options": [
+                    {"label": "Small", "value": "S", "price_mod": 0},
+                    {"label": "Medium", "value": "M", "price_mod": 0},
+                    {"label": "Large", "value": "L", "price_mod": 20}
+                ]
+            }
+        }
+    }
+
 
 class ProductConfigSchema(BaseModel):
-    """The master JSON structure stored in product_templates.config_schema"""
     sections: List[FormSection]
 
-# --- API Request/Response Schemas ---
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "sections": [
+                    {
+                        "key": "size",
+                        "label": "Select Size",
+                        "type": "dropdown",
+                        "options": [
+                            {"label": "Small", "value": "S", "price_mod": 0},
+                            {"label": "Large", "value": "L", "price_mod": 20}
+                        ]
+                    }
+                ]
+            }
+        }
+    }
 
-class ProductTemplateCreate(BaseModel):
+
+# =========================================================
+# 2️⃣ SUB PRODUCT SCHEMAS
+# =========================================================
+
+class SubProductCreate(BaseModel):
     slug: Optional[str] = None
     name: str
-    type: str = "product" # default to product
+    description: Optional[str] = None
+    type: str = "product"
     base_price: float = Field(..., ge=0)
-    minimum_quantity: Optional[int] = Field(..., ge=1)
-    images : Optional[List[str]] = None
-    config_schema: ProductConfigSchema # The complex JSON structure
+    minimum_quantity: int = Field(..., ge=1)
+    images: Optional[List[str]] = None
+    config_schema: ProductConfigSchema
+    is_active: bool = True
 
     @model_validator(mode="after")
     def validate_config_schema(self):
         if self.config_schema:
             for section in self.config_schema.sections:
                 if section.type in [Selection.DROPDOWN, Selection.RADIO] and not section.options:
-                    raise ValueError(f"Options are required for {section.type} type")
+                    raise ValueError(f"Options required for {section.type}")
 
-        if self.slug is None:
-            self.slug = slugify(self.name)
-        else:
-            self.slug = slugify(self.slug)
-
+        self.slug = slugify(self.slug) if self.slug else slugify(self.name)
         return self
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
-                "name": "Premium Corporate Diary 2026",
-                "base_price": 250.0,
-                "minimum_quantity": 50,
+                "name": "Premium Cotton T-Shirt",
+                "description": "Soft breathable cotton t-shirt.",
+                "base_price": 499.0,
+                "minimum_quantity": 10,
+                "images": [
+                    "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab",
+                    "https://images.unsplash.com/photo-1503341504253-dff4815485f1"
+                ],
                 "config_schema": {
                     "sections": [
                         {
                             "key": "size",
-                            "label": "Select Diary Size",
+                            "label": "Select Size",
                             "type": "dropdown",
                             "options": [
-                                { "label": "A5 (Standard)", "value": "a5", "price_mod": 0.0 },
-                                { "label": "A4 (Executive)", "value": "a4", "price_mod": 100.0 },
-                                { "label": "B5 (Compact)", "value": "b5", "price_mod": -20.0 }
+                                {"label": "Small", "value": "S", "price_mod": 0},
+                                {"label": "Large", "value": "L", "price_mod": 20}
                             ]
                         },
                         {
-                            "key": "cover_style",
-                            "label": "Cover Material",
-                            "type": "radio",
-                            "options": [
-                                { "label": "Faux Leather (PU)", "value": "pu_leather", "price_mod": 0.0 },
-                                { "label": "Hardbound Paper", "value": "hardbound", "price_mod": -50.0 },
-                                { "label": "Premium Genuine Leather", "value": "genuine_leather", "price_mod": 450.0 }
-                            ]
-                        },
-                        {
-                            "key": "total_pages",
-                            "label": "Number of Pages",
-                            "type": "number_input",
-                            "min_val": 100,
-                            "max_val": 500,
-                            "price_per_unit": 0.5
-                        },
-                        {
-                            "key": "embossing_text",
-                            "label": "Company Name for Embossing",
+                            "key": "custom_text",
+                            "label": "Custom Text",
                             "type": "text_input"
                         }
                     ]
-                }
+                },
+                "is_active": True
             }
         }
+    }
 
-class ProductTemplateUpdate(BaseModel):
+
+class SubProductUpdate(BaseModel):
     slug: Optional[str] = None
     name: Optional[str] = None
-    base_price: Optional[float] = Field(..., ge=0)
-    minimum_quantity: Optional[int] = Field(..., ge=1)
-    images : Optional[List[str]] = None
+    description: Optional[str] = None
+    base_price: Optional[float] = Field(None, ge=0)
+    minimum_quantity: Optional[int] = Field(None, ge=1)
+    images: Optional[List[str]] = None
     config_schema: Optional[ProductConfigSchema] = None
-    is_active : Optional[bool] = True
+    is_active: Optional[bool] = None
 
     @model_validator(mode="after")
-    def validate_config_schema(self):
+    def validate_update(self):
         if self.config_schema:
             for section in self.config_schema.sections:
-                if section.type in ["dropdown", "radio"] and not section.options:
-                    raise ValueError(f"Options are required for {section.type} type")
+                if section.type in [Selection.DROPDOWN, Selection.RADIO] and not section.options:
+                    raise ValueError(f"Options required for {section.type}")
 
-
-        if self.name and self.slug is None:
+        if self.name and not self.slug:
             self.slug = slugify(self.name)
         elif self.slug:
             self.slug = slugify(self.slug)
-
-        if self.slug is None and self.name is None and self.base_price is None and self.minimum_quantity is None and self.config_schema is None and self.is_active is None:
-             raise ValueError("At least one field must be provided")
-
         return self
 
 
-class ProductTemplateResponse(ProductTemplateCreate):
+class SubProductResponse(SubProductCreate):
     id: int
-    is_active: bool
+    created_at: datetime
 
-    class Config:
-        from_attributes = True 
+    model_config = {"from_attributes": True}
+
+
+# =========================================================
+# 3️⃣ PARENT PRODUCT SCHEMAS
+# =========================================================
+
+class ProductCreate(BaseModel):
+    slug: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    cover_image: Optional[str] = None
+    is_active: bool = True
+
+    @model_validator(mode="after")
+    def generate_slug(self):
+        self.slug = slugify(self.slug) if self.slug else slugify(self.name)
+        return self
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "Custom Printed T-Shirts",
+                "description": "High quality customizable cotton t-shirts.",
+                "cover_image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab",
+                "is_active": True
+            }
+        }
+    }
+
+
+class ProductUpdate(BaseModel):
+    slug: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    cover_image: Optional[str] = None
+    is_active: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def generate_slug(self):
+        if self.name and not self.slug:
+            self.slug = slugify(self.name)
+        elif self.slug:
+            self.slug = slugify(self.slug)
+        return self
+
+
+class ProductResponse(ProductCreate):
+    id: int
+    created_at: datetime
+    sub_products: List[SubProductResponse] = []
+
+    model_config = {"from_attributes": True}

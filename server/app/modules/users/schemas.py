@@ -23,6 +23,7 @@ class UserBase(BaseModel):
     name: str
     email: EmailStr
     phone: Optional[str] = None
+    is_active: bool = True
 
 class UserCreate(UserBase):
     password: str = Field(min_length = 6)
@@ -42,7 +43,6 @@ class UserUpdate(BaseModel):
     phone: Optional[str] = None
     password: Optional[str] = None
     profile_picture: Optional[str] = None
-
 
     @field_validator("password")
     def check_password(cls , value):

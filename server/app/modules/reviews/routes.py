@@ -5,98 +5,88 @@ from sqlalchemy import select, delete
 from app.core.database import get_db
 from app.modules.auth.auth import get_current_admin_user, get_current_user, TokenData
 from app.modules.users.models import User
-from app.modules.products.models import ProductTemplate
 from datetime import datetime
 from sqlalchemy.orm import joinedload
 from app.modules.orders.models import Order
 from app.modules.inquiry.models import InquiryGroup, InquiryItem
-from app.modules.reviews.models import Review as ProductReview
+from app.modules.reviews.models import Review 
 from app.modules.reviews.schemas import ReviewBase , ReviewUpdate, ReviewCreate, ReviewResponse
-
+from app.modules.services.models import SubService
+from app.modules.products.models import SubProduct
 router = APIRouter()
 
 @router.post("/", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
-async def create_review(
-    product_id: int, 
-    review: ReviewBase, 
+async def create_or_update_review(
+    review: ReviewCreate, 
     db: AsyncSession = Depends(get_db), 
     current_user: TokenData = Depends(get_current_user)
 ):
-    user_id = current_user.id
+    """
+    Handles creating or updating a review for either a Product or a Service.
+    """
+    # 1. Determine target entity
+    if review.product_id:
+        target_model = SubProduct
+        entity_id = review.product_id
+        id_field = "product_id"
+        error_msg = "Product not found"
+    elif review.service_id:
+        target_model = SubService
+        entity_id = review.service_id
+        id_field = "service_id"
+        error_msg = "Service not found"
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Must provide either product_id or service_id")
 
-    # 1. Check if Product Exists first
-    stmt = select(ProductTemplate).where(ProductTemplate.id == product_id)
-    result = await db.execute(stmt)
-    product = result.scalar_one_or_none()
+    # 2. Verify the Product/Service exists
+    stmt = select(target_model).where(target_model.id == entity_id)
+    if not (await db.execute(stmt)).scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
-    if not product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    # 3. Check for Existing Review (using getattr to dynamically filter by product_id or service_id)
+    stmt = select(Review).where(
+        getattr(Review, id_field) == entity_id, 
+        Review.user_id == current_user.id
+    )
+    existing_review = (await db.execute(stmt)).scalar_one_or_none()
 
-    # 2. Check for Existing Review
-    stmt = select(ProductReview).where(ProductReview.product_id == product_id, ProductReview.user_id == user_id)
-    result = await db.execute(stmt)
-    existing_review = result.scalar_one_or_none()
-
-    # UPDATE Logic
+    # 4. UPDATE Logic
     if existing_review:
         existing_review.rating = review.rating
         existing_review.comment = review.comment
-        existing_review.updated_at = datetime.now() # Manually update timestamp
+        existing_review.updated_at = datetime.now() 
         
         await db.commit()
         await db.refresh(existing_review)
         return existing_review
 
-   
-    stmt = (
-    select(Order)
-    .join(InquiryGroup, Order.inquiry_id == InquiryGroup.id)
-    .join(InquiryItem, InquiryItem.group_id == InquiryGroup.id)
-    .where(
-        Order.user_id == user_id,
-        InquiryItem.template_id == product_id,
-        Order.status.in_(['PAID', 'COMPLETED'])
-    )
-    .limit(1) 
-    )
-
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none() 
-
-    # Now this is accurate:
-    is_verified = True if order else False
-
-    # CREATE Logic
-    # We instantiate the SQLALCHEMY Model, not the Pydantic one
-    new_review_db = ProductReview(
-        user_id=user_id,
-        product_id=product_id,
-        rating=review.rating,
-        comment=review.comment,
-        is_verified=is_verified,
-        created_at=datetime.now()
-    )
-
-    db.add(new_review_db)
-    await db.commit()
-    await db.refresh(new_review_db)
+    # 5. CREATE Logic
+    # Dynamically build the kwargs for the new review
+    review_data = {
+        "user_id": current_user.id,
+        id_field: entity_id,
+        "rating": review.rating,
+        "comment": review.comment,
+        "is_verified": False,
+        "created_at": datetime.now()
+    }
     
-    return new_review_db
+    new_review = Review(**review_data)
+    db.add(new_review)
+    await db.commit()
+    await db.refresh(new_review)
+    
+    return new_review
 
-@router.get("/product/{product_id}", response_model=list[ReviewResponse])
-async def get_reviews(
-    product_id: int, 
+@router.get("/service/{slug}", response_model=list[ReviewResponse])
+async def get_service_reviews(
+    slug: str,
     db: AsyncSession = Depends(get_db), 
     limit: int = 10, 
     skip: int = 0
 ):
-    # Added product_id to path for better REST practice
     stmt = (
-        select(ProductReview)
-        .options(joinedload(ProductReview.user)) # Ensure 'user' relationship exists in model
-        .where(ProductReview.product_id == product_id)
-        .limit(limit)
-        .offset(skip)
+        select(Review).options(joinedload(Review.service)) .where(SubService.slug == slug).limit(limit).offset(skip)
     )
     result = await db.execute(stmt)
     reviews = result.scalars().all()
@@ -108,7 +98,7 @@ async def delete_review(
     db: AsyncSession = Depends(get_db), 
     current_user: TokenData = Depends(get_current_admin_user)
 ):
-    stmt = select(ProductReview).where(ProductReview.id == review_id)
+    stmt = select(Review).where(Review.id == review_id and Review.user_id == current_user.id) 
     result = await db.execute(stmt)
     review = result.scalar_one_or_none()
 

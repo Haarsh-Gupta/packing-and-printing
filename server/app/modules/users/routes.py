@@ -50,26 +50,6 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
 
     return new_user
 
-@router.get("/all" , response_model=list[UserOut])
-async def get_all_users(
-    query : Optional[str] = None,
-    admin : Optional[bool] = None,
-    db : AsyncSession = Depends(get_db) , 
-    current_user : User = Depends(get_current_admin_user)):
-    
-    stmt = select(User)
-    if admin is not None:
-        stmt = stmt.where(User.admin == admin)
-    if query:
-        stmt = stmt.where(or_(
-            User.name.ilike(f"%{query}%"),
-            User.email.ilike(f"%{query}%"),
-            User.phone.ilike(f"%{query}%")
-        ))
-    
-    result = await db.execute(stmt)
-    return result.scalars().all()
-
 
 @router.get("/me" , response_model=UserOut)
 async def user_detail(current_user : TokenData = Depends(get_current_user), db : AsyncSession = Depends(get_db)):
@@ -124,19 +104,3 @@ async def update_user(
 
     return result.scalar_one()
 
-
-@router.delete("/delete", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(
-    user_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
-):
-    stmt = select(User).where(User.id == user_id)
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    await db.execute(delete(User).where(User.id == user_id))
-    await db.commit()

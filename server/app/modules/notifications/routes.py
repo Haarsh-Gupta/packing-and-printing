@@ -1,11 +1,3 @@
-"""
-Notification routes.
-
-Admin endpoints  → send notifications
-User endpoints   → list, read, mark-as-read
-Admin view       → see all notifications with read status
-"""
-
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,31 +17,6 @@ from .schemas import (
 )
 
 router = APIRouter()
-
-
-# ==================== ADMIN ENDPOINTS ====================
-
-@router.post("/", response_model=NotificationResponse, status_code=status.HTTP_201_CREATED)
-async def send_notification(
-    payload: NotificationCreate,
-    admin: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """[ADMIN] Send a notification to a specific user."""
-    # Verify user exists
-    result = await db.execute(select(User).where(User.id == payload.user_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    notif = Notification(
-        user_id=payload.user_id,
-        title=payload.title,
-        message=payload.message,
-    )
-    db.add(notif)
-    await db.commit()
-    await db.refresh(notif)
-    return notif
 
 
 @router.post("/bulk", status_code=status.HTTP_201_CREATED)

@@ -1,122 +1,46 @@
+import tempfile
 from datetime import datetime, timezone
-from typing import Optional , List
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 
 from app.core.database import get_db
 from app.core.config import settings
-from app.modules.auth.auth import get_current_user, get_current_admin_user
+from app.modules.auth.auth import get_current_user
 from app.modules.auth.schemas import TokenData
-from app.modules.users.models import User
-from app.modules.inquiry.models import InquiryGroup, InquiryItem, InquiryMessage
-from app.modules.products.models import ProductTemplate
-from app.modules.orders.models import Order, Transaction
+from app.modules.inquiry.models import InquiryGroup, InquiryItem
+from app.modules.orders.models import Order, Transaction, OrderMilestone
 from app.modules.orders.schemas import (
-    OrderCreate,
-    OrderUpdate,
-    OrderResponse,
-    OrderListResponse,
-    TransactionCreate,
-    TransactionResponse,
-    InvoiceData
+    OrderResponse, OrderListResponse, TransactionResponse
 )
 
-
-import os
-import tempfile
-
-from .utils.qr_generator import generate_upi_qr, generate_payment_qr
-from .utils.invoice_generator import InvoiceGenerator, generate_simple_invoice
-# from .utils.whatsapp_messenger import WhatsAppMessenger
-
+from .utils.qr_generator import generate_upi_qr
+from .utils.invoice_generator import generate_simple_invoice
 
 router = APIRouter()
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=OrderResponse)
-async def create_order(order : OrderCreate , current_user : TokenData = Depends(get_current_user) , db : AsyncSession = Depends(get_db)):
-    """
-    Create an order from an accepted inquiry.
-    Only inquiries with ACCEPTED status can be converted to orders.
-    """
+# ==================== FETCH ROUTES ====================
 
-
-    print(f"DEBUG: create_order for inquiry_id={order.inquiry_id} user_id={current_user.id}")
-    stmt = (
-        select(InquiryGroup)
-        .options(selectinload(InquiryGroup.items).selectinload(InquiryItem.template))
-        .where(
-            InquiryGroup.id == order.inquiry_id,
-            InquiryGroup.status == "ACCEPTED",
-            InquiryGroup.user_id == current_user.id
-        )
-    )
-
-    result = await db.execute(stmt)
-    group = result.scalar_one_or_none()
-
-    if not group:
-        print(f"DEBUG: Inquiry not found or not accepted. ID={order.inquiry_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Inquiry not found or not accepted")
-
-    if group.quote_valid_until and group.quote_valid_until < datetime.now(timezone.utc):
-        group.status = "EXPIRED"
-        await db.commit()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail="This quote has expired. Please request a new quotation.")
-
-
-    stmt = select(Order).where(Order.inquiry_id == order.inquiry_id)
-    result = await db.execute(stmt)
-    existing_order = result.scalar_one_or_none()
-
-    if existing_order:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST , detail="Order already exists for this inquiry")
-
-
-    new_order = Order(
-        inquiry_id=group.id,
-        user_id=current_user.id,
-        total_amount=group.total_quoted_price,
-        amount_paid=0,
-        status="WAITING_PAYMENT"
-    )
-
-    db.add(new_order)
-    await db.commit()
-    await db.refresh(new_order)
-    
-    # Explicitly return OrderResponse to avoid MissingGreenletError during Pydantic serialization
-    return OrderResponse(
-        id=new_order.id,
-        inquiry_id=new_order.inquiry_id,
-        user_id=new_order.user_id,
-        total_amount=new_order.total_amount,
-        amount_paid=new_order.amount_paid,
-        status=new_order.status,
-        created_at=new_order.created_at,
-        updated_at=new_order.updated_at,
-        transactions=[]
-    )
-
-@router.get("/my" , response_model=list[OrderListResponse])
+@router.get("/my", response_model=list[OrderListResponse])
 async def get_my_orders(
-    skip : int = 0,
-    limit : int = 20,
-    status : Optional[str] = None,
-    current_user : TokenData = Depends(get_current_user) ,
-    db : AsyncSession = Depends(get_db)
+    skip: int = 0,
+    limit: int = 20,
+    status_filter: Optional[str] = Query(None, alias="status"),
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get all orders for the current user.
     """
     stmt = select(Order).where(Order.user_id == current_user.id)
 
-    if status:
-        stmt = stmt.where(Order.status == status.upper())
+    if status_filter:
+        stmt = stmt.where(Order.status == status_filter.upper())
 
     stmt = stmt.offset(skip).limit(limit).order_by(Order.created_at.desc())
 
@@ -124,69 +48,26 @@ async def get_my_orders(
     return result.scalars().all()
 
 
-@router.get("/my/{order_id}" , response_model=OrderResponse)
+@router.get("/my/{order_id}", response_model=OrderResponse)
 async def get_my_order(
-    order_id : UUID,
-    current_user : TokenData = Depends(get_current_user) ,
-    db : AsyncSession = Depends(get_db)
+    order_id: UUID,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """
-    Get a specific order by ID (only if owned by current user).
+    Get specific order with its milestones and transactions.
     """
-    stmt = select(Order).options(selectinload(Order.transactions)).where(Order.id == order_id , Order.user_id == current_user.id)
+    stmt = select(Order).options(
+        selectinload(Order.transactions),
+        selectinload(Order.milestones)
+    ).where(Order.id == order_id, Order.user_id == current_user.id)
+    
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
 
     if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Order not found")
-
+        raise HTTPException(status_code=404, detail="Order not found")
     return order
-
-
-# =========================================Payment Routes=========================================
-
-@router.post("/my/{order_id}/payment" , response_model=TransactionResponse)
-async def pay_for_order(
-    order_id : UUID,
-    payment_data : TransactionCreate,
-    current_user : User = Depends(get_current_admin_user) ,
-    db : AsyncSession = Depends(get_db)
-):
-    """
-    Offline payment to be recorded by the admin 
-    """
-    stmt = select(Order).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="Order not found")
-
-    if order.status not in ["WAITING_PAYMENT", "PARTIALLY_PAID"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order is not in WAITING_PAYMENT or PARTIALLY_PAID status")
-
-    
-
-    new_transaction = Transaction(
-        order_id=order.id,
-        amount=payment_data.amount,
-        payment_method=payment_data.payment_method,
-        payment_mode=payment_data.payment_mode,
-        notes=payment_data.notes
-    )
-
-    order.amount_paid += payment_data.amount
-    
-    if order.amount_paid >= order.total_amount:
-        order.status = "PAID"
-    elif order.amount_paid > 0:
-        order.status = "PARTIALLY_PAID"
-
-    db.add(new_transaction)
-    await db.commit()
-    await db.refresh(new_transaction)
-
-    return new_transaction
 
 
 @router.get("/{order_id}/payments", response_model=list[TransactionResponse])
@@ -196,7 +77,6 @@ async def get_order_payments(
     db: AsyncSession = Depends(get_db)
 ):
     """Get all payment transactions for an order"""
-    # Verify order access
     stmt = select(Order).where(Order.id == order_id)
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
@@ -207,14 +87,12 @@ async def get_order_payments(
             detail="Order not found"
         )
     
-    # Check if user owns the order or is admin
     if order.user_id != current_user.id and not current_user.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view these transactions"
         )
     
-    # Get transactions
     stmt = select(Transaction).where(Transaction.order_id == order_id).order_by(Transaction.created_at.desc())
     result = await db.execute(stmt)
     
@@ -234,7 +112,6 @@ async def generate_payment_qr_code(
     """
     Generate UPI QR code for order payment
     """
-    # Get order
     stmt = select(Order).where(Order.id == order_id)
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
@@ -245,14 +122,12 @@ async def generate_payment_qr_code(
             detail="Order not found"
         )
     
-    # Check authorization
     if order.user_id != current_user.id and not current_user.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to generate QR for this order"
         )
     
-    # Calculate due amount
     due_amount = order.total_amount - order.amount_paid
     
     if due_amount <= 0:
@@ -261,7 +136,6 @@ async def generate_payment_qr_code(
             detail="Order is already fully paid"
         )
     
-    # Generate QR code
     qr_base64 = generate_upi_qr(
         upi_id=upi_id,
         name=payee_name,
@@ -276,7 +150,34 @@ async def generate_payment_qr_code(
         "upi_string": f"upi://pay?pa={upi_id}&pn={payee_name}&am={due_amount}&tn=Order #{order_id} Payment"
     }
 
-# ===========================INVOIC GENERATION================================
+
+@router.get("/test-qr-code")
+async def test_qr_code_generator(
+    upi_id: str = Query(..., description="UPI ID for payment"),
+    amount: float = Query(..., description="Amount to be paid"),
+    payee_name: str = Query("Test Name", description="Payee name"),
+):
+    """
+    [TESTING ONLY] Generate a dummy QR code based on provided UPI ID and amount.
+    Just for testing the generator utility output.
+    """
+    try:
+        qr_base64 = generate_upi_qr(
+            upi_id=upi_id,
+            name=payee_name,
+            amount=amount,
+            transaction_note=f"Test QR Code Payment"
+        )
+        return {
+            "amount": amount,
+            "qr_code_base64": qr_base64,
+            "upi_string": f"upi://pay?pa={upi_id}&pn={payee_name}&am={amount}&tn=Test QR Code Payment"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+# ===========================INVOICE GENERATION================================
 
 @router.get("/{order_id}/invoice")
 async def generate_order_invoice(
@@ -287,7 +188,6 @@ async def generate_order_invoice(
     """
     Generate PDF invoice for an order
     """
-    # Get order with all relationships
     stmt = (
         select(Order)
         .options(
@@ -305,26 +205,22 @@ async def generate_order_invoice(
             detail="Order not found"
         )
 
-    # Need to manually load inquiry items because of the polymorphism/structure
     stmt = (
         select(InquiryGroup)
-        .options(selectinload(InquiryGroup.items).selectinload(InquiryItem.template))
+        .options(selectinload(InquiryGroup.items).selectinload(InquiryItem.product))
         .where(InquiryGroup.id == order.inquiry_id)
     )
-    res = await db.execute(stmt)
-    group = res.scalar_one_or_none()
+    group = (await db.execute(stmt)).scalar_one_or_none()
     
     if not group:
          raise HTTPException(status_code=404, detail="Inquiry group not found")
     
-    # Check authorization
     if order.user_id != current_user.id and not current_user.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to generate invoice for this order"
         )
     
-    # Prepare invoice data
     company_info = {
         'name': settings.company_name,
         'address': settings.company_address,
@@ -337,21 +233,18 @@ async def generate_order_invoice(
         'name': order.user.name,
         'email': order.user.email,
         'phone': order.user.phone or 'N/A',
-        'address': ''  # Add if available
+        'address': ''
     }
     
-    # Prepare invoice items
-    # We take the first item as a summary or could list all
     items = []
     for itm in group.items:
         items.append({
-            'description': f"{itm.template.name if itm.template else 'Service'} (Custom Order)",
+            'description': f"{itm.product.name if itm.product else 'Service'} (Custom Order)",
             'quantity': itm.quantity,
             'unit_price': (itm.line_item_price or 0) / itm.quantity if itm.quantity > 0 else 0,
             'total': itm.line_item_price or 0
         })
         
-        # Add selected options as additional description
         if itm.selected_options:
             options_desc = ", ".join([f"{k}: {v}" for k, v in itm.selected_options.items()])
             items[-1]['description'] += f"\nOptions: {options_desc}"
@@ -364,13 +257,11 @@ async def generate_order_invoice(
         'discount': 0
     }
     
-    # Generate invoice
-    # invoice_filename = f"/tmp/invoice_{order_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         invoice_filename = tmp.name
     
     invoice_data = {
-        'invoice_number': f"INV-{order_id:06d}",
+        'invoice_number': f"INV-{order_id.hex[:6].upper()}",
         'invoice_date': order.created_at,
         'order_data': order_data,
         'company_info': company_info,
@@ -386,80 +277,3 @@ async def generate_order_invoice(
         media_type='application/pdf',
         filename=f"invoice_{order_id}.pdf"
     )
-
-
-#  ==================== ADMIN ENDPOINTS ====================
-
-@router.get("/admin/all", response_model=list[OrderResponse])
-async def get_all_orders(
-    skip: int = 0,
-    limit: int = 50,
-    status_filter: Optional[str] = None,
-    current_user: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    [ADMIN] Get all orders with optional status filter
-    """
-    stmt = select(Order).options(selectinload(Order.transactions))
-    
-    if status_filter:
-        stmt = stmt.where(Order.status == status_filter.upper())
-    
-    stmt = stmt.order_by(Order.created_at.desc()).offset(skip).limit(limit)
-    result = await db.execute(stmt)
-    
-    return result.scalars().all()
-
-
-@router.patch("/admin/{order_id}/status", response_model=OrderResponse)
-async def update_order_status(
-    order_id: UUID,
-    status_update: OrderUpdate,
-    current_user: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    [ADMIN] Update order status
-    """
-    stmt = select(Order).options(selectinload(Order.transactions)).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found"
-        )
-    
-    order.status = status_update.status
-    
-    await db.commit()
-    # Explicitly fetching transactions since db.refresh might drop the loaded relations
-    stmt = select(Order).options(selectinload(Order.transactions)).where(Order.id == order_id)
-    order = (await db.execute(stmt)).scalar_one_or_none()
-    
-    return order
-
-
-@router.delete("/admin/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def admin_delete_order(
-    order_id: UUID,
-    current_user: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    [ADMIN] Delete an order and all associated transactions
-    """
-    stmt = select(Order).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found"
-        )
-    
-    await db.execute(delete(Order).where(Order.id == order_id))
-    await db.commit()

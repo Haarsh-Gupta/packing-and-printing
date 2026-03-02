@@ -113,25 +113,48 @@ class BrevoSMTPEmailService(BaseEmailService):
         body_html: str,
         attachments: Optional[List[Tuple[str, bytes, str]]] = None,
     ) -> MIMEMultipart:
+        import uuid
+        import re
+        from email.utils import formatdate
+
         message = MIMEMultipart("mixed")
         message["From"] = f"{self.sender_name} <{self.sender_email}>"
         message["To"] = to
         message["Subject"] = subject
-        message.attach(MIMEText(body_html, "html"))
+        message["Date"] = formatdate(localtime=True)
+        message["Message-ID"] = f"<{uuid.uuid4()}@{self.sender_email.split('@')[-1]}>"
+        message["X-Priority"] = "3"
+        message["List-Unsubscribe"] = f"<mailto:{self.sender_email}?subject=Unsubscribe>"
 
+        # --- Build multipart/alternative (plain text + HTML) ---
+        # Gmail penalizes HTML-only emails; having plain text is critical for Inbox delivery
+        body_alternative = MIMEMultipart("alternative")
+
+        # Strip HTML tags to create plain text version
+        plain_text = re.sub(r'<style[^>]*>.*?</style>', '', body_html, flags=re.DOTALL)
+        plain_text = re.sub(r'<[^>]+>', '', plain_text)
+        plain_text = re.sub(r'\s+', ' ', plain_text).strip()
+        body_alternative.attach(MIMEText(plain_text, "plain", "utf-8"))
+        body_alternative.attach(MIMEText(body_html, "html", "utf-8"))
+
+        message.attach(body_alternative)
+
+        # --- Attachments ---
         for filename, file_bytes, mime_type in (attachments or []):
             maintype, subtype = mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream")
             part = MIMEBase(maintype, subtype)
             part.set_payload(file_bytes)
             encoders.encode_base64(part)
             part.add_header("Content-Disposition", "attachment", filename=filename)
+            part.add_header("Content-Type", mime_type, name=filename)
             message.attach(part)
 
         return message
 
     async def _send(self, message: MIMEMultipart) -> bool:
         try:
-            await aiosmtplib.send(
+            print(f"📧 Sending email: From={message['From']}, To={message['To']}, Subject={message['Subject']}")
+            responses, smtp_message = await aiosmtplib.send(
                 message,
                 hostname=self.host,
                 port=self.port,
@@ -139,9 +162,12 @@ class BrevoSMTPEmailService(BaseEmailService):
                 password=self.password,
                 start_tls=True,
             )
+            print(f"✅ SMTP Response: {responses}")
+            print(f"✅ SMTP Message: {smtp_message}")
             logger.info(f"Email sent to {message['To']}: {message['Subject']}")
             return True
         except Exception as e:
+            print(f"❌ SMTP Error: {type(e).__name__}: {e}")
             logger.error(f"Failed to send email to {message['To']}: {e}")
             return False
 

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.users.models import User
 from app.modules.orders.models import Order, Transaction
 from app.modules.inquiry.models import InquiryGroup, InquiryItem, InquiryMessage
-from app.modules.products.models import ProductTemplate
+from app.modules.products.models import SubProduct
 from app.modules.services.models import Service
 
 
@@ -112,10 +112,10 @@ class DashboardService:
 
         # --- Products & Services ---
         total_products = (await self.db.execute(
-            select(func.count(ProductTemplate.id))
+            select(func.count(SubProduct.id))
         )).scalar() or 0
         active_products = (await self.db.execute(
-            select(func.count(ProductTemplate.id)).where(ProductTemplate.is_active == True)
+            select(func.count(SubProduct.id)).where(SubProduct.is_active == True)
         )).scalar() or 0
 
         total_services = (await self.db.execute(
@@ -364,12 +364,12 @@ class DashboardService:
         # Popular products (top 10 by inquiry item count)
         popular_q = (
             select(
-                ProductTemplate.id,
-                ProductTemplate.name,
+                SubProduct.id,
+                SubProduct.name,
                 func.count(InquiryItem.id).label("inquiry_count"),
             )
-            .join(InquiryItem, InquiryItem.template_id == ProductTemplate.id)
-            .group_by(ProductTemplate.id, ProductTemplate.name)
+            .join(InquiryItem, InquiryItem.subproduct_id == SubProduct.id)
+            .group_by(SubProduct.id, SubProduct.name)
             .order_by(desc("inquiry_count"))
             .limit(10)
         )

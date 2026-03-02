@@ -6,7 +6,7 @@ to individual users or all users.
 """
 
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -45,6 +45,7 @@ async def _validate_files(files: List[UploadFile]) -> list:
 
 @router.post("/send-custom-email", status_code=status.HTTP_200_OK)
 async def send_custom_email(
+    request: Request,
     to_email: str = Form(..., description="Recipient email address"),
     subject: str = Form(..., description="Email subject line"),
     heading: str = Form(..., description="Main heading inside email body"),
@@ -52,22 +53,35 @@ async def send_custom_email(
     image_url: Optional[str] = Form(None, description="Optional banner image URL"),
     action_url: Optional[str] = Form(None, description="Optional CTA button URL"),
     action_label: Optional[str] = Form("Learn More", description="CTA button label"),
-    files: List[UploadFile] = File(default=[], description="Optional file attachments (images, PDFs)"),
     admin: User = Depends(get_current_admin_user),
 ):
     """
     Send a custom email to a specific user.
     Supports optional banner image, CTA button, and file attachments.
     """
+    # Swagger sends "" for optional fields instead of None — coerce empty strings
+    image_url = image_url.strip() if image_url else None
+    action_url = action_url.strip() if action_url else None
+    action_label = action_label.strip() if action_label else "Learn More"
+
+    # Extract files from request, filtering out empty strings Swagger UI sends
+    form = await request.form()
+    raw_files = form.getlist("files")
+    files = [v for v in raw_files if isinstance(v, UploadFile) and v.filename]
+    print(f"📎 Files received: {len(files)} valid out of {len(raw_files)} raw entries")
+    for f in files:
+        print(f"   → {f.filename} ({f.content_type}, size={f.size})")
+
     html = render_custom_email(
         heading=heading,
         message=message,
-        image_url=image_url,
-        action_url=action_url,
+        image_url=image_url or None,
+        action_url=action_url or None,
         action_label=action_label or "Learn More",
     )
 
     attachments = await _validate_files(files) if files else []
+    print(f"📎 Validated attachments: {len(attachments)}")
 
     if attachments:
         success = await email_service.send_email_with_attachments(
@@ -87,13 +101,13 @@ async def send_custom_email(
 
 @router.post("/send-bulk-email", status_code=status.HTTP_200_OK)
 async def send_bulk_email(
+    request: Request,
     subject: str = Form(..., description="Email subject line"),
     heading: str = Form(..., description="Main heading inside email body"),
     message: str = Form(..., description="Custom message (supports basic HTML)"),
     image_url: Optional[str] = Form(None, description="Optional banner image URL"),
     action_url: Optional[str] = Form(None, description="Optional CTA button URL"),
     action_label: Optional[str] = Form("Learn More", description="CTA button label"),
-    files: List[UploadFile] = File(default=[], description="Optional file attachments (images, PDFs)"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin_user),
 ):
@@ -101,6 +115,15 @@ async def send_bulk_email(
     Send a custom email to ALL users in the database.
     Supports optional banner image, CTA button, and file attachments.
     """
+    # Swagger sends "" for optional fields instead of None — coerce empty strings
+    image_url = image_url.strip() if image_url else None
+    action_url = action_url.strip() if action_url else None
+    action_label = action_label.strip() if action_label else "Learn More"
+
+    # Extract files from request, filtering out empty strings Swagger UI sends
+    form = await request.form()
+    files = [v for v in form.getlist("files") if isinstance(v, UploadFile) and v.filename]
+
     # Read attachments once (before iterating over users)
     attachments = await _validate_files(files) if files else []
 
@@ -117,8 +140,8 @@ async def send_bulk_email(
         html = render_custom_email(
             heading=heading,
             message=message,
-            image_url=image_url,
-            action_url=action_url,
+            image_url=image_url or None,
+            action_url=action_url or None,
             action_label=action_label or "Learn More",
             user_name=user.name,
         )

@@ -19,28 +19,41 @@ class InquiryStatus(str, Enum):
 # 1. CREATE SCHEMAS (Data sent BY the user)
 # ==========================================
 
-class InquiryItemCreate(BaseModel):
+class InquiryItemBase(BaseModel):
     """Schema for a single product added to the quote cart"""
-    template_id: Optional[int] = None
+    product_id: Optional[int] = None
+    subproduct_id: Optional[int] = None
+
     service_id: Optional[int] = None
-    variant_id: Optional[int] = None
+    subservice_id: Optional[int] = None
+
     quantity: int = Field(..., gt=0, description="Must be greater than 0")
-    selected_options: Dict[str, Union[str, int, float, bool, None]]
+    selected_options: Optional[Dict[str, Union[str, int, float, bool, None]]] = None
     notes: Optional[str] = None
     images: Optional[List[str]] = None
 
     @model_validator(mode="after")
-    def check_template_or_service(self):
-        if not self.template_id and not self.service_id:
-            raise ValueError("Either template_id or service_id must be provided")
-        if self.service_id and self.variant_id is None:
-            raise ValueError(f"variant_id is required for service_id {self.service_id}")
+    def check_product_or_service(self):
+        if not self.product_id and not self.service_id:
+            raise ValueError("Either product_id or service_id must be provided")
+        if self.service_id and self.subservice_id is None:
+            raise ValueError(f"subservice_id is required for service_id {self.service_id}")
+        
+        if self.product_id and not self.selected_options:
+            raise ValueError("selected_options are required for product inquiries")
+        
+        if self.service_id and self.selected_options:
+            raise ValueError("selected_options should not be provided for service inquiries")
+        
         return self
+    
+class InquiryItemCreate(InquiryItemBase):
+    """Schema for each item when submitting the entire cart"""
+    pass
 
 
 class InquiryGroupCreate(BaseModel):
     """Schema for submitting the entire cart as one quotation request"""
-    # Notice we don't ask for user_id here. 
     # user_id should be extracted securely from the JWT token in your FastAPI route.
     items: List[InquiryItemCreate] = Field(..., min_length=1, description="Cart must contain at least one item")
 
@@ -90,23 +103,18 @@ class InquiryMessageResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class InquiryItemResponse(BaseModel):
+class InquiryItemResponse(InquiryItemBase):
     """Base response schema for a single item in the cart"""
     id: UUID
     inquiry_group_id: Optional[UUID] = None
-    template_id: Optional[int] = None
-    service_id: Optional[int] = None
-    variant_id: Optional[int] = None
     quantity: int
-    selected_options: Dict[str, Union[str, int, float]]
-    notes: Optional[str] = None
-    images: Optional[List[str]] = None
     line_item_price: Optional[float] = None
     
     # These can be populated by SQLAlchemy hybrid properties or manual joins
-    template_name: Optional[str] = None
+    product_name: Optional[str] = None
+    subproduct_name: Optional[str] = None
     service_name: Optional[str] = None
-    variant_name: Optional[str] = None
+    subservice_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
