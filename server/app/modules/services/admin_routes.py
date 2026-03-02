@@ -36,15 +36,14 @@ async def create_service(
     await db.refresh(new_service)
     return new_service
 
-# Changed to PATCH because we are doing partial updates
-@router.patch("/{slug}", response_model=ServiceResponse)
+@router.patch("/{service_id}", response_model=ServiceResponse)
 async def update_service(
-    slug: str, 
+    id: int, 
     service_in: ServiceUpdate, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Service).where(Service.slug == slug)
+    stmt = select(Service).where(Service.id == id)
     existing_service = (await db.execute(stmt)).scalar_one_or_none() 
 
     if not existing_service:
@@ -83,15 +82,15 @@ async def get_services(
     
     return (await db.execute(stmt)).scalars().all()
 
-@router.post("/{slug}/variants", response_model=SubServiceResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{service_id}/subservices", response_model=SubServiceResponse, status_code=status.HTTP_201_CREATED)
 async def create_service_variant(
-    slug: str, 
+    id: int, 
     subservice_in: SubServiceCreate, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
     # Check if parent service exists
-    service = (await db.execute(select(Service).where(Service.slug == slug))).scalar_one_or_none()
+    service = (await db.execute(select(Service).where(Service.id == id))).scalar_one_or_none()
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent service not found")
     
@@ -100,16 +99,14 @@ async def create_service_variant(
     if conflict:
          raise HTTPException(status_code=400, detail="Variant with this slug already exists")
     
-    new_variant = SubService(**subservice_in.model_dump(), service_id=service.id)
+    new_variant = SubService(**subservice_in.model_dump())
     db.add(new_variant)
     await db.commit()
     await db.refresh(new_variant)
     return new_variant
 
-
-@router.patch("/{slug}/variants/{subservice_id}", response_model=SubServiceResponse)
+@router.patch("/subservices/{subservice_id}", response_model=SubServiceResponse)
 async def update_service_variant(
-    slug: str, 
     subservice_id: int, 
     subservice_in: SubServiceUpdate, 
     current_user: User = Depends(get_current_admin_user), 
@@ -118,8 +115,7 @@ async def update_service_variant(
     # FIXED: Ensure the variant actually belongs to the provided service slug!
     stmt = (
         select(SubService)
-        .join(SubService.service)
-        .where(Service.slug == slug, SubService.id == subservice_id)
+        .where(SubService.id == subservice_id)
     )
     existing_variant = (await db.execute(stmt)).scalar_one_or_none() 
 
@@ -143,26 +139,26 @@ async def update_service_variant(
     await db.refresh(existing_variant)
     return existing_variant
 
-@router.get("/{slug}/variants", response_model=List[SubServiceResponse])
+@router.get("/{service_id}/subservices", response_model=List[SubServiceResponse])
 async def get_service_variants(
-    slug: str, 
+    service_id: int, 
     is_active: Optional[bool] = None,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(SubService).join(SubService.service).where(Service.slug == slug)
+    stmt = select(SubService).join(SubService.service).where(Service.id == id)
     if is_active is not None:
         stmt = stmt.where(SubService.is_active == is_active)
     
     return (await db.execute(stmt)).scalars().all()
 
-@router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_service(
-    slug: str, 
+    id: int, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Service).where(Service.slug == slug)
+    stmt = select(Service).where(Service.id == id)
     service = (await db.execute(stmt)).scalar_one_or_none()
 
     if not service:
@@ -171,17 +167,15 @@ async def delete_service(
     await db.delete(service)
     await db.commit()
 
-@router.delete("/{slug}/variants/{subservice_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/subservices/{subservice_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_service_variant(
-    slug: str, 
     subservice_id: int, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
     stmt = (
         select(SubService)
-        .join(SubService.service)
-        .where(Service.slug == slug, SubService.id == subservice_id)
+        .where(SubService.id == subservice_id)
     )
     variant = (await db.execute(stmt)).scalar_one_or_none()
     

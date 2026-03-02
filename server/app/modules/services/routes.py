@@ -33,7 +33,7 @@ async def get_service(slug: str, db: AsyncSession = Depends(get_db)):
         )
     return service
 
-@router.get("/{slug}/variants", response_model=List[SubServiceResponse])
+@router.get("/{slug}/subservices", response_model=List[SubServiceResponse])
 async def get_all_service_variants(
     slug: str,
     skip: int = 0, 
@@ -53,18 +53,15 @@ async def get_all_service_variants(
     
     return variants
 
-@router.get("/{service_slug}/variants/{subservice_slug}", response_model=SubServiceResponse)
+@router.get("/subservices/{subservice_slug}", response_model=SubServiceResponse)
 async def get_service_variant(
-    service_slug: str,   # Path variable name now matches exactly
     subservice_slug: str,
     db: AsyncSession = Depends(get_db)
 ):
     # Use .join() to link the tables for filtering
     stmt = (
         select(SubService)
-        .join(SubService.service)
         .where(
-            Service.slug == service_slug, 
             SubService.slug == subservice_slug, 
             SubService.is_active == True
         )

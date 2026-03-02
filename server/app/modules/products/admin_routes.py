@@ -4,6 +4,8 @@ from sqlalchemy.future import select
 from sqlalchemy import delete
 from sqlalchemy.orm import selectinload
 
+from typing import List, Optional
+
 # Adjust these imports based on your actual project structure
 from app.core.database import get_db
 from app.modules.auth.auth import get_current_admin_user
@@ -34,14 +36,14 @@ async def create_product(
     await db.refresh(new_product)
     return new_product
 
-@router.patch("/{slug}", response_model=ProductResponse)
+@router.patch("/{product_id}", response_model=ProductResponse)
 async def update_product(
-    slug: str, 
+    product_id: int, 
     update_data: ProductUpdate, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Product).where(Product.slug == slug)
+    stmt = select(Product).where(Product.id == product_id)
     result = await db.execute(stmt)
     db_product = result.scalar_one_or_none() 
 
@@ -57,36 +59,39 @@ async def update_product(
     await db.refresh(db_product)
     return db_product
 
-@router.delete("/{slug}")
+@router.delete("/{product_id}")
 async def delete_product(
-    slug: str, 
+    product_id: int, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Product).where(Product.slug == slug)
+    stmt = select(Product).where(Product.id == product_id)
     result = await db.execute(stmt)
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
     
     # This will cascade and delete all related SubProducts as well
-    await db.execute(delete(Product).where(Product.slug == slug))
+    await db.execute(delete(Product).where(Product.id == product_id))
     await db.commit()
     return {"message": "Product and all related sub-products deleted successfully"}
 
 # ====================sub-product endpoints========================
 
-@router.post("/{slug}/sub-products", response_model=SubProductResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{product_id}/sub-products", response_model=SubProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_sub_product(
+    product_id: int,
     sub_product_data: SubProductCreate, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
     """Admin creates a specific item with the JSON config (e.g., 'PU Leather Diary')."""
-    # Verify Parent Product exists
-    parent_stmt = select(Product).where(Product.id == sub_product_data.product_id)
+    # Verify Parent Product exists by id in URL
+    parent_stmt = select(Product).where(Product.id == product_id)
     parent_result = await db.execute(parent_stmt)
-    if not parent_result.scalar_one_or_none():
-         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parent product ID does not exist")
+    parent = parent_result.scalar_one_or_none()
+    
+    if not parent:
+         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent product ID does not exist")
 
     # Check for slug collision
     stmt = select(SubProduct).where(SubProduct.slug == sub_product_data.slug)
@@ -94,21 +99,21 @@ async def create_sub_product(
     if result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="SubProduct slug already exists")
     
-    new_sub_product = SubProduct(**sub_product_data.model_dump())
+    new_sub_product = SubProduct(**sub_product_data.model_dump(), product_id=parent.id)
     db.add(new_sub_product)
     await db.commit()
     await db.refresh(new_sub_product)
     return new_sub_product
 
 
-@router.put("/{slug}/sub-products", response_model=SubProductResponse)
+@router.patch("/sub-products/{sub_product_id}", response_model=SubProductResponse)
 async def update_sub_product(
-    slug: str, 
+    sub_product_id: int, 
     update_data: SubProductUpdate, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(SubProduct).where(SubProduct.slug == slug)
+    stmt = select(SubProduct).where(SubProduct.id == sub_product_id)
     result = await db.execute(stmt)
     db_sub_product = result.scalar_one_or_none() 
 
@@ -124,17 +129,32 @@ async def update_sub_product(
     await db.refresh(db_sub_product)
     return db_sub_product
 
-@router.delete("/{slug}/sub-products")
+@router.delete("/sub-products/{sub_product_id}")
 async def delete_sub_product(
-    slug: str, 
+    sub_product_id: int, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(SubProduct).where(SubProduct.slug == slug)
+    stmt = select(SubProduct).where(SubProduct.id == sub_product_id)
     result = await db.execute(stmt)
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SubProduct not found")
     
-    await db.execute(delete(SubProduct).where(SubProduct.slug == slug))
+    await db.execute(delete(SubProduct).where(SubProduct.id == sub_product_id))
     await db.commit()
     return {"message": "SubProduct deleted successfully"}
+
+
+@router.get("/", response_model=List[ProductResponse])
+async def get_products(
+    skip : int = 0,
+    limit : int = 10,
+    is_active : Optional[bool] = None,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Product)
+    if is_active is not None:
+        stmt = stmt.where(Product.is_active == is_active)
+    result = await db.execute(stmt.offset(skip).limit(limit))
+    return result.scalars().all()

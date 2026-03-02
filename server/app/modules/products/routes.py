@@ -40,13 +40,32 @@ async def get_product(slug: str, db: AsyncSession = Depends(get_db)):
 # 2. SUBPRODUCT ENDPOINTS (Specific Items)
 # ==========================================
 
-@router.get("/{slug}/sub-products", response_model=SubProductResponse)
-async def get_sub_product(slug: str, db: AsyncSession = Depends(get_db)):
+@router.get("/sub-products/{sub_product_slug}", response_model=SubProductResponse)
+async def get_sub_product(sub_product_slug: str, db: AsyncSession = Depends(get_db)):
     """Fetches the specific configuration for a sub-product. The frontend uses this to build the dynamic form."""
-    stmt = select(SubProduct).where(SubProduct.slug == slug, SubProduct.is_active == True)
+    stmt = select(SubProduct).where(SubProduct.slug == sub_product_slug, SubProduct.is_active == True)
     result = await db.execute(stmt)
     sub_product = result.scalar_one_or_none()
 
     if not sub_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SubProduct not found")
     return sub_product
+
+
+@router.get("/{product_slug}/sub-products", response_model=list[SubProductResponse])
+async def get_sub_products_by_product(product_slug: str, db: AsyncSession = Depends(get_db)):
+    """Fetches all sub-products of a specific product."""
+    stmt = (
+        select(SubProduct)
+        .join(Product, SubProduct.product_id == Product.id) 
+        .where(
+            Product.slug == product_slug,  # Look up by the PARENT'S slug
+            SubProduct.is_active == True   # Only get active sub-products
+        )
+    )
+    result = await db.execute(stmt)
+    sub_products = result.scalars().all()
+
+    if not sub_products:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SubProduct not found")
+    return sub_products

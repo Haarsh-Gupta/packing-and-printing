@@ -87,7 +87,6 @@ class ProductConfigSchema(BaseModel):
 # =========================================================
 
 class SubProductCreate(BaseModel):
-    product_id: int = Field(..., description="ID of the parent product")
     slug: Optional[str] = None
     name: str
     description: Optional[str] = None
@@ -111,7 +110,6 @@ class SubProductCreate(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "product_id": 1,
                 "name": "Premium Cotton T-Shirt",
                 "description": "Soft breathable cotton t-shirt.",
                 "base_price": 499.0,
@@ -183,7 +181,7 @@ class ProductCreate(BaseModel):
     slug: Optional[str] = None
     name: str
     description: Optional[str] = None
-    image_url: Optional[str] = None
+    cover_image: Optional[str] = None
     is_active: bool = True
 
     @model_validator(mode="after")
@@ -196,7 +194,7 @@ class ProductCreate(BaseModel):
             "example": {
                 "name": "Custom Printed T-Shirts",
                 "description": "High quality customizable cotton t-shirts.",
-                "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab",
+                "cover_image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab",
                 "is_active": True
             }
         }
@@ -207,7 +205,7 @@ class ProductUpdate(BaseModel):
     slug: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    image_url: Optional[str] = None
+    cover_image: Optional[str] = None
     is_active: Optional[bool] = None
 
     @model_validator(mode="after")
@@ -225,26 +223,3 @@ class ProductResponse(ProductCreate):
     sub_products: List[SubProductResponse] = []
 
     model_config = {"from_attributes": True}
-
-
-# =========================================================
-# 4️⃣ DEMO ENDPOINTS
-# =========================================================
-
-@app.post("/products", response_model=ProductResponse)
-def create_product(product: ProductCreate):
-    return {
-        "id": 1,
-        "created_at": datetime.utcnow(),
-        "sub_products": [],
-        **product.model_dump()
-    }
-
-
-@app.post("/sub-products", response_model=SubProductResponse)
-def create_sub_product(sub_product: SubProductCreate):
-    return {
-        "id": 101,
-        "created_at": datetime.utcnow(),
-        **sub_product.model_dump()
-    }

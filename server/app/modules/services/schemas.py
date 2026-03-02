@@ -13,7 +13,6 @@ class SubServiceBase(BaseModel):
     images: Optional[List[str]] = Field(None, description="List of image URLs")
     is_active: bool = Field(True, description="Is the service variant active")
 
-
     @model_validator(mode="after")
     def generate_slug(self):
         if self.slug is None:
@@ -24,7 +23,19 @@ class SubServiceBase(BaseModel):
 
 # --- CREATE (All fields required) ---
 class SubServiceCreate(SubServiceBase):
-    pass
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "name": "Softcover Binding",
+                "service_id": 1,
+                "base_price": 50.0,
+                "price_per_unit": 2.5,
+                "description": "Standard softcover binding with durable glue.",
+                "images": ["https://example.com/softcover.jpg"],
+                "is_active": True
+            }
+        }
+    )
 
 # --- UPDATE (All fields OPTIONAL) ---
 # This allows you to send {"price_per_unit": 12.0} without sending the name again.
@@ -37,6 +48,16 @@ class SubServiceUpdate(BaseModel):
     description: Optional[str] = None
     images: Optional[List[str]] = None
     is_active: Optional[bool] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "base_price": 55.0,
+                "price_per_unit": 3.0,
+                "is_active": True
+            }
+        }
+    )
 
 # --- RESPONSE (Database ID included) ---
 class SubServiceResponse(SubServiceBase):
@@ -66,13 +87,38 @@ class ServiceBase(BaseModel):
     
 
 class ServiceCreate(ServiceBase):
-    pass
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "name": "Book Binding Services",
+                "is_active": True,
+                "cover_image": "https://example.com/binding-cover.jpg"
+            }
+        }
+    )
 
 class ServiceUpdate(BaseModel):
     name: Optional[str] = None
     slug: Optional[str] = None
     is_active: Optional[bool] = None
     cover_image: Optional[str] = None
+
+    @model_validator(mode="after")
+    def generate_slug(self):
+        if self.name and not self.slug:
+            self.slug = slugify(self.name).lower()
+        elif self.slug:
+            self.slug = slugify(self.slug).lower()
+        return self
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "name": "Premium Book Binding Services",
+                "is_active": False
+            }
+        }
+    )
 
 class ServiceResponse(ServiceBase):
     id: int
