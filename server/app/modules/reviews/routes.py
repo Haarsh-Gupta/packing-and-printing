@@ -40,7 +40,9 @@ async def create_or_update_review(
 
     # 2. Verify the Product/Service exists
     stmt = select(target_model).where(target_model.id == entity_id)
-    if not (await db.execute(stmt)).scalar_one_or_none():
+    target_entity = (await db.execute(stmt)).scalar_one_or_none()
+    
+    if not target_entity:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
     # 3. Check for Existing Review (using getattr to dynamically filter by product_id or service_id)
@@ -54,7 +56,6 @@ async def create_or_update_review(
     if existing_review:
         existing_review.rating = review.rating
         existing_review.comment = review.comment
-        existing_review.updated_at = datetime.now() 
         
         await db.commit()
         await db.refresh(existing_review)
@@ -67,8 +68,7 @@ async def create_or_update_review(
         id_field: entity_id,
         "rating": review.rating,
         "comment": review.comment,
-        "is_verified": False,
-        "created_at": datetime.now()
+        "is_verified": False
     }
     
     new_review = Review(**review_data)
@@ -87,6 +87,24 @@ async def get_service_reviews(
 ):
     stmt = (
         select(Review).options(joinedload(Review.service)) .where(SubService.slug == slug).limit(limit).offset(skip)
+    )
+    result = await db.execute(stmt)
+    reviews = result.scalars().all()
+    return reviews
+
+@router.get("/product/{product_id}", response_model=list[ReviewResponse])
+async def get_product_reviews(
+    product_id: int,
+    db: AsyncSession = Depends(get_db), 
+    limit: int = 10, 
+    skip: int = 0
+):
+    stmt = (
+        select(Review)
+        .options(joinedload(Review.user)) 
+        .where(Review.product_id == product_id)
+        .limit(limit)
+        .offset(skip)
     )
     result = await db.execute(stmt)
     reviews = result.scalars().all()

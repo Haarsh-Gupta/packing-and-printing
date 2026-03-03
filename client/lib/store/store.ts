@@ -1,11 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import inquiryReducer from './inquirySlice';
 import orderReducer from './orderSlice';
+import wishlistReducer from './wishlistSlice';
 
 export const store = configureStore({
     reducer: {
         inquiry: inquiryReducer,
         order: orderReducer,
+        wishlist: wishlistReducer,
     },
 });
 

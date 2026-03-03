@@ -2,6 +2,9 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
+import { syncGuestWishlist, fetchUserWishlist } from "@/lib/store/wishlistSlice";
+import { AppDispatch } from "@/lib/store/store";
 
 interface UserData {
     id: string;
@@ -27,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<UserData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
+    const dispatch = useDispatch<AppDispatch>();
 
     const fetchUser = useCallback(async () => {
         const token = localStorage.getItem("access_token");
@@ -45,6 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (res.ok) {
                 const data = await res.ok ? await res.json() : null;
                 setUser(data);
+                // Trigger wishlist sync now that we are authenticated
+                dispatch(syncGuestWishlist());
             } else if (res.status === 401) {
                 localStorage.removeItem("access_token");
                 setUser(null);
@@ -63,6 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = (token: string, userData: any) => {
         localStorage.setItem("access_token", token);
         setUser(userData);
+        // Trigger wishlist sync on imperative login
+        dispatch(syncGuestWishlist());
         router.push("/dashboard");
         // Trigger header update if needed (context usually handles this but for mixed components)
         window.dispatchEvent(new Event("user-updated"));

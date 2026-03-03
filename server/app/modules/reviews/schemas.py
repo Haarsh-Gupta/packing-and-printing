@@ -8,7 +8,7 @@ class ReviewBase(BaseModel):
     comment : str = Field(... , min_length = 10)
 
 class ReviewCreate(ReviewBase):
-    user_id : UUID 
+    user_id : Optional[UUID] = None
     product_id : Optional[int] = None
     service_id : Optional[int] = None
     created_at : datetime = Field(default_factory=datetime.now)

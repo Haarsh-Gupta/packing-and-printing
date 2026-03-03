@@ -20,13 +20,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
       >
         <AlertProvider>
-          <AuthProvider>
-            <StoreProvider>
+          <StoreProvider>
+            <AuthProvider>
               <Header />
               <main className="flex-grow">{children}</main>
               <Footer />
-            </StoreProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </StoreProvider>
         </AlertProvider>
       </body>
     </html>

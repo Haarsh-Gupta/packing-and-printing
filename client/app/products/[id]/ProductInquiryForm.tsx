@@ -6,16 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Textarea } from "@/components/ui/textarea";
-import { Loader2, UploadCloud, ShoppingCart } from "lucide-react";
+import { Loader2, UploadCloud, ShoppingCart, Plus, Minus } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { addToInquiry } from "@/lib/store/inquirySlice";
 
-// A basic helper to generate simple random strings for local cart IDs
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
-// Types based on your FastAPI JSON schema
 interface Option {
     label: string;
     value: string;
@@ -42,6 +39,35 @@ interface ProductSchema {
     };
 }
 
+// Helper to extract a hex code if present, otherwise fallback to word mapping
+const getColorValue = (label: string) => {
+    // Look for a hex code in the string (e.g., "#FFF" or "#FF0000")
+    const hexMatch = label.match(/#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})\b/);
+    if (hexMatch) return hexMatch[0];
+
+    const colorMap: Record<string, string> = {
+        "red": "#FF4D4D",
+        "blue": "#3B82F6",
+        "yellow": "#FFD700",
+        "black": "#18181B",
+        "white": "#FFFFFF",
+        "green": "#4ADE80",
+    };
+
+    const lowerLabel = label.toLowerCase();
+    for (const key in colorMap) {
+        if (lowerLabel.includes(key)) return colorMap[key];
+    }
+
+    // Fallback if no color is found
+    return "#E4E4E7";
+};
+
+// Helper to strip the hex code out of the label text for cleaner display
+const cleanLabelText = (label: string) => {
+    return label.replace(/#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})\b/g, "").trim();
+};
+
 export default function ProductInquiryForm({ product }: { product: ProductSchema }) {
     const { showAlert } = useAlert();
     const dispatch = useAppDispatch();
@@ -50,7 +76,6 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
     const [isLoading, setIsLoading] = useState(false);
     const [quantity, setQuantity] = useState<number>(product.minimum_quantity);
 
-    // Initialize default answers synchronously to avoid uncontrolled→controlled warning
     const [answers, setAnswers] = useState<Record<string, any>>(() => {
         const initialAnswers: Record<string, any> = {};
         product.config_schema.sections.forEach((section) => {
@@ -65,12 +90,18 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         return initialAnswers;
     });
 
-    // Handle changes to any field
     const handleAnswerChange = (key: string, value: any) => {
         setAnswers((prev) => ({ ...prev, [key]: value }));
     };
 
-    // Dynamically calculate the price
+    const handleQuantityChange = (type: "inc" | "dec") => {
+        setQuantity(prev => {
+            if (type === "inc") return prev + 1;
+            if (type === "dec" && prev > product.minimum_quantity) return prev - 1;
+            return prev;
+        });
+    };
+
     const { unitPrice, totalPrice } = useMemo(() => {
         let currentUnitPrice = product.base_price;
 
@@ -112,131 +143,157 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         showAlert(`${product.name} added to cart!`, "success");
         setIsLoading(false);
     };
+
     return (
-        <form onSubmit={handleSubmit} className="space-y-8 flex flex-col h-full">
+        <form onSubmit={handleSubmit} className="relative flex flex-col space-y-6 w-full font-sans pb-4">
 
-            {/* Scrollable Form Fields */}
-            <div className="space-y-8 flex-grow">
+            <div className="space-y-6 max-w-[400px] w-full">
+                {product.config_schema.sections.map((section) => {
+                    const isColorOption = section.label.toLowerCase().includes("color");
 
-                {/* Fixed Quantity Field */}
-                <div className="space-y-3 bg-zinc-50 px-2 py-4 border-2 border-black rounded-lg">
-                    <Label className="text-lg font-bold">Quantity (Min: {product.minimum_quantity})</Label>
-                    <Input
-                        type="number"
-                        min={product.minimum_quantity}
-                        value={quantity}
-                        onChange={(e) => setQuantity(Number(e.target.value))}
-                        className="border-2 border-black rounded-md text-lg h-12"
-                    />
-                </div>
+                    return (
+                        <div key={section.key} className="space-y-3">
+                            <Label className="text-sm font-black uppercase tracking-widest text-zinc-800 flex items-center justify-between">
+                                {section.label}
+                                {section.type === "number_input" && section.price_per_unit && (
+                                    <span className="text-[10px] font-bold text-zinc-500">
+                                        (+₹{section.price_per_unit} / unit)
+                                    </span>
+                                )}
+                            </Label>
 
-                {/* Dynamic Fields from Schema */}
-                {product.config_schema.sections.map((section) => (
-                    <div key={section.key} className="space-y-3 border-b-2 border-zinc-200 pb-6">
-                        <Label className="text-lg font-bold flex items-center justify-between">
-                            {section.label}
-                            {section.type === "number_input" && section.price_per_unit && (
-                                <span className="text-sm font-normal text-zinc-500">
-                                    (+₹{section.price_per_unit} per unit)
-                                </span>
+                            {(section.type === "dropdown" || section.type === "radio") && section.options && (
+                                <RadioGroup
+                                    value={answers[section.key]}
+                                    onValueChange={(val) => handleAnswerChange(section.key, val)}
+                                    className={isColorOption ? "flex flex-wrap gap-2.5" : "flex flex-col gap-3"}
+                                >
+                                    {section.options.map((option) => {
+                                        const isSelected = answers[section.key] === option.value;
+
+                                        // SQUARE COLOR BLOCKS
+                                        if (isColorOption) {
+                                            return (
+                                                <Label
+                                                    key={option.value}
+                                                    style={{ backgroundColor: getColorValue(option.label) }}
+                                                    className={`
+                                                        relative h-10 w-12 cursor-pointer transition-all rounded-[2px] border-2 border-black block
+                                                        ${isSelected
+                                                            ? "shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-[2px] -translate-x-[2px] ring-2 ring-white ring-inset"
+                                                            : "hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                                                        }
+                                                    `}
+                                                    title={`${cleanLabelText(option.label)} ${option.price_mod ? `(+₹${option.price_mod})` : ''}`}
+                                                >
+                                                    <RadioGroupItem value={option.value} id={`${section.key}-${option.value}`} className="sr-only" />
+                                                </Label>
+                                            );
+                                        }
+
+                                        // GUMROAD VERTICAL LIST (with circular price badges)
+                                        return (
+                                            <Label
+                                                key={option.value}
+                                                className={`
+                                                    relative flex items-center gap-4 p-4 cursor-pointer transition-all border-2 border-black rounded-md w-full
+                                                    ${isSelected
+                                                        ? "bg-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-[2px] -translate-x-[2px]"
+                                                        : "bg-white hover:bg-zinc-50"
+                                                    }
+                                                `}
+                                            >
+                                                <RadioGroupItem value={option.value} id={`${section.key}-${option.value}`} className="sr-only" />
+
+                                                {/* Circle Price Badge */}
+                                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-black bg-white font-bold text-xs shadow-sm text-center leading-none">
+                                                    {option.price_mod > 0 ? "+" : (option.price_mod < 0 ? "-" : "")}₹{Math.abs(option.price_mod || 0)}
+                                                </div>
+
+                                                {/* Text Content */}
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-sm text-black">{cleanLabelText(option.label)}</span>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${isSelected ? "text-green-600" : "text-zinc-400"}`}>
+                                                        {isSelected ? "Selected" : "Select Option"}
+                                                    </span>
+                                                </div>
+                                            </Label>
+                                        );
+                                    })}
+                                </RadioGroup>
                             )}
-                        </Label>
 
-                        {/* Render both 'dropdown' and 'radio' as RadioGroups with Gumroad-style cards */}
-                        {(section.type === "dropdown" || section.type === "radio") && section.options && (
-                            <RadioGroup
-                                value={answers[section.key]}
-                                onValueChange={(val) => handleAnswerChange(section.key, val)}
-                                className="flex flex-col gap-4"
-                            >
-                                {section.options.map((option) => {
-                                    const isSelected = answers[section.key] === option.value;
-                                    const priceDisplay = (option.price_mod || 0) > 0
-                                        ? `+₹${option.price_mod}`
-                                        : (option.price_mod || 0) < 0
-                                            ? `-₹${Math.abs(option.price_mod || 0)}`
-                                            : "Free";
+                            {/* Inputs */}
+                            {section.type === "text_input" && (
+                                <Input
+                                    type="text"
+                                    placeholder="Your text here..."
+                                    value={answers[section.key] || ""}
+                                    onChange={(e) => handleAnswerChange(section.key, e.target.value)}
+                                    className="border-2 border-black rounded-md h-12 font-bold uppercase text-sm focus-visible:ring-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus-visible:translate-x-[2px] focus-visible:translate-y-[2px] focus-visible:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all placeholder:text-zinc-400"
+                                />
+                            )}
 
-                                    return (
-                                        <Label
-                                            key={option.value}
-                                            className={`
-                        relative flex items-center justify-between p-4 border-2 border-black cursor-pointer transition-all rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]
-                        ${isSelected
-                                                    ? "bg-zinc-300 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] -translate-y-1"
-                                                    : "bg-white hover:bg-zinc-100"
-                                                }
-                      `}
-                                        >
-                                            {/* Hidden Radio Input */}
-                                            <RadioGroupItem value={option.value} id={`${section.key}-${option.value}`} className="sr-only" />
+                            {section.type === "number_input" && (
+                                <Input
+                                    type="number"
+                                    min={section.min_val}
+                                    max={section.max_val}
+                                    value={answers[section.key] || ""}
+                                    onChange={(e) => handleAnswerChange(section.key, e.target.value)}
+                                    className="border-2 border-black rounded-md h-12 font-bold uppercase text-sm focus-visible:ring-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus-visible:translate-x-[2px] focus-visible:translate-y-[2px] focus-visible:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all"
+                                />
+                            )}
+                        </div>
+                    );
+                })}
 
-                                            {/* Left: Label and Selection Text */}
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-lg font-bold">{option.label}</span>
-                                                {isSelected && <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Selected</span>}
-                                            </div>
-
-                                            {/* Right: Price Pill */}
-                                            <div className="bg-white border-2 border-black px-3 py-1 text-sm font-bold min-w-[70px] text-center rounded-full shadow-sm">
-                                                {priceDisplay}
-                                            </div>
-                                        </Label>
-                                    );
-                                })}
-                            </RadioGroup>
-                        )}
-
-                        {/* Number Input */}
-                        {section.type === "number_input" && (
-                            <Input
-                                type="number"
-                                min={section.min_val}
-                                max={section.max_val}
-                                value={answers[section.key] || ""}
-                                onChange={(e) => handleAnswerChange(section.key, e.target.value)}
-                                className="border-2 border-black rounded-md text-lg h-12"
-                            />
-                        )}
-
-                        {/* Text Input */}
-                        {section.type === "text_input" && (
-                            <Input
-                                type="text"
-                                placeholder="Enter details..."
-                                value={answers[section.key] || ""}
-                                onChange={(e) => handleAnswerChange(section.key, e.target.value)}
-                                className="border-2 border-black rounded-md text-lg h-12"
-                            />
-                        )}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label className="text-sm font-black uppercase tracking-widest text-zinc-800">Design File</Label>
+                        <div className="border-2 border-dashed border-black bg-white h-12 flex items-center justify-center hover:bg-[#fdf567] hover:border-solid transition-colors cursor-pointer group rounded-md">
+                            <span className="text-xs font-bold uppercase tracking-wide text-black flex items-center gap-2">
+                                <UploadCloud className="h-4 w-4" /> Upload
+                            </span>
+                        </div>
                     </div>
-                ))}
 
-                {/* File Upload Section (Static addition for printing jobs) */}
-                <div className="space-y-3">
-                    <Label className="text-lg font-bold">Design File (.cdr, .ai, .pdf)</Label>
-                    <div className="rounded-md border-2 border-dashed border-black bg-zinc-50 p-8 text-center hover:bg-zinc-100 transition-colors cursor-pointer flex flex-col items-center justify-center gap-2">
-                        <UploadCloud className="h-10 w-10 text-zinc-500" />
-                        <span className="font-medium">Upload your vector or PDF design</span>
+                    <div className="space-y-2">
+                        <Label className="text-sm font-black uppercase tracking-widest text-zinc-800">Quantity</Label>
+                        <div className="flex items-center border-2 border-black h-12 w-full rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
+                            <button type="button" onClick={() => handleQuantityChange("dec")} className="h-full px-4 border-r-2 border-black hover:bg-zinc-100 active:bg-zinc-200 flex items-center justify-center transition-colors">
+                                <Minus className="h-3 w-3" />
+                            </button>
+                            <input type="number" min={product.minimum_quantity} value={quantity} onChange={(e) => setQuantity(Math.max(product.minimum_quantity, Number(e.target.value)))} className="w-full h-full text-center font-bold text-sm focus:outline-none bg-transparent appearance-none" />
+                            <button type="button" onClick={() => handleQuantityChange("inc")} className="h-full px-4 border-l-2 border-black hover:bg-zinc-100 active:bg-zinc-200 flex items-center justify-center transition-colors">
+                                <Plus className="h-3 w-3" />
+                            </button>
+                        </div>
                     </div>
                 </div>
-
             </div>
 
-            {/* Sticky Price Summary Footer */}
-            <div className="sticky bottom-0 bg-white border-t-4 border-black pt-6 pb-2 mt-8 flex flex-col gap-4 z-10">
-                <div className="flex justify-between items-end">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-xs uppercase font-black text-zinc-500 tracking-widest leading-none">Estimated Total</span>
-                        <span className="text-3xl font-black tracking-tighter">₹{totalPrice.toLocaleString()}</span>
-                        {/* <div className="inline-flex items-baseline gap-1 bg-[#fdf567] px-4 py-1 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -rotate-1 self-start">
-                        </div> */}
-                        <p className="text-zinc-500 text-sm font-medium mt-1">Unit Price: <span className="text-black font-bold">₹{unitPrice.toFixed(2)}</span></p>
-                    </div>
+            {/* Sticky Bottom Bar with Pill Button */}
+            <div className="sticky bottom-0 z-40 bg-white/95 backdrop-blur-sm border-t-2 border-black pt-4 pb-4 mt-8 w-full flex items-center justify-between gap-4 max-w-[400px]">
+                <div className="flex flex-col">
+                    <span className="text-xs font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Total Estimate</span>
+                    <span className="text-3xl font-black leading-none text-black">₹{totalPrice.toLocaleString()}</span>
                 </div>
 
-                <Button type="submit" className="w-full h-12 bg-[#45ec93] text-black text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none hover:bg-[#00af29] transition-all rounded-md font-bold border-2 border-black" disabled={isLoading}>
-                    {isLoading ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : "Request Official Quote"}
+                {/* Rounded Pill Button matching the reference image */}
+                <Button
+                    type="submit"
+                    className="h-14 px-8 bg-[#4be794] text-black font-black uppercase text-sm border-2 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex items-center gap-2"
+                    disabled={isLoading}
+                >
+                    {isLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                        <>
+                            Add to Cart
+                            <ShoppingCart className="h-4 w-4" />
+                        </>
+                    )}
                 </Button>
             </div>
         </form>

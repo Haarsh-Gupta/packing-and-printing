@@ -33,8 +33,8 @@ export default function Header() {
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="text-2xl font-black tracking-tighter text-white hover:text-[#FF90E8] transition-colors">
-          BookBind.
+        <Link href="/" className="text-2xl font-black tracking-tighter text-white hover:text-white transition-colors flex items-center">
+          NavArt<span className="text-[#FF00FF]">.</span>
         </Link>
 
         {/* Desktop Navigation */}

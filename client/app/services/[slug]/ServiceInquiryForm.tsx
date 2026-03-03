@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, UploadCloud, Info } from "lucide-react";
+import { Loader2, UploadCloud, Info, Plus, Minus, ArrowRight } from "lucide-react";
 import { ServiceItem } from "@/types/service";
 import { useAlert } from "@/components/CustomAlert";
 import { useAppDispatch } from "@/lib/store/hooks";
@@ -24,34 +24,41 @@ export default function ServiceInquiryForm({ service }: { service: ServiceItem }
 
     const [isLoading, setIsLoading] = useState(false);
     const [selectedVariantId, setSelectedVariantId] = useState<string>(
-        service.variants.length > 0 ? service.variants[0].id.toString() : ""
+        service.sub_services && service.sub_services.length > 0 ? service.sub_services[0].id.toString() : ""
     );
 
-    // Deep linking: Select variant by slug if provided in URL
     useEffect(() => {
-        if (variantSlug) {
-            const variant = service.variants.find(v => v.slug === variantSlug);
+        if (variantSlug && service.sub_services) {
+            const variant = service.sub_services.find(v => v.slug === variantSlug);
             if (variant) {
                 setSelectedVariantId(variant.id.toString());
             }
         }
-    }, [variantSlug, service.variants]);
+    }, [variantSlug, service.sub_services]);
+
     const [quantity, setQuantity] = useState<number>(1);
     const [notes, setNotes] = useState("");
 
     const selectedVariant = useMemo(() => {
-        return service.variants.find(v => v.id.toString() === selectedVariantId);
-    }, [selectedVariantId, service.variants]);
+        return service.sub_services?.find(v => v.id.toString() === selectedVariantId);
+    }, [selectedVariantId, service.sub_services]);
 
     const { totalPrice } = useMemo(() => {
         if (!selectedVariant) return { totalPrice: 0 };
-
         const base = selectedVariant.base_price;
         const extra = selectedVariant.price_per_unit * quantity;
         return {
             totalPrice: base + extra
         };
     }, [selectedVariant, quantity]);
+
+    const handleQuantityChange = (type: "inc" | "dec") => {
+        setQuantity(prev => {
+            if (type === "inc") return prev + 1;
+            if (type === "dec" && prev > 1) return prev - 1;
+            return prev;
+        });
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -82,107 +89,117 @@ export default function ServiceInquiryForm({ service }: { service: ServiceItem }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Variant Selection */}
-            <div className="space-y-4">
-                <Label className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
-                    <Info className="h-5 w-5 text-[#90e8ff]" />
-                    Select Expertise Level
-                </Label>
-                <RadioGroup
-                    value={selectedVariantId}
-                    onValueChange={setSelectedVariantId}
-                    className="grid gap-4"
-                >
-                    {service.variants.map((variant) => {
-                        const isSelected = selectedVariantId === variant.id.toString();
-                        return (
-                            <Label
-                                key={variant.id}
-                                className={`
-                                    relative flex items-center justify-between p-4 border-2 border-black cursor-pointer transition-all rounded-none
-                                    ${isSelected
-                                        ? "bg-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1"
-                                        : "bg-white hover:bg-zinc-50"
-                                    }
-                                `}
-                            >
-                                <RadioGroupItem value={variant.id.toString()} className="sr-only" />
-                                <div className="space-y-1">
-                                    <span className="text-lg font-black uppercase tracking-tight block">{variant.name}</span>
-                                    <span className="text-xs font-bold text-zinc-500 uppercase">{variant.description}</span>
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-sm font-black bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+        <form onSubmit={handleSubmit} className="relative flex flex-col space-y-6 w-full font-sans pb-4">
+            <div className="space-y-6 max-w-[400px] w-full">
+
+                {/* Variant Selection (Gumroad Tier Style) */}
+                <div className="space-y-3">
+                    <Label className="text-sm font-black uppercase tracking-widest text-zinc-800 flex items-center gap-2">
+                        <Info className="h-4 w-4 text-[#90e8ff]" />
+                        Select Expertise Level
+                    </Label>
+                    <RadioGroup
+                        value={selectedVariantId}
+                        onValueChange={setSelectedVariantId}
+                        className="flex flex-col gap-3"
+                    >
+                        {service.sub_services?.map((variant) => {
+                            const isSelected = selectedVariantId === variant.id.toString();
+                            return (
+                                <Label
+                                    key={variant.id}
+                                    className={`
+                                        relative flex items-center gap-4 p-4 cursor-pointer transition-all border-2 border-black rounded-md w-full
+                                        ${isSelected
+                                            ? "bg-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-[2px] -translate-x-[2px]"
+                                            : "bg-white hover:bg-zinc-50 hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                                        }
+                                    `}
+                                >
+                                    <RadioGroupItem value={variant.id.toString()} className="sr-only" />
+
+                                    {/* Price Badge */}
+                                    <div className="flex h-12 w-auto min-w-[3rem] px-3 shrink-0 items-center justify-center rounded-full border-2 border-black bg-white font-black text-xs shadow-sm text-center">
                                         ₹{variant.base_price.toLocaleString()}
-                                    </span>
-                                </div>
-                            </Label>
-                        );
-                    })}
-                </RadioGroup>
-            </div>
+                                    </div>
 
-            {/* Quantity */}
-            <div className="space-y-3">
-                <Label className="text-lg font-black uppercase tracking-tight">Units / Items involved</Label>
-                <Input
-                    type="number"
-                    min={1}
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="border-2 border-black rounded-none text-lg h-14 focus:ring-0 focus:border-black transition-all"
-                />
-                {selectedVariant && selectedVariant.price_per_unit > 0 && (
-                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
-                        + ₹{selectedVariant.price_per_unit} per unit added to base price
-                    </p>
-                )}
-            </div>
+                                    {/* Text Content */}
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-sm text-black uppercase">{variant.name}</span>
+                                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider leading-tight mt-0.5 line-clamp-2">
+                                            {variant.description}
+                                        </span>
+                                    </div>
+                                </Label>
+                            );
+                        })}
+                    </RadioGroup>
+                </div>
 
-            {/* File Upload Mock */}
-            <div className="space-y-3">
-                <Label className="text-lg font-black uppercase tracking-tight">Reference Material</Label>
-                <div className="border-2 border-dashed border-black p-8 text-center bg-zinc-50 hover:bg-zinc-100 transition-colors cursor-pointer flex flex-col items-center gap-2 group">
-                    <UploadCloud className="h-10 w-10 text-zinc-400 group-hover:text-black transition-colors" />
-                    <span className="text-sm font-bold uppercase tracking-widest">Upload Brief / Assets</span>
+                {/* Additional Units / Quantity */}
+                <div className="space-y-2">
+                    <Label className="text-sm font-black uppercase tracking-widest text-zinc-800 flex items-center justify-between">
+                        Items Involved
+                        {selectedVariant && selectedVariant.price_per_unit > 0 && (
+                            <span className="text-[10px] font-bold text-zinc-500 normal-case">
+                                (+₹{selectedVariant.price_per_unit} / unit)
+                            </span>
+                        )}
+                    </Label>
+                    <div className="flex items-center border-2 border-black h-12 w-full rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
+                        <button type="button" onClick={() => handleQuantityChange("dec")} className="h-full px-4 border-r-2 border-black hover:bg-zinc-100 active:bg-zinc-200 flex items-center justify-center transition-colors">
+                            <Minus className="h-4 w-4" />
+                        </button>
+                        <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))} className="w-full h-full text-center font-black text-lg focus:outline-none bg-transparent appearance-none" />
+                        <button type="button" onClick={() => handleQuantityChange("inc")} className="h-full px-4 border-l-2 border-black hover:bg-zinc-100 active:bg-zinc-200 flex items-center justify-center transition-colors">
+                            <Plus className="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Reference Material */}
+                <div className="space-y-2">
+                    <Label className="text-sm font-black uppercase tracking-widest text-zinc-800">Reference Material</Label>
+                    <div className="border-2 border-dashed border-black bg-white h-16 flex items-center justify-center hover:bg-[#fdf567] hover:border-solid transition-colors cursor-pointer group rounded-md">
+                        <span className="text-xs font-black uppercase tracking-widest text-black flex items-center gap-2">
+                            <UploadCloud className="h-5 w-5" /> Upload Brief
+                        </span>
+                    </div>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-2">
+                    <Label className="text-sm font-black uppercase tracking-widest text-zinc-800">Additional Context</Label>
+                    <Textarea
+                        placeholder="VISION, DEADLINES, OR CONSTRAINTS..."
+                        className="min-h-[100px] border-2 border-black rounded-md text-sm font-bold uppercase focus-visible:ring-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus-visible:translate-x-[2px] focus-visible:translate-y-[2px] focus-visible:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all placeholder:text-zinc-400 p-3"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                    />
                 </div>
             </div>
 
-            {/* Notes */}
-            <div className="space-y-3">
-                <Label className="text-lg font-black uppercase tracking-tight">Additional Context</Label>
-                <Textarea
-                    placeholder="Tell us more about your vision, deadlines, or specific technical constraints..."
-                    className="min-h-[120px] border-2 border-black rounded-none text-base focus:ring-0 focus:border-black"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                />
-            </div>
-
-            {/* Price Summary & Submit */}
-            <div className="space-y-6 pt-6 border-t-4 border-black">
-                <div className="flex justify-between items-end">
-                    <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Estimated Project Start</span>
-                        <div className="inline-flex items-baseline gap-2 bg-[#fdf567] border-2 border-black px-4 py-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -rotate-1">
-                            <span className="text-4xl font-black">₹{totalPrice.toLocaleString()}</span>
-                        </div>
-                    </div>
+            {/* Sticky Bottom Bar with Pill Button */}
+            <div className="sticky bottom-0 z-40 bg-white/95 backdrop-blur-sm border-t-2 border-black pt-4 pb-4 mt-8 w-full flex items-center justify-between gap-4 max-w-[400px]">
+                <div className="flex flex-col">
+                    <span className="text-xs font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Total Estimate</span>
+                    <span className="text-3xl font-black leading-none text-black">₹{totalPrice.toLocaleString()}</span>
                 </div>
 
                 <Button
                     type="submit"
+                    className="h-14 px-8 bg-[#4be794] text-black font-black uppercase text-sm border-2 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex items-center gap-2"
                     disabled={isLoading}
-                    className="w-full h-16 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase text-xl border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all"
                 >
-                    {isLoading ? <Loader2 className="animate-spin h-8 w-8" /> : "Add to Cart"}
+                    {isLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                        <>
+                            Request Quote
+                            <ArrowRight className="h-4 w-4" />
+                        </>
+                    )}
                 </Button>
-
-                <p className="text-[10px] font-bold text-center text-zinc-500 uppercase tracking-widest leading-relaxed">
-                    By submitting, you agree to our studio's initial consultation terms. <br />
-                    Quotes are estimates and may change during formal review.
-                </p>
             </div>
         </form>
     );

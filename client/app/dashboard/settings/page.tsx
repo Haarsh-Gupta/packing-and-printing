@@ -1,16 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Loader2, Save, UploadCloud, User as UserIcon, Lock, MapPin, Image as ImageIcon, CheckCircle2 } from "lucide-react";
-import { SettingsSkeleton } from "./SettingsSkeleton";
+import { Loader2, Camera, User, Building, Lock } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
+import { useAuth } from "@/context/AuthContext";
 
-
-interface User {
+interface UserData {
   id: number;
   name: string;
   email: string;
@@ -18,52 +13,52 @@ interface User {
   profile_picture: string | null;
 }
 
-// Predefined Avatars
-const MALE_AVATARS = ["Alexander", "Liam", "Noah", "Oliver", "William", "James", "Benjamin", "Lucas"].map(seed => `https://api.dicebear.com/9.x/open-peeps/svg?seed=${seed}&backgroundColor=b6e3f4`);
-const FEMALE_AVATARS = ["Sophia", "Emma", "Olivia", "Ava", "Isabella", "Mia", "Charlotte", "Amelia"].map(seed => `https://api.dicebear.com/9.x/open-peeps/svg?seed=${seed}&backgroundColor=c0aede`);
-
-import { useAuth } from "@/context/AuthContext";
-
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
-  const [isLoading, setIsLoading] = useState(false); // Context handles initial load, but for settings specific local loads
+  const { showAlert } = useAlert();
 
-  // Form States
-  const [avatarTab, setAvatarTab] = useState("upload");
+  // Avatar Upload States
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedAvatar, setSelectedAvatar] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
-  const [personalInfo, setPersonalInfo] = useState({ name: "", phone: "" });
-  const [isSavingInfo, setIsSavingInfo] = useState(false);
+  // Form States -> Based on new UI structure
+  const [isSavingAll, setIsSavingAll] = useState(false);
 
-  const [passwordData, setPasswordData] = useState({ password: "" });
-  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  // 1. Personal Details
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
 
-  // Address Logic (Mocked for Demo as per request)
-  const [address, setAddress] = useState({ street: "", city: "", zip: "" });
-  const [isAddressNew, setIsAddressNew] = useState(true);
-  const [isEditingAddress, setIsEditingAddress] = useState(true); // Default valid for new
-  const [addressAuthPassword, setAddressAuthPassword] = useState("");
-  const [isAddressUnlocked, setIsAddressUnlocked] = useState(false);
+  // 2. Company Information -> Re-purposing Address logic for structural match
+  const [companyName, setCompanyName] = useState(""); // Maps to Address Street
+  const [city, setCity] = useState("");
+  const [zip, setZip] = useState("");
 
-  const { showAlert } = useAlert();
+  // 3. Preferences (Re-purposing as Password update block)
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     if (user) {
-      setPersonalInfo({ name: user.name, phone: user.phone || "" });
+      // Split name intelligently
+      const nameParts = user.name.split(" ");
+      setFirstName(nameParts[0] || "");
+      setLastName(nameParts.slice(1).join(" ") || "");
+      setPhone(user.phone || "");
       setSelectedAvatar(user.profile_picture || "");
+      setPreviewUrl(user.profile_picture || "");
     }
   }, [user]);
 
   useEffect(() => {
-    // Load mocked address
     const savedAddr = localStorage.getItem("client_shipping_address");
     if (savedAddr) {
-      setAddress(JSON.parse(savedAddr));
-      setIsAddressNew(false);
-      setIsEditingAddress(false);
+      const parsed = JSON.parse(savedAddr);
+      setCompanyName(parsed.street || ""); // Reusing street as Company Name locally
+      setCity(parsed.city || "");
+      setZip(parsed.zip || "");
     }
   }, []);
 
@@ -73,40 +68,30 @@ export default function SettingsPage() {
       const file = e.target.files[0];
       setUploadFile(file);
       setPreviewUrl(URL.createObjectURL(file));
-      setAvatarTab("upload"); // Set to upload tab if file selected
+      // Trigger upload immediately upon selection for better UX in this design
+      uploadPicture(file);
     }
   };
 
-  const saveProfilePicture = async () => {
+  const uploadPicture = async (file: File) => {
     setIsUploading(true);
-    let finalUrl = selectedAvatar;
-
     try {
-      // 1. Handle Upload if in Upload Tab and a file is selected
-      if (avatarTab === "upload" && uploadFile) {
-        const formData = new FormData();
-        formData.append("file", uploadFile);
+      const formData = new FormData();
+      formData.append("file", file);
 
-        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=profile`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-          body: formData
-        });
+      const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=profile`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+        body: formData
+      });
 
-        if (!uploadRes.ok) {
-          const errorData = await uploadRes.json();
-          throw new Error(errorData.detail || "Upload failed");
-        }
+      if (!uploadRes.ok) throw new Error("Upload failed");
 
-        const uploadData = await uploadRes.json();
-        finalUrl = uploadData.url;
-      }
-      // 2. If in Avatar Tab, finalUrl is already selectedAvatar from state
-
-      // 3. Update User Profile
-      await updateUser({ profile_picture: finalUrl });
-      showAlert("Profile picture updated!", "success");
-      setUploadFile(null); // Reset
+      const uploadData = await uploadRes.json();
+      await updateUser({ profile_picture: uploadData.url });
+      setSelectedAvatar(uploadData.url);
+      showAlert("Profile picture updated.", "success");
+      setUploadFile(null);
     } catch (e: any) {
       showAlert(e.message || "Failed to update profile picture", "error");
     } finally {
@@ -114,59 +99,46 @@ export default function SettingsPage() {
     }
   };
 
-  // --- 2. Personal Info Handler ---
-  const savePersonalInfo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSavingInfo(true);
+  // --- 2. Master Save Handler (Combines UI form into single/batch update) ---
+  const saveAllChanges = async () => {
+    setIsSavingAll(true);
+    let success = true;
+
+    // A. Save User Info
     try {
-      await updateUser(personalInfo);
-      showAlert("Personal details saved.", "success");
-    } catch (e: any) {
-      showAlert(e.message || "Failed to save info.", "error");
-    } finally {
-      setIsSavingInfo(false);
+      const payload: any = {
+        name: `${firstName} ${lastName}`.trim(),
+        phone: phone,
+      };
+      if (newPassword.trim().length > 0) {
+        payload.password = newPassword;
+      }
+      await updateUser(payload);
+    } catch (e) {
+      success = false;
+      showAlert("Failed to save personal details.", "error");
     }
-  };
 
-  // --- 3. Password Handler ---
-  const savePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!passwordData.password) return;
-    setIsSavingPassword(true);
+    // B. Save Address/Company locally (Demo standard)
     try {
-      await updateUser({ password: passwordData.password });
-      showAlert("Password updated securely.", "success");
-      setPasswordData({ password: "" });
-    } catch (e: any) {
-      showAlert(e.message || "Failed to update password.", "error");
-    } finally {
-      setIsSavingPassword(false);
+      localStorage.setItem("client_shipping_address", JSON.stringify({
+        street: companyName, // Treating Company Name as street for data reuse
+        city,
+        zip
+      }));
+    } catch (e) {
+      success = false;
     }
-  };
 
-  // --- 4. Address Logic ---
-  const handleUnlockAddress = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (addressAuthPassword) {
-      setIsAddressUnlocked(true);
-      setIsEditingAddress(true);
-      setAddressAuthPassword("");
-    } else {
-      showAlert("Please enter your password to edit address.", "error");
+    if (success) {
+      showAlert("All changes saved successfully.", "success");
+      setNewPassword(""); // Clear password field after save
     }
+
+    setIsSavingAll(false);
   };
 
-  const saveAddress = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem("client_shipping_address", JSON.stringify(address));
-    setIsAddressNew(false);
-    setIsEditingAddress(false);
-    setIsAddressUnlocked(false);
-    showAlert("Address saved locally (Demo).", "success");
-  };
-
-
-  // Helper to call backend update
+  // Helper
   const updateUser = async (payload: any) => {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/update`, {
       method: "PATCH",
@@ -183,228 +155,202 @@ export default function SettingsPage() {
     }
   };
 
-
-
-  if (isLoading) return <SettingsSkeleton />;
+  if (!user) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-12">
-      <div className="border-b-4 border-black pb-6">
-        <h1 className="text-5xl font-black uppercase tracking-tighter">My Profile</h1>
-        <p className="text-xl font-bold text-zinc-500 mt-2">Manage your printing preferences and account security.</p>
+    <div className="flex flex-col gap-6 max-w-[1400px] mx-auto">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b-2 border-slate-200 pb-6">
+        <div>
+          <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-2 uppercase tracking-tight">Edit Profile</h1>
+          <p className="text-slate-600 font-medium text-lg">Manage your account details and directory information.</p>
+        </div>
+        <div className="flex gap-3">
+          <button className="neu-btn bg-white px-4 py-2 rounded-lg font-bold text-sm text-slate-900">Cancel</button>
+          <button
+            onClick={saveAllChanges}
+            disabled={isSavingAll || isUploading}
+            className="neu-btn bg-black text-white px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2"
+          >
+            {isSavingAll ? <Loader2 className="w-5 h-5 animate-spin" /> : <Lock className="w-5 h-5" />}
+            Save Changes
+          </button>
+        </div>
       </div>
 
-      <div className="grid gap-8">
+      {/* Profile Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-        {/* SECTION 1: Profile Picture */}
-        <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden">
-          <CardHeader className="bg-zinc-50 border-b-2 border-black">
-            <CardTitle className="flex items-center gap-2 font-black uppercase tracking-tight"><ImageIcon className="w-5 h-5" /> Profile Appearance</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-8 items-start">
+        {/* Left Column: Avatar & Basic Info */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="neu-card bg-white p-6 rounded-xl flex flex-col items-center gap-6">
+            <div className="relative group w-40 h-40">
+              <div
+                className="w-full h-full bg-center bg-no-repeat bg-cover border-4 border-black rounded-full shadow-[6px_6px_0_0_#d946ef] overflow-hidden bg-zinc-100"
+                style={{ backgroundImage: `url("${previewUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${user.name}`}")` }}
+              ></div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                className="hidden"
+                accept="image/*"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-2 right-2 neu-btn bg-white p-2 rounded-full hover:bg-slate-50 text-black flex items-center justify-center transform transition-transform group-hover:scale-110"
+                title="Upload new photo"
+                disabled={isUploading}
+              >
+                {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
+              </button>
+            </div>
+            <div className="w-full flex flex-col gap-3">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="neu-btn w-full py-2 bg-[#fdf2f8] text-primary font-bold rounded-lg border-2 border-primary hover:bg-primary hover:text-white transition-all"
+              >
+                {isUploading ? "Uploading..." : "Upload New Photo"}
+              </button>
+              <p className="text-xs text-center text-slate-500 font-medium">JPG, GIF or PNG. Max size of 2MB.</p>
+            </div>
+          </div>
 
-              {/* Preview Circle */}
-              <div className="shrink-0 mx-auto md:mx-0">
-                <div className="h-40 w-40 rounded-full border-4 border-black overflow-hidden shadow-md bg-white">
-                  <img
-                    src={previewUrl || user?.profile_picture || `https://api.dicebear.com/7.x/notionists/svg?seed=${user?.name}`}
-                    className="h-full w-full object-cover"
-                    referrerPolicy="no-referrer"
+          {/* Note: Membership Status block removed per user request */}
+        </div>
+
+        {/* Right Column: Form Fields */}
+        <div className="lg:col-span-2">
+          <div className="neu-card bg-white p-6 md:p-8 rounded-xl space-y-10">
+
+            {/* Personal Details */}
+            <section>
+              <h3 className="text-xl font-black mb-6 border-b-2 border-slate-100 pb-2 flex items-center gap-2">
+                <span className="bg-primary text-white p-1 rounded border-2 border-black shadow-[2px_2px_0_0_#000]">
+                  <User className="w-5 h-5 block" />
+                </span>
+                Personal Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold text-slate-900">First Name</label>
+                  <input
+                    className="neu-input w-full p-3 rounded-lg bg-slate-50 font-medium focus:bg-white"
+                    placeholder="e.g. Alex"
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                   />
                 </div>
-              </div>
-
-              {/* Controls */}
-              <div className="flex-1 w-full">
-                <div className="w-full">
-                  <div className="grid w-full grid-cols-2 border-2 border-black h-12 bg-white mb-6 rounded-full overflow-hidden">
-                    <button
-                      onClick={() => setAvatarTab("upload")}
-                      className={`font-bold text-md transition-colors ${avatarTab === "upload" ? "bg-black text-white" : "bg-white text-black hover:bg-zinc-50"}`}
-                    >
-                      Upload Photo
-                    </button>
-                    <button
-                      onClick={() => setAvatarTab("avatar")}
-                      className={`font-bold text-md border-l-2 border-black transition-colors ${avatarTab === "avatar" ? "bg-[#90e8ff] text-black" : "bg-white text-black hover:bg-zinc-50"}`}
-                    >
-                      Choose Avatar
-                    </button>
-                  </div>
-
-                  {avatarTab === "upload" && (
-                    <div className="space-y-4">
-                      <div className="border-2 border-dashed border-zinc-300 p-8 text-center hover:bg-zinc-50 transition-colors cursor-pointer relative rounded-2xl">
-                        <input type="file" onChange={handleFileSelect} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
-                        <UploadCloud className="w-10 h-10 mx-auto text-zinc-400 mb-2" />
-                        <p className="font-bold text-zinc-600">Click to upload or drag and drop</p>
-                        <p className="text-xs text-zinc-400">JPG, PNG or GIF (Max 2MB)</p>
-                      </div>
-                      {uploadFile && <p className="text-sm font-bold text-green-600 flex items-center"><CheckCircle2 className="w-4 h-4 mr-1" /> Selected: {uploadFile.name}</p>}
-                      <Button onClick={saveProfilePicture} disabled={!uploadFile || isUploading} className="w-full bg-black text-white rounded-full border-2 border-black hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all uppercase tracking-widest font-black">
-                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Upload & Save Photo"}
-                      </Button>
-                    </div>
-                  )}
-
-                  {avatarTab === "avatar" && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2 border-2 border-zinc-100">
-                        {[...MALE_AVATARS, ...FEMALE_AVATARS].map((url, i) => (
-                          <div
-                            key={i}
-                            onClick={() => { setSelectedAvatar(url); setPreviewUrl(url); }}
-                            className={`aspect-square rounded-full border-2 cursor-pointer transition-all hover:scale-110 overflow-hidden ${selectedAvatar === url ? 'border-black ring-2 ring-black ring-offset-1' : 'border-zinc-200'}`}
-                          >
-                            <img src={url} className="w-full h-full object-cover" />
-                          </div>
-                        ))}
-                      </div>
-                      <Button onClick={saveProfilePicture} disabled={isUploading} className="w-full bg-[#90e8ff] text-black rounded-full border-2 border-black hover:bg-[#7dd3ea] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all uppercase tracking-widest font-black">
-                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Use Selected Avatar"}
-                      </Button>
-                    </div>
-                  )}
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold text-slate-900">Last Name</label>
+                  <input
+                    className="neu-input w-full p-3 rounded-lg bg-slate-50 font-medium focus:bg-white"
+                    placeholder="e.g. Morgan"
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid md:grid-cols-2 gap-8">
-
-          {/* SECTION 2: Personal Details */}
-          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden h-fit">
-            <CardHeader className="bg-zinc-50 border-b-2 border-black">
-              <CardTitle className="flex items-center gap-2 font-black uppercase tracking-tight"><UserIcon className="w-5 h-5" /> Personal Details</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <form onSubmit={savePersonalInfo} className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="font-bold">Full Name</Label>
-                  <Input value={personalInfo.name} onChange={e => setPersonalInfo({ ...personalInfo, name: e.target.value })} className="border-2 border-black rounded-none" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-bold uppercase text-[10px] tracking-widest text-zinc-500">Phone Number</Label>
-                  <Input value={personalInfo.phone} onChange={e => setPersonalInfo({ ...personalInfo, phone: e.target.value })} className="border-2 border-black rounded-lg" />
-                </div>
-                <Button disabled={isSavingInfo} className="w-full bg-black text-white rounded-full border-2 border-black hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black uppercase tracking-widest">
-                  {isSavingInfo ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save Details"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* SECTION 3: Address (With Special Logic) */}
-          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden h-fit">
-            <CardHeader className="bg-zinc-50 border-b-2 border-black">
-              <CardTitle className="flex items-center gap-2 font-black uppercase tracking-tight"><MapPin className="w-5 h-5" /> Shipping Address</CardTitle>
-              <CardDescription className="font-bold text-xs uppercase tracking-widest">
-                {isAddressNew ? "Add your primary shipping address." : "Secure address management."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              {/* LOCKED STATE: Show only if address exists and is locked */}
-              {!isAddressNew && !isEditingAddress && !isAddressUnlocked ? (
-                <div className="text-center py-6 space-y-4">
-                  <MapPin className="w-12 h-12 mx-auto text-black" />
-                  <div>
-                    <p className="font-bold text-lg">{address.street}</p>
-                    <p className="text-zinc-600">{address.city} - {address.zip}</p>
-                  </div>
-                  <div className="pt-4 border-t-2 border-zinc-100">
-                    <Label className="mb-2 block text-sm font-bold">Enter Password to Edit Address</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="password"
-                        placeholder="Current Password"
-                        value={addressAuthPassword}
-                        onChange={(e) => setAddressAuthPassword(e.target.value)}
-                        className="border-2 border-black rounded-lg"
-                      />
-                      <Button onClick={handleUnlockAddress} className="bg-black text-white border-2 border-black rounded-full hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black uppercase">Unlock</Button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* EDIT/NEW FORM STATE */
-                <form onSubmit={saveAddress} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="font-bold">Street Address</Label>
-                    <Input
-                      value={address.street}
-                      onChange={e => setAddress({ ...address, street: e.target.value })}
-                      required
-                      className="border-2 border-black rounded-none"
+                <div className="flex flex-col gap-2 md:col-span-2">
+                  <label className="font-bold text-slate-900">Email Address (Locked)</label>
+                  <div className="relative opacity-60 pointer-events-none">
+                    <input
+                      className="neu-input w-full p-3 rounded-lg bg-zinc-200 font-medium"
+                      type="email"
+                      value={user.email}
+                      readOnly
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="font-bold">City</Label>
-                      <Input
-                        value={address.city}
-                        onChange={e => setAddress({ ...address, city: e.target.value })}
-                        required
-                        className="border-2 border-black rounded-none"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="font-bold">Zip Code</Label>
-                      <Input
-                        value={address.zip}
-                        onChange={e => setAddress({ ...address, zip: e.target.value })}
-                        required
-                        className="border-2 border-black rounded-none"
-                      />
-                    </div>
-                  </div>
-                  <Button className="w-full bg-[#fdf567] text-black rounded-full border-2 border-black hover:bg-[#e6de5a] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black uppercase transition-all">
-                    Save Address
-                  </Button>
-                  {!isAddressNew && (
-                    <button
-                      type="button"
-                      onClick={() => { setIsEditingAddress(false); setIsAddressUnlocked(false); }}
-                      className="w-full text-center text-sm font-bold underline mt-2"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </form>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* SECTION 4: Security */}
-          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden h-fit md:col-span-2">
-            <CardHeader className="bg-zinc-50 border-b-2 border-black">
-              <CardTitle className="flex items-center gap-2 font-black uppercase tracking-tight"><Lock className="w-5 h-5" /> Security</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <form onSubmit={savePassword} className="space-y-4 max-w-md">
-                <div className="space-y-2">
-                  <Label className="font-bold">Email Address</Label>
-                  <Input value={user?.email || ""} disabled className="bg-zinc-100 border-2 border-black rounded-none opacity-100 text-zinc-500" />
                 </div>
-                <div className="space-y-2 pt-4 border-t-2 border-zinc-100">
-                  <Label className="font-bold">New Password</Label>
-                  <Input
-                    type="password"
-                    value={passwordData.password}
-                    onChange={e => setPasswordData({ password: e.target.value })}
-                    placeholder="Enter new password"
-                    className="border-2 border-black rounded-lg"
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold text-slate-900">Phone Number</label>
+                  <input
+                    className="neu-input w-full p-3 rounded-lg bg-slate-50 font-medium focus:bg-white"
+                    placeholder="(555) 000-0000"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
                   />
                 </div>
-                <Button disabled={isSavingPassword} className="bg-black text-white rounded-full border-2 border-black hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black uppercase px-8">
-                  {isSavingPassword ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Update Password"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+              </div>
+            </section>
 
+            {/* Shipping / Company Info */}
+            <section>
+              <h3 className="text-xl font-black mb-6 border-b-2 border-slate-100 pb-2 flex items-center gap-2">
+                <span className="bg-accent-lavender text-black p-1 rounded border-2 border-black shadow-[2px_2px_0_0_#000]">
+                  <Building className="w-5 h-5 block" />
+                </span>
+                Shipping Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex flex-col gap-2 md:col-span-2">
+                  <label className="font-bold text-slate-900">Street Address / Company</label>
+                  <input
+                    className="neu-input w-full p-3 rounded-lg bg-slate-50 font-medium focus:bg-white"
+                    type="text"
+                    placeholder="123 Printing Lane"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold text-slate-900">City</label>
+                  <input
+                    className="neu-input w-full p-3 rounded-lg bg-slate-50 font-medium focus:bg-white"
+                    type="text"
+                    placeholder="New York"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold text-slate-900">Zip / Postal Code</label>
+                  <input
+                    className="neu-input w-full p-3 rounded-lg bg-slate-50 font-medium focus:bg-white"
+                    type="text"
+                    placeholder="10001"
+                    value={zip}
+                    onChange={(e) => setZip(e.target.value)}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Security */}
+            <section>
+              <h3 className="text-xl font-black mb-6 border-b-2 border-slate-100 pb-2 flex items-center gap-2">
+                <span className="bg-[#facc15] text-black p-1 rounded border-2 border-black shadow-[2px_2px_0_0_#000]">
+                  <Lock className="w-5 h-5 block" />
+                </span>
+                Security
+              </h3>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2 w-full md:w-1/2">
+                  <label className="font-bold text-slate-900">Update Password</label>
+                  <input
+                    className="neu-input w-full p-3 rounded-lg bg-slate-50 font-medium focus:bg-white"
+                    placeholder="Enter new password to change..."
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <p className="text-xs text-zinc-500 font-medium mt-1">Leave blank to keep your current password.</p>
+                </div>
+              </div>
+            </section>
+
+          </div>
         </div>
+
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { removeFromInquiry, clearInquiry } from "@/lib/store/inquirySlice";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Trash2, Loader2 } from "lucide-react";
+import { ShoppingCart, Trash2, Loader2, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { useAlert } from "@/components/CustomAlert";
 import { useRouter } from "next/navigation";
@@ -39,7 +39,6 @@ export default function InquiryCartSidebar() {
             return;
         }
 
-        // Format payload for backend using the cart items
         const payloadItems = items.map(item => {
             if (item.productId != null) {
                 return {
@@ -49,7 +48,6 @@ export default function InquiryCartSidebar() {
                     notes: (item.options?.notes as string) || "Added from cart",
                 };
             } else if (item.serviceId != null) {
-                // Ensure variant_id is captured from options
                 const variantId = item.options?.variant_id ?? item.options?.variantId;
                 return {
                     service_id: Number(item.serviceId),
@@ -66,8 +64,6 @@ export default function InquiryCartSidebar() {
             return null;
         }).filter((i): i is NonNullable<typeof i> => i !== null);
 
-        console.log("Submitting inquiry payload:", { items: payloadItems });
-
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/`, {
                 method: "POST",
@@ -79,7 +75,7 @@ export default function InquiryCartSidebar() {
             });
 
             if (res.ok) {
-                showAlert("Inquiry submitted successfully! Our studio will review it shortly.", "success");
+                showAlert("Inquiry submitted successfully! Our studio will review it.", "success");
                 dispatch(clearInquiry());
                 setIsOpen(false);
                 router.push("/dashboard/inquiries");
@@ -100,84 +96,113 @@ export default function InquiryCartSidebar() {
     return (
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-                <Button variant="ghost" className="relative p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full cursor-pointer h-10 w-10 overflow-hidden group border-0">
-                    <ShoppingCart className="h-5 w-5" />
+                <Button variant="ghost" className="relative p-0 h-10 w-10 bg-[#ccff00] border-2 border-black rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all cursor-pointer flex items-center justify-center shrink-0">
+                    <ShoppingCart className="h-5 w-5 text-black" />
                     {itemCount > 0 && (
-                        <span className="absolute top-1 right-1 bg-[#FF90E8] text-black text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center border border-black shadow-sm group-hover:scale-110 transition-transform">
+                        <span className="absolute -top-2 -right-2 bg-[#ff00ff] text-white text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                             {itemCount}
                         </span>
                     )}
                 </Button>
             </SheetTrigger>
 
-            <SheetContent className="w-full sm:max-w-md border-l-4 border-black p-0 flex flex-col bg-zinc-50 font-sans shadow-[-8px_0px_0px_0px_rgba(0,0,0,0.1)]">
-                <SheetHeader className="p-6 bg-black text-white border-b-4 border-black">
-                    <SheetTitle className="text-2xl font-black uppercase tracking-widest text-[#FF90E8] flex justify-between items-center">
-                        Your Cart
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleClear}
-                            className="text-white hover:text-red-400 hover:bg-white/10 text-xs font-bold transition-colors uppercase tracking-wider h-8"
-                            disabled={items.length === 0}
-                        >
-                            Clear All
-                        </Button>
-                    </SheetTitle>
+            {/* Sidebar Container equivalent inside Sheet */}
+            <SheetContent className="w-full sm:max-w-md bg-white dark:bg-slate-900 border-l-4 border-black p-0 flex flex-col shadow-[-8px_0px_0px_0px_rgba(0,0,0,0.1)]">
+                <SheetHeader className="sr-only">
+                    <SheetTitle>Your Cart</SheetTitle>
                 </SheetHeader>
 
-                <div className="flex-grow overflow-y-auto p-6 space-y-4 bg-zinc-50">
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b-2 border-black sticky top-0 bg-white dark:bg-slate-900 z-10 shrink-0">
+                    <h2 className="text-3xl font-bold tracking-tight uppercase">Your Cart</h2>
+                    {items.length > 0 && (
+                        <button
+                            onClick={handleClear}
+                            className="px-3 py-1 text-xs font-bold uppercase tracking-wider text-red-600 hover:bg-red-50 border-2 border-transparent hover:border-red-200 rounded transition-colors"
+                        >
+                            Clear All
+                        </button>
+                    )}
+                </div>
+
+                {/* Cart Items List */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     {items.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-zinc-400 gap-4">
-                            <ShoppingCart className="w-16 h-16 opacity-20" />
-                            <p className="font-bold text-center uppercase tracking-widest text-sm opacity-50">Your cart is empty</p>
+                        <div className="mt-8 p-4 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center text-slate-400">
+                            <ShoppingCart className="w-12 h-12 mb-2 opacity-50" />
+                            <p className="text-sm font-medium">Add more to your order</p>
                         </div>
                     ) : (
                         items.map((item) => (
-                            <div key={item.id} className="bg-white border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-2 rounded-none transition-all hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-                                <div className="flex justify-between items-start gap-2">
-                                    <div className="flex flex-col space-y-1">
-                                        <span className="font-black text-lg leading-tight uppercase tracking-tight line-clamp-2">
-                                            {item.name}
-                                        </span>
-                                        <span className="text-sm font-bold text-zinc-500">Qty: {item.quantity}</span>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleRemove(item.id)}
-                                        className="h-8 w-8 text-zinc-400 hover:text-red-500 hover:bg-red-50"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                            <div key={item.id} className="neu-border neu-card p-4 bg-white dark:bg-slate-800 flex gap-4 items-center">
+                                {/* Only missing image data from slice usually, so using a fallback abstract placeholder */}
+                                <div className="w-24 h-24 neu-border overflow-hidden flex-shrink-0 bg-zinc-100 flex items-center justify-center border-2 border-black">
+                                    <img
+                                        src={`https://api.dicebear.com/7.x/shapes/svg?seed=${item.id}&backgroundColor=ffffff`}
+                                        alt="Item Thumbnail"
+                                        className="w-full h-full object-cover mix-blend-multiply opacity-50"
+                                    />
                                 </div>
-
-                                <div className="mt-2 border-t-2 border-dashed border-black/20 pt-2 flex justify-between items-center">
-                                    <span className="text-xl font-black">₹{item.estimatedPrice.toLocaleString()}</span>
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest bg-zinc-100 px-2 py-1">
+                                <div className="flex-1 flex flex-col gap-1 min-w-0">
+                                    <span className="text-xs font-bold uppercase text-primary line-clamp-1 break-words">
                                         {item.productId ? 'Product' : 'Service'}
                                     </span>
+                                    <h3 className="font-bold text-lg leading-tight line-clamp-2" title={item.name}>
+                                        {item.name}
+                                    </h3>
+                                    <p className="text-slate-500 font-medium text-xs">
+                                        Qty: {item.quantity}
+                                    </p>
+                                    <div className="flex items-center justify-between mt-2">
+                                        <button
+                                            onClick={() => handleRemove(item.id)}
+                                            className="flex items-center neu-border rounded-full overflow-hidden h-8 bg-background-light px-3 hover:bg-red-100 hover:text-red-600 transition-colors text-xs font-bold"
+                                        >
+                                            <Trash2 className="w-3 h-3 mr-1" /> Remove
+                                        </button>
+                                        <span className="font-bold">₹{item.estimatedPrice.toLocaleString()}</span>
+                                    </div>
                                 </div>
                             </div>
                         ))
                     )}
                 </div>
 
-                {/* Footer actions */}
-                <div className="p-6 bg-white border-t-4 border-black flex flex-col gap-4 sticky bottom-0 z-10">
-                    <div className="flex justify-between items-end">
-                        <span className="text-sm font-black text-zinc-500 uppercase tracking-widest">Est. Subtotal</span>
-                        <span className="text-3xl font-black">₹{totalEstimate.toLocaleString()}</span>
+                {/* Footer / Checkout Section */}
+                <div className="p-6 border-t-4 border-black bg-white dark:bg-slate-900 shrink-0">
+                    <div className="space-y-2 mb-6">
+                        <div className="flex justify-between items-center">
+                            <span className="font-medium text-slate-500">Subtotal</span>
+                            <span className="font-bold">₹{totalEstimate.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="font-medium text-slate-500">Shipping</span>
+                            <span className="text-xs font-bold uppercase bg-slate-100 px-2 py-0.5 border border-black dark:text-black">Calculated later</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-black/10">
+                            <span className="text-xl font-bold uppercase tracking-tight">Total Estimate</span>
+                            <span className="text-2xl font-black text-primary">₹{totalEstimate.toLocaleString()}</span>
+                        </div>
                     </div>
-
-                    <Button
-                        className="w-full h-14 bg-[#4be794] text-black font-black uppercase text-lg tracking-widest border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-[#3cd083] hover:translate-x-px hover:translate-y-px hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50"
-                        disabled={items.length === 0 || isSubmitting}
+                    <button
                         onClick={handleSubmitInquiry}
+                        disabled={items.length === 0 || isSubmitting}
+                        className="w-full neu-border neu-card bg-primary text-white py-4 rounded-xl font-black text-xl uppercase tracking-wider transition-all flex items-center justify-center gap-2 group hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
                     >
-                        {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin mr-2" /> : "Request Official Quote"}
-                    </Button>
+                        {isSubmitting ? (
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                        ) : (
+                            <>
+                                Proceed to Checkout
+                                <ArrowRight className="font-bold group-hover:translate-x-1 transition-transform w-5 h-5" />
+                            </>
+                        )}
+                    </button>
+                    <p className="mt-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-normal">
+                        Quotes are finalized by the PrintPack studio.<br />Secure payment link provided post-approval.
+                    </p>
                 </div>
+
             </SheetContent>
         </Sheet>
     );

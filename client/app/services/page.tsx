@@ -1,19 +1,16 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Package, Layers } from "lucide-react";
 import { ServiceItem } from "@/types/service";
 import { ServiceCard } from "@/components/services/ServiceCard";
 
 async function getServices(): Promise<ServiceItem[]> {
     try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services/`, {
-            next: { revalidate: 3600 }
-        });
-
-        if (!res.ok) return [];
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services?_t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) {
+            throw new Error(`Failed to fetch services: ${res.status}`);
+        }
         return res.json();
     } catch (error) {
-        console.error("Failed to fetch services:", error);
+        console.error(error);
         return [];
     }
 }
@@ -22,72 +19,89 @@ export default async function ServicesCatalogPage() {
     const services = await getServices();
 
     return (
-        <div className="min-h-screen bg-white relative overflow-hidden">
-            {/* Background Decorative Pattern */}
-            <div className="absolute inset-0 z-0 opacity-40 pointer-events-none bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] bg-size-[24px_24px]"></div>
-
-            <div className="max-w-7xl mx-auto px-6 py-24 relative z-10">
-                {/* Energetic Page Header */}
-                <div className="relative mb-20">
-                    <div className="bg-[#90e8ff] border-4 border-black p-12 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rotate-1 relative rounded-xl">
-                        <div className="absolute -top-6 -left-6 bg-[#fdf567] border-2 border-black px-6 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -rotate-3 z-20 rounded-md">
-                            <span className="text-sm font-black uppercase tracking-[0.3em]">The Studio</span>
-                        </div>
-                        <div className="space-y-6 relative z-10">
-                            <h1 className="text-6xl md:text-8xl font-black tracking-tighter uppercase leading-[0.85] text-black">
-                                Studio <br />
-                                <span className="text-white drop-shadow-[5px_5px_0px_rgba(0,0,0,1)]">Solutions.</span>
-                            </h1>
-                            <p className="text-xl md:text-2xl font-black text-black/80 max-w-2xl leading-tight border-l-8 border-black pl-8 py-2">
-                                Professional structural design and bespoke prototyping for high-end commerce.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Section Divider */}
-                <div className="flex items-center gap-6 mb-16 overflow-hidden">
-                    <div className="h-1 flex-1 bg-black"></div>
-                    <div className="bg-black text-white px-8 py-2 font-black uppercase tracking-[0.4em] text-xs -rotate-2 border-4 border-black shadow-[4px_4px_0px_0px_rgba(144,232,255,1)]">
-                        Strategic_Consulting
-                    </div>
-                    <div className="h-1 flex-1 bg-black"></div>
-                </div>
-
-                {services.length === 0 ? (
-                    <div className="col-span-full text-center py-32 bg-zinc-50 border-8 border-dashed border-black shadow-[10px_10px_0px_0px_rgba(0,0,0,0.1)]">
-                        <Layers className="w-24 h-24 mx-auto text-zinc-300 mb-6" />
-                        <h3 className="text-4xl font-black uppercase tracking-tighter">Studio Offline</h3>
-                        <p className="text-xl font-bold text-zinc-500 mt-4">We are currently recalibrating our service tiers. Check back soon.</p>
-                    </div>
-                ) : (
-                    <div className="grid md:grid-cols-2 gap-12">
-                        {services.map((service) => (
-                            <ServiceCard key={service.id} service={service} />
-                        ))}
-                    </div>
-                )}
-
-                {/* High Impact Call-to-Action */}
-                <div className="mt-40 relative group">
-                    <div className="absolute inset-0 bg-[#4be794] border-2 border-black translate-x-4 translate-y-4 z-0 group-hover:translate-x-6 group-hover:translate-y-6 transition-all duration-300 rounded-xl"></div>
-                    <div className="relative bg-white border-2 border-black p-12 md:p-24 z-10 flex flex-col lg:flex-row items-center justify-between gap-12 overflow-hidden rounded-xl">
-                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/5 rounded-full translate-y-32 -translate-x-32"></div>
-                        <div className="space-y-8 max-w-2xl relative z-10">
-                            <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter leading-none">
-                                Custom <br />
-                                <span className="bg-[#ff90e8] px-4 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] inline-block mt-2 -rotate-1 rounded-md">Architect?</span>
+        <main className="grow bg-background-light text-border-black pb-20">
+            {/* Header Section */}
+            <div className="border-b-3 border-border-black bg-accent-blue/20">
+                <div className="mx-auto max-w-7xl px-4 py-12 lg:px-10 lg:py-16">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="max-w-2xl">
+                            <div className="inline-block px-3 py-1 mb-4 text-xs font-black uppercase tracking-wider bg-accent-yellow border-2 border-border-black shadow-neubrutalism-sm">
+                                Studio 2024
+                            </div>
+                            <h2 className="font-display text-5xl font-black uppercase leading-none tracking-tighter text-border-black lg:text-7xl">
+                                Service<br />Categories
                             </h2>
-                            <p className="text-xl md:text-2xl font-bold text-zinc-600 leading-tight">
-                                Can't find exactly what you're looking for? Our master designers handle complex bespoke engineering daily. Let's talk structure.
+                            <p className="mt-6 text-xl font-medium text-border-black/80 max-w-xl">
+                                Browse our curated catalog of custom services to elevate your brand identity and prototyping needs.
                             </p>
                         </div>
-                        <Button size="lg" className="bg-black text-white hover:bg-black hover:scale-105 border-2 border-black shadow-[8px_8px_0px_0px_rgba(255,144,232,1)] hover:shadow-[12px_12px_0px_0px_rgba(253,245,103,1)] transition-all text-2xl h-24 px-16 font-black uppercase shrink-0 rounded-full relative z-10" asChild>
-                            <Link href="/#contact">Talk to Studio <ArrowRight className="ml-6 h-10 w-10" /></Link>
-                        </Button>
+                        <div className="w-full lg:hidden">
+                            <div className="relative flex items-center">
+                                <input className="h-12 w-full rounded-none border-3 border-border-black bg-white px-4 font-medium placeholder-gray-500 focus:border-primary focus:outline-none focus:ring-0 shadow-neubrutalism-sm" placeholder="Search for services..." type="text" />
+                                <button className="absolute right-3 top-1/2 -translate-y-1/2 text-border-black">
+                                    <span className="material-symbols-outlined font-black">search</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            {/* Filter Bar */}
+            <div className="sticky top-[76px] z-40 border-b-3 border-border-black bg-white">
+                <div className="mx-auto flex max-w-7xl items-center gap-4 overflow-x-auto px-4 py-3 lg:px-10 no-scrollbar">
+                    <button className="flex items-center gap-2 whitespace-nowrap bg-border-black px-4 py-2 font-bold text-white shadow-neubrutalism-sm hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all border-2 border-border-black">
+                        <span className="material-symbols-outlined text-[20px]">grid_view</span>
+                        All Services
+                    </button>
+                    <button className="whitespace-nowrap bg-white border-2 border-border-black px-4 py-2 font-bold text-border-black shadow-neubrutalism-sm hover:bg-accent-yellow hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
+                        Design
+                    </button>
+                    <button className="whitespace-nowrap bg-white border-2 border-border-black px-4 py-2 font-bold text-border-black shadow-neubrutalism-sm hover:bg-accent-green hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
+                        Consulting
+                    </button>
+                    <button className="whitespace-nowrap bg-white border-2 border-border-black px-4 py-2 font-bold text-border-black shadow-neubrutalism-sm hover:bg-accent-purple hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
+                        Printing
+                    </button>
+                </div>
+            </div>
+
+            {/* Grid */}
+            <div className="mx-auto max-w-7xl px-4 py-12 lg:px-10">
+                <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                    {services.map((service, index) => (
+                        <ServiceCard key={service.id} service={service} index={index} />
+                    ))}
+                    {services.length === 0 && (
+                        <div className="p-10 border-4 border-black bg-zinc-50 shadow-neubrutalism col-span-full text-center">
+                            <p className="font-bold text-lg">No designated categories found currently.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Bottom CTA */}
+            <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 lg:px-10">
+                <div className="relative overflow-hidden border-3 border-border-black bg-accent-yellow p-8 shadow-neubrutalism-lg lg:p-12">
+                    <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full border-3 border-border-black bg-white opacity-50"></div>
+                    <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full border-3 border-border-black bg-primary opacity-20"></div>
+                    <div className="relative z-10 flex flex-col items-start gap-8 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="max-w-2xl">
+                            <h2 className="font-display text-3xl font-black uppercase leading-tight tracking-tight text-border-black lg:text-5xl">
+                                Custom Architect?
+                            </h2>
+                            <p className="mt-4 text-lg font-medium text-border-black">
+                                Can't find exactly what you're looking for? Our master designers handle complex bespoke engineering daily.
+                            </p>
+                        </div>
+                        <div className="flex shrink-0 flex-col gap-4 sm:flex-row">
+                            <Link href="/contact" className="flex items-center justify-center whitespace-nowrap bg-border-black px-8 py-4 font-bold text-white shadow-neubrutalism hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px] transition-all border-2 border-border-black text-lg">
+                                CONTACT US
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     );
 }
