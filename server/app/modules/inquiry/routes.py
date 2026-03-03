@@ -154,12 +154,20 @@ async def respond_to_quotation(
     
     group.status = status_update.status.value
     await db.commit()
-    await db.refresh(group)
+    
+    # Re-fetch the fully loaded group with relationships after commit
+    fetch_stmt = select(InquiryGroup).options(
+        selectinload(InquiryGroup.items),
+        selectinload(InquiryGroup.messages)
+    ).where(InquiryGroup.id == group_id)
+    
+    refreshed_result = await db.execute(fetch_stmt)
+    refreshed_group = refreshed_result.scalar_one()
     
     # Note: If ACCEPTED, this is where you would trigger the background task
     # to convert this InquiryGroup into a finalized Order object.
     
-    return group
+    return refreshed_group
     
 
 @router.delete("/my/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
