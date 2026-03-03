@@ -5,22 +5,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Suspense } from "react";
 
+import { useAuth } from "@/context/AuthContext";
+
 function AuthSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { login } = useAuth();
 
   useEffect(() => {
     const accessToken = searchParams.get("access_token");
 
     if (accessToken) {
-      // Save the token from the URL query params
-      localStorage.setItem("access_token", accessToken);
-      // Clean up the URL and go to dashboard
-      router.replace("/dashboard");
+      // Use AuthContext login — fetches user data before navigating
+      login(accessToken);
     } else {
       router.replace("/login?error=GoogleAuthFailed");
     }
-  }, [router, searchParams]);
+  }, [router, searchParams, login]);
 
   return (
     <div className="flex min-h-screen items-center justify-center flex-col gap-4">

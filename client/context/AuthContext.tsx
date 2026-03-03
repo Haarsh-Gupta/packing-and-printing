@@ -19,7 +19,7 @@ interface AuthContextType {
     user: UserData | null;
     isLoading: boolean;
     isLoggedIn: boolean;
-    login: (token: string, userData: any) => void;
+    login: (token: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
 }
@@ -66,13 +66,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchUser();
     }, [fetchUser]);
 
-    const login = (token: string, userData: any) => {
+    const login = async (token: string) => {
         localStorage.setItem("access_token", token);
-        setUser(userData);
+
+        // Fetch user data immediately so it's available before navigating
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
+            });
+            if (res.ok) {
+                const userData = await res.json();
+                setUser(userData);
+            }
+        } catch (error) {
+            console.error("Failed to fetch user after login:", error);
+        }
+
         // Trigger wishlist sync on imperative login
         dispatch(syncGuestWishlist());
         router.push("/dashboard");
-        // Trigger header update if needed (context usually handles this but for mixed components)
+        // Trigger header update if needed
         window.dispatchEvent(new Event("user-updated"));
     };
 
