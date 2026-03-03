@@ -7,7 +7,7 @@ class SubServiceBase(BaseModel):
     name: str = Field(..., description="Name of the service variant")
     slug: Optional[str] = Field(None, description="URL-friendly identifier")
     service_id: int = Field(...,description="Parent service ID (for responses)")
-    base_price: float = Field(..., description="Base price (setup cost)")
+    minimum_quantity: int = Field(..., description="Minimum quantity required")
     price_per_unit: float = Field(..., description="Price per unit")
     description: Optional[str] = Field(None, description="Description")
     images: Optional[List[str]] = Field(None, description="List of image URLs")
@@ -28,7 +28,7 @@ class SubServiceCreate(SubServiceBase):
             "example": {
                 "name": "Softcover Binding",
                 "service_id": 1,
-                "base_price": 50.0,
+                "minimum_quantity": 10,
                 "price_per_unit": 2.5,
                 "description": "Standard softcover binding with durable glue.",
                 "images": ["https://example.com/softcover.jpg"],
@@ -43,7 +43,7 @@ class SubServiceUpdate(BaseModel):
     service_id: int = None
     name: Optional[str] = None
     slug: Optional[str] = None
-    base_price: Optional[float] = None
+    minimum_quantity: Optional[int] = None
     price_per_unit: Optional[float] = None
     description: Optional[str] = None
     images: Optional[List[str]] = None

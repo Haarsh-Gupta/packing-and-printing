@@ -26,7 +26,8 @@ class SubService(Base):
     name = Column(String, nullable=False) 
     slug = Column(String, unique=True, nullable=True)
     is_active = Column(Boolean, default=True)
-    base_price = Column(Float, default=0.0)       
+    # base_price = Column(Float, default=0.0) #remove it 
+    minimum_quantity = Column(Integer, default=1)       
     price_per_unit = Column(Float, default=0.0)
     images = Column(ARRAY(String), nullable=True)
     description = Column(String, nullable=True)

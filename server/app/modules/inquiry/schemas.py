@@ -4,6 +4,8 @@ from uuid import UUID
 from enum import Enum
 from pydantic import BaseModel, Field, model_validator, ConfigDict
 
+from app.modules.orders.schemas import PaymentSplitType
+
 
 # --- Enums ---
 class InquiryStatus(str, Enum):
@@ -85,6 +87,7 @@ class InquiryQuotation(BaseModel):
 class InquiryStatusUpdate(BaseModel):
     """Schema for updating inquiry status (user accepting/rejecting)"""
     status: InquiryStatus
+    split_type: Optional[PaymentSplitType] = None
 
 
 # ==========================================

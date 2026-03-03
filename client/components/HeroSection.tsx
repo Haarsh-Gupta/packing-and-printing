@@ -177,7 +177,7 @@ export default function HeroSection() {
             <DoodleSparkle className="absolute top-12 right-[25%] w-7 opacity-15 doodle-float-1 hidden lg:block" />
             <DoodleHeart className="absolute bottom-[30%] right-[25%] w-7 opacity-15 doodle-float-2 hidden lg:block" />
 
-            <div className="max-w-6xl mx-auto px-6 pt-20 pb-16 md:pt-32 md:pb-24 relative z-10">
+            <div className="max-w-6xl mx-auto px-6 pt-20 pb-32 md:pt-32 md:pb-48 relative z-10">
 
                 {/* Main Hero Content */}
                 <div className="text-center space-y-8">
@@ -263,9 +263,26 @@ export default function HeroSection() {
             </div>
 
             {/* Bottom wave / transition */}
-            <div className="absolute bottom-0 left-0 right-0">
-                <svg viewBox="0 0 1440 60" fill="none" className="w-full">
-                    <path d="M0 60V30C240 0 480 0 720 30C960 60 1200 60 1440 30V60H0Z" fill="white" />
+            <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden leading-none z-10 pointer-events-none">
+                <svg
+                    viewBox="0 0 2880 120"
+                    preserveAspectRatio="none"
+                    className="w-[200%] min-w-[200%] h-16 md:h-20 block"
+                >
+                    <g opacity="0.4">
+                        <animateTransform attributeName="transform" type="translate" from="0 0" to="-1440 0" dur="15s" repeatCount="indefinite" />
+                        <path
+                            d="M 0 60 C 240 25 480 25 720 60 C 960 95 1200 95 1440 60 C 1680 25 1920 25 2160 60 C 2400 95 2640 95 2880 60 V 120 H 0 Z"
+                            fill="white"
+                        />
+                    </g>
+                    <g>
+                        <animateTransform attributeName="transform" type="translate" from="0 0" to="-1440 0" dur="10s" repeatCount="indefinite" />
+                        <path
+                            d="M 0 60 C 240 10 480 10 720 60 C 960 110 1200 110 1440 60 C 1680 10 1920 10 2160 60 C 2400 110 2640 110 2880 60 V 120 H 0 Z"
+                            fill="white"
+                        />
+                    </g>
                 </svg>
             </div>
 

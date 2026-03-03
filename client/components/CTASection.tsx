@@ -6,15 +6,15 @@ import { ArrowRight } from "lucide-react";
 
 export default function CTASection() {
     return (
-        <section id="contact" className="py-16 px-6 bg-[#FF90E8] border-b-4 border-black relative overflow-hidden">
+        <section id="contact" className="py-16 px-6 bg-[#A78BFA] relative overflow-hidden">
             {/* Decorative rings */}
-            <div className="absolute -top-40 -right-40 w-[500px] h-[500px] border-[40px] border-black/5 rounded-full" />
-            <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] border-[20px] border-black/5 rounded-full" />
+            <div className="absolute -top-40 -right-40 w-[500px] h-[500px] border-40 border-black/5 rounded-full" />
+            <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] border-20 border-black/5 rounded-full" />
 
             <div className="max-w-4xl mx-auto text-center relative z-10 space-y-6">
                 <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-black leading-[0.9]">
                     Share your brand.<br />
-                    <span className="bg-black text-[#FF90E8] px-3 inline-block mt-2">We&apos;ll print it.</span>
+                    <span className="bg-black text-[#A78BFA] px-3 inline-block mt-2">We&apos;ll print it.</span>
                 </h2>
 
                 <p className="text-base md:text-lg font-medium text-black/70 max-w-2xl mx-auto leading-relaxed">
