@@ -26,9 +26,9 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [stats, setStats] = useState<Stats>({ totalOrders: 0, pendingInquiries: 0, inTransit: 0 });
-  const [isLoading, setIsLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -60,14 +60,14 @@ export default function DashboardPage() {
       } catch (error) {
         console.error("Dashboard stats fetch error:", error);
       } finally {
-        setIsLoading(false);
+        setStatsLoading(false);
       }
     };
 
     fetchStats();
   }, [router]);
 
-  if (isLoading) return <DashboardSkeleton />;
+  if (authLoading || statsLoading) return <DashboardSkeleton />;
 
   const avatarUrl = user?.profile_picture
     ? user.profile_picture

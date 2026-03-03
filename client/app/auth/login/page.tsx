@@ -10,8 +10,11 @@ import { FcGoogle } from "react-icons/fc";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+import { useAuth } from "@/context/AuthContext";
+
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -41,11 +44,8 @@ export default function LoginPage() {
         throw new Error(detail || "Invalid credentials");
       }
 
-      // Save the access token
-      localStorage.setItem("access_token", data.access_token);
-
-      // The refresh token is automatically set in HttpOnly cookies by your backend!
-      router.push("/dashboard");
+      // Use AuthContext login — fetches user data before navigating
+      await login(data.access_token);
     } catch (err: any) {
       setError(err.message);
     } finally {
