@@ -69,6 +69,8 @@ class InquiryItem(Base):
     # Admin sets these after reviewing the inquiry
     line_item_price = Column(Double, nullable=True)
 
+    estimated_price = Column(Double, nullable=True)
+
     
     # Relationships
     group = relationship("InquiryGroup", back_populates="items")
