@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchUser();
     }, [fetchUser]);
 
-    const login = async (token: string) => {
+    const login = useCallback(async (token: string) => {
         localStorage.setItem("access_token", token);
 
         // Fetch user data immediately so it's available before navigating
@@ -88,9 +88,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.push("/dashboard");
         // Trigger header update if needed
         window.dispatchEvent(new Event("user-updated"));
-    };
+    }, [dispatch, router]);
 
-    const logout = async () => {
+    const logout = useCallback(async () => {
         try {
             const token = localStorage.getItem("access_token");
             if (token) {
@@ -108,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             router.replace("/auth/login");
             window.dispatchEvent(new Event("user-updated"));
         }
-    };
+    }, [router]);
 
     return (
         <AuthContext.Provider

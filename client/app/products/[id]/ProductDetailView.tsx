@@ -37,9 +37,9 @@ export default function ProductDetailView({ product }: { product: Product }) {
 
                 <div className="mb-16">
                     <h2 className="text-3xl font-black uppercase tracking-tight mb-8">Available Variants</h2>
-                    {product.sub_products && product.sub_products.length > 0 ? (
+                    {product.sub_products && product.sub_products.filter(s => s.is_active !== false).length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {product.sub_products.map((sub: SubProduct, index: number) => (
+                            {product.sub_products.filter(s => s.is_active !== false).map((sub: SubProduct, index: number) => (
                                 <SubProductCard key={sub.id} subProduct={sub} index={index} />
                             ))}
                         </div>

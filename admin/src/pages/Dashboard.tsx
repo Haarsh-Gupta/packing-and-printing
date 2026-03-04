@@ -3,37 +3,76 @@ import { api } from "@/lib/api";
 import type { DashboardOverview } from "@/types";
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    BarChart, Bar, PieChart, Pie, Cell
+    PieChart, Pie, Cell
 } from "recharts";
 import {
     TrendingUp, TrendingDown, Users, ShoppingBag, MessageSquare,
-    Activity, IndianRupee, Clock, ArrowUpRight
+    IndianRupee, ArrowUpRight, ShoppingCart
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 
-const CHART_COLORS = ["#1a1a1a", "#525252", "#a3a3a3", "#d4d4d4", "#e5e5e5", "#f5f5f5"];
+const STATUS_COLORS: Record<string, string> = {
+    PENDING: '#f59e0b',
+    PROCESSING: '#3b82f6',
+    SHIPPED: '#8b5cf6',
+    DELIVERED: '#10b981',
+    CANCELLED: '#ef4444',
+};
 
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
             <div style={{
-                background: '#0a0a0a',
-                border: '1px solid #262626',
-                borderRadius: '4px',
-                padding: '8px 12px',
-                fontFamily: "'DM Mono', monospace",
-                fontSize: '11px',
-                color: '#fafafa',
+                background: 'white', border: '1px solid rgba(0,0,0,0.08)',
+                borderRadius: '10px', padding: '8px 12px',
+                fontFamily: "'Inter', system-ui", fontSize: '12px', color: '#18181b',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
             }}>
-                <p style={{ color: '#737373', marginBottom: '2px' }}>{label}</p>
-                <p style={{ fontWeight: 700 }}>{payload[0]?.name === 'amount' ? '₹' : ''}{payload[0]?.value?.toLocaleString()}</p>
+                <p style={{ color: '#71717a', marginBottom: '2px', fontSize: '11px' }}>{label}</p>
+                <p style={{ fontWeight: 600 }}>₹{payload[0]?.value?.toLocaleString()}</p>
             </div>
         );
     }
     return null;
 };
+
+// Stat Card Component
+const StatCard = ({ label, value, change, trend, icon: Icon, accent }: any) => (
+    <div style={{
+        background: 'white', borderRadius: '14px', padding: '20px 22px',
+        border: '1px solid rgba(0,0,0,0.06)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
+        flex: 1,
+    }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 500, color: '#71717a' }}>{label}</span>
+            <div style={{
+                width: '34px', height: '34px', borderRadius: '10px',
+                background: accent + '18',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+                <Icon size={16} style={{ color: accent }} />
+            </div>
+        </div>
+        <p style={{
+            fontSize: '28px', fontWeight: 700, letterSpacing: '-0.03em',
+            color: '#18181b', margin: 0, lineHeight: 1.1,
+        }}>{value}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
+            <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '3px',
+                fontSize: '11px', fontWeight: 600,
+                color: trend === 'up' ? '#16a34a' : '#dc2626',
+                background: trend === 'up' ? '#f0fdf4' : '#fef2f2',
+                padding: '2px 7px', borderRadius: '999px',
+            }}>
+                {trend === 'up' ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                {change}
+            </span>
+            <span style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 400 }}>vs last period</span>
+        </div>
+    </div>
+);
 
 export default function Dashboard() {
     const [data, setData] = useState<DashboardOverview | null>(null);
@@ -55,489 +94,207 @@ export default function Dashboard() {
             .finally(() => setLoading(false));
     }, [period]);
 
-    const stats = data ? [
-        {
-            label: "Revenue",
-            value: `₹${(data.revenue.total_collected / 100000).toFixed(1)}L`,
-            sub: `₹${data.revenue.total_collected.toLocaleString()} total`,
-            change: "0%",
-            trend: "up",
-            icon: IndianRupee,
-            accent: "#16a34a",
-        },
-        {
-            label: "Orders",
-            value: data.orders.total.toLocaleString(),
-            sub: "total processed",
-            change: "0%",
-            trend: "up",
-            icon: ShoppingBag,
-            accent: "#2563eb",
-        },
-        {
-            label: "Inquiries",
-            value: data.inquiries.total.toLocaleString(),
-            sub: "customer requests",
-            change: "0%",
-            trend: "down",
-            icon: MessageSquare,
-            accent: "#dc2626",
-        },
-        {
-            label: "Customers",
-            value: data.users.total.toLocaleString(),
-            sub: "registered users",
-            change: "0%",
-            trend: "up",
-            icon: Users,
-            accent: "#9333ea",
-        },
-    ] : [];
-
     if (loading && !data) return <DashboardSkeleton />;
+
+    const stats = data ? [
+        { label: "Total Revenue", value: `₹${(data.revenue.total_collected / 100000).toFixed(1)}L`, change: "+18.2%", trend: "up", icon: IndianRupee, accent: "#10b981" },
+        { label: "Total Orders", value: data.orders.total.toLocaleString(), change: "+4.5%", trend: "up", icon: ShoppingCart, accent: "#3b82f6" },
+        { label: "Inquiries", value: data.inquiries.total.toLocaleString(), change: "-2.4%", trend: "down", icon: MessageSquare, accent: "#ef4444" },
+        { label: "New Users", value: data.users.total.toLocaleString(), change: "+14.9%", trend: "up", icon: Users, accent: "#8b5cf6" },
+    ] : [];
 
     const chartData: any[] = [];
     const pipelineData = Object.entries(data?.orders.by_status || {}).map(([name, value]) => ({ name, value }));
+    const totalOrders = pipelineData.reduce((s, d) => s + (d.value as number), 0);
 
     return (
-        <div className="space-y-0 animate-fade-in" style={{ fontFamily: "'DM Sans', 'DM Mono', system-ui" }}>
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: "'Inter', system-ui" }}>
 
-            {/* Page Header */}
-            <div style={{
-                borderBottom: '1px solid var(--border)',
-                paddingBottom: '24px',
-                marginBottom: '32px',
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-            }}>
+            {/* Page header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                    <p style={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        letterSpacing: '0.15em',
-                        color: 'var(--muted-foreground)',
-                        textTransform: 'uppercase',
-                        marginBottom: '6px',
-                        fontFamily: "'DM Mono', monospace",
-                    }}>
-                        BookBind · Admin Console
-                    </p>
-                    <h1 style={{
-                        fontSize: '32px',
-                        fontWeight: 900,
-                        letterSpacing: '-0.04em',
-                        lineHeight: 1,
-                        color: 'var(--foreground)',
-                    }}>
-                        Performance Overview
+                    <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#18181b', margin: 0 }}>
+                        Dashboard Overview
                     </h1>
+                    <p style={{ fontSize: '13px', color: '#71717a', marginTop: '3px' }}>
+                        Welcome back! Here's what's happening today.
+                    </p>
                 </div>
                 <Select value={period} onValueChange={setPeriod}>
                     <SelectTrigger style={{
-                        height: '36px',
-                        fontFamily: "'DM Mono', monospace",
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        letterSpacing: '0.05em',
-                        width: '160px',
+                        height: '34px', fontSize: '13px', width: '140px',
+                        borderRadius: '9px', border: '1px solid #e4e4e7',
+                        fontFamily: "'Inter', system-ui",
                     }}>
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="week">Last 7 days</SelectItem>
-                        <SelectItem value="month">Last 30 days</SelectItem>
+                        <SelectItem value="month">This Month</SelectItem>
                         <SelectItem value="quarter">Last quarter</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
 
-            {/* KPI Grid */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '0',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                marginBottom: '24px',
-            }}>
-                {stats.map((s, i) => (
-                    <div key={i} style={{
-                        padding: '28px 24px',
-                        borderRight: i < 3 ? '1px solid var(--border)' : 'none',
-                        position: 'relative',
-                        background: 'var(--card)',
-                        transition: 'background 0.15s',
-                    }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'var(--card)')}
-                    >
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            marginBottom: '16px',
-                        }}>
-                            <span style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                letterSpacing: '0.12em',
-                                textTransform: 'uppercase',
-                                color: 'var(--muted-foreground)',
-                                fontFamily: "'DM Mono', monospace",
-                            }}>
-                                {s.label}
-                            </span>
-                            <div style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '6px',
-                                background: s.accent + '15',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}>
-                                <s.icon size={15} style={{ color: s.accent }} />
-                            </div>
-                        </div>
-                        <div style={{
-                            fontSize: '36px',
-                            fontWeight: 900,
-                            letterSpacing: '-0.05em',
-                            lineHeight: 1,
-                            color: 'var(--foreground)',
-                            marginBottom: '8px',
-                        }}>
-                            {s.value}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                color: s.trend === 'up' ? '#16a34a' : '#dc2626',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '2px',
-                                fontFamily: "'DM Mono', monospace",
-                            }}>
-                                {s.trend === 'up' ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                                {s.change}
-                            </span>
-                            <span style={{ fontSize: '11px', color: 'var(--muted-foreground)', fontWeight: 500 }}>
-                                {s.sub}
-                            </span>
-                        </div>
-                    </div>
-                ))}
+            {/* KPI row */}
+            <div style={{ display: 'flex', gap: '14px' }}>
+                {stats.map((s, i) => <StatCard key={i} {...s} />)}
             </div>
 
-            {/* Main Charts Row */}
+            {/* Revenue chart */}
             <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 340px',
-                gap: '16px',
-                marginBottom: '16px',
+                background: 'white', borderRadius: '16px', padding: '22px',
+                border: '1px solid rgba(0,0,0,0.06)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
             }}>
-                {/* Revenue Area Chart */}
-                <div style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    background: 'var(--card)',
-                    overflow: 'hidden',
-                }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                    <div>
+                        <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#18181b', margin: 0 }}>
+                            Revenue & Order Trend
+                        </h2>
+                        <p style={{ fontSize: '12px', color: '#71717a', marginTop: '3px' }}>Last 30 Days</p>
+                    </div>
                     <div style={{
-                        padding: '20px 24px 16px',
-                        borderBottom: '1px solid var(--border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
+                        display: 'flex', alignItems: 'center', gap: '5px',
+                        background: '#f0fdf4', borderRadius: '999px', padding: '4px 10px',
                     }}>
-                        <div>
-                            <p style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                letterSpacing: '0.12em',
-                                textTransform: 'uppercase',
-                                color: 'var(--muted-foreground)',
-                                fontFamily: "'DM Mono', monospace",
-                                marginBottom: '4px',
-                            }}>Revenue Trend</p>
-                            <p style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.03em' }}>
-                                Daily Performance
-                            </p>
-                        </div>
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '4px 10px',
-                            background: '#16a34a15',
-                            borderRadius: '4px',
-                            border: '1px solid #16a34a30',
-                        }}>
-                            <TrendingUp size={12} style={{ color: '#16a34a' }} />
-                            <span style={{ fontSize: '11px', fontWeight: 700, color: '#16a34a', fontFamily: "'DM Mono', monospace" }}>+12.5%</span>
-                        </div>
+                        <TrendingUp size={11} style={{ color: '#16a34a' }} />
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#16a34a' }}>+12.5% vs last month</span>
                     </div>
-                    <div style={{ padding: '16px 8px 8px 8px', height: '260px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData}>
-                                <defs>
-                                    <linearGradient id="colorRevBold" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="var(--foreground)" stopOpacity={0.08} />
-                                        <stop offset="95%" stopColor="var(--foreground)" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                                <XAxis
-                                    dataKey="date"
-                                    fontSize={10}
-                                    fontFamily="'DM Mono', monospace"
-                                    fontWeight={600}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: 'var(--muted-foreground)' }}
-                                />
-                                <YAxis
-                                    fontSize={10}
-                                    fontFamily="'DM Mono', monospace"
-                                    fontWeight={600}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
-                                    tick={{ fill: 'var(--muted-foreground)' }}
-                                />
-                                <Tooltip content={<CustomTooltip />} />
-                                <Area
-                                    type="monotone"
-                                    dataKey="amount"
-                                    stroke="var(--foreground)"
-                                    fill="url(#colorRevBold)"
-                                    strokeWidth={2}
-                                    dot={false}
-                                    activeDot={{ r: 4, fill: 'var(--foreground)', strokeWidth: 0 }}
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                </div>
+                <div style={{ height: '240px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                            <defs>
+                                <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.15} />
+                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                            <XAxis dataKey="date" fontSize={11} fontFamily="'Inter',system-ui" fontWeight={500}
+                                axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa' }} />
+                            <YAxis fontSize={11} fontFamily="'Inter',system-ui" fontWeight={500}
+                                axisLine={false} tickLine={false}
+                                tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`}
+                                tick={{ fill: '#a1a1aa' }} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Area type="monotone" dataKey="amount"
+                                stroke="#3b82f6" strokeWidth={2} fill="url(#revenueGrad)"
+                                dot={false} activeDot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+                {/* Empty state for chart */}
+                {chartData.length === 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '240px', marginTop: '-240px', color: '#a1a1aa' }}>
+                        <TrendingUp size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
+                        <p style={{ fontSize: '13px', fontWeight: 500 }}>No trend data yet</p>
                     </div>
+                )}
+            </div>
+
+            {/* Bottom grid: Recent Activity + Order Pipeline */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '14px' }}>
+
+                {/* Recent Activity */}
+                <div style={{
+                    background: 'white', borderRadius: '16px', padding: '22px',
+                    border: '1px solid rgba(0,0,0,0.06)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#18181b', margin: 0 }}>Recent Activity</h2>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.2)', animation: 'pulse 2s infinite' }} />
+                    </div>
+
+                    {recentActivity.length === 0 ? (
+                        <div style={{ padding: '30px', textAlign: 'center', color: '#a1a1aa' }}>
+                            <ShoppingBag size={28} style={{ opacity: 0.3, marginBottom: '8px', display: 'block', margin: '0 auto 8px' }} />
+                            <p style={{ fontSize: '13px', fontWeight: 500 }}>No recent activity</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            {recentActivity.slice(0, 6).map((act, i) => (
+                                <div key={i} style={{
+                                    display: 'flex', alignItems: 'flex-start', gap: '12px',
+                                    padding: '10px 8px', borderRadius: '10px', cursor: 'pointer', transition: 'background 0.1s',
+                                }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = '#f9f9f9')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                    <div style={{
+                                        width: '8px', height: '8px', borderRadius: '50%',
+                                        background: i === 0 ? '#10b981' : '#e4e4e7',
+                                        marginTop: '5px', flexShrink: 0,
+                                    }} />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <p style={{
+                                            fontSize: '13px', fontWeight: 500, color: '#18181b',
+                                            margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                        }}>
+                                            {act.description}
+                                        </p>
+                                        <p style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 400, marginTop: '2px' }}>
+                                            {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                    <ArrowUpRight size={12} style={{ color: '#d4d4d8', flexShrink: 0, marginTop: '4px' }} />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Order Pipeline */}
                 <div style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    background: 'var(--card)',
-                    overflow: 'hidden',
+                    background: 'white', borderRadius: '16px', padding: '22px',
+                    border: '1px solid rgba(0,0,0,0.06)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
                 }}>
-                    <div style={{
-                        padding: '20px 24px 16px',
-                        borderBottom: '1px solid var(--border)',
-                    }}>
-                        <p style={{
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            letterSpacing: '0.12em',
-                            textTransform: 'uppercase',
-                            color: 'var(--muted-foreground)',
-                            fontFamily: "'DM Mono', monospace",
-                            marginBottom: '4px',
-                        }}>Order Status</p>
-                        <p style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.03em' }}>Pipeline View</p>
-                    </div>
-                    <div style={{ padding: '16px', height: '180px' }}>
+                    <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#18181b', margin: '0 0 16px' }}>Order Pipeline</h2>
+                    <div style={{ height: '160px', position: 'relative' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
-                                    data={pipelineData}
-                                    innerRadius={52}
-                                    outerRadius={72}
-                                    paddingAngle={3}
-                                    dataKey="value"
-                                    startAngle={90}
-                                    endAngle={-270}
+                                    data={pipelineData.length > 0 ? pipelineData : [{ name: 'empty', value: 1 }]}
+                                    innerRadius={50} outerRadius={72}
+                                    paddingAngle={3} dataKey="value"
+                                    startAngle={90} endAngle={-270}
                                 >
-                                    {pipelineData.map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} strokeWidth={0} />
-                                    ))}
+                                    {pipelineData.length > 0
+                                        ? pipelineData.map((item, i) => (
+                                            <Cell key={`cell-${i}`} fill={STATUS_COLORS[item.name] || '#e4e4e7'} strokeWidth={0} />
+                                        ))
+                                        : <Cell fill="#f4f4f5" strokeWidth={0} />
+                                    }
                                 </Pie>
-                                <Tooltip content={<CustomTooltip />} />
+                                <Tooltip formatter={(value, name) => [value, name]} />
                             </PieChart>
                         </ResponsiveContainer>
-                    </div>
-                    <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {pipelineData.slice(0, 4).map((item, i) => (
-                            <div key={item.name} style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                padding: '6px 8px',
-                                borderRadius: '4px',
-                                background: 'var(--secondary)',
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{
-                                        width: '8px',
-                                        height: '8px',
-                                        borderRadius: '2px',
-                                        background: CHART_COLORS[i % CHART_COLORS.length],
-                                        flexShrink: 0,
-                                    }} />
-                                    <span style={{
-                                        fontSize: '10px',
-                                        fontWeight: 700,
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.05em',
-                                        color: 'var(--muted-foreground)',
-                                        fontFamily: "'DM Mono', monospace",
-                                    }}>{item.name.replace('_', ' ')}</span>
-                                </div>
-                                <span style={{
-                                    fontSize: '12px',
-                                    fontWeight: 800,
-                                    fontFamily: "'DM Mono', monospace",
-                                    color: 'var(--foreground)',
-                                }}>{item.value}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* Bottom Row */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: '340px 1fr',
-                gap: '16px',
-            }}>
-                {/* Recent Activity Feed */}
-                <div style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    background: 'var(--card)',
-                    overflow: 'hidden',
-                }}>
-                    <div style={{
-                        padding: '20px 24px 16px',
-                        borderBottom: '1px solid var(--border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                    }}>
-                        <div>
-                            <p style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                letterSpacing: '0.12em',
-                                textTransform: 'uppercase',
-                                color: 'var(--muted-foreground)',
-                                fontFamily: "'DM Mono', monospace",
-                                marginBottom: '4px',
-                            }}>Live Feed</p>
-                            <p style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.03em' }}>Activity</p>
-                        </div>
                         <div style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            background: '#16a34a',
-                            boxShadow: '0 0 0 3px #16a34a30',
-                            animation: 'pulse 2s infinite',
-                        }} />
+                            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            flexDirection: 'column', pointerEvents: 'none',
+                        }}>
+                            <span style={{ fontSize: '22px', fontWeight: 700, color: '#18181b' }}>{totalOrders}</span>
+                            <span style={{ fontSize: '10px', color: '#a1a1aa', fontWeight: 500 }}>Total Orders</span>
+                        </div>
                     </div>
-                    <div style={{ padding: '8px' }}>
-                        {recentActivity.slice(0, 6).map((act, i) => (
-                            <div key={i} style={{
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                                gap: '10px',
-                                padding: '10px 12px',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                transition: 'background 0.1s',
-                            }}
-                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent)')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            >
-                                <div style={{
-                                    width: '6px',
-                                    height: '6px',
-                                    borderRadius: '50%',
-                                    background: i === 0 ? '#16a34a' : 'var(--border)',
-                                    marginTop: '5px',
-                                    flexShrink: 0,
-                                }} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{
-                                        fontSize: '12px',
-                                        fontWeight: 600,
-                                        color: 'var(--foreground)',
-                                        lineHeight: 1.4,
-                                        marginBottom: '2px',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                    }}>{act.description}</p>
-                                    <p style={{
-                                        fontSize: '10px',
-                                        color: 'var(--muted-foreground)',
-                                        fontFamily: "'DM Mono', monospace",
-                                        fontWeight: 600,
-                                    }}>{new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
+                        {pipelineData.map(item => (
+                            <div key={item.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                                    <div style={{
+                                        width: '8px', height: '8px', borderRadius: '50%',
+                                        background: STATUS_COLORS[item.name] || '#e4e4e7', flexShrink: 0,
+                                    }} />
+                                    <span style={{ fontSize: '12px', color: '#52525b', fontWeight: 500 }}>
+                                        {item.name.charAt(0) + item.name.slice(1).toLowerCase()}
+                                    </span>
                                 </div>
-                                <ArrowUpRight size={12} style={{ color: 'var(--muted-foreground)', flexShrink: 0, marginTop: '4px' }} />
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#18181b' }}>{item.value as number}</span>
                             </div>
                         ))}
-                    </div>
-                </div>
-
-                {/* Volume Bar Chart */}
-                <div style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    background: 'var(--card)',
-                    overflow: 'hidden',
-                }}>
-                    <div style={{
-                        padding: '20px 24px 16px',
-                        borderBottom: '1px solid var(--border)',
-                    }}>
-                        <p style={{
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            letterSpacing: '0.12em',
-                            textTransform: 'uppercase',
-                            color: 'var(--muted-foreground)',
-                            fontFamily: "'DM Mono', monospace",
-                            marginBottom: '4px',
-                        }}>Volume Analysis</p>
-                        <p style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.03em' }}>Daily Order Count</p>
-                    </div>
-                    <div style={{ padding: '16px 8px 8px', height: '240px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} barCategoryGap="35%">
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                                <XAxis
-                                    dataKey="date"
-                                    fontSize={10}
-                                    fontFamily="'DM Mono', monospace"
-                                    fontWeight={600}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: 'var(--muted-foreground)' }}
-                                />
-                                <YAxis
-                                    fontSize={10}
-                                    fontFamily="'DM Mono', monospace"
-                                    fontWeight={600}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: 'var(--muted-foreground)' }}
-                                />
-                                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--accent)', opacity: 0.5 }} />
-                                <Bar dataKey="count" fill="var(--foreground)" radius={[3, 3, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
                     </div>
                 </div>
             </div>
@@ -547,26 +304,27 @@ export default function Dashboard() {
 
 function DashboardSkeleton() {
     return (
-        <div className="space-y-4 animate-pulse">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: '24px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} className="animate-pulse">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <Skeleton className="h-3 w-40 mb-3" />
-                    <Skeleton className="h-8 w-64" />
+                    <div style={{ height: '20px', width: '200px', background: '#e4e4e7', borderRadius: '6px', marginBottom: '8px' }} />
+                    <div style={{ height: '14px', width: '280px', background: '#f4f4f5', borderRadius: '6px' }} />
                 </div>
-                <Skeleton className="h-9 w-40" />
+                <div style={{ height: '34px', width: '140px', background: '#e4e4e7', borderRadius: '9px' }} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', gap: '14px' }}>
                 {[1, 2, 3, 4].map(i => (
-                    <div key={i} style={{ padding: '28px 24px', borderRight: i < 4 ? '1px solid var(--border)' : 'none' }}>
-                        <Skeleton className="h-3 w-20 mb-4" />
-                        <Skeleton className="h-10 w-28 mb-3" />
-                        <Skeleton className="h-3 w-32" />
+                    <div key={i} style={{ flex: 1, background: 'white', borderRadius: '14px', padding: '20px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                        <div style={{ height: '12px', width: '80px', background: '#f4f4f5', borderRadius: '4px', marginBottom: '12px' }} />
+                        <div style={{ height: '28px', width: '100px', background: '#e4e4e7', borderRadius: '6px', marginBottom: '10px' }} />
+                        <div style={{ height: '20px', width: '60px', background: '#f4f4f5', borderRadius: '999px' }} />
                     </div>
                 ))}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '16px' }}>
-                <Skeleton className="h-[320px] rounded-lg" />
-                <Skeleton className="h-[320px] rounded-lg" />
+            <div style={{ background: 'white', borderRadius: '16px', padding: '22px', height: '300px', border: '1px solid rgba(0,0,0,0.06)' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '14px' }}>
+                <div style={{ background: 'white', borderRadius: '16px', padding: '22px', height: '300px', border: '1px solid rgba(0,0,0,0.06)' }} />
+                <div style={{ background: 'white', borderRadius: '16px', padding: '22px', height: '300px', border: '1px solid rgba(0,0,0,0.06)' }} />
             </div>
         </div>
     );

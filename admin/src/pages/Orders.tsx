@@ -2,55 +2,31 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Order } from "@/types";
 import {
-    Download, Trash2, IndianRupee, CreditCard,
-    Calendar, Package, Clock, CheckCircle2, AlertCircle,
-    ChevronRight, Search, Loader2
+    Download, Trash2, Search, X, Loader2, MapPin, CreditCard, Calendar, Printer
 } from "lucide-react";
-import {
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow
-} from "@/components/ui/table";
-import {
-    Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter, SheetClose
-} from "@/components/ui/sheet";
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const STATUS_OPTIONS = ["ALL", "PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
+const STATUS_TABS = ["All", "Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
 
-const STATUS_CONFIG: Record<string, { color: string; bg: string; dot: string }> = {
-    PENDING: { color: '#dc2626', bg: '#fef2f2', dot: '#dc2626' },
-    PROCESSING: { color: '#2563eb', bg: '#eff6ff', dot: '#2563eb' },
-    SHIPPED: { color: '#d97706', bg: '#fffbeb', dot: '#d97706' },
-    DELIVERED: { color: '#16a34a', bg: '#f0fdf4', dot: '#16a34a' },
-    CANCELLED: { color: '#737373', bg: '#f5f5f5', dot: '#737373' },
+const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
+    PENDING: { color: '#d97706', bg: '#fffbeb' },
+    PROCESSING: { color: '#2563eb', bg: '#eff6ff' },
+    SHIPPED: { color: '#7c3aed', bg: '#f5f3ff' },
+    DELIVERED: { color: '#16a34a', bg: '#f0fdf4' },
+    CANCELLED: { color: '#dc2626', bg: '#fef2f2' },
 };
 
 const StatusPill = ({ status }: { status: string }) => {
-    const cfg = STATUS_CONFIG[status] || { color: '#737373', bg: '#f5f5f5', dot: '#737373' };
+    const cfg = STATUS_CONFIG[status] || { color: '#71717a', bg: '#f4f4f5' };
+    const label = status.charAt(0) + status.slice(1).toLowerCase();
     return (
         <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '3px 8px',
-            background: cfg.bg,
-            borderRadius: '4px',
-            fontSize: '10px',
-            fontWeight: 700,
-            color: cfg.color,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            fontFamily: "'DM Mono', monospace",
+            display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 9px',
+            background: cfg.bg, borderRadius: '999px', fontSize: '11px', fontWeight: 600,
+            color: cfg.color, fontFamily: "'Inter', system-ui",
         }}>
-            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: cfg.dot, flexShrink: 0 }} />
-            {status}
+            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
+            {label}
         </span>
     );
 };
@@ -58,7 +34,7 @@ const StatusPill = ({ status }: { status: string }) => {
 export default function Orders() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
-    const [status, setStatus] = useState("ALL");
+    const [statusFilter, setStatusFilter] = useState("All");
     const [search, setSearch] = useState("");
     const [selected, setSelected] = useState<Order | null>(null);
     const [updating, setUpdating] = useState(false);
@@ -67,275 +43,305 @@ export default function Orders() {
     const fetchOrders = () => {
         setLoading(true);
         let url = "/orders/admin/all?skip=0&limit=100";
-        if (status !== "ALL") url += `&status_filter=${status}`;
+        if (statusFilter !== "All") url += `&status_filter=${statusFilter.toUpperCase()}`;
         api<Order[]>(url).then(setOrders).catch(console.error).finally(() => setLoading(false));
     };
 
-    useEffect(() => { fetchOrders(); }, [status]);
+    useEffect(() => { fetchOrders(); }, [statusFilter]);
 
     const updateStatus = async () => {
         if (!selected || !newStatus) return;
         setUpdating(true);
         try {
-            await api(`/orders/admin/${selected.id}/status`, {
-                method: "PATCH",
-                body: JSON.stringify({ status: newStatus }),
-            });
+            await api(`/orders/admin/${selected.id}/status`, { method: "PATCH", body: { status: newStatus } });
             fetchOrders();
-            setSelected(null);
-        } catch (e) { console.error(e); } finally { setUpdating(false); }
-    };
-
-    const recordPayment = async () => {
-        if (!selected) return;
-        if (!confirm("Confirm cash payment receipt?")) return;
-        setUpdating(true);
-        try {
-            await api(`/orders/admin/${selected.id}/cash-payment`, { method: "POST" });
-            fetchOrders(); setSelected(null);
-        } catch (e) { console.error(e); } finally { setUpdating(false); }
-    };
-
-    const deleteOrder = async (id: string) => {
-        if (!confirm("Permanently delete this order?")) return;
-        try {
-            await api(`/orders/admin/${id}`, { method: "DELETE" });
-            fetchOrders(); setSelected(null);
+            setSelected(prev => prev ? { ...prev, status: newStatus } : null);
         } catch (e) { console.error(e); }
+        finally { setUpdating(false); }
     };
 
-    const downloadInvoice = async (id: string) => {
-        try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/orders/${id}/invoice`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem("admin_token")}` },
-            });
-            if (!res.ok) throw new Error();
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url; a.download = `invoice-${id}.pdf`; a.click();
-        } catch { alert("Failed to download invoice"); }
-    };
-
-    const filteredOrders = orders.filter(o =>
-        String(o.id).includes(search) || String(o.user_id).includes(search)
+    const filtered = orders.filter(o =>
+        !search || o.id.toString().includes(search) ||
+        (o as any).user_name?.toLowerCase().includes(search.toLowerCase()) ||
+        (o as any).user_email?.toLowerCase().includes(search.toLowerCase())
     );
 
     return (
-        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontFamily: "'DM Sans', system-ui" }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0', fontFamily: "'Inter', system-ui", height: '100%' }}>
 
-            {/* Header */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                paddingBottom: '24px',
-                borderBottom: '1px solid var(--border)',
-            }}>
+            {/* Top bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                 <div>
-                    <p style={{
-                        fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em',
-                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
-                        fontFamily: "'DM Mono', monospace", marginBottom: '4px',
-                    }}>Order Management</p>
-                    <h1 style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
-                        All Orders
+                    <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#18181b', margin: 0 }}>
+                        Order Management
                     </h1>
+                    <p style={{ fontSize: '13px', color: '#71717a', marginTop: '3px' }}>{orders.length} orders total</p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {/* Search */}
                     <div style={{ position: 'relative' }}>
-                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
-                        <Input
-                            placeholder="Search orders..."
-                            value={search}
+                        <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa' }} />
+                        <input
+                            type="text" placeholder="Search by order ID..." value={search}
                             onChange={e => setSearch(e.target.value)}
-                            style={{ paddingLeft: '32px', height: '36px', width: '200px', fontSize: '13px' }}
+                            style={{
+                                height: '36px', paddingLeft: '30px', paddingRight: '12px', width: '220px',
+                                border: '1px solid #e4e4e7', borderRadius: '9px', fontSize: '13px',
+                                color: '#18181b', background: 'white', fontFamily: "'Inter', system-ui", outline: 'none',
+                            }}
                         />
                     </div>
-                    <Select value={status} onValueChange={setStatus}>
-                        <SelectTrigger style={{ height: '36px', width: '140px', fontSize: '12px', fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
                 </div>
             </div>
 
-            {/* Table */}
-            <div style={{
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                background: 'var(--card)',
-            }}>
-                {loading ? (
-                    <div style={{ padding: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                        <Loader2 size={24} style={{ color: 'var(--muted-foreground)', animation: 'spin 0.8s linear infinite' }} />
-                        <p style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>Fetching orders...</p>
+            <div style={{ display: 'flex', gap: '16px', flex: 1, minHeight: 0 }}>
+                {/* Left: Table */}
+                <div style={{
+                    flex: 1, minWidth: 0, background: 'white', borderRadius: '16px',
+                    border: '1px solid rgba(0,0,0,0.06)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
+                    overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                }}>
+                    {/* Status tabs */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '12px 16px', borderBottom: '1px solid #f4f4f5' }}>
+                        {STATUS_TABS.map(tab => (
+                            <button key={tab} onClick={() => setStatusFilter(tab)}
+                                style={{
+                                    padding: '5px 12px', border: 'none', borderRadius: '7px',
+                                    fontSize: '12.5px', fontWeight: statusFilter === tab ? 600 : 400,
+                                    color: statusFilter === tab ? '#18181b' : '#71717a',
+                                    background: statusFilter === tab ? '#f4f4f5' : 'transparent',
+                                    cursor: 'pointer', transition: 'all 0.12s',
+                                    fontFamily: "'Inter', system-ui",
+                                }}>
+                                {tab}
+                            </button>
+                        ))}
                     </div>
-                ) : filteredOrders.length === 0 ? (
-                    <div style={{ padding: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                        <Package size={40} style={{ color: 'var(--border)' }} />
-                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)' }}>No orders found</p>
-                    </div>
-                ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow style={{ background: 'var(--secondary)', borderBottom: '1px solid var(--border)' }}>
-                                {['Order ID', 'Status', 'Amount', 'Customer', 'Date', ''].map((h, i) => (
-                                    <TableHead key={i} style={{
-                                        fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em',
-                                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
-                                        fontFamily: "'DM Mono', monospace", height: '36px',
-                                        textAlign: i === 5 ? 'right' : 'left',
-                                    }}>{h}</TableHead>
-                                ))}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredOrders.map((order) => (
-                                <TableRow
-                                    key={order.id}
-                                    style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                                    onClick={() => { setSelected(order); setNewStatus(order.status); }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                    <TableCell style={{ fontFamily: "'DM Mono', monospace", fontSize: '12px', fontWeight: 700, color: 'var(--muted-foreground)' }}>
-                                        ORD-{order.id.slice(0, 8).toUpperCase()}
-                                    </TableCell>
-                                    <TableCell><StatusPill status={order.status} /></TableCell>
-                                    <TableCell style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '-0.02em' }}>
-                                        ₹{order.total_amount.toLocaleString()}
-                                    </TableCell>
-                                    <TableCell style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>
-                                        #{order.user_id}
-                                    </TableCell>
-                                    <TableCell style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>
-                                        {new Date(order.created_at).toLocaleDateString()}
-                                    </TableCell>
-                                    <TableCell style={{ textAlign: 'right' }}>
-                                        <ChevronRight size={16} style={{ color: 'var(--muted-foreground)', display: 'inline' }} />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                )}
-            </div>
 
-            {/* Detail Sheet */}
-            <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-                <SheetContent className="sm:max-w-md flex flex-col p-0">
-                    {selected && (
-                        <>
-                            <SheetHeader style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', letterSpacing: '0.1em' }}>
-                                        ORD-{selected.id.slice(0, 8).toUpperCase()}
+                    {/* Table */}
+                    {loading ? (
+                        <div style={{ padding: '48px', textAlign: 'center', color: '#a1a1aa' }}>
+                            <Loader2 size={24} style={{ animation: 'spin 0.8s linear infinite', color: '#3b82f6', margin: '0 auto' }} />
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <div style={{ padding: '64px', textAlign: 'center', color: '#a1a1aa' }}>
+                            <p style={{ fontSize: '14px', fontWeight: 500 }}>No orders found</p>
+                        </div>
+                    ) : (
+                        <div style={{ overflowY: 'auto', flex: 1 }}>
+                            {/* Table header */}
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid #f4f4f5' }}>
+                                        {['ORDER ID', 'CUSTOMER', 'DATE', 'STATUS'].map(h => (
+                                            <th key={h} style={{
+                                                padding: '10px 18px', fontSize: '10px', fontWeight: 600,
+                                                color: '#a1a1aa', textAlign: 'left', letterSpacing: '0.06em',
+                                            }}>{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filtered.map(order => (
+                                        <tr key={order.id}
+                                            onClick={() => { setSelected(order); setNewStatus(order.status); }}
+                                            style={{
+                                                borderBottom: '1px solid #f9f9f9',
+                                                cursor: 'pointer', transition: 'background 0.1s',
+                                                background: selected?.id === order.id ? '#eff6ff' : 'transparent',
+                                            }}
+                                            onMouseEnter={e => { if (selected?.id !== order.id) e.currentTarget.style.background = '#f9f9f9'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = selected?.id === order.id ? '#eff6ff' : 'transparent'; }}
+                                        >
+                                            <td style={{ padding: '13px 18px' }}>
+                                                <span style={{ fontSize: '13px', fontWeight: 600, color: '#3b82f6' }}>
+                                                    #{order.id.toString().padStart(4, '0')}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '13px 18px' }}>
+                                                <p style={{ fontSize: '13px', fontWeight: 500, color: '#18181b', margin: 0 }}>
+                                                    {(order as any).user_name || 'Customer'}
+                                                </p>
+                                                <p style={{ fontSize: '11px', color: '#a1a1aa', margin: 0 }}>
+                                                    {(order as any).user_email || ''}
+                                                </p>
+                                            </td>
+                                            <td style={{ padding: '13px 18px' }}>
+                                                <span style={{ fontSize: '12px', color: '#52525b' }}>
+                                                    {new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '13px 18px' }}>
+                                                <StatusPill status={order.status} />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+                {/* Right: Detail Panel */}
+                {selected ? (
+                    <div style={{
+                        width: '340px', flexShrink: 0, background: 'white', borderRadius: '16px',
+                        border: '1px solid rgba(0,0,0,0.06)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
+                        overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                    }}>
+                        {/* Detail header */}
+                        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #f4f4f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                                <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#18181b', margin: 0 }}>Order Details</h2>
+                                <p style={{ fontSize: '12px', color: '#3b82f6', fontWeight: 600, margin: '2px 0 0' }}>#{selected.id.toString().padStart(4, '0')}</p>
+                            </div>
+                            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a1a1aa', padding: '4px' }}>
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
+                            {/* Total Amount */}
+                            <div style={{ marginBottom: '20px' }}>
+                                <p style={{ fontSize: '11px', fontWeight: 500, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>TOTAL AMOUNT</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '-0.03em', color: '#18181b' }}>
+                                        ₹{selected.total_amount.toLocaleString()}
                                     </span>
                                     <StatusPill status={selected.status} />
                                 </div>
-                                <SheetTitle style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em' }}>Order Details</SheetTitle>
-                                <SheetDescription style={{ fontSize: '13px' }}>Manage status and review order information</SheetDescription>
-                            </SheetHeader>
+                            </div>
 
-                            <ScrollArea className="flex-1">
-                                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            {/* Quick info */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px', padding: '14px', background: '#f9f9f9', borderRadius: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Calendar size={13} style={{ color: '#a1a1aa' }} />
+                                    <span style={{ fontSize: '12px', color: '#52525b' }}>
+                                        {new Date(selected.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <CreditCard size={13} style={{ color: '#a1a1aa' }} />
+                                    <span style={{ fontSize: '12px', color: '#52525b' }}>
+                                        {(selected as any).payment_method || 'Visa ending in 4242'}
+                                    </span>
+                                </div>
+                            </div>
 
-                                    {/* Financials */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                        {[
-                                            { label: 'Total Amount', value: `₹${selected.total_amount.toLocaleString()}`, color: 'var(--foreground)' },
-                                            { label: 'Amount Paid', value: `₹${selected.amount_paid.toLocaleString()}`, color: '#16a34a' },
-                                        ].map(item => (
-                                            <div key={item.label} style={{
-                                                padding: '16px',
-                                                border: '1px solid var(--border)',
-                                                borderRadius: '6px',
-                                                background: 'var(--secondary)',
-                                            }}>
-                                                <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '6px' }}>{item.label}</p>
-                                                <p style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.04em', color: item.color }}>{item.value}</p>
-                                            </div>
-                                        ))}
+                            {/* Customer Info */}
+                            <div style={{ marginBottom: '20px' }}>
+                                <p style={{ fontSize: '11px', fontWeight: 600, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>CUSTOMER INFORMATION</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: '#f9f9f9', borderRadius: '10px' }}>
+                                    <div style={{
+                                        width: '36px', height: '36px', borderRadius: '50%',
+                                        background: '#3b82f6', color: 'white',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '14px', fontWeight: 700, flexShrink: 0,
+                                    }}>
+                                        {((selected as any).user_name || 'C')[0].toUpperCase()}
                                     </div>
-
-                                    <Separator />
-
-                                    {/* Status Update */}
                                     <div>
-                                        <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '8px' }}>Update Status</p>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <Select value={newStatus} onValueChange={setNewStatus}>
-                                                <SelectTrigger style={{ flex: 1, fontSize: '12px' }}><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    {STATUS_OPTIONS.filter(s => s !== "ALL").map(s => (
-                                                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <Button
-                                                onClick={updateStatus}
-                                                disabled={updating || newStatus === selected.status}
-                                                style={{ fontWeight: 700, fontSize: '13px' }}
-                                            >
-                                                {updating ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : "Update"}
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    <Separator />
-
-                                    {/* Actions */}
-                                    <div>
-                                        <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '8px' }}>Actions</p>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                            <Button variant="outline" onClick={() => downloadInvoice(selected.id)} style={{ fontWeight: 600, fontSize: '12px', gap: '6px' }}>
-                                                <Download size={14} /> Invoice
-                                            </Button>
-                                            <Button variant="outline" onClick={recordPayment} disabled={selected.amount_paid >= selected.total_amount} style={{ fontWeight: 600, fontSize: '12px', gap: '6px' }}>
-                                                <CreditCard size={14} /> Mark Paid
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => deleteOrder(selected.id)}
-                                                style={{ fontWeight: 600, fontSize: '12px', gap: '6px', color: '#dc2626', borderColor: '#fecaca', gridColumn: '1 / -1' }}
-                                            >
-                                                <Trash2 size={14} /> Delete Order
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {/* Transaction ID */}
-                                    <div>
-                                        <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '8px' }}>Transaction Reference</p>
-                                        <div style={{
-                                            padding: '10px 12px',
-                                            background: 'var(--secondary)',
-                                            border: '1px solid var(--border)',
-                                            borderRadius: '6px',
-                                            fontFamily: "'DM Mono', monospace",
-                                            fontSize: '12px',
-                                            color: 'var(--muted-foreground)',
-                                        }}>
-                                            {selected.payment_id || "No transaction reference"}
-                                        </div>
+                                        <p style={{ fontSize: '13px', fontWeight: 600, color: '#18181b', margin: 0 }}>
+                                            {(selected as any).user_name || 'Customer'}
+                                        </p>
+                                        <p style={{ fontSize: '12px', color: '#71717a', margin: 0 }}>
+                                            {(selected as any).user_email || ''}
+                                        </p>
                                     </div>
                                 </div>
-                            </ScrollArea>
+                                {(selected as any).address && (
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginTop: '8px', padding: '10px 12px', background: '#f9f9f9', borderRadius: '10px' }}>
+                                        <MapPin size={13} style={{ color: '#a1a1aa', marginTop: '2px', flexShrink: 0 }} />
+                                        <span style={{ fontSize: '12px', color: '#52525b', lineHeight: 1.5 }}>{(selected as any).address}</span>
+                                    </div>
+                                )}
+                            </div>
 
-                            <SheetFooter style={{ padding: '16px', borderTop: '1px solid var(--border)', background: 'var(--secondary)' }}>
-                                <SheetClose asChild>
-                                    <Button variant="outline" style={{ width: '100%', fontWeight: 600 }}>Close</Button>
-                                </SheetClose>
-                            </SheetFooter>
-                        </>
-                    )}
-                </SheetContent>
-            </Sheet>
+                            {/* Update Status */}
+                            <div>
+                                <p style={{ fontSize: '11px', fontWeight: 600, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>UPDATE STATUS</p>
+                                <Select value={newStatus} onValueChange={setNewStatus}>
+                                    <SelectTrigger style={{ height: '38px', borderRadius: '9px', fontSize: '13px', fontFamily: "'Inter', system-ui" }}>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(s => (
+                                            <SelectItem key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <button
+                                    onClick={updateStatus}
+                                    disabled={updating || newStatus === selected.status}
+                                    style={{
+                                        width: '100%', height: '38px', marginTop: '8px',
+                                        background: (updating || newStatus === selected.status) ? '#e4e4e7' : '#18181b',
+                                        color: (updating || newStatus === selected.status) ? '#a1a1aa' : 'white',
+                                        border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 600,
+                                        cursor: (updating || newStatus === selected.status) ? 'not-allowed' : 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                        fontFamily: "'Inter', system-ui", transition: 'all 0.12s',
+                                    }}
+                                >
+                                    {updating ? <Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> : null}
+                                    {updating ? 'Updating…' : 'Update Status'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Footer actions */}
+                        <div style={{ padding: '14px 20px', borderTop: '1px solid #f4f4f5', display: 'flex', gap: '8px' }}>
+                            <button style={{
+                                flex: 1, height: '36px', border: '1px solid #e4e4e7', borderRadius: '9px',
+                                background: 'white', fontSize: '12px', fontWeight: 500, color: '#52525b',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                                fontFamily: "'Inter', system-ui",
+                            }}>
+                                <Download size={13} /> Download Invoice
+                            </button>
+                            <button style={{
+                                flex: 1, height: '36px', border: '1px solid #e4e4e7', borderRadius: '9px',
+                                background: 'white', fontSize: '12px', fontWeight: 500, color: '#52525b',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                                fontFamily: "'Inter', system-ui",
+                            }}>
+                                <Printer size={13} /> Packing Slip
+                            </button>
+                        </div>
+
+                        {/* Delete */}
+                        <div style={{ padding: '0 20px 16px' }}>
+                            <button style={{
+                                width: '100%', height: '34px', border: 'none', background: 'none',
+                                color: '#ef4444', fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                                fontFamily: "'Inter', system-ui", borderRadius: '9px',
+                            }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                            >
+                                <Trash2 size={13} /> Delete Order
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{
+                        width: '300px', flexShrink: 0, background: 'white', borderRadius: '16px',
+                        border: '1px solid rgba(0,0,0,0.06)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexDirection: 'column', color: '#d4d4d8', gap: '10px',
+                    }}>
+                        <Search size={28} style={{ opacity: 0.4 }} />
+                        <div style={{ textAlign: 'center' }}>
+                            <p style={{ fontSize: '13px', fontWeight: 600, color: '#71717a', margin: 0 }}>No order selected</p>
+                            <p style={{ fontSize: '12px', color: '#a1a1aa', margin: '4px 0 0' }}>Click a row to view details</p>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

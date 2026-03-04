@@ -1,444 +1,284 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Plus, ChevronRight, Edit2, Trash2, Loader2, Save, Info } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Product, FormSection, ProductOption } from "@/types";
-import {
-    Package, Plus, Pencil, Trash2, X, Loader2, Save,
-    Settings2, IndianRupee, Hash, MoreVertical, Copy, Eye, ExternalLink
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import type { Product } from "@/types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-    Dialog, DialogContent, DialogDescription, DialogFooter,
-    DialogHeader, DialogTitle, DialogClose
-} from "@/components/ui/dialog";
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-    DropdownMenuSeparator, DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-
-const mono: React.CSSProperties = { fontFamily: "'DM Mono', monospace" };
-
-const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-    <p style={{
-        fontSize: '9px', fontWeight: 700, letterSpacing: '0.14em',
-        textTransform: 'uppercase', color: 'var(--muted-foreground)',
-        ...mono, marginBottom: '8px',
-    }}>{children}</p>
-);
-
-const FieldLabel = ({ children }: { children: React.ReactNode }) => (
-    <label style={{
-        display: 'block', fontSize: '10px', fontWeight: 700,
-        letterSpacing: '0.1em', textTransform: 'uppercase',
-        color: 'var(--muted-foreground)', ...mono, marginBottom: '5px',
-    }}>{children}</label>
-);
-
-const StatusPill = ({ active }: { active: boolean }) => (
-    <span style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '5px',
-        padding: '3px 8px',
-        background: active ? '#f0fdf4' : '#f5f5f5',
-        borderRadius: '4px',
-        fontSize: '10px',
-        fontWeight: 700,
-        color: active ? '#16a34a' : '#737373',
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
-        fontFamily: "'DM Mono', monospace",
-        border: `1px solid ${active ? '#bbf7d0' : 'var(--border)'}`,
-    }}>
-        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: active ? '#16a34a' : '#737373', flexShrink: 0 }} />
-        {active ? 'Active' : 'Archived'}
-    </span>
-);
+import { Button } from "@/components/ui/button";
 
 export default function Products() {
+    const navigate = useNavigate();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showForm, setShowForm] = useState(false);
-    const [editing, setEditing] = useState<Product | null>(null);
-    const [saving, setSaving] = useState(false);
-    const [form, setForm] = useState({
-        name: "", base_price: "", minimum_quantity: "",
-        type: "product", is_active: true, sections: [] as FormSection[]
-    });
 
-    const fetchProducts = () => {
+    const [showForm, setShowForm] = useState(false);
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [formState, setFormState] = useState({ name: "", description: "", cover_image: "", is_active: true, slug: "" });
+    const [saving, setSaving] = useState(false);
+
+    const fetchProducts = async () => {
         setLoading(true);
-        api<Product[]>("/products/?skip=0&limit=100")
-            .then(setProducts).catch(console.error).finally(() => setLoading(false));
+        try {
+            const data = await api<Product[]>("/admin/products/");
+            setProducts(data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    useEffect(() => { fetchProducts(); }, []);
+    useEffect(() => {
+        fetchProducts();
+    }, []);
 
     const openCreate = () => {
-        setEditing(null);
-        setForm({ name: "", base_price: "", minimum_quantity: "", type: "product", is_active: true, sections: [] });
+        setEditingProduct(null);
+        setFormState({ name: "", description: "", cover_image: "", is_active: true, slug: "" });
         setShowForm(true);
     };
 
-    const openEdit = (p: Product) => {
-        setEditing(p);
-        setForm({
-            name: p.name, base_price: String(p.base_price),
-            minimum_quantity: String(p.minimum_quantity), type: p.type,
-            is_active: p.is_active, sections: [...p.config_schema.sections]
+    const openEdit = (e: React.MouseEvent, p: Product) => {
+        e.stopPropagation();
+        setEditingProduct(p);
+        setFormState({
+            name: p.name,
+            description: p.description || "",
+            cover_image: p.cover_image || "",
+            is_active: p.is_active,
+            slug: p.slug
         });
         setShowForm(true);
     };
 
-    const addSection = () => setForm(f => ({
-        ...f, sections: [...f.sections, { key: "", label: "", type: "dropdown", options: [{ label: "", value: "", price_mod: 0 }] }]
-    }));
-
-    const removeSection = (i: number) => setForm(f => ({ ...f, sections: f.sections.filter((_, j) => j !== i) }));
-
-    const updateSection = (i: number, patch: Partial<FormSection>) =>
-        setForm(f => ({ ...f, sections: f.sections.map((s, j) => j === i ? { ...s, ...patch } : s) }));
-
-    const addOption = (si: number) => setForm(f => ({
-        ...f, sections: f.sections.map((s, j) => j === si
-            ? { ...s, options: [...(s.options || []), { label: "", value: "", price_mod: 0 }] } : s)
-    }));
-
-    const updateOption = (si: number, oi: number, patch: Partial<ProductOption>) =>
-        setForm(f => ({
-            ...f, sections: f.sections.map((s, j) => j === si
-                ? { ...s, options: (s.options || []).map((o, k) => k === oi ? { ...o, ...patch } : o) } : s)
-        }));
+    const handleDelete = async (e: React.MouseEvent, id: number) => {
+        e.stopPropagation();
+        if (!confirm("Permanently delete this product category and all its sub-products?")) return;
+        try {
+            await api(`/admin/products/${id}`, { method: "DELETE" });
+            fetchProducts();
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
     const handleSave = async () => {
         setSaving(true);
-        const body = {
-            name: form.name, base_price: parseFloat(form.base_price),
-            minimum_quantity: parseInt(form.minimum_quantity), type: form.type,
-            is_active: form.is_active, config_schema: { sections: form.sections }
-        };
+        const payload = { ...formState };
+        if (!payload.slug) delete (payload as any).slug; // let backend auto-slugify if empty
+        if (!payload.description) delete (payload as any).description;
+        if (!payload.cover_image) delete (payload as any).cover_image;
+
         try {
-            if (editing) await api(`/products/${editing.slug}`, { method: "PUT", body: JSON.stringify(body) });
-            else await api("/products/admin", { method: "POST", body: JSON.stringify(body) });
-            setShowForm(false); fetchProducts();
-        } catch (e) { console.error(e); } finally { setSaving(false); }
+            if (editingProduct) {
+                await api(`/admin/products/${editingProduct.id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                await api("/admin/products/", {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                });
+            }
+            setShowForm(false);
+            fetchProducts();
+        } catch (e: any) {
+            console.error(e);
+            alert(e.message || "Failed to save product.");
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const deleteProduct = async (slug: string) => {
-        if (!confirm("Permanently delete this product?")) return;
-        try { await api(`/products/${slug}`, { method: "DELETE" }); fetchProducts(); } catch (e) { console.error(e); }
-    };
+    const activeSubProductsCount = products.reduce((acc, p) => acc + (p.sub_products?.filter(sp => sp.is_active)?.length || 0), 0);
+    const catColors = [
+        "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
+        "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+        "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
+        "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400",
+        "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+    ];
 
     return (
-        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontFamily: "'DM Sans', system-ui" }}>
-
-            {/* Header */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                paddingBottom: '24px',
-                borderBottom: '1px solid var(--border)',
-            }}>
+        <div className="max-w-7xl mx-auto w-full space-y-6 animate-fade-in font-['Inter',sans-serif]">
+            {/* Page Title Area */}
+            <div className="flex items-end justify-between">
                 <div>
-                    <p style={{
-                        fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em',
-                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
-                        fontFamily: "'DM Mono', monospace", marginBottom: '4px',
-                    }}>Catalog Management</p>
-                    <h1 style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
-                        Product Inventory
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)', marginLeft: '12px', letterSpacing: 0, fontFamily: "'DM Mono', monospace" }}>
-                            [{products.length} ITEMS]
-                        </span>
-                    </h1>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Parent Products</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Manage core product categories and custom printing services.</p>
                 </div>
-                <Button onClick={openCreate} style={{ height: '36px', gap: '8px', fontWeight: 700, fontSize: '13px' }}>
-                    <Plus size={14} /> New Product
-                </Button>
+                <button onClick={openCreate} className="bg-[#136dec] hover:bg-[#136dec]/90 text-white px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg shadow-[#136dec]/20 transition-all active:scale-95">
+                    <Plus size={20} />
+                    New Product Class
+                </button>
             </div>
 
-            {/* Product Grid */}
-            {loading ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-                    {[1, 2, 3, 4, 5, 6].map(i => (
-                        <div key={i} style={{ height: '240px', background: 'var(--secondary)', borderRadius: '8px', border: '1px solid var(--border)', animation: 'pulse 1.5s ease-in-out infinite' }} />
-                    ))}
-                </div>
-            ) : products.length === 0 ? (
-                <div style={{ padding: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', border: '1px dashed var(--border)', borderRadius: '12px' }}>
-                    <Package size={40} style={{ color: 'var(--border)' }} />
-                    <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)' }}>Your product catalog is empty</p>
-                </div>
-            ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-                    {products.map(p => (
-                        <div key={p.id} style={{
-                            border: '1px solid var(--border)', borderRadius: '10px',
-                            background: 'var(--card)', overflow: 'hidden',
-                            display: 'flex', flexDirection: 'column',
-                            transition: 'all 0.2s ease',
-                        }}
-                            className="group hover:border-foreground hover:shadow-xl"
-                        >
-                            <div style={{ height: '4px', background: p.is_active ? 'var(--foreground)' : 'var(--muted)' }} />
-
-                            <div style={{ padding: '20px', flex: 1 }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <h3 style={{
-                                            fontSize: '16px', fontWeight: 800, letterSpacing: '-0.02em',
-                                            color: 'var(--foreground)', marginBottom: '4px',
-                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                        }}>{p.name}</h3>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <p style={{ fontSize: '10px', color: 'var(--muted-foreground)', ...mono, fontWeight: 700, textTransform: 'uppercase' }}>{p.slug}</p>
+            {/* Main Table Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-24">Cover</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Product Category</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Slug</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Sub-products</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                            {loading ? (
+                                <tr><td colSpan={6} className="text-center py-12 text-slate-500 font-medium"><Loader2 className="animate-spin inline mr-2" /> Loading products...</td></tr>
+                            ) : products.length === 0 ? (
+                                <tr><td colSpan={6} className="text-center py-12 text-slate-500 font-medium">No products found. Create your first category!</td></tr>
+                            ) : products.map((product, idx) => (
+                                <tr key={product.id} onClick={() => navigate(`/products/${product.slug}`)} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer">
+                                    <td className="px-6 py-4">
+                                        <div className="size-14 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 relative">
+                                            {product.cover_image ? (
+                                                <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('${product.cover_image}')` }}></div>
+                                            ) : (
+                                                <span className="text-xs text-slate-400 font-medium">N/A</span>
+                                            )}
                                         </div>
-                                    </div>
-                                    <StatusPill active={p.is_active} />
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-                                    {[
-                                        { label: 'Base Price', value: `₹${p.base_price}`, sub: 'INR' },
-                                        { label: 'Min Qty', value: p.minimum_quantity, sub: 'UNITS' },
-                                    ].map(item => (
-                                        <div key={item.label} style={{
-                                            padding: '12px', background: 'var(--secondary)',
-                                            borderRadius: '6px', border: '1px solid var(--border)',
-                                        }}>
-                                            <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', ...mono, marginBottom: '4px' }}>{item.label}</p>
-                                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px' }}>
-                                                <p style={{ fontSize: '20px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>{item.value}</p>
-                                                <span style={{ fontSize: '8px', fontWeight: 700, opacity: 0.5, ...mono }}>{item.sub}</span>
-                                            </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-bold text-slate-900 dark:text-slate-100 text-base">{product.name}</div>
+                                        {product.description && <div className="text-xs text-slate-500 mt-1 truncate max-w-xs">{product.description}</div>}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <code className="text-xs font-mono font-medium text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700">{product.slug}</code>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm">
+                                        <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide ${product.is_active ? catColors[idx % catColors.length] : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                                            {product.is_active ? "Active" : "Archived"}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm font-medium text-slate-600 dark:text-slate-400">
+                                        {product.sub_products?.length || 0} variants
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="inline-flex items-center gap-1.5">
+                                            <button onClick={(e) => openEdit(e, product)} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all text-slate-400 hover:text-blue-600">
+                                                <Edit2 size={18} />
+                                            </button>
+                                            <button onClick={(e) => handleDelete(e, product.id)} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all text-slate-400 hover:text-red-600">
+                                                <Trash2 size={18} />
+                                            </button>
+                                            <button className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-400">
+                                                <ChevronRight size={20} />
+                                            </button>
                                         </div>
-                                    ))}
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                    <span style={{
-                                        padding: '3px 8px', background: 'var(--secondary)', borderRadius: '4px',
-                                        fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)',
-                                        border: '1px solid var(--border)', fontFamily: "'DM Mono', monospace",
-                                        textTransform: 'uppercase', letterSpacing: '0.05em'
-                                    }}>{p.config_schema.sections.length} CONFIGS</span>
-                                    <span style={{
-                                        padding: '3px 8px', background: 'var(--secondary)', borderRadius: '4px',
-                                        fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)',
-                                        border: '1px solid var(--border)', fontFamily: "'DM Mono', monospace",
-                                        textTransform: 'uppercase', letterSpacing: '0.05em'
-                                    }}>{p.type}</span>
-                                </div>
-                            </div>
-
-                            <div style={{
-                                padding: '12px 16px', borderTop: '1px solid var(--border)',
-                                background: 'var(--secondary)', display: 'flex', gap: '8px',
-                            }}>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => openEdit(p)}
-                                    style={{ flex: 1, height: '32px', fontSize: '12px', fontWeight: 700, background: 'var(--background)' }}
-                                >
-                                    <Pencil size={12} className="mr-2" /> Edit
-                                </Button>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" size="icon" style={{ width: '32px', height: '32px', background: 'var(--background)' }}>
-                                            <MoreVertical size={14} />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[180px]">
-                                        <DropdownMenuItem disabled style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Actions</DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => openEdit(p)}><Copy size={14} className="mr-2" /> Duplicate</DropdownMenuItem>
-                                        <DropdownMenuItem><Eye size={14} className="mr-2" /> View on Store</DropdownMenuItem>
-                                        <DropdownMenuItem><ExternalLink size={14} className="mr-2" /> Get API Link</DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => deleteProduct(p.slug)} className="text-destructive focus:text-destructive focus:bg-destructive/5"><Trash2 size={14} className="mr-2" /> Delete</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                        </div>
-                    ))}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            )}
+            </div>
 
-            {/* Product Form Modal */}
+            {/* Stats Summary Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Categories</p>
+                    <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{products.length}</p>
+                </div>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Active Variants</p>
+                    <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{activeSubProductsCount}</p>
+                </div>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">System Status</p>
+                    <p className="text-2xl font-bold text-[#136dec] flex items-center gap-2">
+                        <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#136dec] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-[#136dec]"></span>
+                        </span>
+                        Live Synced
+                    </p>
+                </div>
+            </div>
+
+            {/* Product Modal */}
             <Dialog open={showForm} onOpenChange={setShowForm}>
-                <DialogContent className="sm:max-w-[720px] p-0 overflow-hidden border-border shadow-2xl">
-                    <DialogHeader style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <span style={{ padding: '3px 8px', background: 'var(--foreground)', color: 'var(--background)', borderRadius: '4px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', ...mono }}>
-                                {editing ? 'UPDATE' : 'CREATE'}
-                            </span>
-                        </div>
-                        <DialogTitle style={{ fontSize: '24px', fontWeight: 900, letterSpacing: '-0.04em' }}>
-                            {editing ? "Edit Product" : "New Catalog Item"}
-                        </DialogTitle>
-                        <DialogDescription style={{ fontSize: '14px', fontWeight: 500 }}>
-                            Define core attributes and build the interactive customization schema
+                <DialogContent className="sm:max-w-[75vw] w-[75vw] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-['Inter',sans-serif] p-0 overflow-hidden shadow-2xl">
+                    <DialogHeader className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                        <DialogTitle className="text-2xl font-bold">{editingProduct ? "Edit Product Category" : "Build Product Category"}</DialogTitle>
+                        <DialogDescription className="text-base mt-2">
+                            This creates the top-level parent grouping (e.g., 'Corporate Diaries') which will hold multiple specific sub-products.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <ScrollArea style={{ maxHeight: '65vh' }}>
-                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-
-                            {/* Core fields */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                <div style={{ gridColumn: '1 / -1' }}>
-                                    <FieldLabel>Product Title</FieldLabel>
-                                    <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Premium Hardcover Book" style={{ height: '42px', fontWeight: 700 }} />
-                                </div>
-                                <div>
-                                    <FieldLabel>Type / Category</FieldLabel>
-                                    <Select value={form.type} onValueChange={t => setForm({ ...form, type: t })}>
-                                        <SelectTrigger style={{ height: '42px', fontSize: '13px', fontWeight: 600 }}><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="product">Standard Product</SelectItem>
-                                            <SelectItem value="bundle">Bundle Package</SelectItem>
-                                            <SelectItem value="variant">Product Variant</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <FieldLabel>Base Price (₹)</FieldLabel>
-                                    <div style={{ position: 'relative' }}>
-                                        <Input type="number" value={form.base_price} onChange={e => setForm({ ...form, base_price: e.target.value })} placeholder="0.00" style={{ height: '42px', fontWeight: 800, fontSize: '16px' }} />
-                                    </div>
-                                </div>
-                                <div>
-                                    <FieldLabel>Minimum Order Quantity</FieldLabel>
-                                    <Input type="number" value={form.minimum_quantity} onChange={e => setForm({ ...form, minimum_quantity: e.target.value })} placeholder="1" style={{ height: '42px', fontWeight: 700 }} />
-                                </div>
-                                <div style={{
-                                    gridColumn: '1 / -1',
-                                    padding: '16px',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: '8px',
-                                    background: 'var(--secondary)/50',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                }}>
-                                    <div>
-                                        <p style={{ fontSize: '13px', fontWeight: 800 }}>Listed on Storefront</p>
-                                        <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', fontWeight: 500 }}>Uncheck to hide this product from public view</p>
-                                    </div>
-                                    <Switch checked={form.is_active} onCheckedChange={c => setForm({ ...form, is_active: c })} />
-                                </div>
+                    <div className="px-8 py-6 space-y-6">
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                    Name <span className="text-red-500 font-normal">*</span>
+                                </label>
+                                <Input className="h-11 text-base placeholder:text-slate-400" value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} placeholder="e.g. Rigid Boxes" />
+                                <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-1.5">
+                                    <Info size={14} className="shrink-0 mt-0.5 text-[#136dec]" />
+                                    <span>The public-facing display name of this product category.</span>
+                                </p>
                             </div>
-
-                            <Separator />
-
-                            {/* Config Sections */}
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <p style={{ fontSize: '15px', fontWeight: 800, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <Settings2 size={16} /> Configuration Schema
-                                        </p>
-                                        <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontWeight: 500 }}>Customer customisation form builder</p>
-                                    </div>
-                                    <Button variant="outline" size="sm" onClick={addSection} style={{ height: '32px', fontWeight: 700, fontSize: '11px' }}>
-                                        <Plus size={14} className="mr-1" /> Add Section
-                                    </Button>
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {form.sections.map((sec, si) => (
-                                        <div key={si} style={{
-                                            border: '1px solid var(--border)', borderRadius: '8px',
-                                            overflow: 'hidden', background: 'var(--secondary)',
-                                        }}>
-                                            <div style={{
-                                                padding: '10px 16px', background: 'var(--card)',
-                                                borderBottom: '1px solid var(--border)',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', ...mono }}>
-                                                        Section 0{si + 1}
-                                                    </span>
-                                                </div>
-                                                <Button variant="ghost" size="icon" onClick={() => removeSection(si)} style={{ height: '24px', width: '24px', color: '#dc2626' }}>
-                                                    <X size={14} />
-                                                </Button>
-                                            </div>
-                                            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', gap: '12px' }}>
-                                                    <div>
-                                                        <FieldLabel>ID Key</FieldLabel>
-                                                        <Input value={sec.key} onChange={e => updateSection(si, { key: e.target.value })} placeholder="paper_type" style={{ height: '36px', fontSize: '12px', background: 'var(--background)', fontWeight: 600, ...mono }} />
-                                                    </div>
-                                                    <div>
-                                                        <FieldLabel>Display Label</FieldLabel>
-                                                        <Input value={sec.label} onChange={e => updateSection(si, { label: e.target.value })} placeholder="Paper Quality" style={{ height: '36px', fontSize: '13px', background: 'var(--background)', fontWeight: 700 }} />
-                                                    </div>
-                                                    <div>
-                                                        <FieldLabel>Input UI</FieldLabel>
-                                                        <Select value={sec.type} onValueChange={v => updateSection(si, { type: v as FormSection['type'] })}>
-                                                            <SelectTrigger style={{ height: '36px', fontSize: '12px', background: 'var(--background)', fontWeight: 600 }}><SelectValue /></SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="dropdown">Dropdown</SelectItem>
-                                                                <SelectItem value="radio">Radio Buttons</SelectItem>
-                                                                <SelectItem value="number_input">Numeric</SelectItem>
-                                                                <SelectItem value="text_input">Short Text</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                </div>
-
-                                                {(sec.type === 'dropdown' || sec.type === 'radio') && (
-                                                    <div style={{ padding: '16px', background: 'var(--background)', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                                            <SectionLabel>Option Mapping</SectionLabel>
-                                                            <Button variant="secondary" size="sm" onClick={() => addOption(si)} style={{ height: '24px', fontSize: '10px', fontWeight: 800 }}>+ ADD OPTION</Button>
-                                                        </div>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                            {(sec.options || []).map((opt, oi) => (
-                                                                <div key={oi} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                                    <Input placeholder="Label" value={opt.label} onChange={e => updateOption(si, oi, { label: e.target.value })} style={{ height: '32px', fontSize: '12px', fontWeight: 600 }} />
-                                                                    <Input placeholder="Value" value={opt.value} onChange={e => updateOption(si, oi, { value: e.target.value })} style={{ height: '32px', fontSize: '11px', fontWeight: 600, ...mono }} />
-                                                                    <div style={{ position: 'relative', width: '120px' }}>
-                                                                        <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 800, color: 'var(--muted-foreground)' }}>₹</span>
-                                                                        <Input type="number" placeholder="0.00" value={opt.price_mod} onChange={e => updateOption(si, oi, { price_mod: parseFloat(e.target.value) })} style={{ height: '32px', fontSize: '12px', paddingLeft: '20px', fontWeight: 800 }} />
-                                                                    </div>
-                                                                    <Button variant="ghost" size="icon" onClick={() => { }} style={{ height: '32px', width: '32px', opacity: 0.3 }}><X size={12} /></Button>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {form.sections.length === 0 && (
-                                        <div style={{
-                                            padding: '40px', border: '1px dashed var(--border)', borderRadius: '8px',
-                                            textAlign: 'center', color: 'var(--muted-foreground)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px'
-                                        }}>
-                                            <Settings2 size={24} style={{ opacity: 0.2 }} />
-                                            <p style={{ fontSize: '13px', fontWeight: 500 }}>Customize the inquiry form by adding interactive sections.</p>
-                                        </div>
-                                    )}
-                                </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                                    <span>System Slug</span>
+                                    <span className="text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded">Optional</span>
+                                </label>
+                                <Input className="h-11 text-base font-mono bg-slate-50 dark:bg-slate-900/50 placeholder:text-slate-400" value={formState.slug} onChange={e => setFormState({ ...formState, slug: e.target.value })} placeholder="rigid-boxes" />
+                                <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-1.5">
+                                    <Info size={14} className="shrink-0 mt-0.5" />
+                                    <span>Used in the URL. Leave blank to auto-generate from the Name.</span>
+                                </p>
                             </div>
                         </div>
-                    </ScrollArea>
 
-                    <DialogFooter style={{ padding: '20px 24px', borderTop: '1px solid var(--border)', background: 'var(--secondary)', gap: '12px' }}>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                                <span>Description</span>
+                                <span className="text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded">Optional</span>
+                            </label>
+                            <Textarea className="resize-none min-h-[90px] text-base placeholder:text-slate-400" value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="A short marketing description..." />
+                            <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-1.5">
+                                <Info size={14} className="shrink-0 mt-0.5" />
+                                <span>Shown to customers to summarize what's in this category.</span>
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                                <span>Cover Image URL</span>
+                                <span className="text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded">Optional</span>
+                            </label>
+                            <Input className="h-11 text-base placeholder:text-slate-400" value={formState.cover_image} onChange={e => setFormState({ ...formState, cover_image: e.target.value })} placeholder="https://domain.com/image.jpg" />
+                            <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-1.5">
+                                <Info size={14} className="shrink-0 mt-0.5" />
+                                <span>The thumbnail graphic for the category grid.</span>
+                            </p>
+                        </div>
+
+                        <div className="flex items-center justify-between border-2 border-slate-100 dark:border-slate-800 p-5 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+                            <div>
+                                <p className="font-bold text-slate-900 dark:text-slate-100">Live Status</p>
+                                <p className="text-sm text-slate-500 mt-0.5">Determines if customers can see this category online.</p>
+                            </div>
+                            <Switch checked={formState.is_active} onCheckedChange={c => setFormState({ ...formState, is_active: c })} className="data-[state=checked]:bg-[#136dec]" />
+                        </div>
+                    </div>
+
+                    <DialogFooter className="px-8 py-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
                         <DialogClose asChild>
-                            <Button variant="outline" style={{ fontWeight: 700, height: '40px' }}>Cancel</Button>
+                            <Button variant="outline" className="h-11 px-6 font-semibold">Discard</Button>
                         </DialogClose>
-                        <Button onClick={handleSave} disabled={saving || !form.name} style={{ height: '40px', padding: '0 30px', fontWeight: 800 }}>
-                            {saving ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
-                            {editing ? "Save Product Settings" : "Finalize Catalog Entry"}
+                        <Button className="h-11 px-8 font-semibold bg-[#136dec] hover:bg-[#136dec]/90 text-white" onClick={handleSave} disabled={saving || !formState.name.trim()}>
+                            {saving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />}
+                            {editingProduct ? "Update Configuration" : "Publish Category"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

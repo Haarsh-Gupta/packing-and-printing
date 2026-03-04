@@ -38,12 +38,12 @@ async def create_service(
 
 @router.patch("/{service_id}", response_model=ServiceResponse)
 async def update_service(
-    id: int, 
+    service_id: int, 
     service_in: ServiceUpdate, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Service).where(Service.id == id)
+    stmt = select(Service).where(Service.id == service_id)
     existing_service = (await db.execute(stmt)).scalar_one_or_none() 
 
     if not existing_service:
@@ -84,13 +84,13 @@ async def get_services(
 
 @router.post("/{service_id}/subservices", response_model=SubServiceResponse, status_code=status.HTTP_201_CREATED)
 async def create_service_variant(
-    id: int, 
+    service_id: int, 
     subservice_in: SubServiceCreate, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
     # Check if parent service exists
-    service = (await db.execute(select(Service).where(Service.id == id))).scalar_one_or_none()
+    service = (await db.execute(select(Service).where(Service.id == service_id))).scalar_one_or_none()
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent service not found")
     
@@ -146,7 +146,7 @@ async def get_service_variants(
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(SubService).join(SubService.service).where(Service.id == id)
+    stmt = select(SubService).join(SubService.service).where(Service.id == service_id)
     if is_active is not None:
         stmt = stmt.where(SubService.is_active == is_active)
     
@@ -154,11 +154,11 @@ async def get_service_variants(
 
 @router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_service(
-    id: int, 
+    service_id: int, 
     current_user: User = Depends(get_current_admin_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Service).where(Service.id == id)
+    stmt = select(Service).where(Service.id == service_id)
     service = (await db.execute(stmt)).scalar_one_or_none()
 
     if not service:
