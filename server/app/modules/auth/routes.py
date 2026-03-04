@@ -34,6 +34,12 @@ async def login(request: Request, response : Response , db : AsyncSession = Depe
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Incorrect email or password")
 
+    if user.password is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="You registered with Google. Please use 'Sign in with Google' or use 'Forgot Password' to set an email password."
+        )
+
     if not await verify_password(password , user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Incorrect email or password")
     
@@ -124,8 +130,11 @@ async def logout(response: Response, db : AsyncSession = Depends(get_db), curren
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
-
-    user.token_version += 1
+    if user.token_version is None:
+        user.token_version = 1
+    else:
+        user.token_version += 1
+        
     await db.commit()
 
     response.delete_cookie("access_token")

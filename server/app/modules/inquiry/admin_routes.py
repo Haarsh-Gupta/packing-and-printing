@@ -117,9 +117,17 @@ async def send_quotation(
                 item.line_item_price = prices_map[item.id]
     
     await db.commit()
-    await db.refresh(group)
     
-    return group
+    # Re-fetch the fully loaded group with relationships after commit
+    fetch_stmt = select(InquiryGroup).options(
+        selectinload(InquiryGroup.items),
+        selectinload(InquiryGroup.messages)
+    ).where(InquiryGroup.id == group_id)
+    
+    refreshed_result = await db.execute(fetch_stmt)
+    refreshed_group = refreshed_result.scalar_one()
+    
+    return refreshed_group
 
 
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)

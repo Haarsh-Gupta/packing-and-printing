@@ -219,7 +219,15 @@ async def respond_to_quotation(
     
     group.status = status_update.status.value
     await db.commit()
-    await db.refresh(group)
+    
+    # Re-fetch the fully loaded group with relationships after commit
+    fetch_stmt = select(InquiryGroup).options(
+        selectinload(InquiryGroup.items),
+        selectinload(InquiryGroup.messages)
+    ).where(InquiryGroup.id == group_id)
+    
+    refreshed_result = await db.execute(fetch_stmt)
+    refreshed_group = refreshed_result.scalar_one()
     
     if group.status == 'ACCEPTED':
         # Ensure order doesn't already exist to be safe
@@ -273,7 +281,7 @@ async def respond_to_quotation(
             db.add_all(milestones)
             await db.commit()
     
-    return group
+    return refreshed_group
     
 
 @router.delete("/my/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
