@@ -38,12 +38,13 @@ class InquiryItemBase(BaseModel):
     def check_product_or_service(self):
         if not self.product_id and not self.service_id:
             raise ValueError("Either product_id or service_id must be provided")
+
         if self.service_id and self.subservice_id is None:
             raise ValueError(f"subservice_id is required for service_id {self.service_id}")
-        
-        if self.product_id and not self.selected_options:
+
+        if self.product_id and self.selected_options is None:
             raise ValueError("selected_options are required for product inquiries")
-        
+
         if self.service_id and self.selected_options:
             raise ValueError("selected_options should not be provided for service inquiries")
         
@@ -109,7 +110,7 @@ class InquiryMessageResponse(BaseModel):
 class InquiryItemResponse(InquiryItemBase):
     """Base response schema for a single item in the cart"""
     id: UUID
-    inquiry_group_id: Optional[UUID] = None
+    group_id: UUID
     quantity: int
     line_item_price: Optional[float] = None
     
@@ -147,5 +148,26 @@ class InquiryGroupListResponse(BaseModel):
     total_quoted_price: Optional[float] = None
     created_at: datetime
     item_count: int = 0 
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InquiryItemUpdate(BaseModel):
+    quantity: Optional[int] = Field(None, gt=0)
+    selected_options: Optional[Dict[str, Union[str, int, float, bool, None]]] = None
+    notes: Optional[str] = None
+    images: Optional[List[str]] = None
+
+class InquiryItemResponse(InquiryItemBase):
+    id: UUID
+    group_id: UUID
+    quantity: int
+    line_item_price: Optional[float] = None
+    
+    # These can be populated by SQLAlchemy hybrid properties or manual joins
+    product_name: Optional[str] = None
+    subproduct_name: Optional[str] = None
+    service_name: Optional[str] = None
+    subservice_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

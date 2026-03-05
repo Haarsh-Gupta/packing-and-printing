@@ -1,0 +1,53 @@
+[
+  {
+    "name": "Premium Book Binding Services",
+    "slug": "premium-book-binding-services",
+    "is_active": true,
+    "cover_image": "https://example.com/binding-cover.jpg",
+    "id": 1,
+    "sub_services": [
+      {
+        "name": "Softcover Binding",
+        "slug": "softcover-binding",
+        "service_id": 1,
+        "minimum_quantity": 10,
+        "price_per_unit": 2.5,
+        "description": "Standard softcover binding with durable glue.",
+        "images": [
+          "https://example.com/softcover.jpg"
+        ],
+        "is_active": true,
+        "id": 1
+      },
+      {
+        "name": "back book",
+        "slug": "back-book",
+        "service_id": 1,
+        "minimum_quantity": 10,
+        "price_per_unit": 2.5,
+        "description": "Milk and honey",
+        "images": [
+          "https://unsplash.com/photos/milk-and-honey-by-rupi-kaur-book-on-side-table-CXYPfveiuis"
+        ],
+        "is_active": true,
+        "id": 2
+      },
+      {
+        "name": "Death Note",
+        "slug": "death-note",
+        "service_id": 1,
+        "minimum_quantity": 10,
+        "price_per_unit": 2.5,
+        "description": "Death Note",
+        "images": [
+          "https://unsplash.com/photos/black-and-white-i-am-a-love-you-book-LbJ_EU8hELk",
+          "https://unsplash.com/photos/man-in-black-suit-holding-black-book-CSSBaUKOmhY",
+          "https://unsplash.com/photos/man-in-black-suit-holding-black-book-CSSBaUKOmhY",
+          "https://unsplash.com/photos/a-silhouette-of-a-demon-on-a-dark-blue-background-kDoi_ragUEs"
+        ],
+        "is_active": true,
+        "id": 3
+      }
+    ]
+  }
+]

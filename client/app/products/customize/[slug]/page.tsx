@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { FileText, CheckCircle2 } from "lucide-react";
 import ProductInquiryForm from "../../[id]/ProductInquiryForm";
 import ProductReviews from "../../[id]/ProductReviews";
 import ProductImageCarousel from "@/components/products/ProductImageCarousel";
@@ -47,31 +48,64 @@ export default async function CustomizeProductPage({
             <div className="max-w-7xl mx-auto px-4 py-12 md:py-16">
                 <div className="grid lg:grid-cols-[1fr_400px] gap-12 lg:gap-20 items-start">
 
-                    {/* Left Column: Image preview */}
-                    <div className="lg:sticky lg:top-10">
+                    {/* Left Column: Image, Details, Reviews */}
+                    <div className="space-y-12">
                         <ProductImageCarousel
                             images={subProduct.images || []}
                             productName={subProduct.name}
                         />
+
+                        {/* Product Details Section */}
+                        <div className="border-2 border-black bg-white p-6 sm:p-8">
+                            <h3 className="text-xl font-black uppercase mb-4 flex items-center gap-2">
+                                <FileText className="h-5 w-5" /> Product Details
+                            </h3>
+                            <p className="text-zinc-600 font-medium mb-6 leading-relaxed">
+                                {subProduct.description || "Our Eco-Kraft Mailer Boxes are the perfect sustainable packaging solution for e-commerce brands. Made from 90% recycled material and fully recyclable, these boxes don't just protect your products—they protect the planet."}
+                            </p>
+                            <ul className="space-y-3">
+                                <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
+                                    <CheckCircle2 className="h-5 w-5 text-pink-500 shrink-0" />
+                                    Sturdy E-flute corrugated cardboard (1.5mm thick)
+                                </li>
+                                <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
+                                    <CheckCircle2 className="h-5 w-5 text-pink-500 shrink-0" />
+                                    Water-based ink printing (Eco-friendly)
+                                </li>
+                                <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
+                                    <CheckCircle2 className="h-5 w-5 text-pink-500 shrink-0" />
+                                    Instant self-sealing adhesive strip available
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* Customer Reviews Section */}
+                        <div className="pt-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-2xl font-black uppercase border-b-2 border-black pb-1 inline-block">
+                                    Customer Reviews
+                                </h3>
+                                <a href="#" className="text-sm font-black uppercase hover:underline">
+                                    View All
+                                </a>
+                            </div>
+                            <ProductReviews productId={subProduct.id} />
+                        </div>
                     </div>
 
                     {/* Right Column: Customization Form */}
-                    <div className="bg-white border-3 border-border-black shadow-neubrutalism p-6 sm:p-8 relative">
-                        {/* Decorative ribbon */}
-                        <div className="absolute -top-3 -right-3 bg-accent-yellow border-2 border-border-black px-4 py-1 text-xs font-black shadow-neubrutalism-sm rotate-6">
-                            STYLE IT
+                    <div className="lg:sticky lg:top-10">
+                        <div className="bg-white border-3 border-border-black shadow-neubrutalism p-6 sm:p-8 relative">
+                            {/* Decorative ribbon */}
+                            <div className="absolute -top-3 -right-3 bg-accent-yellow border-2 border-border-black px-4 py-1 text-xs font-black shadow-neubrutalism-sm rotate-6">
+                                STYLE IT
+                            </div>
+                            <h3 className="font-display text-2xl font-black uppercase mb-6 border-b-2 border-border-black pb-3">
+                                Configuration
+                            </h3>
+                            <ProductInquiryForm product={subProduct} />
                         </div>
-                        <h3 className="font-display text-2xl font-black uppercase mb-6 border-b-2 border-border-black pb-3">
-                            Configuration
-                        </h3>
-                        <ProductInquiryForm product={subProduct} />
                     </div>
-                </div>
-
-                <div className="mt-24 pt-16 border-t-3 border-border-black text-center max-w-2xl mx-auto">
-                    <h3 className="text-2xl font-black uppercase mb-4 text-[#ff00ff]">Customer Reviews</h3>
-                    <p className="mb-8 font-medium">See what businesses say about this particular product variant and our customization quality.</p>
-                    <ProductReviews productId={subProduct.id} />
                 </div>
             </div>
         </div>
