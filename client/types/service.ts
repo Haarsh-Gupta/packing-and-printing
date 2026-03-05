@@ -3,7 +3,7 @@ export interface SubService {
     service_id?: number;
     name: string;
     slug: string;
-    base_price: number;
+    minimum_quantity: number;
     price_per_unit: number;
     description: string | null;
     images?: string[];

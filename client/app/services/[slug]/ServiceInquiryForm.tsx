@@ -43,19 +43,23 @@ export default function ServiceInquiryForm({ service }: { service: ServiceItem }
         return service.sub_services?.find(v => v.id.toString() === selectedVariantId);
     }, [selectedVariantId, service.sub_services]);
 
+    useEffect(() => {
+        if (selectedVariant) {
+            setQuantity(prev => Math.max(prev, selectedVariant.minimum_quantity || 1));
+        }
+    }, [selectedVariant]);
+
     const { totalPrice } = useMemo(() => {
         if (!selectedVariant) return { totalPrice: 0 };
-        const base = selectedVariant.base_price;
-        const extra = selectedVariant.price_per_unit * quantity;
         return {
-            totalPrice: base + extra
+            totalPrice: selectedVariant.price_per_unit * quantity
         };
     }, [selectedVariant, quantity]);
 
     const handleQuantityChange = (type: "inc" | "dec") => {
         setQuantity(prev => {
             if (type === "inc") return prev + 1;
-            if (type === "dec" && prev > 1) return prev - 1;
+            if (type === "dec" && selectedVariant && prev > selectedVariant.minimum_quantity) return prev - 1;
             return prev;
         });
     };
@@ -120,14 +124,14 @@ export default function ServiceInquiryForm({ service }: { service: ServiceItem }
 
                                     {/* Price Badge */}
                                     <div className="flex h-12 w-auto min-w-[3rem] px-3 shrink-0 items-center justify-center rounded-full border-2 border-black bg-white font-black text-xs shadow-sm text-center">
-                                        ₹{variant.base_price.toLocaleString()}
+                                        ₹{variant.price_per_unit.toLocaleString()} / unit
                                     </div>
 
                                     {/* Text Content */}
                                     <div className="flex flex-col">
                                         <span className="font-bold text-sm text-black uppercase">{variant.name}</span>
                                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider leading-tight mt-0.5 line-clamp-2">
-                                            {variant.description}
+                                            MOQ: {variant.minimum_quantity} • {variant.description}
                                         </span>
                                     </div>
                                 </Label>

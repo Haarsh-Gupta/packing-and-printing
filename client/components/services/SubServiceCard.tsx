@@ -15,7 +15,7 @@ export function SubServiceCard({ variant, index = 0, serviceSlug }: { variant: S
     else if (isTrending) { tag = "Trending"; tagColor = "bg-[#39FF14]"; }
     else if (isBestSeller) { tag = "Best Seller"; tagColor = "bg-[#DDA0DD]"; }
 
-    const originalPrice = variant.base_price * 1.25;
+    const originalPrice = variant.price_per_unit * 1.25;
 
     return (
         <div className="group relative flex flex-col h-[420px] overflow-hidden border-4 border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] rounded-2xl">
@@ -41,9 +41,10 @@ export function SubServiceCard({ variant, index = 0, serviceSlug }: { variant: S
                         </h3>
                     </Link>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-xl font-black">₹{variant.base_price.toLocaleString()}</span>
+                        <span className="text-xl font-black">₹{variant.price_per_unit.toLocaleString()} / unit</span>
                         <span className="text-sm font-bold text-gray-400 line-through">₹{originalPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                     </div>
+                    <span className="text-xs font-bold text-gray-500 mt-1 uppercase">MOQ: {variant.minimum_quantity} Units</span>
                 </div>
 
                 <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col gap-3 pointer-events-auto">
