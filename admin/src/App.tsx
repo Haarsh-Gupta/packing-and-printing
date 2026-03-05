@@ -10,10 +10,11 @@ import Services from "@/pages/Services";
 import Users from "@/pages/Users";
 import Tickets from "@/pages/Tickets";
 import Notifications from "@/pages/Notifications";
-import Email from "@/pages/Email";
 import Reviews from "@/pages/Reviews";
 import InquiryDetail from "@/pages/InquiryDetail";
 import Settings from "@/pages/Settings";
+import SubProducts from "@/pages/SubProducts";
+import SubServices from "@/pages/SubServices";
 
 export default function App() {
   return (
@@ -27,11 +28,12 @@ export default function App() {
             <Route path="/inquiries" element={<Inquiries />} />
             <Route path="/inquiries/:id" element={<InquiryDetail />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/products/:slug" element={<SubProducts />} />
             <Route path="/services" element={<Services />} />
+            <Route path="/services/:slug" element={<SubServices />} />
             <Route path="/users" element={<Users />} />
             <Route path="/tickets" element={<Tickets />} />
             <Route path="/notifications" element={<Notifications />} />
-            <Route path="/email" element={<Email />} />
             <Route path="/reviews" element={<Reviews />} />
             <Route path="/settings" element={<Settings />} />
           </Route>

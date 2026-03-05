@@ -151,27 +151,43 @@ export interface FormSection {
     price_per_unit?: number;
 }
 
-export interface Product {
+export interface SubProduct {
     id: number;
+    product_id: number;
     slug: string;
     name: string;
+    description?: string;
     type: string;
     base_price: number;
     minimum_quantity: number;
     images?: string[];
     is_active: boolean;
     config_schema: { sections: FormSection[] };
+    created_at: string;
+}
+
+export interface Product {
+    id: number;
+    slug: string;
+    name: string;
+    description?: string;
+    cover_image?: string;
+    is_active: boolean;
+    created_at: string;
+    sub_products: SubProduct[];
 }
 
 // ============ Services ============
-export interface ServiceVariant {
+export interface SubService {
     id: number;
     service_id: number;
     name: string;
     slug: string;
-    base_price: number;
+    minimum_quantity: number;
     price_per_unit: number;
     description?: string;
+    images?: string[];
+    is_active: boolean;
 }
 
 export interface Service {
@@ -179,7 +195,9 @@ export interface Service {
     name: string;
     slug: string;
     is_active: boolean;
-    variants: ServiceVariant[];
+    cover_image?: string;
+    description?: string;
+    sub_services: SubService[];
 }
 
 // ============ Users ============

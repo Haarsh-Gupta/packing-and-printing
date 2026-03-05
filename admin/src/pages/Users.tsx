@@ -1,38 +1,15 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { AuthUser } from "@/types";
-import {
-    Users, Trash2, Search, User, Mail, Phone,
-    Calendar, Shield, ShieldAlert, MoreVertical,
-    CheckCircle2, XCircle, Loader2, Filter, ExternalLink
-} from "lucide-react";
-import {
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-
-const mono: React.CSSProperties = { fontFamily: "'DM Mono', monospace" };
+import { Search, Shield, User, Trash2, Loader2, Users } from "lucide-react";
 
 const RoleBadge = ({ admin }: { admin: boolean }) => (
     <span style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '5px',
-        padding: '3px 8px',
-        background: admin ? 'var(--foreground)' : 'var(--secondary)',
-        borderRadius: '4px',
-        fontSize: '10px',
-        fontWeight: 700,
-        color: admin ? 'var(--background)' : 'var(--foreground)',
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
-        ...mono,
-        border: '1px solid var(--border)',
+        display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 9px',
+        borderRadius: '999px', fontSize: '11px', fontWeight: 600,
+        color: admin ? '#3b82f6' : '#52525b',
+        background: admin ? '#eff6ff' : '#f4f4f5',
+        fontFamily: "'Inter', system-ui",
     }}>
         {admin ? <Shield size={10} /> : <User size={10} />}
         {admin ? 'Admin' : 'Customer'}
@@ -50,7 +27,6 @@ export default function UsersPage() {
         let url = `/users/all?skip=0&limit=100`;
         if (adminFilter !== null) url += `&admin=${adminFilter}`;
         if (search) url += `&query=${search}`;
-
         api<AuthUser[]>(url).then(setUsers).catch(console.error).finally(() => setLoading(false));
     };
 
@@ -64,149 +40,160 @@ export default function UsersPage() {
         try {
             await api(`/users/delete?user_id=${id}`, { method: "DELETE" });
             fetchUsers();
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     };
 
     return (
-        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontFamily: "'DM Sans', system-ui" }}>
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: "'Inter', system-ui" }}>
 
             {/* Header */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                paddingBottom: '24px',
-                borderBottom: '1px solid var(--border)',
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                    <p style={{
-                        fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em',
-                        textTransform: 'uppercase', color: 'var(--muted-foreground)',
-                        ...mono, marginBottom: '4px',
-                    }}>Access Control</p>
-                    <h1 style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
+                    <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#18181b', margin: 0 }}>
                         Account Registry
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)', marginLeft: '12px', letterSpacing: 0, ...mono }}>
-                            [{users.length} SEEDERS]
-                        </span>
                     </h1>
+                    <p style={{ fontSize: '13px', color: '#71717a', marginTop: '3px' }}>
+                        {users.length} {users.length === 1 ? 'account' : 'accounts'} registered
+                    </p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <div className="relative">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="Filter by name/email..."
-                            value={search}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {/* Search */}
+                    <div style={{ position: 'relative' }}>
+                        <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa' }} />
+                        <input
+                            type="text" placeholder="Search by name or email…" value={search}
                             onChange={e => setSearch(e.target.value)}
-                            style={{ height: '36px', paddingLeft: '34px', width: '240px', fontSize: '13px', fontWeight: 600 }}
+                            style={{
+                                height: '36px', paddingLeft: '32px', paddingRight: '12px', width: '240px',
+                                border: '1px solid #e4e4e7', borderRadius: '9px', fontSize: '13px',
+                                color: '#18181b', background: 'white', fontFamily: "'Inter', system-ui", outline: 'none',
+                            }}
                         />
                     </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" style={{ height: '36px', gap: '8px', fontWeight: 700, fontSize: '13px' }}>
-                                <Filter size={14} />
-                                {adminFilter === null ? "All Roles" : adminFilter ? "Admins" : "Customers"}
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[180px]">
-                            <DropdownMenuLabel style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', ...mono }}>Role Filter</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setAdminFilter(null)} style={{ fontWeight: 600 }}>All Accounts</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setAdminFilter(true)} style={{ fontWeight: 600 }}>Administrators</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setAdminFilter(false)} style={{ fontWeight: 600 }}>Customers</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    {/* Role filter */}
+                    <select
+                        onChange={e => setAdminFilter(e.target.value === 'all' ? null : e.target.value === 'admin')}
+                        style={{
+                            height: '36px', padding: '0 10px', border: '1px solid #e4e4e7', borderRadius: '9px',
+                            fontSize: '13px', color: '#52525b', background: 'white',
+                            fontFamily: "'Inter', system-ui", cursor: 'pointer', outline: 'none',
+                        }}
+                    >
+                        <option value="all">All Roles</option>
+                        <option value="admin">Admins</option>
+                        <option value="customer">Customers</option>
+                    </select>
+                    {/* Add button */}
+                    <button style={{
+                        height: '36px', padding: '0 16px',
+                        background: '#3b82f6', color: 'white', border: 'none', borderRadius: '9px',
+                        fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                        fontFamily: "'Inter', system-ui",
+                    }}>
+                        + Add Account
+                    </button>
                 </div>
             </div>
 
-            {/* Table */}
-            <div style={{ borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--card)' }}>
-                <Table>
-                    <TableHeader style={{ background: 'var(--secondary)/50' }}>
-                        <TableRow className="hover:bg-transparent border-b border-border">
-                            <TableHead style={{ height: '44px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', ...mono, color: 'var(--muted-foreground)' }}>Identity</TableHead>
-                            <TableHead style={{ height: '44px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', ...mono, color: 'var(--muted-foreground)' }}>Privilege</TableHead>
-                            <TableHead style={{ height: '44px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', ...mono, color: 'var(--muted-foreground)' }}>Communications</TableHead>
-                            <TableHead style={{ height: '44px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', ...mono, color: 'var(--muted-foreground)' }}>Registration</TableHead>
-                            <TableHead style={{ height: '44px' }}></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading && users.length === 0 ? (
-                            [1, 2, 3, 4, 5].map(i => (
-                                <TableRow key={i}>
-                                    <TableCell colSpan={5} style={{ height: '64px', padding: '0 20px' }}>
-                                        <div style={{ height: '24px', background: 'var(--secondary)', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        ) : users.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={5} style={{ height: '300px', textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                                        <Users size={48} style={{ opacity: 0.1 }} />
-                                        <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--muted-foreground)' }}>No matching accounts found in registry</p>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            users.map((u) => (
-                                <TableRow key={u.id} className="group border-b border-border hover:bg-zinc-50/50">
-                                    <TableCell style={{ padding: '16px 20px' }}>
+            {/* Table card */}
+            <div style={{
+                background: 'white', borderRadius: '16px',
+                border: '1px solid rgba(0,0,0,0.06)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
+                overflow: 'hidden',
+            }}>
+                {loading ? (
+                    <div style={{ padding: '64px', textAlign: 'center' }}>
+                        <Loader2 size={24} style={{ animation: 'spin 0.8s linear infinite', color: '#3b82f6', margin: '0 auto' }} />
+                    </div>
+                ) : users.length === 0 ? (
+                    <div style={{ padding: '64px', textAlign: 'center' }}>
+                        <Users size={32} style={{ opacity: 0.3, margin: '0 auto 10px', display: 'block' }} />
+                        <p style={{ fontSize: '14px', fontWeight: 500, color: '#71717a' }}>No accounts found</p>
+                    </div>
+                ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid #f4f4f5' }}>
+                                {['IDENTITY', 'PRIVILEGE', 'CONTACT', 'REGISTERED', ''].map((h, i) => (
+                                    <th key={i} style={{
+                                        padding: '12px 20px', fontSize: '10px', fontWeight: 600,
+                                        color: '#a1a1aa', textAlign: 'left', letterSpacing: '0.06em',
+                                    }}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {users.map(user => (
+                                <tr key={user.id} style={{ borderBottom: '1px solid #f9f9f9', transition: 'background 0.1s' }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = '#f9f9f9')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                    {/* Identity */}
+                                    <td style={{ padding: '14px 20px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <Avatar style={{ border: '2px solid var(--border)', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                                                <AvatarImage src={u.profile_picture || ""} />
-                                                <AvatarFallback style={{ fontWeight: 800, background: 'var(--foreground)', color: 'var(--background)' }}>{u.name.charAt(0)}</AvatarFallback>
-                                            </Avatar>
+                                            <div style={{
+                                                width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                                                background: user.is_admin ? '#3b82f6' : '#e4e4e7',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: '14px', fontWeight: 700,
+                                                color: user.is_admin ? 'white' : '#52525b',
+                                            }}>
+                                                {(user.name || user.email || 'U')[0].toUpperCase()}
+                                            </div>
                                             <div>
-                                                <p style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '-0.01em' }}>{u.name}</p>
-                                                <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', ...mono }}>{u.id.slice(0, 8).toUpperCase()}</p>
+                                                <p style={{ fontSize: '13px', fontWeight: 600, color: '#18181b', margin: 0 }}>
+                                                    {user.name || 'Unknown'}
+                                                </p>
+                                                <p style={{ fontSize: '11px', color: '#a1a1aa', margin: 0, fontFamily: "'Inter',system-ui", letterSpacing: '0' }}>
+                                                    ID: {user.id.toString().slice(0, 8)}…
+                                                </p>
                                             </div>
                                         </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <RoleBadge admin={u.admin} />
-                                    </TableCell>
-                                    <TableCell>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                            <p style={{ fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Mail size={12} className="text-muted-foreground" /> {u.email}
-                                            </p>
-                                            {u.phone && (
-                                                <p style={{ fontSize: '11px', fontWeight: 500, color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    <Phone size={11} /> {u.phone}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <p style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', ...mono }}>
-                                            {new Date(u.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    </td>
+
+                                    {/* Privilege */}
+                                    <td style={{ padding: '14px 20px' }}>
+                                        <RoleBadge admin={user.is_admin || false} />
+                                    </td>
+
+                                    {/* Contact */}
+                                    <td style={{ padding: '14px 20px' }}>
+                                        <p style={{ fontSize: '13px', color: '#52525b', margin: 0 }}>{user.email}</p>
+                                        <p style={{ fontSize: '11px', color: '#a1a1aa', margin: 0 }}>
+                                            {(user as any).phone || '—'}
                                         </p>
-                                    </TableCell>
-                                    <TableCell style={{ textAlign: 'right', paddingRight: '20px' }}>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <MoreVertical size={16} />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-[200px]">
-                                                <DropdownMenuLabel style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', ...mono }}>Account Actions</DropdownMenuLabel>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem className="text-destructive" style={{ fontWeight: 700 }} onClick={() => deleteUser(u.id)}>
-                                                    <Trash2 size={14} className="mr-2" /> Purge Account
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
+                                    </td>
+
+                                    {/* Registered */}
+                                    <td style={{ padding: '14px 20px' }}>
+                                        <span style={{ fontSize: '12px', color: '#71717a' }}>
+                                            {user.created_at
+                                                ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                                : '—'}
+                                        </span>
+                                    </td>
+
+                                    {/* Actions */}
+                                    <td style={{ padding: '14px 20px' }}>
+                                        <button
+                                            onClick={() => deleteUser(user.id)}
+                                            style={{
+                                                background: 'none', border: 'none', cursor: 'pointer',
+                                                color: '#d4d4d8', padding: '4px', borderRadius: '6px', transition: 'all 0.1s',
+                                            }}
+                                            title="Delete user"
+                                            onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fef2f2'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.color = '#d4d4d8'; e.currentTarget.style.background = 'none'; }}
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </div>
         </div>
     );

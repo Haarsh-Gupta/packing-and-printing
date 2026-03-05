@@ -65,7 +65,7 @@ export default function DashboardPage() {
     };
 
     fetchStats();
-  }, [router]);
+  }, []);
 
   if (authLoading || statsLoading) return <DashboardSkeleton />;
 

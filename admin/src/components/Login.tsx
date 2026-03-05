@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Lock, Mail, AlertCircle, Loader2, ArrowRight } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 
 export default function Login() {
     const { user, login } = useAuth();
     const navigate = useNavigate();
+    const [tab, setTab] = useState<"password" | "otp">("password");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [showPw, setShowPw] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -22,7 +23,7 @@ export default function Login() {
             await login(email, password);
             navigate("/");
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : "Login failed");
+            setError(err instanceof Error ? err.message : "Invalid credentials. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -31,286 +32,210 @@ export default function Login() {
     return (
         <div style={{
             minHeight: '100vh',
-            display: 'grid',
-            gridTemplateColumns: '1fr 480px',
-            background: 'var(--background)',
-            fontFamily: "'DM Sans', system-ui",
+            background: '#f2f2f7',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
         }}>
-            {/* Left: Brand panel */}
+            {/* Floating Login Card */}
             <div style={{
-                background: 'var(--foreground)',
-                color: 'var(--background)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                padding: '48px',
-                position: 'relative',
-                overflow: 'hidden',
+                background: 'white',
+                borderRadius: '20px',
+                padding: '40px 36px 36px',
+                width: '100%',
+                maxWidth: '380px',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.04), 0 16px 48px rgba(0,0,0,0.08)',
             }}>
-                {/* Grid lines decoration */}
-                <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    backgroundImage: 'linear-gradient(var(--background) 1px, transparent 1px), linear-gradient(90deg, var(--background) 1px, transparent 1px)',
-                    backgroundSize: '64px 64px',
-                    opacity: 0.04,
-                }} />
-
-                <div style={{ position: 'relative' }}>
-                    <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        marginBottom: '80px',
+                {/* Brand */}
+                <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+                    <h1 style={{
+                        fontSize: '22px',
+                        fontWeight: 700,
+                        letterSpacing: '-0.025em',
+                        color: '#18181b',
+                        margin: 0,
                     }}>
-                        <div style={{
-                            width: '32px',
-                            height: '32px',
-                            background: 'var(--background)',
-                            borderRadius: '6px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            <span style={{ fontWeight: 900, fontSize: '16px', color: 'var(--foreground)' }}>B</span>
-                        </div>
-                        <span style={{
-                            fontWeight: 900,
-                            fontSize: '20px',
-                            letterSpacing: '-0.04em',
-                            color: 'var(--background)',
-                        }}>BookBind</span>
-                    </div>
-
-                    <h2 style={{
-                        fontSize: '56px',
-                        fontWeight: 900,
-                        letterSpacing: '-0.06em',
-                        lineHeight: 0.95,
-                        color: 'var(--background)',
-                        marginBottom: '24px',
-                    }}>
-                        Manage<br />
-                        Everything.<br />
-                        <span style={{ opacity: 0.35 }}>Effortlessly.</span>
-                    </h2>
-                    <p style={{
-                        fontSize: '14px',
-                        color: 'var(--background)',
-                        opacity: 0.5,
-                        fontWeight: 400,
-                        lineHeight: 1.6,
-                        maxWidth: '340px',
-                    }}>
-                        Your complete command center for orders, inquiries, customers, and everything in between.
+                        Navart Admin
+                    </h1>
+                    <p style={{ fontSize: '13px', color: '#71717a', marginTop: '4px' }}>
+                        Sign in to continue
                     </p>
                 </div>
 
+                {/* Tabs */}
                 <div style={{
-                    display: 'flex',
-                    gap: '40px',
-                    position: 'relative',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    background: '#f4f4f5',
+                    borderRadius: '10px',
+                    padding: '3px',
+                    marginBottom: '24px',
                 }}>
                     {[
-                        { label: 'Orders', value: '2.4k+' },
-                        { label: 'Customers', value: '890+' },
-                        { label: 'Products', value: '48' },
-                    ].map(stat => (
-                        <div key={stat.label}>
-                            <div style={{
-                                fontSize: '28px',
-                                fontWeight: 900,
-                                letterSpacing: '-0.04em',
-                                color: 'var(--background)',
-                            }}>{stat.value}</div>
-                            <div style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                letterSpacing: '0.12em',
-                                textTransform: 'uppercase',
-                                color: 'var(--background)',
-                                opacity: 0.4,
-                                fontFamily: "'DM Mono', monospace",
-                            }}>{stat.label}</div>
-                        </div>
+                        { id: 'password' as const, label: 'Password Login' },
+                        { id: 'otp' as const, label: 'OTP Login' },
+                    ].map(t => (
+                        <button
+                            key={t.id}
+                            onClick={() => { setTab(t.id); setError(''); }}
+                            style={{
+                                padding: '7px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '12.5px',
+                                fontWeight: tab === t.id ? 600 : 400,
+                                color: tab === t.id ? '#18181b' : '#71717a',
+                                background: tab === t.id ? 'white' : 'transparent',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                boxShadow: tab === t.id ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                                fontFamily: "'Inter', system-ui",
+                            }}
+                        >
+                            {t.label}
+                        </button>
                     ))}
                 </div>
-            </div>
 
-            {/* Right: Login form */}
-            <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                padding: '48px',
-                borderLeft: '1px solid var(--border)',
-            }}>
-                <div style={{ marginBottom: '40px' }}>
-                    <p style={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        letterSpacing: '0.15em',
-                        textTransform: 'uppercase',
-                        color: 'var(--muted-foreground)',
-                        fontFamily: "'DM Mono', monospace",
-                        marginBottom: '8px',
+                {/* Error */}
+                {error && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '10px 12px', background: '#fef2f2',
+                        border: '1px solid #fecaca', borderRadius: '10px',
+                        color: '#dc2626', fontSize: '13px', marginBottom: '16px',
                     }}>
-                        Admin Access
-                    </p>
-                    <h1 style={{
-                        fontSize: '28px',
-                        fontWeight: 900,
-                        letterSpacing: '-0.04em',
-                        color: 'var(--foreground)',
-                    }}>
-                        Sign in to continue
-                    </h1>
-                </div>
+                        <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                        {error}
+                    </div>
+                )}
 
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {error && (
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '12px',
-                            background: '#fef2f2',
-                            border: '1px solid #fecaca',
-                            borderRadius: '6px',
-                            color: '#dc2626',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                        }}>
-                            <AlertCircle size={14} />
-                            {error}
-                        </div>
-                    )}
-
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            letterSpacing: '0.12em',
-                            textTransform: 'uppercase',
-                            color: 'var(--muted-foreground)',
-                            fontFamily: "'DM Mono', monospace",
-                            marginBottom: '6px',
-                        }}>
-                            Email address
-                        </label>
-                        <div style={{ position: 'relative' }}>
-                            <Mail size={14} style={{
-                                position: 'absolute',
-                                left: '12px',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                color: 'var(--muted-foreground)',
-                            }} />
-                            <Input
+                {tab === 'password' ? (
+                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        {/* Email */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#3f3f46', marginBottom: '6px' }}>
+                                Email
+                            </label>
+                            <input
                                 type="email"
                                 value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="admin@bookbind.com"
+                                onChange={e => setEmail(e.target.value)}
+                                placeholder="admin@navart.com"
                                 required
                                 style={{
-                                    paddingLeft: '36px',
-                                    height: '44px',
-                                    fontWeight: 500,
-                                    fontSize: '14px',
+                                    width: '100%', height: '40px', padding: '0 12px',
+                                    border: '1px solid #e4e4e7', borderRadius: '10px',
+                                    fontSize: '14px', color: '#18181b', background: 'white',
+                                    fontFamily: "'Inter', system-ui", outline: 'none',
+                                    boxSizing: 'border-box', transition: 'border-color 0.15s',
+                                }}
+                                onFocus={e => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                                onBlur={e => { e.target.style.borderColor = '#e4e4e7'; e.target.style.boxShadow = 'none'; }}
+                            />
+                        </div>
+
+                        {/* Password */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#3f3f46', marginBottom: '6px' }}>
+                                Password
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type={showPw ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    required
+                                    style={{
+                                        width: '100%', height: '40px', padding: '0 40px 0 12px',
+                                        border: '1px solid #e4e4e7', borderRadius: '10px',
+                                        fontSize: '14px', color: '#18181b', background: 'white',
+                                        fontFamily: "'Inter', system-ui", outline: 'none',
+                                        boxSizing: 'border-box', transition: 'border-color 0.15s',
+                                    }}
+                                    onFocus={e => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                                    onBlur={e => { e.target.style.borderColor = '#e4e4e7'; e.target.style.boxShadow = 'none'; }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPw(v => !v)}
+                                    style={{
+                                        position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                                        background: 'none', border: 'none', cursor: 'pointer', color: '#a1a1aa', padding: '2px',
+                                    }}
+                                >
+                                    {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Submit */}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            style={{
+                                width: '100%', height: '42px',
+                                background: loading ? '#3f3f46' : '#18181b',
+                                color: 'white', border: 'none', borderRadius: '10px',
+                                fontSize: '14px', fontWeight: 600,
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                fontFamily: "'Inter', system-ui",
+                                transition: 'background 0.15s',
+                                marginTop: '4px',
+                            }}
+                            onMouseEnter={e => !loading && (e.currentTarget.style.background = '#27272a')}
+                            onMouseLeave={e => !loading && (e.currentTarget.style.background = '#18181b')}
+                        >
+                            {loading ? <Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> : 'Sign In'}
+                        </button>
+
+                        {/* Forgot password */}
+                        <p style={{ textAlign: 'center', margin: 0 }}>
+                            <button
+                                type="button"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12.5px', color: '#3b82f6', fontFamily: "'Inter', system-ui" }}
+                            >
+                                Forgot password?
+                            </button>
+                        </p>
+                    </form>
+                ) : (
+                    /* OTP Tab */
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#3f3f46', marginBottom: '6px' }}>
+                                Email
+                            </label>
+                            <input
+                                type="email"
+                                placeholder="admin@navart.com"
+                                style={{
+                                    width: '100%', height: '40px', padding: '0 12px',
+                                    border: '1px solid #e4e4e7', borderRadius: '10px',
+                                    fontSize: '14px', color: '#18181b', background: 'white',
+                                    fontFamily: "'Inter', system-ui", outline: 'none',
+                                    boxSizing: 'border-box',
                                 }}
                             />
                         </div>
+                        <button
+                            style={{
+                                width: '100%', height: '42px',
+                                background: '#18181b', color: 'white', border: 'none', borderRadius: '10px',
+                                fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+                                fontFamily: "'Inter', system-ui", marginTop: '4px',
+                            }}
+                        >
+                            Send OTP
+                        </button>
+                        <p style={{ textAlign: 'center', fontSize: '12px', color: '#71717a', margin: 0 }}>
+                            We'll send a one-time code to your email address
+                        </p>
                     </div>
-
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            letterSpacing: '0.12em',
-                            textTransform: 'uppercase',
-                            color: 'var(--muted-foreground)',
-                            fontFamily: "'DM Mono', monospace",
-                            marginBottom: '6px',
-                        }}>
-                            Password
-                        </label>
-                        <div style={{ position: 'relative' }}>
-                            <Lock size={14} style={{
-                                position: 'absolute',
-                                left: '12px',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                color: 'var(--muted-foreground)',
-                            }} />
-                            <Input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                required
-                                style={{
-                                    paddingLeft: '36px',
-                                    height: '44px',
-                                    fontWeight: 500,
-                                    fontSize: '14px',
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        style={{
-                            height: '44px',
-                            background: loading ? 'var(--muted)' : 'var(--foreground)',
-                            color: 'var(--background)',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '13px',
-                            fontWeight: 700,
-                            letterSpacing: '0.02em',
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px',
-                            marginTop: '8px',
-                            fontFamily: "'DM Sans', system-ui",
-                            transition: 'opacity 0.15s',
-                        }}
-                    >
-                        {loading ? (
-                            <Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} />
-                        ) : (
-                            <>
-                                Sign in
-                                <ArrowRight size={14} />
-                            </>
-                        )}
-                    </button>
-                </form>
-
-                <div style={{
-                    marginTop: 'auto',
-                    paddingTop: '40px',
-                    borderTop: '1px solid var(--border)',
-                    marginBottom: '-8px',
-                }}>
-                    <p style={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        letterSpacing: '0.1em',
-                        textTransform: 'uppercase',
-                        color: 'var(--muted-foreground)',
-                        fontFamily: "'DM Mono', monospace",
-                        textAlign: 'center',
-                    }}>
-                        Powered by Antigravity · BookBind v2.0
-                    </p>
-                </div>
+                )}
             </div>
         </div>
     );

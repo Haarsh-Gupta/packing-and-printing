@@ -10,7 +10,7 @@ import { Product } from "@/types/product";
 async function getProduct(id: string): Promise<Product | null> {
     try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`, {
-            next: { revalidate: 3600 }
+            cache: 'no-store'
         });
         if (!res.ok) return null;
         return res.json();
