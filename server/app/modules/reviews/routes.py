@@ -86,7 +86,12 @@ async def get_service_reviews(
     skip: int = 0
 ):
     stmt = (
-        select(Review).options(joinedload(Review.service)) .where(SubService.slug == slug).limit(limit).offset(skip)
+        select(Review)
+        .join(Review.service)
+        .options(joinedload(Review.user))
+        .where(SubService.slug == slug)
+        .limit(limit)
+        .offset(skip)
     )
     result = await db.execute(stmt)
     reviews = result.scalars().all()

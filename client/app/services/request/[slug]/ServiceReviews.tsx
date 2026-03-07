@@ -38,7 +38,7 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
     );
 }
 
-export default function ServiceReviews({ serviceId, serviceSlug }: { serviceId: number; serviceSlug: string }) {
+export default function ServiceReviews({ serviceId, slug }: { serviceId: number, slug: string }) {
     const { showAlert } = useAlert();
     const [reviews, setReviews] = useState<Review[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +55,7 @@ export default function ServiceReviews({ serviceId, serviceSlug }: { serviceId: 
 
         const fetchReviews = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/service/${serviceSlug}`);
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/service/${slug}`);
                 if (res.ok) {
                     const data = await res.json();
                     setReviews(data);
@@ -68,7 +68,7 @@ export default function ServiceReviews({ serviceId, serviceSlug }: { serviceId: 
         };
 
         fetchReviews();
-    }, [serviceSlug]);
+    }, [slug]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -100,13 +100,6 @@ export default function ServiceReviews({ serviceId, serviceSlug }: { serviceId: 
                 setShowForm(false);
                 setComment("");
                 setRating(5);
-
-                // Refetch reviews
-                const fetchRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/service/${serviceSlug}`);
-                if (fetchRes.ok) {
-                    const data = await fetchRes.json();
-                    setReviews(data);
-                }
             } else {
                 const err = await res.json();
                 const errorMessage = Array.isArray(err.detail)
@@ -130,7 +123,7 @@ export default function ServiceReviews({ serviceId, serviceSlug }: { serviceId: 
     });
 
     return (
-        <div className="space-y-10 text-left">
+        <div className="space-y-10 mt-12">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div>
                     <h2 className="text-3xl font-black uppercase tracking-tight">Reviews</h2>

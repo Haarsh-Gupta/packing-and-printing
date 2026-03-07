@@ -1,5 +1,4 @@
 from uuid import UUID
-from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -22,9 +21,7 @@ from .schemas import (
     InquiryGroupResponse,
     InquiryGroupListResponse,
     InquiryMessageCreate,
-    InquiryMessageResponse,
-    InquiryItemUpdate,
-    InquiryItemResponse
+    InquiryMessageResponse
 )
 
 router = APIRouter()
@@ -85,27 +82,9 @@ async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSessi
         estimated_price = base_item_price * item.quantity
 
     return estimated_price
+    
 
-async def check_valid_group_and_user(group_id: UUID, current_user: TokenData, db: AsyncSession):
-    stmt = select(InquiryGroup).where(
-        InquiryGroup.id == group_id,
-        InquiryGroup.user_id == current_user.id
-    )
-
-    result = await db.execute(stmt)
-    group = result.scalar_one_or_none()
-
-    if not group:
-        raise HTTPException(status_code=404, detail="Inquiry not found")
-
-    if group.status != "PENDING":
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot add items after quotation has started"
-        )
-    return group  
-
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=InquiryGroupResponse)
+@router.post("/", response_model=InquiryGroupResponse, status_code=status.HTTP_201_CREATED)
 async def create_inquiry_group(
     inquiry_data: InquiryGroupCreate,
     current_user: TokenData = Depends(get_current_user),
@@ -152,7 +131,7 @@ async def create_inquiry_group(
     return result.scalar_one()
 
 
-@router.get("/my", response_model=list[InquiryGroupListResponse])
+@router.get("/my", response_model=list[InquiryGroupListResponse], status_code=status.HTTP_200_OK)
 async def get_my_inquiries(
     skip: int = 0,
     limit: int = 20,
@@ -164,6 +143,7 @@ async def get_my_inquiries(
     """
     stmt = (
         select(InquiryGroup)
+        .options(selectinload(InquiryGroup.items))
         .where(InquiryGroup.user_id == current_user.id)
         .order_by(InquiryGroup.created_at.desc())
         .offset(skip)
@@ -179,7 +159,7 @@ async def get_my_inquiries(
     return groups
 
 
-@router.get("/my/{group_id}", response_model=InquiryGroupResponse)
+@router.get("/my/{group_id}", response_model=InquiryGroupResponse, status_code=status.HTTP_200_OK)
 async def get_my_inquiry(
     group_id: UUID,
     current_user: TokenData = Depends(get_current_user),
@@ -206,106 +186,91 @@ async def get_my_inquiry(
     
     return group
 
-@router.patch("/my/{group_id}/items/{item_id}",response_model=InquiryItemResponse)
-async def update_inquiry_item(
+
+@router.post("/my/{group_id}/reorder", response_model=InquiryGroupResponse, status_code=status.HTTP_201_CREATED)
+async def reorder_inquiry(
     group_id: UUID,
-    item_id: UUID,
-    item_update: InquiryItemUpdate,
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Update an item in an inquiry (only if inquiry status is PENDING).
+    Reorder an inquiry (create a new inquiry with the same items).
     """
 
-    if not await check_valid_group_and_user(group_id, current_user, db):
-        raise HTTPException(status_code=404, detail="Inquiry not found")
-
-    stmt = select(InquiryItem).where(
-        InquiryItem.id == item_id,
-        InquiryItem.group_id == group_id
+    stmt = (
+        select(InquiryGroup)
+        .options(selectinload(InquiryGroup.items))
+        .where(
+            InquiryGroup.id == group_id,
+            InquiryGroup.user_id == current_user.id
+        )
     )
 
     result = await db.execute(stmt)
-    item = result.scalar_one_or_none()
+    group = result.scalar_one_or_none()
 
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inquiry not found"
+        )
 
-    item_update_data = item_update.model_dump(exclude_unset=True)
+    new_group = InquiryGroup(
+        user_id=current_user.id,
+        status="PENDING"
+    )
 
-    for key, value in item_update_data.items():
-        setattr(item, key, value)
+    db.add(new_group)
+    await db.flush()
 
-    # Recalculate estimated price
-    payload = {
-    "product_id": item.product_id,
-    "subproduct_id": item.subproduct_id,
-    "service_id": item.service_id,
-    "subservice_id": item.subservice_id,
-    "quantity": item.quantity,
-    "selected_options": item.selected_options,
-    }
+    for item in group.items:
 
-    recalculated = await calculate_item_estimated_price(InquiryItemCreate(**payload),db)
+        item_schema = InquiryItemCreate(
+            product_id=item.product_id,
+            subproduct_id=item.subproduct_id,
+            service_id=item.service_id,
+            subservice_id=item.subservice_id,
+            quantity=item.quantity,
+            selected_options=item.selected_options,
+            notes=item.notes,
+            images=item.images
+        )
 
-    item.estimated_price = recalculated
+        estimated_price = await calculate_item_estimated_price(
+            item_schema,
+            db
+        )
+
+        new_item = InquiryItem(
+            group_id=new_group.id,
+            product_id=item.product_id,
+            subproduct_id=item.subproduct_id,
+            service_id=item.service_id,
+            subservice_id=item.subservice_id,
+            quantity=item.quantity,
+            selected_options=item.selected_options,
+            notes=item.notes,
+            images=item.images,
+            estimated_price=estimated_price
+        )
+
+        db.add(new_item)
 
     await db.commit()
-    await db.refresh(item)
 
-    return item
-
-@router.delete("/my/{group_id}/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_inquiry_item(
-    group_id: UUID,
-    item_id: UUID,
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-
-    if not await check_valid_group_and_user(group_id, current_user, db):
-        raise HTTPException(status_code=404, detail="Inquiry not found")
-
-    stmt = select(InquiryItem).where(
-        InquiryItem.id == item_id,
-        InquiryItem.group_id == group_id
+    stmt = (
+        select(InquiryGroup)
+        .options(
+            selectinload(InquiryGroup.items),
+            selectinload(InquiryGroup.messages)
+        )
+        .where(InquiryGroup.id == new_group.id)
     )
 
     result = await db.execute(stmt)
-    item = result.scalar_one_or_none()
 
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
+    return result.scalar_one()
 
-    await db.delete(item)
-    await db.commit()
-
-@router.post("/my/{group_id}/item", response_model= InquiryItemResponse)
-async def add_item_to_inquiry(
-    group_id: UUID, 
-    item: InquiryItemCreate, 
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Add a new item to an existing inquiry (only if status is PENDING).
-    """
-
-    if not await check_valid_group_and_user(group_id, current_user, db):
-        raise HTTPException(status_code=404, detail="Inquiry not found")
-
-    estimated_price = await calculate_item_estimated_price(item, db)
-    new_item = InquiryItem(
-        group_id=group_id,
-        **item.model_dump(),
-        estimated_price=estimated_price
-    )
-    db.add(new_item)
-    await db.commit()
-    await db.refresh(new_item)
-
-    return new_item
 
 @router.patch("/my/{group_id}/respond", response_model=InquiryGroupResponse)
 async def respond_to_quotation(
@@ -317,10 +282,6 @@ async def respond_to_quotation(
     """
     Accept or reject an admin quotation for the entire cart.
     """
-
-    if status_update.status not in ["ACCEPTED", "REJECTED"]:
-        raise HTTPException(400, "Invalid status")
-
     stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
         selectinload(InquiryGroup.messages)
@@ -438,7 +399,7 @@ async def delete_my_inquiry(
 
 # ==================== MESSAGING ENDPOINTS ====================
 
-@router.post("/my/{group_id}/messages", response_model=InquiryMessageResponse)
+@router.post("/my/{group_id}/messages", response_model=InquiryMessageResponse, status_code=status.HTTP_201_CREATED)
 async def send_inquiry_message(
     group_id: UUID,
     message: InquiryMessageCreate,

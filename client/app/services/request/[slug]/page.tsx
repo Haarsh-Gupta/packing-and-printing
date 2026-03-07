@@ -1,89 +1,76 @@
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowLeft, CheckCircle2, ShieldCheck, FileText } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileText, CheckCircle2 } from "lucide-react";
 import ServiceInquiryForm from "../../[slug]/ServiceInquiryForm";
-import ServiceReviews from "./ServiceReviews";
 import ProductImageCarousel from "@/components/products/ProductImageCarousel";
-import { ServiceItem } from "@/types/service";
+import ServiceReviews from "./ServiceReviews";
 
-async function getService(slug: string): Promise<ServiceItem | null> {
+async function getSubService(slug: string) {
     try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services/${slug}`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services/subservices/${slug}`, {
             cache: 'no-store'
         });
-
         if (!res.ok) return null;
         return res.json();
-    } catch (error) {
-        console.error("Failed to fetch service:", error);
+    } catch {
         return null;
     }
 }
 
+async function getServices() {
+    try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services`, {
+            cache: 'no-store'
+        });
+        if (!res.ok) return [];
+        return res.json();
+    } catch {
+        return [];
+    }
+}
+
 export default async function ServiceRequestPage({
-    params,
-    searchParams
+    params
 }: {
-    params: Promise<{ slug: string }>;
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+    params: Promise<{ slug: string }>
 }) {
     const { slug } = await params;
-    const resolvedSearchParams = await searchParams;
-    const variantSlug = resolvedSearchParams?.variant as string | undefined;
+    
+    // Fetch variant AND all services to find parent service
+    const subService = await getSubService(slug);
+    if (!subService) notFound();
 
-    const service = await getService(slug);
+    const services = await getServices();
+    const parentService = services.find((s: any) => s.id === subService.service_id);
 
-    if (!service) {
-        notFound();
-    }
-
-    // Find active variant logic
-    let activeVariant = service.sub_services && service.sub_services.length > 0 ? service.sub_services[0] : null;
-
-    if (variantSlug && service.sub_services) {
-        const matchingVariant = service.sub_services.find(v => v.slug === variantSlug);
-        if (matchingVariant) {
-            activeVariant = matchingVariant;
-        }
-    }
-
-    const images = activeVariant?.images && activeVariant.images.length > 0
-        ? activeVariant.images
-        : (service.cover_image ? [service.cover_image] : []);
+    if (!parentService) notFound();
 
     return (
         <div className="min-h-screen bg-background-light text-border-black pb-20">
             {/* Header Section */}
-            <div className="border-b-3 border-border-black bg-accent-blue/20">
+            <div className="border-b-3 border-border-black bg-accent-yellow/20">
                 <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
-                    <Button variant="ghost" className="mb-4 hover:bg-zinc-100 border-2 border-transparent hover:border-black transition-all" asChild>
-                        <Link href={`/services/${slug}`}>
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Service Variants
-                        </Link>
-                    </Button>
-                    <span className="text-xs font-bold uppercase tracking-widest text-primary mb-2 block animate-fade-in">
+                    <span className="text-xs font-bold uppercase tracking-widest text-primary mb-2 block">
                         Customize Service
                     </span>
-                    <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4 uppercase animate-fade-up">
-                        {service.name}
+                    <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4 uppercase">
+                        {subService.name}
                     </h1>
-                    <p className="text-lg text-border-black/80 font-medium max-w-2xl">
-                        {activeVariant?.description || "Professional implementation and expert guidance tailored specifically for your structured requirements and operations. Experience unmatched quality."}
-                    </p>
+                    {subService.description && (
+                        <p className="text-lg text-border-black/80 font-medium max-w-2xl">
+                            {subService.description}
+                        </p>
+                    )}
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-4 py-12 md:py-16">
                 <div className="grid lg:grid-cols-[1fr_400px] gap-12 lg:gap-20 items-start">
 
-                    {/* Left Column: Image, Details, Reviews */}
+                    {/* Left Column: Image, Details */}
                     <div className="space-y-12">
                         <ProductImageCarousel
-                            images={images}
-                            productName={activeVariant?.name || service.name}
+                            images={subService.images || []}
+                            productName={subService.name}
                         />
 
                         {/* Service Details Section */}
@@ -92,20 +79,20 @@ export default async function ServiceRequestPage({
                                 <FileText className="h-5 w-5" /> Service Details
                             </h3>
                             <p className="text-zinc-600 font-medium mb-6 leading-relaxed">
-                                {activeVariant?.description || "Professional implementation and expert guidance tailored specifically for your structured requirements and operations. Experience unmatched quality."}
+                                {subService.description || "Our professional studio services provide expert review and quality assurance to meet your project specifications."}
                             </p>
                             <ul className="space-y-3">
                                 <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
-                                    <CheckCircle2 className="h-5 w-5 text-[#90e8ff] shrink-0" />
-                                    Expert Review by master studio technicians
+                                    <CheckCircle2 className="h-5 w-5 text-[#4be794] shrink-0" />
+                                    Expert technician review
                                 </li>
                                 <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
-                                    <CheckCircle2 className="h-5 w-5 text-[#90e8ff] shrink-0" />
-                                    Guaranteed Quality meeting industry standards
+                                    <CheckCircle2 className="h-5 w-5 text-[#4be794] shrink-0" />
+                                    Guaranteed industry standards
                                 </li>
                                 <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
-                                    <CheckCircle2 className="h-5 w-5 text-[#90e8ff] shrink-0" />
-                                    Dedicated support for custom requirements
+                                    <CheckCircle2 className="h-5 w-5 text-[#4be794] shrink-0" />
+                                    Timely delivery and professional support
                                 </li>
                             </ul>
                         </div>
@@ -120,27 +107,22 @@ export default async function ServiceRequestPage({
                                     View All
                                 </a>
                             </div>
-                            {activeVariant ? (
-                                <ServiceReviews serviceId={activeVariant.id} serviceSlug={activeVariant.slug} />
-                            ) : (
-                                <p>No reviews available.</p>
-                            )}
+                            <ServiceReviews serviceId={subService.id} slug={slug} />
                         </div>
                     </div>
 
-                    {/* Right Column: Configuration Form */}
+                    {/* Right Column: Customization Form */}
                     <div className="lg:sticky lg:top-10">
-                        <Card className="border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none z-10 bg-white">
-                            <CardHeader className="border-b-4 border-black bg-[#ff90e8] p-8">
-                                <CardTitle className="text-4xl font-black uppercase tracking-tighter text-black">Request Quote</CardTitle>
-                                <p className="text-sm font-bold text-black opacity-80 uppercase tracking-widest">Select your requirements below</p>
-                            </CardHeader>
-                            <CardContent className="p-8 bg-white">
-                                <Suspense fallback={<div className="h-64 flex items-center justify-center font-bold animate-pulse uppercase tracking-widest text-zinc-300">Configuring Studio...</div>}>
-                                    {activeVariant ? <ServiceInquiryForm service={service} activeVariant={activeVariant} /> : <p>Variant not found</p>}
-                                </Suspense>
-                            </CardContent>
-                        </Card>
+                        <div className="bg-white border-3 border-border-black shadow-neubrutalism p-6 sm:p-8 relative">
+                            {/* Decorative ribbon */}
+                            <div className="absolute -top-3 -right-3 bg-[#4be794] border-2 border-border-black px-4 py-1 text-xs font-black shadow-neubrutalism-sm rotate-6">
+                                REQUEST IT
+                            </div>
+                            <h3 className="font-display text-2xl font-black uppercase mb-6 border-b-2 border-border-black pb-3">
+                                Configuration
+                            </h3>
+                            <ServiceInquiryForm service={parentService} activeVariant={subService} />
+                        </div>
                     </div>
                 </div>
             </div>
