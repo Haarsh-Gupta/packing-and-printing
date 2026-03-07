@@ -24,7 +24,7 @@ export default function UsersPage() {
 
     const fetchUsers = () => {
         setLoading(true);
-        let url = `/users/all?skip=0&limit=100`;
+        let url = `/admin/users/all?skip=0&limit=100`;
         if (adminFilter !== null) url += `&admin=${adminFilter}`;
         if (search) url += `&query=${search}`;
         api<AuthUser[]>(url).then(setUsers).catch(console.error).finally(() => setLoading(false));
@@ -38,7 +38,7 @@ export default function UsersPage() {
     const deleteUser = async (id: string) => {
         if (!confirm("Permanently delete this user account? This action is irreversible.")) return;
         try {
-            await api(`/users/delete?user_id=${id}`, { method: "DELETE" });
+            await api(`/admin/users/${id}`, { method: "DELETE" });
             fetchUsers();
         } catch (e) { console.error(e); }
     };
@@ -134,10 +134,10 @@ export default function UsersPage() {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <div style={{
                                                 width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
-                                                background: user.is_admin ? '#3b82f6' : '#e4e4e7',
+                                                background: user.admin ? '#3b82f6' : '#e4e4e7',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 fontSize: '14px', fontWeight: 700,
-                                                color: user.is_admin ? 'white' : '#52525b',
+                                                color: user.admin ? 'white' : '#52525b',
                                             }}>
                                                 {(user.name || user.email || 'U')[0].toUpperCase()}
                                             </div>
@@ -154,7 +154,7 @@ export default function UsersPage() {
 
                                     {/* Privilege */}
                                     <td style={{ padding: '14px 20px' }}>
-                                        <RoleBadge admin={user.is_admin || false} />
+                                        <RoleBadge admin={user.admin || false} />
                                     </td>
 
                                     {/* Contact */}

@@ -61,11 +61,11 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
         dispatch(addToInquiry({
             id: generateId(),
             serviceId: service.id,
-            name: `${service.name} - ${activeVariant.name}`,
+            name: `${service.name} - ${selectedVariant?.name}`,
             quantity: quantity,
             options: {
-                variant_id: activeVariant.id,
-                variant_name: activeVariant.name,
+                variant_id: parseInt(selectedVariantId),
+                variant_name: selectedVariant?.name || "",
                 service_slug: service.slug,
                 notes: notes,
             },
@@ -80,25 +80,57 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
         <form onSubmit={handleSubmit} className="relative flex flex-col space-y-6 w-full font-sans pb-4">
             <div className="space-y-6 max-w-[400px] w-full">
 
-                {/* Variant Pre-Selected Indicator */}
-                <div className="p-4 border-2 border-dashed border-black bg-zinc-50 rounded-md">
-                    <p className="text-xs font-black uppercase text-zinc-500 mb-1 tracking-widest">Selected Variant</p>
-                    <p className="font-bold text-lg text-black">{activeVariant?.name}</p>
-                    <div className="flex items-center gap-3 mt-2">
-                        <span className="text-sm font-black bg-[#90e8ff] px-2 py-1 border-2 border-black rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                            ₹{activeVariant?.price_per_unit}/unit
-                        </span>
-                        <span className="text-xs font-bold text-zinc-500 uppercase">Min: {activeVariant?.minimum_quantity}</span>
-                    </div>
+                {/* Variant Selection (Gumroad Tier Style) */}
+                <div className="space-y-3">
+                    <Label className="text-sm font-black uppercase tracking-widest text-zinc-800 flex items-center gap-2">
+                        <Info className="h-4 w-4 text-[#90e8ff]" />
+                        Select Expertise Level
+                    </Label>
+                    <RadioGroup
+                        value={selectedVariantId}
+                        onValueChange={setSelectedVariantId}
+                        className="flex flex-col gap-3"
+                    >
+                        {service.sub_services?.map((variant) => {
+                            const isSelected = selectedVariantId === variant.id.toString();
+                            return (
+                                <Label
+                                    key={variant.id}
+                                    className={`
+                                        relative flex items-center gap-4 p-4 cursor-pointer transition-all border-2 border-black rounded-md w-full
+                                        ${isSelected
+                                            ? "bg-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-[2px] -translate-x-[2px]"
+                                            : "bg-white hover:bg-zinc-50 hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                                        }
+                                    `}
+                                >
+                                    <RadioGroupItem value={variant.id.toString()} className="sr-only" />
+
+                                    {/* Price Badge */}
+                                    <div className="flex h-12 w-auto min-w-[3rem] px-3 shrink-0 items-center justify-center rounded-full border-2 border-black bg-white font-black text-xs shadow-sm text-center">
+                                        ₹{variant.price_per_unit.toLocaleString()} / unit
+                                    </div>
+
+                                    {/* Text Content */}
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-sm text-black uppercase">{variant.name}</span>
+                                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider leading-tight mt-0.5 line-clamp-2">
+                                            MOQ: {variant.minimum_quantity} • {variant.description}
+                                        </span>
+                                    </div>
+                                </Label>
+                            );
+                        })}
+                    </RadioGroup>
                 </div>
 
                 {/* Additional Units / Quantity */}
                 <div className="space-y-2">
                     <Label className="text-sm font-black uppercase tracking-widest text-zinc-800 flex items-center justify-between">
                         Items Involved
-                        {activeVariant && activeVariant.price_per_unit > 0 && (
+                        {selectedVariant && selectedVariant.price_per_unit > 0 && (
                             <span className="text-[10px] font-bold text-zinc-500 normal-case">
-                                (+₹{activeVariant.price_per_unit} / unit)
+                                (+₹{selectedVariant.price_per_unit} / unit)
                             </span>
                         )}
                     </Label>
@@ -106,7 +138,7 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
                         <button type="button" onClick={() => handleQuantityChange("dec")} className="h-full px-4 border-r-2 border-black hover:bg-zinc-100 active:bg-zinc-200 flex items-center justify-center transition-colors">
                             <Minus className="h-4 w-4" />
                         </button>
-                        <input type="number" min={activeVariant?.minimum_quantity || 1} value={quantity} onChange={(e) => setQuantity(Math.max(activeVariant?.minimum_quantity || 1, Number(e.target.value)))} className="w-full h-full text-center font-black text-lg focus:outline-none bg-transparent appearance-none" />
+                        <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))} className="w-full h-full text-center font-black text-lg focus:outline-none bg-transparent appearance-none" />
                         <button type="button" onClick={() => handleQuantityChange("inc")} className="h-full px-4 border-l-2 border-black hover:bg-zinc-100 active:bg-zinc-200 flex items-center justify-center transition-colors">
                             <Plus className="h-4 w-4" />
                         </button>
