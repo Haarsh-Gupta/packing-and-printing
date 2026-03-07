@@ -24,7 +24,7 @@ export function ServiceCard({ service, index }: ServiceCardProps) {
     return (
         <Link
             href={`/services/${service.slug}`}
-            className="group relative flex flex-col h-[450px] overflow-hidden border-4 border-black bg-white shadow-neubrutalism transition-all hover:-translate-y-1 hover:shadow-neubrutalism-lg rounded-2xl"
+            className="group relative flex flex-col h-[450px] overflow-hidden border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-2xl"
         >
             {/* Image Layer */}
             <div className="absolute inset-0 z-0">
@@ -40,7 +40,7 @@ export function ServiceCard({ service, index }: ServiceCardProps) {
             </div>
 
             {/* Content Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 z-10 bg-white border-t-4 border-black translate-y-[calc(100%-85px)] group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
+            <div className="absolute bottom-0 left-0 right-0 z-10 bg-white border-t-2 border-black translate-y-[calc(100%-85px)] group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
                 <div className="p-4">
                     <div className="flex items-start justify-between mb-4 gap-2">
                         <h3 className="font-display text-xl font-black uppercase leading-tight tracking-tight line-clamp-2">

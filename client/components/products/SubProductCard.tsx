@@ -28,8 +28,8 @@ export function SubProductCard({ subProduct, index = 0 }: { subProduct: SubProdu
     const originalPrice = subProduct.base_price * 1.25;
 
     return (
-        <div className="group relative flex flex-col h-[420px] overflow-hidden border-4 border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] rounded-2xl">
-            <Link href={`/products/customize/${subProduct.slug}`} className="absolute inset-0 z-0 h-[75%] w-full bg-gray-50 border-b-4 border-black overflow-hidden block">
+        <div className="group relative flex flex-col h-[420px] overflow-hidden border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-2xl">
+            <Link href={`/products/customize/${subProduct.slug}`} className="absolute inset-0 z-0 h-[75%] w-full bg-gray-50 border-b-2 border-black overflow-hidden block">
                 {coverImage ? (
                     <img
                         src={coverImage}

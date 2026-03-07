@@ -336,20 +336,9 @@
   }
 }
 
-/* Card override wrapper — gives every ProductCard the site style */
+/* Card wrapper — just contains the card, styling is on the inner component */
 .pp-card {
-  border: 2.5px solid #000;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 4px 4px 0 #000;
-  overflow: hidden;
-  transition: box-shadow 0.15s, transform 0.15s;
   cursor: pointer;
-}
-
-.pp-card:hover {
-  box-shadow: none;
-  transform: translate(4px, 4px);
 }
 
 /* ── Empty state ── */
