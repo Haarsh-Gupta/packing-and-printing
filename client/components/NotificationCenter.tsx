@@ -2,14 +2,22 @@
 
 import { useState } from "react";
 import { Bell, CheckCircle2, Info } from "lucide-react";
-import { MOCK_NOTIFICATIONS } from "../lib/mockData";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
+interface Notification {
+    id: number;
+    title: string;
+    message: string;
+    link: string;
+    read: boolean;
+    created_at: string;
+}
+
 export default function NotificationCenter() {
     const [isOpen, setIsOpen] = useState(false);
-    const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
     const unreadCount = notifications.filter(n => !n.read).length;
 
     const markAsRead = (id: number) => {

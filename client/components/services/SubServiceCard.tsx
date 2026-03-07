@@ -75,6 +75,7 @@ export function SubServiceCard({ variant, index = 0, serviceSlug }: { variant: S
                         <span className="text-xl font-black">₹{variant.price_per_unit.toLocaleString()}/unit</span>
                         <span className="text-sm font-bold text-gray-400 line-through">₹{originalPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}/unit</span>
                     </div>
+                    <span className="text-xs font-bold text-gray-500 mt-1 uppercase">MOQ: {variant.minimum_quantity} Units</span>
                 </div>
 
                 <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col gap-3 pointer-events-auto">

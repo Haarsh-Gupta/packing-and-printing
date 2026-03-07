@@ -1,0 +1,552 @@
+/* ═══════════════════════════════════════════════════════════
+   Product & Service Page Styles (pp-*)
+   Extracted to a separate file so Tailwind CSS v4 / @tailwindcss/postcss
+   doesn't strip plain CSS classes from the main globals.css.
+   ═══════════════════════════════════════════════════════════ */
+
+.pp-root {
+  font-family: 'Geist', sans-serif;
+  background: #f9f9f9;
+  min-height: 100vh;
+}
+
+/* ── Hero ── */
+.pp-hero {
+  background: #f5c6e0;
+  border-bottom: 2.5px solid #000;
+  padding: 5rem 0 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.pp-hero-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: end;
+}
+
+@media (max-width: 768px) {
+  .pp-hero-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-hero {
+    padding: 3rem 0 0;
+  }
+}
+
+.pp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #000;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-bottom: 1.5rem;
+}
+
+.pp-badge-dot {
+  width: 6px;
+  height: 6px;
+  background: #f5c6e0;
+  border-radius: 50%;
+}
+
+.pp-hero-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(3rem, 7vw, 5.5rem);
+  line-height: 1.0;
+  letter-spacing: -0.02em;
+  color: #000;
+  margin: 0 0 1.25rem;
+}
+
+.pp-hero-title em {
+  font-style: italic;
+  color: #000;
+}
+
+.pp-hero-sub {
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.65;
+  color: #333;
+  max-width: 400px;
+  margin-bottom: 2rem;
+}
+
+/* Stats row inside hero */
+.pp-stats {
+  display: flex;
+  gap: 0;
+  border-top: 2.5px solid #000;
+  margin-top: 2.5rem;
+}
+
+.pp-stat {
+  flex: 1;
+  padding: 1.25rem 1.5rem;
+  border-right: 2.5px solid #000;
+}
+
+.pp-stat:last-child {
+  border-right: none;
+}
+
+.pp-stat-value {
+  font-family: 'DM Serif Display', serif;
+  font-size: 2.25rem;
+  line-height: 1;
+  color: #000;
+}
+
+.pp-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #555;
+  margin-top: 4px;
+}
+
+/* Right side of hero */
+.pp-hero-right {
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 1.5rem;
+}
+
+.pp-search-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+.pp-search-row {
+  display: flex;
+  border: 2.5px solid #000;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 3px 3px 0 #000;
+}
+
+.pp-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: 'Geist', sans-serif;
+  font-size: 0.9375rem;
+  padding: 0.875rem 1.25rem;
+  color: #000;
+}
+
+.pp-search-input::placeholder {
+  color: #999;
+}
+
+.pp-search-btn {
+  background: #000;
+  border: none;
+  border-radius: 0 999px 999px 0;
+  padding: 0 1.375rem;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+
+.pp-search-btn:hover {
+  background: #222;
+}
+
+/* Illustration / decorative numbers */
+.pp-hero-deco {
+  font-family: 'DM Serif Display', serif;
+  font-style: italic;
+  font-size: 9rem;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.06);
+  text-align: right;
+  padding: 1rem 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Filter bar ── */
+.pp-filters {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #fff;
+  border-bottom: 2.5px solid #000;
+  box-shadow: 0 3px 0 #000;
+}
+
+.pp-filters-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.pp-filters-inner::-webkit-scrollbar {
+  display: none;
+}
+
+.pp-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 2px solid #000;
+  border-radius: 999px;
+  padding: 0.4375rem 1.125rem;
+  font-family: 'Geist', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: box-shadow 0.12s, transform 0.12s;
+  box-shadow: 2px 2px 0 #000;
+}
+
+.pp-filter-btn:hover {
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+.pp-filter-btn.active {
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+.pp-filter-divider {
+  width: 1px;
+  height: 24px;
+  background: #e0e0e0;
+  margin: 0 0.25rem;
+  flex-shrink: 0;
+}
+
+.pp-filter-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.pp-count-pill {
+  background: #f0f0f0;
+  border: 2px solid #000;
+  border-radius: 999px;
+  padding: 0.3125rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #000;
+}
+
+.pp-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 2px solid #000;
+  border-radius: 999px;
+  padding: 0.3125rem 0.875rem;
+  font-family: 'Geist', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 #000;
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+
+.pp-sort-btn:hover {
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+/* ── Main content ── */
+.pp-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3.5rem 2rem 2rem;
+}
+
+.pp-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+}
+
+.pp-section-heading {
+  font-family: 'DM Serif Display', serif;
+  font-size: 2rem;
+  font-style: italic;
+  color: #000;
+  line-height: 1;
+}
+
+.pp-section-sub {
+  font-size: 0.875rem;
+  color: #888;
+  font-weight: 400;
+}
+
+/* ── Product grid ── */
+.pp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .pp-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 580px) {
+  .pp-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card override wrapper — gives every ProductCard the site style */
+.pp-card {
+  border: 2.5px solid #000;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 4px 4px 0 #000;
+  overflow: hidden;
+  transition: box-shadow 0.15s, transform 0.15s;
+  cursor: pointer;
+}
+
+.pp-card:hover {
+  box-shadow: none;
+  transform: translate(4px, 4px);
+}
+
+/* ── Empty state ── */
+.pp-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 6rem 2rem;
+  text-align: center;
+  border: 2.5px dashed #ccc;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.pp-empty-icon {
+  width: 72px;
+  height: 72px;
+  background: #fff0a0;
+  border: 2.5px solid #000;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 3px 3px 0 #000;
+  font-size: 2rem;
+}
+
+.pp-empty-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.75rem;
+  color: #000;
+}
+
+.pp-empty-body {
+  font-size: 0.9rem;
+  color: #777;
+  max-width: 320px;
+}
+
+.pp-empty-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #000;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.75rem 1.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 #555;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.pp-empty-cta:hover {
+  box-shadow: none;
+  transform: translate(3px, 3px);
+}
+
+/* ── CTA Banner ── */
+.pp-cta-wrap {
+  max-width: 1200px;
+  margin: 3rem auto 0;
+  padding: 0 2rem 5rem;
+}
+
+.pp-cta {
+  background: #fff0a0;
+  border: 2.5px solid #000;
+  border-radius: 20px;
+  box-shadow: 6px 6px 0 #000;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2rem;
+  padding: 3rem 3.5rem;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .pp-cta {
+    grid-template-columns: 1fr;
+    padding: 2rem;
+  }
+}
+
+.pp-cta-deco {
+  position: absolute;
+  right: -2rem;
+  top: -2rem;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.04);
+  border: 2px dashed rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.pp-cta-deco2 {
+  position: absolute;
+  left: -1.5rem;
+  bottom: -1.5rem;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.03);
+  border: 2px dashed rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+.pp-cta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #000;
+  color: #fff0a0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+}
+
+.pp-cta-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  line-height: 1.1;
+  color: #000;
+  margin: 0 0 0.875rem;
+}
+
+.pp-cta-title em {
+  font-style: italic;
+}
+
+.pp-cta-body {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: #444;
+  max-width: 420px;
+}
+
+.pp-cta-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  align-items: stretch;
+}
+
+.pp-btn-black {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #000;
+  color: #fff;
+  border: 2px solid #000;
+  border-radius: 999px;
+  padding: 0.875rem 2rem;
+  font-family: 'Geist', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+
+.pp-btn-black:hover {
+  box-shadow: none;
+  transform: translate(3px, 3px);
+}
+
+.pp-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  color: #000;
+  border: 2px solid #000;
+  border-radius: 999px;
+  padding: 0.875rem 2rem;
+  font-family: 'Geist', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.pp-btn-outline:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
