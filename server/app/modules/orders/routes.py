@@ -15,13 +15,124 @@ from app.modules.auth.schemas import TokenData
 from app.modules.inquiry.models import InquiryGroup, InquiryItem
 from app.modules.orders.models import Order, Transaction, OrderMilestone
 from app.modules.orders.schemas import (
-    OrderResponse, OrderListResponse, TransactionResponse
+    OrderResponse, OrderListResponse, TransactionResponse,
+    UserMilestoneSwitchRequest, PaymentSplitType
 )
 
 from .utils.qr_generator import generate_upi_qr
 from .utils.invoice_generator import generate_simple_invoice
 
 router = APIRouter()
+
+
+# ==================== MILESTONE SWITCHING (USER) ====================
+
+@router.patch("/{order_id}/switch-milestone", response_model=OrderResponse)
+async def switch_milestones(
+    order_id: UUID,
+    payload: UserMilestoneSwitchRequest,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    User switches between FULL (100%) and HALF (50/50) milestone splits.
+
+    Rules:
+      - Only allowed if NO payment has been made (amount_paid == 0)
+      - Zero-price orders are locked to FULL — no splitting
+      - Users cannot choose CUSTOM — that's admin-only
+    """
+    # 1. Only FULL or HALF for users
+    if payload.split_type not in (PaymentSplitType.FULL, PaymentSplitType.HALF):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Users can only switch between FULL (100%) and HALF (50/50). Custom splits require admin.",
+        )
+
+    # 2. Fetch order with milestones
+    stmt = (
+        select(Order)
+        .options(selectinload(Order.milestones), selectinload(Order.transactions))
+        .where(Order.id == order_id, Order.user_id == current_user.id)
+    )
+    order = (await db.execute(stmt)).scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    # 3. Block if any payment has been made
+    if order.amount_paid > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot switch milestones — payment has already started",
+        )
+
+    # 4. Zero-price guard
+    if order.total_amount <= 0 and payload.split_type != PaymentSplitType.FULL:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This order has zero amount — only 100% milestone is available",
+        )
+
+    # 5. Delete existing milestones
+    for m in order.milestones:
+        await db.delete(m)
+
+    # 6. Generate new milestones
+    total = order.total_amount
+    new_milestones = []
+
+    if payload.split_type == PaymentSplitType.FULL:
+        new_milestones.append(OrderMilestone(
+            order_id=order.id,
+            label="Full Payment (100%)",
+            amount=total,
+            percentage=100.0,
+            order_index=1,
+        ))
+    else:  # HALF
+        new_milestones.append(OrderMilestone(
+            order_id=order.id,
+            label="Advance Payment (50%)",
+            amount=total * 0.5,
+            percentage=50.0,
+            order_index=1,
+        ))
+        new_milestones.append(OrderMilestone(
+            order_id=order.id,
+            label="Balance Before Dispatch (50%)",
+            amount=total * 0.5,
+            percentage=50.0,
+            order_index=2,
+        ))
+
+    db.add_all(new_milestones)
+    await db.commit()
+
+    # 7. Fire SSE events
+    try:
+        from app.core.sse import sse_manager
+
+        await sse_manager.publish(str(order.user_id), "milestones_changed", {
+            "order_id": str(order.id),
+            "split_type": payload.split_type.value,
+            "milestone_count": len(new_milestones),
+        })
+        await sse_manager.publish_to_admins("admin_milestone_switch", {
+            "order_id": str(order.id),
+            "user_id": str(order.user_id),
+            "split_type": payload.split_type.value,
+        })
+    except Exception:
+        pass  # Never block the milestone switch
+
+    # 8. Return updated order
+    fetch_stmt = (
+        select(Order)
+        .options(selectinload(Order.milestones), selectinload(Order.transactions))
+        .where(Order.id == order.id)
+    )
+    return (await db.execute(fetch_stmt)).scalar_one()
 
 
 # ==================== FETCH ROUTES ====================
@@ -104,13 +215,14 @@ async def get_order_payments(
 @router.get("/{order_id}/payment-qr")
 async def generate_payment_qr_code(
     order_id: UUID,
+    milestone_id: UUID = Query(..., description="ID of the specific milestone to pay"),
     upi_id: str = Query(..., description="UPI ID for payment"),
     payee_name: str = Query(..., description="Payee name"),
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Generate UPI QR code for order payment
+    Generate UPI QR code for order payment towards a specific milestone.
     """
     stmt = select(Order).where(Order.id == order_id)
     result = await db.execute(stmt)
@@ -128,26 +240,39 @@ async def generate_payment_qr_code(
             detail="Not authorized to generate QR for this order"
         )
     
-    due_amount = order.total_amount - order.amount_paid
+    m_stmt = select(OrderMilestone).where(
+        OrderMilestone.id == milestone_id,
+        OrderMilestone.order_id == order_id
+    )
+    milestone = (await db.execute(m_stmt)).scalar_one_or_none()
     
-    if due_amount <= 0:
+    if not milestone:
+         raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Milestone not found for this order"
+        )
+        
+    if milestone.is_paid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Order is already fully paid"
+            detail="This milestone is already fully paid"
         )
+        
+    due_amount = milestone.amount
     
     qr_base64 = generate_upi_qr(
         upi_id=upi_id,
         name=payee_name,
         amount=due_amount,
-        transaction_note=f"Order #{order_id} Payment"
+        transaction_note=f"Order #{order_id} Milestone"
     )
     
     return {
         "order_id": order_id,
+        "milestone_id": milestone_id,
         "amount": due_amount,
         "qr_code": f"data:image/png;base64,{qr_base64}",
-        "upi_string": f"upi://pay?pa={upi_id}&pn={payee_name}&am={due_amount}&tn=Order #{order_id} Payment"
+        "upi_string": f"upi://pay?pa={upi_id}&pn={payee_name}&am={due_amount}&tn=Order #{order_id} Milestone"
     }
 
 

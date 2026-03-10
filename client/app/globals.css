@@ -48,6 +48,8 @@
   --radius-4xl: calc(var(--radius) + 16px);
 
   /* User Defined Neubrutalism Config */
+  --site-bg: #F9F6EE;
+  --color-site-bg: var(--site-bg);
   --color-primary: #ee2b8c;
   --color-primary-dark: #c41e70;
   --color-background-light: #f8f6f7;
@@ -141,7 +143,7 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-site-bg text-foreground;
   }
 }
 

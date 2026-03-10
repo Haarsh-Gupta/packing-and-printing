@@ -273,14 +273,14 @@ export default function HeroSection() {
                         <animateTransform attributeName="transform" type="translate" from="0 0" to="-1440 0" dur="15s" repeatCount="indefinite" />
                         <path
                             d="M 0 60 C 240 25 480 25 720 60 C 960 95 1200 95 1440 60 C 1680 25 1920 25 2160 60 C 2400 95 2640 95 2880 60 V 120 H 0 Z"
-                            fill="white"
+                            fill="var(--site-bg)"
                         />
                     </g>
                     <g>
                         <animateTransform attributeName="transform" type="translate" from="0 0" to="-1440 0" dur="10s" repeatCount="indefinite" />
                         <path
                             d="M 0 60 C 240 10 480 10 720 60 C 960 110 1200 110 1440 60 C 1680 10 1920 10 2160 60 C 2400 110 2640 110 2880 60 V 120 H 0 Z"
-                            fill="white"
+                            fill="var(--site-bg)"
                         />
                     </g>
                 </svg>

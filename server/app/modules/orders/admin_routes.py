@@ -12,82 +12,80 @@ from app.modules.users.models import User
 from app.modules.inquiry.models import InquiryGroup
 from app.modules.orders.models import Order, Transaction, OrderMilestone
 from app.modules.orders.schemas import (
-    OrderCreate, OrderUpdate, OrderResponse,
+    OrderCreate, OrderUpdate, OrderResponse, OrderMilestoneRegenerate,
     TransactionCreate, TransactionResponse, PaymentSplitType
 )
+from app.core.sse import sse_manager
+from app.core.messaging import get_dispatcher
 
 router = APIRouter()
 
-# ==================== ORDER CREATION WITH MILESTONES ====================
-
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=OrderResponse)
-async def create_order(
-    order_data: OrderCreate, 
+@router.post("/{order_id}/regenerate-milestones", status_code=status.HTTP_200_OK, response_model=OrderResponse)
+async def regenerate_milestones(
+    order_id: UUID,
+    milestone_data: OrderMilestoneRegenerate,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Admin converts an accepted inquiry into an order and sets payment milestones."""
-    stmt = select(InquiryGroup).where(
-        InquiryGroup.id == order_data.inquiry_id,
-        InquiryGroup.status == "ACCEPTED"
-    )
-    result = await db.execute(stmt)
-    group = result.scalar_one_or_none()
+    """Admin refactors the payment milestones for an unpaid order."""
+    
+    # 1. Get the order with existing milestones
+    stmt = select(Order).options(selectinload(Order.milestones)).where(Order.id == order_id)
+    order = (await db.execute(stmt)).scalar_one_or_none()
 
-    if not group:
-        raise HTTPException(status_code=404, detail="Inquiry not found or not accepted")
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
 
-    # Check if order exists
-    existing_stmt = select(Order).where(Order.inquiry_id == order_data.inquiry_id)
-    if (await db.execute(existing_stmt)).scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Order already exists for this inquiry")
+    # 2. Prevent changes if payment has begun
+    if order.amount_paid > 0:
+        raise HTTPException(status_code=400, detail="Cannot regenerate milestones because payment has already started")
 
-    # 1. Create Base Order
-    new_order = Order(
-        inquiry_id=group.id,
-        user_id=group.user_id,
-        total_amount=group.total_quoted_price,
-        status="WAITING_PAYMENT"
-    )
-    db.add(new_order)
-    await db.flush() # Get new_order.id
+    # 3. Delete old unpaid milestones (technically all are unpaid)
+    for m in order.milestones:
+        await db.delete(m)
 
-    # 2. Generate Milestones based on Split Type
-    total = group.total_quoted_price
-    milestones = []
+    # 4. Generate Milestones based on Split Type
+    total = order.total_amount
+    new_milestones = []
 
-    if order_data.split_type == PaymentSplitType.FULL:
-        milestones.append(OrderMilestone(
-            order_id=new_order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
+    if milestone_data.split_type == PaymentSplitType.FULL:
+        new_milestones.append(OrderMilestone(
+            order_id=order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
         ))
     
-    elif order_data.split_type == PaymentSplitType.HALF:
-        milestones.append(OrderMilestone(
-            order_id=new_order.id, label="Advance Payment (50%)", amount=total * 0.5, percentage=50.0, order_index=1
+    elif milestone_data.split_type == PaymentSplitType.HALF:
+        new_milestones.append(OrderMilestone(
+            order_id=order.id, label="Advance Payment (50%)", amount=total * 0.5, percentage=50.0, order_index=1
         ))
-        milestones.append(OrderMilestone(
-            order_id=new_order.id, label="Balance Before Dispatch (50%)", amount=total * 0.5, percentage=50.0, order_index=2
+        new_milestones.append(OrderMilestone(
+            order_id=order.id, label="Balance Before Dispatch (50%)", amount=total * 0.5, percentage=50.0, order_index=2
         ))
         
-    elif order_data.split_type == PaymentSplitType.CUSTOM_30:
-        milestones.append(OrderMilestone(
-            order_id=new_order.id, label="Project Kickoff (30%)", amount=total * 0.3, percentage=30.0, order_index=1
-        ))
-        milestones.append(OrderMilestone(
-            order_id=new_order.id, label="Post-Sample Approval (30%)", amount=total * 0.3, percentage=30.0, order_index=2
-        ))
-        milestones.append(OrderMilestone(
-            order_id=new_order.id, label="Final Balance (40%)", amount=total * 0.4, percentage=40.0, order_index=3
+    elif milestone_data.split_type == PaymentSplitType.CUSTOM and milestone_data.custom_percentages:
+        if abs(sum(milestone_data.custom_percentages) - 100.0) > 0.1:
+            raise HTTPException(status_code=400, detail="Custom percentages must sum to 100")
+        
+        if len(milestone_data.custom_percentages) > 5:
+            raise HTTPException(status_code=400, detail="A maximum of 5 milestones is allowed")
+
+        for i, pct in enumerate(milestone_data.custom_percentages):
+            m_amount = (total * pct) / 100.0
+            new_milestones.append(OrderMilestone(
+                order_id=order.id, label=f"Custom Milestone {i+1} ({pct}%)", amount=m_amount, percentage=pct, order_index=i+1
+            ))
+    else:
+        new_milestones.append(OrderMilestone(
+            order_id=order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
         ))
 
-    db.add_all(milestones)
+    db.add_all(new_milestones)
     await db.commit()
 
     # Fetch fresh with relationships
     fetch_stmt = select(Order).options(
         selectinload(Order.milestones),
         selectinload(Order.transactions)
-    ).where(Order.id == new_order.id)
+    ).where(Order.id == order.id)
     return (await db.execute(fetch_stmt)).scalar_one()
 
 
@@ -146,6 +144,47 @@ async def record_milestone_payment(
     await db.commit()
     await db.refresh(new_transaction)
 
+    # ── Notifications (SSE + Email/WhatsApp) ──
+    try:
+        user_stmt = select(User).where(User.id == order.user_id)
+        user_obj = (await db.execute(user_stmt)).scalar_one_or_none()
+
+        dispatcher = get_dispatcher()
+        await dispatcher.dispatch(
+            to_email=user_obj.email if user_obj else None,
+            to_phone=user_obj.phone if user_obj else None,
+            subject=f"Payment Recorded — ₹{payment_data.amount:,.2f}",
+            body_html=f"""
+                <p>Hi {user_obj.name if user_obj else 'Customer'},</p>
+                <p>Your payment of <strong>₹{payment_data.amount:,.2f}</strong> for 
+                milestone <em>{milestone.label}</em> has been approved by the admin.</p>
+                <p>Order status: <strong>{order.status}</strong></p>
+                <p>Total paid: ₹{order.amount_paid:,.2f} / ₹{order.total_amount:,.2f}</p>
+            """,
+            body_text=(
+                f"Hi {user_obj.name if user_obj else 'Customer'}, "
+                f"your payment of ₹{payment_data.amount:,.2f} for {milestone.label} has been approved. "
+                f"Order status: {order.status}."
+            ),
+            sse_user_id=str(order.user_id),
+            sse_event="payment_recorded",
+            sse_data={
+                "order_id": str(order.id),
+                "milestone_id": str(milestone.id),
+                "amount": payment_data.amount,
+                "status": order.status,
+            },
+            sse_admin_event="admin_payment_recorded",
+            sse_admin_data={
+                "order_id": str(order.id),
+                "user_id": str(order.user_id),
+                "amount": payment_data.amount,
+                "milestone": milestone.label,
+            },
+        )
+    except Exception:
+        pass  # Logged inside dispatcher
+
     return new_transaction
 
 
@@ -199,9 +238,47 @@ async def update_order_status(
             detail="Order not found"
         )
     
+    old_status = order.status
     order.status = status_update.status
     
     await db.commit()
+    
+    # ── SSE + Messaging on status change ──
+    try:
+        user_stmt = select(User).where(User.id == order.user_id)
+        user_obj = (await db.execute(user_stmt)).scalar_one_or_none()
+
+        dispatcher = get_dispatcher()
+        await dispatcher.dispatch(
+            to_email=user_obj.email if user_obj else None,
+            to_phone=user_obj.phone if user_obj else None,
+            subject=f"Order Status Updated — {status_update.status}",
+            body_html=f"""
+                <p>Hi {user_obj.name if user_obj else 'Customer'},</p>
+                <p>Your order status has been updated from 
+                <strong>{old_status}</strong> to <strong>{status_update.status}</strong>.</p>
+            """,
+            body_text=(
+                f"Hi {user_obj.name if user_obj else 'Customer'}, "
+                f"your order status changed from {old_status} to {status_update.status}."
+            ),
+            sse_user_id=str(order.user_id),
+            sse_event="order_status_changed",
+            sse_data={
+                "order_id": str(order.id),
+                "old_status": old_status,
+                "new_status": status_update.status,
+            },
+            sse_admin_event="admin_order_status_changed",
+            sse_admin_data={
+                "order_id": str(order.id),
+                "user_id": str(order.user_id),
+                "old_status": old_status,
+                "new_status": status_update.status,
+            },
+        )
+    except Exception:
+        pass
     
     stmt = select(Order).options(
         selectinload(Order.transactions),

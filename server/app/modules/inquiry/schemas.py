@@ -9,12 +9,14 @@ from app.modules.orders.schemas import PaymentSplitType
 
 # --- Enums ---
 class InquiryStatus(str, Enum):
-    PENDING = "PENDING"
-    QUOTED = "QUOTED"
-    ACCEPTED = "ACCEPTED"
-    REJECTED = "REJECTED"
-    WAITING_PAYMENT = "WAITING_PAYMENT"
-    PARTIALLY_PAID = "PARTIALLY_PAID"
+    PENDING = "PENDING"                 # User submitted inquiry
+    UNDER_REVIEW = "UNDER_REVIEW"       # Admin reviewing inquiry
+    QUOTED = "QUOTED"                   # Admin sent quotation
+    NEGOTIATION = "NEGOTIATION"         # User and admin discussing price
+    ACCEPTED = "ACCEPTED"               # User accepted quote → order created
+    REJECTED = "REJECTED"               # User rejected quote
+    CANCELLED = "CANCELLED"             # User cancelled inquiry
+    EXPIRED = "EXPIRED"                 # Quote expired
 
 
 # ==========================================
@@ -88,6 +90,7 @@ class InquiryStatusUpdate(BaseModel):
     """Schema for updating inquiry status (user accepting/rejecting)"""
     status: InquiryStatus
     split_type: Optional[PaymentSplitType] = None
+    custom_percentages: Optional[List[float]] = None
 
 
 # ==========================================

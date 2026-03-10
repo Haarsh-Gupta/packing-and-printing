@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BookBind SSE Test Client</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .log { background: #f4f4f4; padding: 10px; height: 400px; overflow-y: auto; border: 1px solid #ccc; font-family: monospace; white-space: pre-wrap; }
+        .controls { margin-bottom: 20px; }
+        input, select, button { padding: 8px; margin-right: 10px; }
+        input[type="text"] { width: 300px; }
+        .event { margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .connected { color: green; font-weight: bold; }
+        .disconnected { color: red; font-weight: bold; }
+        .time { color: #888; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <h1>SSE Real-Time Event Tester</h1>
+    <p>1. Login via FastAPI Docs (<code>/docs</code>) and copy your Access Token.</p>
+    <p>2. Paste the token below, select the stream type, and click Connect.</p>
+    <p>3. In another tab, trigger events (e.g., switch milestones, record payments, change order status) to see them appear here.</p>
+    
+    <div class="controls">
+        <input type="text" id="token" placeholder="Paste JWT Access Token here..." />
+        <select id="streamType">
+            <option value="/events/stream">User Stream (/events/stream)</option>
+            <option value="/admin/events/stream">Admin Stream (/admin/events/stream)</option>
+        </select>
+        <button id="connectBtn" onclick="toggleConnection()">Connect</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <div id="status" class="disconnected">Status: Disconnected</div>
+    <div id="log" class="log"></div>
+
+    <script>
+        let eventSource = null;
+        const logEl = document.getElementById('log');
+        const statusEl = document.getElementById('status');
+        const connectBtn = document.getElementById('connectBtn');
+
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = 'event';
+            const time = new Date().toLocaleTimeString();
+            
+            if (type === 'event') {
+                div.innerHTML = `<span class="time">[${time}]</span> <strong>${msg.event}</strong>:<br>${JSON.stringify(msg.data, null, 2)}`;
+            } else {
+                div.innerHTML = `<span class="time">[${time}]</span> <em>${msg}</em>`;
+            }
+            
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function clearLog() {
+            logEl.innerHTML = '';
+        }
+
+        function toggleConnection() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                statusEl.textContent = 'Status: Disconnected';
+                statusEl.className = 'disconnected';
+                connectBtn.textContent = 'Connect';
+                log('Disconnected manually.');
+                return;
+            }
+
+            const token = document.getElementById('token').value.trim();
+            const endpoint = document.getElementById('streamType').value;
+            
+            if (!token) {
+                alert("Please enter a token first!");
+                return;
+            }
+
+            // We pass the token as a query parameter because EventSource doesn't support Authorization headers easily without polyfills
+            // For FastAPI, you might need to ensure your auth dependency checks query params, or just append it and check if it breaks.
+            // A common workaround is passing it in the URL: ?token=... (if your FastAPI get_current_user supports it)
+            // Or use an XMLHttpRequest/fetch wrapper. Here we pass it as a query param. Ensure your auth reads query params or cookies!
+            
+            const url = `http://localhost:8000${endpoint}?token=${encodeURIComponent(token)}`;
+            
+            log(`Attempting to connect to ${endpoint}...`);
+            
+            // To make this work with default FastAPI OAuth2PasswordBearer, you MUST modify your auth dependency to accept the token from query params as a fallback if the header is missing, or set it as a cookie.
+            // If your auth ONLY accepts Authorization header, EventSource won't work out of the box in browsers. 
+            // In that case, use a tool like Postman or curl to test SSE, OR add query param support to your auth.
+            
+            eventSource = new EventSource(url);
+
+            eventSource.onopen = (e) => {
+                statusEl.textContent = 'Status: Connected';
+                statusEl.className = 'connected';
+                connectBtn.textContent = 'Disconnect';
+                log('Connection established.');
+            };
+
+            eventSource.onerror = (e) => {
+                log('SSE Error resulting in disconnect or connection failure. Check token or server status.', 'error');
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    statusEl.textContent = 'Status: Disconnected';
+                    statusEl.className = 'disconnected';
+                    connectBtn.textContent = 'Connect';
+                }
+            };
+
+            // Listen to all specific events we created
+            const events = [
+                'connected', 'order_status_changed', 'payment_recorded', 
+                'payment_verified', 'milestones_changed', 'new_notification',
+                'admin_payment_received', 'admin_payment_recorded', 
+                'admin_milestone_switch', 'admin_order_status_changed'
+            ];
+
+            events.forEach(eventName => {
+                eventSource.addEventListener(eventName, (e) => {
+                    let data;
+                    try { data = JSON.parse(e.data); } catch(err) { data = e.data; }
+                    log({ event: eventName, data: data }, 'event');
+                });
+            });
+
+            // Fallback for general messages without a specific event name
+            eventSource.onmessage = (e) => {
+                log({ event: 'message', data: e.data }, 'event');
+            };
+        }
+    </script>
+</body>
+</html>

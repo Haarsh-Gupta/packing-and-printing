@@ -3,7 +3,7 @@ import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card"
 
 export default function Loading() {
     return (
-        <div className="min-h-screen bg-slate-50 py-16 px-4">
+        <div className="min-h-screen bg-site-bg py-16 px-4">
             <div className="max-w-7xl mx-auto space-y-12">
                 {/* Page Header Skeleton */}
                 <div className="space-y-4 max-w-2xl">

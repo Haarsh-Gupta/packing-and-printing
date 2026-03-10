@@ -45,7 +45,7 @@ export default async function ServiceRequestPage({
     if (!parentService) notFound();
 
     return (
-        <div className="min-h-screen bg-background-light text-border-black pb-20">
+        <div className="min-h-screen bg-site-bg text-border-black pb-20">
             {/* Header Section */}
             <div className="border-b-3 border-border-black bg-accent-yellow/20">
                 <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">

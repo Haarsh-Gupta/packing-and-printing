@@ -11,6 +11,7 @@ from app.modules.users.models import User
 from app.modules.services.models import Service, SubService
 from app.modules.products.models import Product, SubProduct
 from app.modules.orders.models import Order, OrderMilestone
+from app.modules.orders.schemas import OrderResponse
 from app.modules.orders.schemas import PaymentSplitType
 from .models import InquiryGroup, InquiryItem, InquiryMessage
 from .schemas import (
@@ -187,6 +188,128 @@ async def get_my_inquiry(
     return group
 
 
+@router.post("/my/{group_id}/items", response_model=InquiryGroupResponse, status_code=status.HTTP_201_CREATED)
+async def add_item_to_inquiry(
+    group_id: UUID,
+    item: InquiryItemCreate,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+
+    group = (await db.execute(
+        select(InquiryGroup).where(
+            InquiryGroup.id == group_id,
+            InquiryGroup.user_id == current_user.id
+        )
+    )).scalar_one_or_none()
+
+    if not group:
+        raise HTTPException(404)
+
+    if group.status != "PENDING":
+        raise HTTPException(400, "Cannot modify inquiry")
+
+    price = await calculate_item_estimated_price(item, db)
+
+    db.add(
+        InquiryItem(
+            group_id=group_id,
+            product_id=item.product_id,
+            subproduct_id=item.subproduct_id,
+            service_id=item.service_id,
+            subservice_id=item.subservice_id,
+            quantity=item.quantity,
+            selected_options=item.selected_options,
+            notes=item.notes,
+            images=item.images,
+            estimated_price=price
+        )
+    )
+
+    await db.commit()
+
+    stmt = select(InquiryGroup).options(
+        selectinload(InquiryGroup.items),
+        selectinload(InquiryGroup.messages)
+    ).where(InquiryGroup.id == group_id)
+    
+    return (await db.execute(stmt)).scalar_one()
+
+@router.patch("/my/{group_id}/items/{item_id}", response_model=InquiryGroupResponse, status_code=status.HTTP_200_OK)
+async def update_inquiry_item(
+    group_id: UUID,
+    item_id: UUID,
+    item_update: InquiryItemCreate,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+
+    group = (await db.execute(
+        select(InquiryGroup).where(
+            InquiryGroup.id == group_id,
+            InquiryGroup.user_id == current_user.id
+        )
+    )).scalar_one_or_none()
+
+    if group.status != "PENDING":
+        raise HTTPException(400)
+
+    item = (await db.execute(
+        select(InquiryItem).where(
+            InquiryItem.id == item_id,
+            InquiryItem.group_id == group_id
+        )
+    )).scalar_one_or_none()
+
+    price = await calculate_item_estimated_price(item_update, db)
+
+    item.quantity = item_update.quantity
+    item.selected_options = item_update.selected_options
+    item.notes = item_update.notes
+    item.images = item_update.images
+    item.estimated_price = price
+
+    await db.commit()
+
+    stmt = select(InquiryGroup).options(
+        selectinload(InquiryGroup.items),
+        selectinload(InquiryGroup.messages)
+    ).where(InquiryGroup.id == group_id)
+    
+    return (await db.execute(stmt)).scalar_one()
+
+@router.delete("/my/{group_id}/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_inquiry_item(
+    group_id: UUID,
+    item_id: UUID,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+
+    group = (await db.execute(
+        select(InquiryGroup).where(
+            InquiryGroup.id == group_id,
+            InquiryGroup.user_id == current_user.id
+        )
+    )).scalar_one_or_none()
+
+    if group.status != "PENDING":
+        raise HTTPException(400)
+
+    item = (await db.execute(
+        select(InquiryItem).where(
+            InquiryItem.id == item_id,
+            InquiryItem.group_id == group_id
+        )
+    )).scalar_one_or_none()
+
+    if not item:
+        raise HTTPException(404)
+
+    await db.delete(item)
+    await db.commit()
+
+
 @router.post("/my/{group_id}/reorder", response_model=InquiryGroupResponse, status_code=status.HTTP_201_CREATED)
 async def reorder_inquiry(
     group_id: UUID,
@@ -321,12 +444,9 @@ async def respond_to_quotation(
         if not existing_order:
             # Enforce split_type options for user acceptance: FULL or HALF
             split_type = status_update.split_type or PaymentSplitType.FULL
-            if split_type not in [PaymentSplitType.FULL, PaymentSplitType.HALF]:
-                # In the future, you could check if the admin pre-approved CUSTOM_30 on the group, 
-                # but for now we fallback to HALF if they try to be sneaky, or just let it pass if we trust the frontend UI.
-                # The prompt requested: "if user insist to admin then admin can enable the 30 % options".
-                # For safety, let's allow it here since the Pydantic schema will validate it, but could add checks later.
-                pass
+            if split_type not in [PaymentSplitType.FULL, PaymentSplitType.HALF, PaymentSplitType.CUSTOM]:
+                # If they send an invalid split type, fallback to HALF
+                split_type = PaymentSplitType.HALF
             
             new_order = Order(
                 inquiry_id=group.id,
@@ -340,27 +460,37 @@ async def respond_to_quotation(
             total = group.total_quoted_price
             milestones = []
             
-            if split_type == PaymentSplitType.FULL:
+            if total == 0:
+                new_order.status = "PAID"
                 milestones.append(OrderMilestone(
-                    order_id=new_order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
+                    order_id=new_order.id, label="Zero Cost Order (100%)", amount=0.0, percentage=100.0, order_index=1, is_paid=True
                 ))
-            elif split_type == PaymentSplitType.HALF:
-                milestones.append(OrderMilestone(
-                    order_id=new_order.id, label="Advance Payment (50%)", amount=total * 0.5, percentage=50.0, order_index=1
-                ))
-                milestones.append(OrderMilestone(
-                    order_id=new_order.id, label="Balance Before Dispatch (50%)", amount=total * 0.5, percentage=50.0, order_index=2
-                ))
-            elif split_type == PaymentSplitType.CUSTOM_30:
-                milestones.append(OrderMilestone(
-                    order_id=new_order.id, label="Project Kickoff (30%)", amount=total * 0.3, percentage=30.0, order_index=1
-                ))
-                milestones.append(OrderMilestone(
-                    order_id=new_order.id, label="Post-Sample Approval (30%)", amount=total * 0.3, percentage=30.0, order_index=2
-                ))
-                milestones.append(OrderMilestone(
-                    order_id=new_order.id, label="Final Balance (40%)", amount=total * 0.4, percentage=40.0, order_index=3
-                ))
+            else:
+                if split_type == PaymentSplitType.FULL:
+                    milestones.append(OrderMilestone(
+                        order_id=new_order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
+                    ))
+                elif split_type == PaymentSplitType.HALF:
+                    milestones.append(OrderMilestone(
+                        order_id=new_order.id, label="Advance Payment (50%)", amount=total * 0.5, percentage=50.0, order_index=1
+                    ))
+                    milestones.append(OrderMilestone(
+                        order_id=new_order.id, label="Balance Before Dispatch (50%)", amount=total * 0.5, percentage=50.0, order_index=2
+                    ))
+                elif split_type == PaymentSplitType.CUSTOM and status_update.custom_percentages:
+                    if abs(sum(status_update.custom_percentages) - 100.0) > 0.1:
+                        raise HTTPException(status_code=400, detail="Custom percentages must sum to 100")
+                    
+                    for i, pct in enumerate(status_update.custom_percentages):
+                        m_amount = (total * pct) / 100.0
+                        milestones.append(OrderMilestone(
+                            order_id=new_order.id, label=f"Custom Milestone {i+1} ({pct}%)", amount=m_amount, percentage=pct, order_index=i+1
+                        ))
+                else: 
+                    # Default if CUSTOM but no percentages
+                    milestones.append(OrderMilestone(
+                        order_id=new_order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
+                    ))
             
             db.add_all(milestones)
             await db.commit()
@@ -431,3 +561,81 @@ async def send_inquiry_message(
     await db.refresh(new_message)
 
     return new_message
+
+
+@router.post("/direct-checkout", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+async def direct_checkout_zero_cost(
+    item_data: InquiryItemCreate,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Directly create an order for a 0-priced product (like free digital services).
+    Bypasses the normal inquiry process. Auto-creates the inquiry as ACCEPTED and order as PAID.
+    """
+    # 1. First, validate it's actually 0 cost
+    estimated_price = await calculate_item_estimated_price(item_data, db)
+    
+    if estimated_price > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Direct checkout is only available for zero-cost products. Please submit a normal inquiry."
+        )
+
+    # 2. Create the accepted inquiry group
+    new_group = InquiryGroup(
+        user_id=current_user.id,
+        status='ACCEPTED',
+        total_quoted_price=0.0
+    )
+    db.add(new_group)
+    await db.flush()
+
+    # 3. Add the item
+    new_item = InquiryItem(
+        group_id=new_group.id,
+        product_id=item_data.product_id,
+        subproduct_id=item_data.subproduct_id,
+        service_id=item_data.service_id,
+        subservice_id=item_data.subservice_id,
+        quantity=item_data.quantity,
+        selected_options=item_data.selected_options,
+        notes=item_data.notes,
+        images=item_data.images,
+        estimated_price=0.0,
+        line_item_price=0.0
+    )
+    db.add(new_item)
+    await db.flush()
+
+    # 4. Create the corresponding Order directly
+    from app.modules.orders.models import Order, OrderMilestone
+    new_order = Order(
+        inquiry_id=new_group.id,
+        user_id=new_group.user_id,
+        total_amount=0.0,
+        amount_paid=0.0,
+        status="PAID"
+    )
+    db.add(new_order)
+    await db.flush()
+
+    # 5. Add a paid milestone
+    milestone = OrderMilestone(
+        order_id=new_order.id,
+        label="Zero Cost Item (100%)",
+        amount=0.0,
+        percentage=100.0,
+        order_index=1,
+        is_paid=True
+    )
+    db.add(milestone)
+    await db.commit()
+
+    # 6. Fetch fully populated Order
+    fetch_stmt = select(Order).options(
+        selectinload(Order.transactions),
+        selectinload(Order.milestones)
+    ).where(Order.id == new_order.id)
+    
+    return (await db.execute(fetch_stmt)).scalar_one()

@@ -29,7 +29,7 @@ export default async function ServiceDetailPage({
     }
 
     return (
-        <div className="min-h-screen bg-white text-zinc-900 pb-20">
+        <div className="min-h-screen bg-site-bg text-zinc-900 pb-20">
             <div className="max-w-7xl mx-auto px-4 py-12 md:py-20">
 
                 <div className="mb-10 max-w-2xl">

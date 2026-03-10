@@ -47,7 +47,7 @@ function AnimatedCounter({ target, suffix, label }: { target: number; suffix: st
 
 export default function StatsSection() {
     return (
-        <section className="py-14 px-6 bg-white">
+        <section className="py-14 px-6 bg-site-bg">
             <div className="max-w-6xl mx-auto">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
                     <AnimatedCounter target={500} suffix="+" label="Happy Clients" />
