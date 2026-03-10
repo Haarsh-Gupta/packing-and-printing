@@ -5,6 +5,7 @@ Lets admins send custom emails (with optional file attachments)
 to individual users or all users.
 """
 
+from uuid import UUID
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,19 +47,30 @@ async def _validate_files(files: List[UploadFile]) -> list:
 @router.post("/send-custom-email", status_code=status.HTTP_200_OK)
 async def send_custom_email(
     request: Request,
-    to_email: str = Form(..., description="Recipient email address"),
+    to_email: Optional[str] = Form(None, description="Recipient email address"),
+    user_id: Optional[UUID] = Form(None, description="Recipient user ID"),
     subject: str = Form(..., description="Email subject line"),
     heading: str = Form(..., description="Main heading inside email body"),
     message: str = Form(..., description="Custom message (supports basic HTML)"),
     image_url: Optional[str] = Form(None, description="Optional banner image URL"),
     action_url: Optional[str] = Form(None, description="Optional CTA button URL"),
     action_label: Optional[str] = Form("Learn More", description="CTA button label"),
+    db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin_user),
 ):
     """
     Send a custom email to a specific user.
     Supports optional banner image, CTA button, and file attachments.
     """
+    if not to_email and not user_id:
+        raise HTTPException(status_code=400, detail="Either to_email or user_id must be provided.")
+
+    if user_id:
+        stmt = select(User).where(User.id == user_id)
+        user = (await db.execute(stmt)).scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found.")
+        to_email = user.email
     # Swagger sends "" for optional fields instead of None — coerce empty strings
     image_url = image_url.strip() if image_url else None
     action_url = action_url.strip() if action_url else None

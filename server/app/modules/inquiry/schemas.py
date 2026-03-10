@@ -13,8 +13,6 @@ class InquiryStatus(str, Enum):
     QUOTED = "QUOTED"
     ACCEPTED = "ACCEPTED"
     REJECTED = "REJECTED"
-    WAITING_PAYMENT = "WAITING_PAYMENT"
-    PARTIALLY_PAID = "PARTIALLY_PAID"
 
 
 # ==========================================
@@ -82,6 +80,7 @@ class InquiryQuotation(BaseModel):
     admin_notes: Optional[str] = None
     valid_for_days: int = Field(7, gt=0, description="How many days is this quote valid?")
     line_items: Optional[List[InquiryQuotationItem]] = None # Optional breakdown
+    allowed_split_types: Optional[List[PaymentSplitType]] = None  # Admin controls which payment options user sees
 
 
 class InquiryStatusUpdate(BaseModel):
@@ -131,6 +130,7 @@ class InquiryGroupResponse(BaseModel):
     admin_notes: Optional[str] = None
     quoted_at: Optional[datetime] = None
     quote_valid_until: Optional[datetime] = None
+    allowed_split_types: Optional[List[str]] = None  # Admin-controlled payment options
     created_at: datetime
     updated_at: datetime
     items: List[InquiryItemResponse] = []

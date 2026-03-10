@@ -28,7 +28,7 @@ async def create_payment_order(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Create a payment gateway order for an existing internal order.
+    Create a payment gateway order for a specific milestone of an internal order.
     Returns the gateway order ID + key so the frontend can open checkout.
     """
     # 1. Fetch the order
@@ -47,14 +47,18 @@ async def create_payment_order(
             detail=f"Order is already {order.status}",
         )
 
-    # 2. Calculate remaining amount (in paise)
-    remaining = order.total_amount - order.amount_paid
-    if remaining <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Order is already fully paid",
-        )
-    amount_paise = int(remaining * 100)
+    from app.modules.orders.models import OrderMilestone
+    milestone_result = await db.execute(select(OrderMilestone).where(OrderMilestone.id == payload.milestone_id, OrderMilestone.order_id == payload.order_id))
+    milestone = milestone_result.scalar_one_or_none()
+
+    if not milestone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Milestone not found")
+
+    if milestone.is_paid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Milestone is already paid")
+
+    # 2. Amount to pay is the milestone amount (in paise)
+    amount_paise = int(milestone.amount * 100)
 
     # 3. Create order on payment gateway
     provider = get_payment_provider()
@@ -62,8 +66,8 @@ async def create_payment_order(
         gw_order = provider.create_order(
             amount_paise=amount_paise,
             currency="INR",
-            receipt=f"order_{order.id}",
-            notes={"internal_order_id": str(order.id), "user_id": str(current_user.id)},
+            receipt=f"ml_{milestone.id}",
+            notes={"internal_order_id": str(order.id), "user_id": str(current_user.id), "milestone_id": str(milestone.id)},
         )
     except Exception as e:
         raise HTTPException(
@@ -81,6 +85,7 @@ async def create_payment_order(
         currency=gw_order.currency,
         razorpay_key_id=settings.razorpay_key_id,
         order_id=order.id,
+        milestone_id=milestone.id
     )
 
 
@@ -94,6 +99,8 @@ async def verify_payment(
     Verify the payment signature from the gateway callback.
     On success, records a Transaction and updates the Order.
     """
+    from datetime import datetime, timezone
+    from app.modules.orders.models import OrderMilestone
     # 1. Fetch the order
     result = await db.execute(select(Order).where(Order.id == payload.order_id))
     order = result.scalar_one_or_none()
@@ -104,7 +111,17 @@ async def verify_payment(
     if order.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your order")
 
-    # 2. Verify signature
+    # 2. Fetch milestone
+    milestone_result = await db.execute(select(OrderMilestone).where(OrderMilestone.id == payload.milestone_id, OrderMilestone.order_id == payload.order_id))
+    milestone = milestone_result.scalar_one_or_none()
+
+    if not milestone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Milestone not found")
+
+    if milestone.is_paid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Milestone already paid")
+
+    # 3. Verify signature
     provider = get_payment_provider()
     is_valid = provider.verify_payment(
         gateway_order_id=payload.gateway_order_id,
@@ -118,22 +135,27 @@ async def verify_payment(
             detail="Payment verification failed. Invalid signature.",
         )
 
-    # 3. Calculate the paid amount (the amount from the gateway order)
-    remaining = order.total_amount - order.amount_paid
-    paid_amount = remaining  # full remaining amount was charged
+    # 4. Calculate the paid amount
+    paid_amount = milestone.amount
 
-    # 4. Record the transaction
+    # 5. Record the transaction
     txn = Transaction(
         order_id=order.id,
+        milestone_id=milestone.id,
         amount=paid_amount,
         payment_mode="ONLINE",
         notes=f"Gateway: {payload.gateway_payment_id}",
         gateway_payment_id=payload.gateway_payment_id,
-        gateway_signature=payload.gateway_signature,
     )
     db.add(txn)
 
-    # 5. Update order
+    # 6. Mark milestone
+    milestone.is_paid = True
+    milestone.paid_at = datetime.now(timezone.utc)
+    milestone.verification_status = "APPROVED"
+    milestone.verification_id = payload.gateway_payment_id
+
+    # 7. Update order overall
     order.amount_paid += paid_amount
     if order.amount_paid >= order.total_amount:
         order.status = "PAID"

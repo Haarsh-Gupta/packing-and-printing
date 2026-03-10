@@ -31,6 +31,7 @@ interface SchemaSection {
 
 interface ProductSchema {
     id: number;
+    product_id?: number;
     name: string;
     base_price: number;
     minimum_quantity: number;
@@ -78,9 +79,10 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
 
     const [answers, setAnswers] = useState<Record<string, any>>(() => {
         const initialAnswers: Record<string, any> = {};
-        product.config_schema.sections.forEach((section) => {
+        const sections = product.config_schema?.sections || [];
+        sections.forEach((section) => {
             if ((section.type === "dropdown" || section.type === "radio") && section.options) {
-                initialAnswers[section.key] = section.options[0].value;
+                initialAnswers[section.key] = section.options[0]?.value || "";
             } else if (section.type === "number_input") {
                 initialAnswers[section.key] = section.min_val || 0;
             } else {
@@ -105,7 +107,8 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
     const { unitPrice, totalPrice } = useMemo(() => {
         let currentUnitPrice = product.base_price;
 
-        product.config_schema.sections.forEach((section) => {
+        const sections = product.config_schema?.sections || [];
+        sections.forEach((section) => {
             const answer = answers[section.key];
             if (answer === undefined || answer === "") return;
 
@@ -133,7 +136,8 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
 
         dispatch(addToInquiry({
             id: generateId(),
-            productId: product.id,
+            productId: product.product_id,
+            subProductId: product.id,
             name: product.name,
             quantity: quantity,
             options: answers,
@@ -148,7 +152,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         <form onSubmit={handleSubmit} className="relative flex flex-col space-y-6 w-full font-sans pb-4">
 
             <div className="space-y-6 max-w-[400px] w-full">
-                {product.config_schema.sections.map((section) => {
+                {(product.config_schema?.sections || []).map((section) => {
                     const isColorOption = section.label.toLowerCase().includes("color");
 
                     return (

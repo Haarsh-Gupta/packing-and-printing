@@ -42,23 +42,19 @@ export default function InquiryCartSidebar() {
         const payloadItems = items.map(item => {
             if (item.productId != null) {
                 return {
-                    template_id: Number(item.productId),
+                    product_id: Number(item.productId),
+                    subproduct_id: item.subProductId ? Number(item.subProductId) : null,
                     quantity: Number(item.quantity),
                     selected_options: item.options || {},
-                    notes: (item.options?.notes as string) || "Added from cart",
+                    notes: item.notes || "Added from cart",
                 };
             } else if (item.serviceId != null) {
-                const variantId = item.options?.variant_id ?? item.options?.variantId;
                 return {
                     service_id: Number(item.serviceId),
-                    variant_id: variantId != null ? Number(variantId) : null,
+                    subservice_id: item.subServiceId ? Number(item.subServiceId) : null,
                     quantity: Number(item.quantity),
-                    selected_options: {
-                        variant_name: String(item.options?.variant_name || ""),
-                        service_slug: String(item.options?.service_slug || ""),
-                        ...item.options
-                    },
-                    notes: (item.options?.notes as string) || "Added from cart",
+                    // We DO NOT send selected_options for services as per backend validator
+                    notes: item.notes || "Added from cart",
                 };
             }
             return null;

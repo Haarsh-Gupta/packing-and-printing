@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ServiceItem } from "@/types/service";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Settings } from "lucide-react";
 
 interface ServiceCardProps {
     service: ServiceItem;
@@ -11,56 +11,61 @@ interface ServiceCardProps {
 
 export function ServiceCard({ service, index }: ServiceCardProps) {
     const accentColors = [
-        "bg-accent-yellow",
-        "bg-accent-purple",
-        "bg-accent-green",
-        "bg-accent-blue"
+        "bg-[#FFD700]",      // yellow
+        "bg-[#DDA0DD]",      // purple
+        "bg-[#98FB98]",      // green
+        "bg-[#87CEEB]",      // blue
     ];
     const itemColor = accentColors[index % accentColors.length];
 
-    const itemCountText = service.sub_services && service.sub_services.length > 0 ? `${service.sub_services.length} Tiers` : '0 Tiers';
+    const itemCountText = service.sub_services && service.sub_services.length > 0
+        ? `${service.sub_services.length} Tiers`
+        : "0 Tiers";
+
     const coverImage = service.cover_image || null;
 
     return (
         <Link
             href={`/services/${service.slug}`}
-            className="group relative flex flex-col h-[450px] overflow-hidden border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-2xl"
+            className="group relative flex flex-col h-[400px] overflow-hidden border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-2xl no-underline"
         >
-            {/* Image Layer */}
-            <div className="absolute inset-0 z-0">
+            {/* Image */}
+            <div className="relative flex-1 overflow-hidden bg-zinc-100">
                 {coverImage ? (
                     <img
                         src={coverImage}
                         alt={service.name}
-                        className="h-full w-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:scale-105"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                 ) : (
-                    <div className="h-full w-full bg-zinc-200"></div>
+                    <div className="h-full w-full flex items-center justify-center">
+                        <Settings className="w-16 h-16 text-zinc-300" />
+                    </div>
                 )}
+
+                {/* Item count badge — top right */}
+                <span
+                    className={`absolute top-3 right-3 z-10 ${itemColor} border-2 border-black text-[10px] font-black uppercase tracking-wide px-2.5 py-1 shadow-[2px_2px_0px_0px_#000]`}
+                >
+                    {itemCountText}
+                </span>
             </div>
 
-            {/* Content Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 z-10 bg-white border-t-2 border-black translate-y-[calc(100%-85px)] group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
-                <div className="p-4">
-                    <div className="flex items-start justify-between mb-4 gap-2">
-                        <h3 className="font-display text-xl font-black uppercase leading-tight tracking-tight line-clamp-2">
-                            {service.name}
-                        </h3>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${itemColor} px-2 py-1 border-2 border-black shrink-0 mt-1`}>
-                            {itemCountText}
-                        </span>
-                    </div>
+            {/* Info panel */}
+            <div className="bg-white border-t-2 border-black px-4 pt-3 pb-4 translate-y-0 transition-all duration-300">
+                <h3 className="font-black text-[15px] uppercase leading-tight tracking-tight text-black mb-0 truncate">
+                    {service.name}
+                </h3>
 
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
-                        <p className="text-sm font-medium leading-relaxed text-gray-800 mb-4 line-clamp-2">
-                            Premium professional services configured for you.
-                        </p>
-
-                        <div className="flex items-center justify-end">
-                            <div className="flex h-10 px-4 items-center justify-center bg-primary text-white border-2 border-black font-bold text-xs uppercase transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none shadow-neubrutalism-sm">
-                                Explore Service
-                                <ArrowRight className="ml-2 w-4 h-4" />
-                            </div>
+                {/* Hover reveal */}
+                <div className="max-h-0 overflow-hidden group-hover:max-h-20 transition-all duration-300 ease-in-out">
+                    <p className="text-xs text-zinc-500 leading-relaxed mt-1.5 mb-3 line-clamp-2">
+                        {service.description || "Professional services tailored for your business needs."}
+                    </p>
+                    <div className="flex items-center justify-end">
+                        <div className="inline-flex items-center gap-1.5 bg-[#4f46e5] text-white border-2 border-black text-[11px] font-black uppercase px-3 py-1.5 shadow-[2px_2px_0px_0px_#000] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all duration-100">
+                            Explore Service
+                            <ArrowRight className="w-3.5 h-3.5" />
                         </div>
                     </div>
                 </div>

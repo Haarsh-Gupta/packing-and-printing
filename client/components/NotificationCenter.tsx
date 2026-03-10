@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, CheckCircle2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -10,22 +10,89 @@ interface Notification {
     id: number;
     title: string;
     message: string;
-    link: string;
-    read: boolean;
+    link?: string;
+    is_read: boolean;
     created_at: string;
 }
 
 export default function NotificationCenter() {
     const [isOpen, setIsOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const [unreadCount, setUnreadCount] = useState(0);
 
-    const markAsRead = (id: number) => {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    const fetchNotifications = async () => {
+        try {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+            if (!baseUrl) return;
+
+            const token = localStorage.getItem("access_token");
+            if (!token) return;
+
+            // Removing trailing slash for consistency
+            const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+            const res = await fetch(`${cleanUrl}/notifications`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
+                credentials: "include"
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setNotifications(data.notifications || []);
+                setUnreadCount(data.unread || 0);
+            }
+        } catch (error) {
+            console.error("Failed to fetch notifications", error);
+        }
     };
 
-    const markAllRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    useEffect(() => {
+        fetchNotifications();
+        // Refresh every 30 seconds
+        const interval = setInterval(fetchNotifications, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const markAsRead = async (id: number) => {
+        try {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+            if (!baseUrl) return;
+
+            const token = localStorage.getItem("access_token");
+            const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+            await fetch(`${cleanUrl}/notifications/${id}/read`, {
+                method: "PATCH",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
+                credentials: "include"
+            });
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+            setUnreadCount(prev => Math.max(0, prev - 1));
+        } catch (error) {
+            console.error("Failed to mark as read", error);
+        }
+    };
+
+    const markAllRead = async () => {
+        try {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+            if (!baseUrl) return;
+
+            const token = localStorage.getItem("access_token");
+            const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+            await fetch(`${cleanUrl}/notifications/read-all`, {
+                method: "PATCH",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
+                credentials: "include"
+            });
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+            setUnreadCount(0);
+        } catch (error) {
+            console.error("Failed to mark all as read", error);
+        }
     };
 
     return (
@@ -64,19 +131,19 @@ export default function NotificationCenter() {
                             ) : (
                                 <ul>
                                     {notifications.map(notification => (
-                                        <li key={notification.id} className={`border-b border-zinc-100 last:border-0 hover:bg-zinc-50 transition-colors ${!notification.read ? 'bg-blue-50/50' : ''}`}>
+                                        <li key={notification.id} className={`border-b border-zinc-100 last:border-0 hover:bg-zinc-50 transition-colors ${!notification.is_read ? 'bg-blue-50/50' : ''}`}>
                                             <Link
-                                                href={notification.link}
+                                                href={notification.link || "#"}
                                                 className="block p-4"
                                                 onClick={() => {
-                                                    markAsRead(notification.id);
+                                                    if (!notification.is_read) markAsRead(notification.id);
                                                     setIsOpen(false);
                                                 }}
                                             >
                                                 <div className="flex gap-3">
-                                                    <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!notification.read ? 'bg-blue-500' : 'bg-transparent'}`}></div>
+                                                    <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!notification.is_read ? 'bg-blue-500' : 'bg-transparent'}`}></div>
                                                     <div>
-                                                        <h4 className={`text-sm ${!notification.read ? 'font-bold' : 'font-medium'}`}>{notification.title}</h4>
+                                                        <h4 className={`text-sm ${!notification.is_read ? 'font-bold' : 'font-medium'}`}>{notification.title}</h4>
                                                         <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{notification.message}</p>
                                                         <p className="text-[10px] text-zinc-400 mt-2">{new Date(notification.created_at).toLocaleDateString()}</p>
                                                     </div>

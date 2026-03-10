@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Package, CheckCircle2, Truck, CircleDot, Loader2, CreditCard, Download } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 import { useRazorpay } from "@/hooks/useRazorpay";
@@ -17,6 +18,16 @@ interface Transaction {
     gateway_payment_id: string | null;
 }
 
+interface Milestone {
+    id: string;
+    label: string;
+    amount: number;
+    percentage: number;
+    order_index: number;
+    is_paid: boolean;
+    paid_at: string | null;
+}
+
 interface Order {
     id: string;
     inquiry_id: string;
@@ -28,6 +39,7 @@ interface Order {
     created_at: string;
     updated_at: string;
     transactions?: Transaction[];
+    milestones?: Milestone[];
 }
 
 const STATUS_STEPS = [
@@ -70,7 +82,7 @@ export default function OrderDetailPage() {
     const fetchOrder = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/${orderId}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.status === 401) { localStorage.removeItem("access_token"); router.replace("/auth/login"); return; }
@@ -160,32 +172,72 @@ export default function OrderDetailPage() {
                 </div>
             </div>
 
+            {/* Milestones */}
+            {order.milestones && order.milestones.length > 0 && (
+                <div className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden mb-8">
+                    <div className="border-b-2 border-black p-4 bg-zinc-50">
+                        <h2 className="font-black uppercase tracking-tight">Payment Milestones</h2>
+                    </div>
+                    <div className="divide-y-2 divide-zinc-100">
+                        {order.milestones.sort((a, b) => a.order_index - b.order_index).map((m) => (
+                            <div key={m.id} className="p-5 flex items-center justify-between">
+                                <div>
+                                    <p className="font-black uppercase text-sm">{m.label}</p>
+                                    <p className="text-zinc-500 font-bold block text-xs mt-1">
+                                        {m.percentage}% of total
+                                    </p>
+                                    <p className="text-sm font-bold text-zinc-500 mt-1">₹{m.amount.toLocaleString()}</p>
+                                </div>
+                                <div className="text-right">
+                                    {m.is_paid ? (
+                                        <Badge className="bg-[#4be794] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] uppercase font-black text-[10px] rounded-none">
+                                            <CheckCircle2 className="w-3 h-3 mr-1" /> Paid on {m.paid_at ? formatDate(m.paid_at) : 'N/A'}
+                                        </Badge>
+                                    ) : (
+                                        <Badge className="bg-zinc-200 text-zinc-600 border-2 border-zinc-400 uppercase font-black text-[10px] rounded-none">
+                                            Pending
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-4">
-                {balanceDue > 0 && (
-                    <Button
-                        className="h-12 px-8 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full disabled:opacity-70 disabled:cursor-not-allowed"
-                        disabled={isProcessing}
-                        onClick={() => initiatePayment({
-                            orderId: order.id,
-                            balanceDue,
-                            productName: order.product_name || `Order #${order.id}`,
-                            userEmail,
-                            onSuccess: (data) => {
-                                showAlert(`Payment successful! ₹${balanceDue.toLocaleString()} paid.`, "success");
-                                // Refresh order data
-                                setOrder((prev) => prev ? {
-                                    ...prev,
-                                    amount_paid: data.amount_paid,
-                                    status: data.status,
-                                } : prev);
-                            },
-                            onError: (msg) => showAlert(msg, "error"),
-                        })}
-                    >
-                        {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <><CreditCard className="h-4 w-4 mr-2" /> Pay ₹{balanceDue.toLocaleString()} Now</>}
-                    </Button>
-                )}
+                {(() => {
+                    const nextMilestone = order.milestones?.sort((a, b) => a.order_index - b.order_index).find(m => !m.is_paid);
+                    if (!nextMilestone && balanceDue > 0) {
+                        return (
+                            <div className="text-red-500 font-bold mb-4">Error: Payment is due but no milestones found!</div>
+                        );
+                    }
+                    if (nextMilestone) {
+                        return (
+                            <Button
+                                className="h-12 px-8 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full disabled:opacity-70 disabled:cursor-not-allowed"
+                                disabled={isProcessing}
+                                onClick={() => initiatePayment({
+                                    orderId: order.id,
+                                    milestoneId: nextMilestone.id,
+                                    balanceDue: nextMilestone.amount,
+                                    productName: order.product_name || `Order #${order.id}`,
+                                    userEmail,
+                                    onSuccess: () => {
+                                        showAlert(`Payment successful! ₹${nextMilestone.amount.toLocaleString()} paid.`, "success");
+                                        fetchOrder(); // Refetch the order entirely to refresh milestones and transaction status
+                                    },
+                                    onError: (msg) => showAlert(msg, "error"),
+                                })}
+                            >
+                                {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <><CreditCard className="h-4 w-4 mr-2" /> Pay {nextMilestone.label} (₹{nextMilestone.amount.toLocaleString()})</>}
+                            </Button>
+                        );
+                    }
+                    return null;
+                })()}
                 <Button
                     variant="outline"
                     className="h-12 px-8 border-2 border-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full"

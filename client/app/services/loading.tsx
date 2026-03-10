@@ -5,7 +5,7 @@ export default function Loading() {
         <main className="min-h-screen bg-[#f7f5f2]">
 
             {/* Hero skeleton */}
-            <section className="bg-[#f5e1ef] border-b-2 border-black">
+            <section className="bg-[#c8d8ff] border-b-2 border-black">
                 <div className="max-w-[1280px] mx-auto px-6 lg:px-12 py-16 lg:py-20">
                     <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-10 items-start">
                         <div className="space-y-4">
@@ -33,7 +33,7 @@ export default function Loading() {
                 <div className="max-w-[1280px] mx-auto px-6 lg:px-12 py-3.5 flex flex-col gap-3">
                     <Skeleton className="h-11 w-full rounded-full bg-zinc-200" />
                     <div className="flex gap-2 flex-wrap">
-                        {[1, 2, 3, 4, 5, 6].map(i => (
+                        {[1, 2, 3, 4, 5].map(i => (
                             <Skeleton key={i} className="h-8 w-28 rounded-full bg-zinc-200" />
                         ))}
                     </div>

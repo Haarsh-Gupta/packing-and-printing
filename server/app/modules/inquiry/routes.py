@@ -12,6 +12,7 @@ from app.modules.services.models import Service, SubService
 from app.modules.products.models import Product, SubProduct
 from app.modules.orders.models import Order, OrderMilestone
 from app.modules.orders.schemas import PaymentSplitType
+from app.modules.notifications.models import Notification
 from .models import InquiryGroup, InquiryItem, InquiryMessage
 from .schemas import (
     InquiryGroupCreate,
@@ -64,19 +65,36 @@ async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSessi
         # Options Validation using JSONB Config Schema
         if item.selected_options and sub_product.config_schema:
             schema = sub_product.config_schema
+            sections = schema.get("sections", [])
+            allowed_keys = { section["key"]: section for section in sections }
             
             for key, selected_val in item.selected_options.items():
-                if key not in schema:
+                if key not in allowed_keys:
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid option category: {key}")
                 
-                allowed_options = schema[key].get("options", {})
+                section_data = allowed_keys[key]
+                allowed_options = section_data.get("options", [])
                 
-                if str(selected_val) not in allowed_options:
+                # options is a list of {"value": "X", "price_mod": 10.0, "label": "Y"}
+                # we need to find if selected_val matches any value in allowed_options
+                selected_opt_data = None
+                for opt in allowed_options:
+                    if str(opt.get("value")) == str(selected_val):
+                        selected_opt_data = opt
+                        break
+                
+                if not selected_opt_data and section_data.get("type") in ["dropdown", "radio"]:
                      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid value '{selected_val}' for option '{key}'")
                 
                 # Add extra cost
-                extra_cost = allowed_options[str(selected_val)].get("price_modifier", 0.0)
-                base_item_price += float(extra_cost)
+                if selected_opt_data:
+                    extra_cost = selected_opt_data.get("price_mod", 0.0)
+                    base_item_price += float(extra_cost)
+                elif section_data.get("type") == "number_input" and section_data.get("price_per_unit"):
+                    # For number inputs, price is calculated as (input_value - min_val) * price_per_unit or just input_value * price_per_unit?
+                    # Depending on how frontend calculates it. Frontend: currentUnitPrice += Number(answer) * section.price_per_unit;
+                    extra_cost = float(selected_val) * float(section_data.get("price_per_unit", 0.0))
+                    base_item_price += extra_cost
 
         # Calculation: (Base Price + Options Cost) * Quantity
         estimated_price = base_item_price * item.quantity
@@ -118,7 +136,27 @@ async def create_inquiry_group(
             estimated_price=estimated_price
         )
         db.add(new_item)
+        
+    # Notify User / Admin
+    # Notify User
+    user_notif = Notification(
+        user_id=current_user.id,
+        title="Inquiry Received",
+        message="We have successfully received your inquiry request. Our team is preparing your custom quotation and will get back to you shortly."
+    )
+    db.add(user_notif)
     
+    # Notify Admin(s)
+    admin_stmt = select(User).where(User.admin == True)
+    admins = (await db.execute(admin_stmt)).scalars().all()
+    for admin in admins:
+        admin_notif = Notification(
+            user_id=admin.id,
+            title="New Inquiry Request",
+            message=f"A new inquiry #{str(new_group.id)[:8].upper()} has been submitted by {current_user.email}."
+        )
+        db.add(admin_notif)
+        
     await db.commit()
     
     # 3. Fetch the fully loaded group to return
@@ -302,16 +340,18 @@ async def respond_to_quotation(
         )
     
     group.status = status_update.status.value
-    await db.commit()
     
-    # Re-fetch the fully loaded group with relationships after commit
-    fetch_stmt = select(InquiryGroup).options(
-        selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
-    ).where(InquiryGroup.id == group_id)
+    # Notify Admin(s)
+    admin_stmt = select(User).where(User.admin == True)
+    admins = (await db.execute(admin_stmt)).scalars().all()
     
-    refreshed_result = await db.execute(fetch_stmt)
-    refreshed_group = refreshed_result.scalar_one()
+    for admin in admins:
+        admin_notif = Notification(
+            user_id=admin.id,
+            title=f"Inquiry {group.status}",
+            message=f"User {current_user.email} has {group.status.lower()} the quote for inquiry #{str(group_id)[:8].upper()}."
+        )
+        db.add(admin_notif)
     
     if group.status == 'ACCEPTED':
         # Ensure order doesn't already exist to be safe
@@ -319,15 +359,23 @@ async def respond_to_quotation(
         existing_order = (await db.execute(existing_stmt)).scalar_one_or_none()
         
         if not existing_order:
-            # Enforce split_type options for user acceptance: FULL or HALF
+            # Enforce split_type options — default is FULL (100% advance)
             split_type = status_update.split_type or PaymentSplitType.FULL
-            if split_type not in [PaymentSplitType.FULL, PaymentSplitType.HALF]:
-                # In the future, you could check if the admin pre-approved CUSTOM_30 on the group, 
-                # but for now we fallback to HALF if they try to be sneaky, or just let it pass if we trust the frontend UI.
-                # The prompt requested: "if user insist to admin then admin can enable the 30 % options".
-                # For safety, let's allow it here since the Pydantic schema will validate it, but could add checks later.
-                pass
             
+            # Validate against admin-allowed split types
+            if group.allowed_split_types and split_type.value not in group.allowed_split_types:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Payment split '{split_type.value}' is not allowed for this inquiry. Allowed: {group.allowed_split_types}"
+                )
+            
+            # Double check price existence before creating order to prevent DB errors
+            if group.total_quoted_price is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot accept an inquiry that has no quoted price."
+                )
+
             new_order = Order(
                 inquiry_id=group.id,
                 user_id=group.user_id,
@@ -335,7 +383,7 @@ async def respond_to_quotation(
                 status="WAITING_PAYMENT"
             )
             db.add(new_order)
-            await db.flush() # flush to get new_order.id
+            await db.flush() # get new_order.id
             
             total = group.total_quoted_price
             milestones = []
@@ -363,9 +411,18 @@ async def respond_to_quotation(
                 ))
             
             db.add_all(milestones)
-            await db.commit()
-    
-    return refreshed_group
+            
+            # Additional User Notification for Order Created
+            user_notif = Notification(
+                user_id=current_user.id,
+                title="Order Created!",
+                message=f"Your order for inquiry #{str(group_id)[:8].upper()} has been created. Please complete the payment to start processing."
+            )
+            db.add(user_notif)
+
+    await db.commit()
+    await db.refresh(group)
+    return group
     
 
 @router.delete("/my/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -427,6 +484,18 @@ async def send_inquiry_message(
     )
 
     db.add(new_message)
+    
+    # Notify all admin users
+    admin_stmt = select(User).where(User.admin == True)
+    admins = (await db.execute(admin_stmt)).scalars().all()
+    for admin in admins:
+        admin_notif = Notification(
+            user_id=admin.id,
+            title="New User Message",
+            message=f"User {current_user.email} sent a new message regarding inquiry #{str(group_id)[:8].upper()}."
+        )
+        db.add(admin_notif)
+
     await db.commit()
     await db.refresh(new_message)
 

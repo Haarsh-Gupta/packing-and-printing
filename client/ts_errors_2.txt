@@ -1,0 +1,22 @@
+app/services/page.tsx(44,17): error TS2322: Type '{ title: Element; description: string; ctaText: string; }' is not assignable to type 'IntrinsicAttributes & AnimatedHeroProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & AnimatedHeroProps'.
+components/FloatingItems.tsx(21,17): error TS2322: Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'Transition<any> | undefined'.
+  Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'TransitionWithValueOverrides<any>'.
+    Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'ValueAnimationTransition<any>'.
+      Types of property 'ease' are incompatible.
+        Type 'string' is not assignable to type 'Easing | Easing[] | undefined'.
+components/FloatingItems.tsx(39,17): error TS2322: Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'Transition<any> | undefined'.
+  Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'TransitionWithValueOverrides<any>'.
+    Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'ValueAnimationTransition<any>'.
+      Types of property 'ease' are incompatible.
+        Type 'string' is not assignable to type 'Easing | Easing[] | undefined'.
+components/FloatingItems.tsx(57,17): error TS2322: Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'Transition<any> | undefined'.
+  Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'TransitionWithValueOverrides<any>'.
+    Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'ValueAnimationTransition<any>'.
+      Types of property 'ease' are incompatible.
+        Type 'string' is not assignable to type 'Easing | Easing[] | undefined'.
+components/FloatingItems.tsx(75,17): error TS2322: Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'Transition<any> | undefined'.
+  Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'TransitionWithValueOverrides<any>'.
+    Type '{ duration: number; repeat: number; repeatType: "mirror"; ease: string; }' is not assignable to type 'ValueAnimationTransition<any>'.
+      Types of property 'ease' are incompatible.
+        Type 'string' is not assignable to type 'Easing | Easing[] | undefined'.

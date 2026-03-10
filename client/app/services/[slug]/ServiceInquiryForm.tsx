@@ -61,14 +61,14 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
         dispatch(addToInquiry({
             id: generateId(),
             serviceId: service.id,
+            subServiceId: activeVariant.id,
             name: `${service.name} - ${activeVariant.name}`,
             quantity: quantity,
             options: {
-                variant_id: activeVariant.id,
                 variant_name: activeVariant.name,
                 service_slug: service.slug,
-                notes: notes,
             },
+            notes: notes,
             estimatedPrice: totalPrice
         }));
 
