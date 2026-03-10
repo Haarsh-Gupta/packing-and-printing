@@ -89,25 +89,8 @@ export default function MyInquiriesPage() {
                 setInquiries(prev => prev.map(inq => inq.id === id ? { ...inq, status } : inq));
 
                 if (status === "ACCEPTED") {
-                    try {
-                        const orderRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/`, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                Authorization: `Bearer ${localStorage.getItem("access_token")}`
-                            },
-                            body: JSON.stringify({ inquiry_id: id })
-                        });
-                        if (orderRes.ok) {
-                            showAlert("Inquiry accepted and order placed successfully!", "success");
-                            setTimeout(() => router.push("/dashboard/orders"), 1500);
-                        } else {
-                            showAlert("Inquiry accepted, but failed to create order.", "error");
-                        }
-                    } catch (e) {
-                        console.error("Order creation error:", e);
-                        showAlert("Failed to create order.", "error");
-                    }
+                    showAlert("Inquiry accepted and order placed successfully!", "success");
+                    setTimeout(() => router.push("/dashboard/orders"), 1500);
                 } else {
                     showAlert("Inquiry declined.", "success");
                 }

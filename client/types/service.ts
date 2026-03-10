@@ -14,6 +14,7 @@ export interface ServiceItem {
     id: number;
     name: string;
     slug: string;
+    description?: string | null;
     is_active: boolean;
     cover_image: string | null;
     sub_services: SubService[];

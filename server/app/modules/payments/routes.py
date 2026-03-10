@@ -30,7 +30,7 @@ async def create_payment_order(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Create a payment gateway order for a specific milestone.
+    Create a payment gateway order for a specific milestone of an internal order.
     If no milestone_id is provided, picks the next unpaid milestone.
     Returns the gateway order ID + key so the frontend can open checkout.
     """
@@ -55,6 +55,7 @@ async def create_payment_order(
         )
 
     # 2. Find the milestone to pay
+    from app.modules.orders.models import OrderMilestone
     milestone = None
     if payload.milestone_id:
         # Specific milestone requested
@@ -118,7 +119,7 @@ async def create_payment_order(
         currency=gw_order.currency,
         razorpay_key_id=settings.razorpay_key_id,
         order_id=order.id,
-        milestone_id=milestone.id,
+        milestone_id=milestone.id
     )
 
 
@@ -133,6 +134,9 @@ async def verify_payment(
     On success, records a Transaction, marks the milestone as paid,
     updates the Order totals, and fires SSE + messaging notifications.
     """
+    from datetime import datetime, timezone
+    from app.modules.orders.models import OrderMilestone
+    
     # 1. Fetch the order with milestones
     result = await db.execute(
         select(Order)
@@ -147,7 +151,31 @@ async def verify_payment(
     if order.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your order")
 
-    # 2. Verify signature
+    # 2. Find the milestone to verify
+    milestone = None
+    if payload.milestone_id:
+        milestone = next(
+            (m for m in order.milestones if m.id == payload.milestone_id),
+            None,
+        )
+        if milestone and milestone.is_paid:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Milestone already paid")
+            
+    if not milestone:
+        # Fallback: pick the next unpaid milestone
+        unpaid = sorted(
+            [m for m in order.milestones if not m.is_paid],
+            key=lambda m: m.order_index,
+        )
+        milestone = unpaid[0] if unpaid else None
+
+    if not milestone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No unpaid milestone found or invalid milestone",
+        )
+
+    # 3. Verify signature
     provider = get_payment_provider()
     is_valid = provider.verify_payment(
         gateway_order_id=payload.gateway_order_id,
@@ -161,31 +189,10 @@ async def verify_payment(
             detail="Payment verification failed. Invalid signature.",
         )
 
-    # 3. Find the milestone
-    milestone = None
-    if payload.milestone_id:
-        milestone = next(
-            (m for m in order.milestones if m.id == payload.milestone_id),
-            None,
-        )
-
-    if not milestone:
-        # Fallback: pick the next unpaid milestone
-        unpaid = sorted(
-            [m for m in order.milestones if not m.is_paid],
-            key=lambda m: m.order_index,
-        )
-        milestone = unpaid[0] if unpaid else None
-
-    if not milestone:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No unpaid milestone found",
-        )
-
+    # 4. Calculate the paid amount
     paid_amount = milestone.amount
 
-    # 4. Record the transaction
+    # 5. Record the transaction
     txn = Transaction(
         order_id=order.id,
         milestone_id=milestone.id,
@@ -196,12 +203,13 @@ async def verify_payment(
     )
     db.add(txn)
 
-    # 5. Update milestone
+    # 6. Mark milestone
     milestone.is_paid = True
     milestone.paid_at = datetime.now(timezone.utc)
     milestone.verification_status = "APPROVED"
+    milestone.verification_id = payload.gateway_payment_id
 
-    # 6. Update order totals
+    # 7. Update order totals
     order.amount_paid += paid_amount
     if order.amount_paid >= order.total_amount:
         order.status = "PAID"

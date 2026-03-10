@@ -44,7 +44,7 @@ export default function Inquiries() {
 
     const fetchInquiries = () => {
         setLoading(true);
-        let url = "/inquiries/admin";
+        let url = "/admin/inquiries";
         if (statusFilter !== "ALL") url += `?status_filter=${statusFilter}`;
         api<InquiryGroupList[]>(url).then(setInquiries).catch(console.error).finally(() => setLoading(false));
     };
@@ -56,7 +56,7 @@ export default function Inquiries() {
         if (!confirm("Delete this inquiry? This cannot be undone.")) return;
         setDeleting(id);
         try {
-            await api(`/inquiries/admin/${id}`, { method: "DELETE" });
+            await api(`/admin/inquiries/${id}`, { method: "DELETE" });
             fetchInquiries();
         } catch (err) { console.error(err); } finally { setDeleting(null); }
     };

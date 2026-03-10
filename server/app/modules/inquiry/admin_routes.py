@@ -9,6 +9,7 @@ from app.core.database import get_db
 from ..auth.auth import get_current_user, get_current_admin_user
 from ..auth.schemas import TokenData
 from ..users.models import User
+from ..notifications.models import Notification
 from .models import InquiryGroup, InquiryItem, InquiryMessage
 from .schemas import (
     InquiryGroupCreate,
@@ -109,13 +110,28 @@ async def send_quotation(
     group.status = 'QUOTED'
     group.quote_valid_until = datetime.now(timezone.utc) + timedelta(days=quotation.valid_for_days)
     
+    # Store admin-controlled payment split options (default to FULL only)
+    if quotation.allowed_split_types:
+        group.allowed_split_types = [st.value for st in quotation.allowed_split_types]
+    else:
+        group.allowed_split_types = ["FULL"]
+    
     # Update Child Line-Item Pricing (if provided by admin)
     if quotation.line_items:
         prices_map = {li.item_id: li.line_item_price for li in quotation.line_items}
         for item in group.items:
             if item.id in prices_map:
                 item.line_item_price = prices_map[item.id]
+
+    # Notify user that quote is ready
+    notif = Notification(
+        user_id=group.user_id,
+        title="Quotation Ready",
+        message=f"A custom quotation for your inquiry #{str(group_id)[:8].upper()} is now ready. Please review it on your dashboard."
+    )
+    db.add(notif)
     
+    # Single atomic commit for quotation + notification
     await db.commit()
     
     # Re-fetch the fully loaded group with relationships after commit
@@ -175,6 +191,15 @@ async def admin_send_message(
     )
 
     db.add(new_message)
+    
+    # Notify user that admin sent a message
+    user_notif = Notification(
+        user_id=group.user_id,
+        title="New Message from Studio",
+        message=f"You have a new message from the studio regarding your inquiry #{str(group_id)[:8].upper()}."
+    )
+    db.add(user_notif)
+
     await db.commit()
     await db.refresh(new_message)
 

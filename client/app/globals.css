@@ -66,6 +66,8 @@
   --shadow-neubrutalism-hover: 6px 6px 0px 0px #181114;
 
   --border-width-3: 3px;
+  --font-geist: "Geist", sans-serif;
+  --font-instrument-serif: "Instrument Serif", serif;
 }
 
 :root {
@@ -174,5 +176,23 @@
 
   .neu-card {
     @apply border-2 border-black shadow-[6px_6px_0px_0px_#000000];
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Allow elements to be truly borderless when needed */
+  input,
+  button,
+  select,
+  textarea {
+    border-color: inherit;
   }
 }

@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
@@ -50,15 +51,19 @@ async def send_bulk_notification(
 async def admin_list_all_notifications(
     skip: int = 0,
     limit: int = 50,
-    user_id: Optional[int] = Query(None, description="Filter by user"),
+    user_id: Optional[UUID] = Query(None, description="Filter by user"),
     is_read: Optional[bool] = Query(None, description="Filter by read status"),
     admin: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[NotificationResponse]:
     """[ADMIN] List all notifications with optional filters. Admins can see is_read status."""
-    query = select(Notification)
+    query = select(Notification).join(User, Notification.user_id == User.id)
     if user_id is not None:
         query = query.where(Notification.user_id == user_id)
+    else:
+        # Default to only showing admin-directed notifications
+        query = query.where(User.admin == True)
+        
     if is_read is not None:
         query = query.where(Notification.is_read == is_read)
 

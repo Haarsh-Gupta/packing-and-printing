@@ -43,6 +43,7 @@ export interface Inquiry {
     admin_notes?: string | null;
     quoted_at?: string | null;
     quote_valid_until?: string | null;
+    allowed_split_types?: string[];
     created_at: string;
     updated_at: string;
     items?: InquiryItem[];

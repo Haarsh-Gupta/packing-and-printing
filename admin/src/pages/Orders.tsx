@@ -6,14 +6,16 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const STATUS_TABS = ["All", "Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
+const STATUS_TABS = ["All", "Waiting Payment", "Partially Paid", "Paid", "Processing", "Ready", "Completed", "Cancelled"];
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
-    PENDING: { color: '#d97706', bg: '#fffbeb' },
-    PROCESSING: { color: '#2563eb', bg: '#eff6ff' },
-    SHIPPED: { color: '#7c3aed', bg: '#f5f3ff' },
-    DELIVERED: { color: '#16a34a', bg: '#f0fdf4' },
-    CANCELLED: { color: '#dc2626', bg: '#fef2f2' },
+    WAITING_PAYMENT: { color: '#f59e0b', bg: '#fef3c7' },
+    PARTIALLY_PAID: { color: '#8b5cf6', bg: '#ede9fe' },
+    PAID: { color: '#10b981', bg: '#d1fae5' },
+    PROCESSING: { color: '#3b82f6', bg: '#eff6ff' },
+    READY: { color: '#ec4899', bg: '#fdf2f8' },
+    COMPLETED: { color: '#111827', bg: '#f3f4f6' },
+    CANCELLED: { color: '#ef4444', bg: '#fee2e2' },
 };
 
 const StatusPill = ({ status }: { status: string }) => {
@@ -42,8 +44,11 @@ export default function Orders() {
 
     const fetchOrders = () => {
         setLoading(true);
-        let url = "/orders/admin/all?skip=0&limit=100";
-        if (statusFilter !== "All") url += `&status_filter=${statusFilter.toUpperCase()}`;
+        let url = "/admin/orders/all?skip=0&limit=100";
+        if (statusFilter !== "All") {
+            const statusKey = statusFilter.toUpperCase().replace(/\s+/g, '_');
+            url += `&status_filter=${statusKey}`;
+        }
         api<Order[]>(url).then(setOrders).catch(console.error).finally(() => setLoading(false));
     };
 
@@ -53,9 +58,31 @@ export default function Orders() {
         if (!selected || !newStatus) return;
         setUpdating(true);
         try {
-            await api(`/orders/admin/${selected.id}/status`, { method: "PATCH", body: { status: newStatus } });
+            await api(`/admin/orders/${selected.id}/status`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
             fetchOrders();
             setSelected(prev => prev ? { ...prev, status: newStatus } : null);
+        } catch (e) { console.error(e); }
+        finally { setUpdating(false); }
+    };
+
+    const recordPayment = async (milestoneId: string, amount: number) => {
+        if (!selected || !window.confirm(`Record payment of ₹${amount} for this milestone?`)) return;
+        setUpdating(true);
+        try {
+            await api(`/admin/orders/${selected.id}/payment`, {
+                method: "POST",
+                body: JSON.stringify({
+                    amount,
+                    payment_mode: "OFFLINE",
+                    milestone_id: milestoneId,
+                    notes: "Manually recorded by admin"
+                })
+            });
+            fetchOrders();
+            // Re-select to refresh details
+            const updatedOrders = await api<Order[]>("/admin/orders/all?skip=0&limit=100");
+            const stillSelected = updatedOrders.find(o => o.id === selected.id);
+            if (stillSelected) setSelected(stillSelected);
         } catch (e) { console.error(e); }
         finally { setUpdating(false); }
     };
@@ -259,6 +286,57 @@ export default function Orders() {
                                 )}
                             </div>
 
+                            {/* Milestones */}
+                            {selected.milestones && selected.milestones.length > 0 && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <p style={{ fontSize: '11px', fontWeight: 600, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>PAYMENT MILESTONES</p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {[...selected.milestones].sort((a, b) => a.order_index - b.order_index).map(m => (
+                                            <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#f9f9f9', borderRadius: '10px' }}>
+                                                <div>
+                                                    <p style={{ fontSize: '12px', fontWeight: 600, color: '#18181b', margin: 0 }}>{m.label}</p>
+                                                    <p style={{ fontSize: '11px', color: '#71717a', margin: '2px 0 0' }}>₹{m.amount.toLocaleString()} ({m.percentage}%)</p>
+                                                </div>
+                                                <div>
+                                                    {m.is_paid ? (
+                                                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '3px 8px', borderRadius: '12px', textTransform: 'uppercase' }}>Paid</span>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => recordPayment(m.id, m.amount)}
+                                                            disabled={updating}
+                                                            style={{ fontSize: '9px', fontWeight: 800, color: '#3b82f6', background: '#eff6ff', border: 'none', padding: '4px 8px', borderRadius: '12px', cursor: 'pointer', textTransform: 'uppercase' }}
+                                                        >
+                                                            Record Cash
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Transactions */}
+                            {selected.transactions && selected.transactions.length > 0 && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <p style={{ fontSize: '11px', fontWeight: 600, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>TRANSACTIONS</p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {selected.transactions.map(t => (
+                                            <div key={t.id} style={{ padding: '10px 12px', background: '#f9f9f9', borderRadius: '10px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontSize: '12px', fontWeight: 700 }}>₹{t.amount.toLocaleString()}</span>
+                                                    <span style={{ fontSize: '10px', color: '#a1a1aa', fontWeight: 600 }}>{t.payment_mode}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                                                    <span style={{ fontSize: '10px', color: '#71717a' }}>{new Date(t.created_at).toLocaleDateString()}</span>
+                                                    <span style={{ fontSize: '10px', color: '#71717a', fontFamily: "'DM Mono', monospace" }}>{t.id.slice(0, 8).toUpperCase()}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Update Status */}
                             <div>
                                 <p style={{ fontSize: '11px', fontWeight: 600, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>UPDATE STATUS</p>
@@ -267,8 +345,8 @@ export default function Orders() {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(s => (
-                                            <SelectItem key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</SelectItem>
+                                        {['WAITING_PAYMENT', 'PARTIALLY_PAID', 'PAID', 'PROCESSING', 'READY', 'COMPLETED', 'CANCELLED'].map(s => (
+                                            <SelectItem key={s} value={s}>{s.replace(/_/g, ' ').charAt(0) + s.replace(/_/g, ' ').slice(1).toLowerCase()}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

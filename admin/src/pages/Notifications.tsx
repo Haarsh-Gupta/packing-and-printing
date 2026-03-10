@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, apiFormData } from "@/lib/api";
 import type { Notification } from "@/types";
 import {
     Bell, Send, User, MoreHorizontal, ChevronDown,
@@ -18,36 +18,67 @@ export default function NotificationsEmailPage() {
     // Added template type to align with your Python backend templates
     const [form, setForm] = useState({
         to: "All Users",
+        customRecipient: "",
         subject: "Your Order is Ready for Pickup!",
         message: "Your order #1042 has been completed and is ready for pickup at our workshop.\n\nPlease bring your order confirmation when you visit.",
         template: "admin_notice"
     });
 
-    const emailLogs = [
-        { to: 'admin@example.com', subject: 'System Update Scheduled', status: 'Sent', date: 'Oct 24, 10:00 AM' },
-        { to: 'user1@example.com', subject: 'Your Order is Shipped', status: 'Sent', date: 'Oct 24, 09:15 AM' },
-        { to: 'user2@example.com', subject: 'Payment Failed', status: 'Failed', date: 'Oct 23, 16:30 PM' },
-        { to: 'all_users@example.com', subject: 'New Feature Announcement', status: 'Pending', date: 'Oct 25, 12:00 PM' },
-    ];
+    const [emailLogs, setEmailLogs] = useState<any[]>([]);
 
-    const fetchHistory = () => {
+    const fetchHistory = async () => {
         setLoading(true);
-        setTimeout(() => {
-            setHistory([]);
+        try {
+            const data = await api<Notification[]>('/notifications/admin/all');
+            setHistory(data);
+        } catch (e) {
+            console.error(e);
+        } finally {
             setLoading(false);
-        }, 500);
+        }
     };
 
-    useEffect(() => { fetchHistory(); }, []);
+    useEffect(() => {
+        fetchHistory();
+        const interval = setInterval(fetchHistory, 30000);
+        return () => clearInterval(interval);
+    }, []);
 
     const sendEmail = async () => {
         if (!form.subject || !form.message) return;
+        if (form.to === "Specific User (Email)" && !form.customRecipient) {
+            alert("Please enter a recipient email.");
+            return;
+        }
+
         setSending(true);
-        setTimeout(() => {
-            setForm({ ...form, subject: "", message: "" });
+        try {
+            const formData = new FormData();
+            formData.append("subject", form.subject);
+            formData.append("heading", "System Message");
+            formData.append("message", form.message);
+            formData.append("action_label", "Visit Dashboard");
+            formData.append("action_url", "http://localhost:3000/dashboard");
+
+            let endpoint = "/admin/email/send-bulk-email";
+            if (form.to === "Specific User (Email)") {
+                endpoint = "/admin/email/send-custom-email";
+                formData.append("to_email", form.customRecipient);
+            } else if (form.to === "Specific User (User ID)") {
+                endpoint = "/admin/email/send-custom-email";
+                formData.append("user_id", form.customRecipient);
+            }
+
+            await apiFormData(endpoint, formData);
+
+            setForm({ ...form, subject: "", message: "", customRecipient: "" });
+            alert(form.to === "Specific User (Email)" ? `Email sent to ${form.customRecipient}` : "Broadcast email sent successfully!");
+        } catch (e) {
+            console.error(e);
+            alert("Failed to send email.");
+        } finally {
             setSending(false);
-            alert("Broadcast email sent!");
-        }, 1500);
+        }
     };
 
     return (
@@ -96,45 +127,7 @@ export default function NotificationsEmailPage() {
                 {tab === "email" && (
                     <div className="flex flex-col gap-12 w-full pb-20">
 
-                        {/* 1. FULL SCREEN RECENT EMAILS */}
-                        <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden w-full">
-                            <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                                <h2 className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-tight">Recent Email Logs</h2>
-                                <button className="text-sm font-bold text-slate-500 hover:text-[#18181b] dark:text-slate-400 dark:hover:text-white transition-colors flex items-center gap-2">
-                                    View All Logs <ArrowRight size={16} />
-                                </button>
-                            </div>
-                            <div className="overflow-x-auto p-4">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="border-b border-slate-100 dark:border-slate-800">
-                                            {['To', 'Subject', 'Status', 'Date Sent'].map(h => (
-                                                <th key={h} className="py-5 px-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                                                    {h}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                                        {emailLogs.map((log, i) => (
-                                            <tr key={i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors group">
-                                                <td className="py-5 px-6 text-sm font-medium text-slate-600 dark:text-slate-300">{log.to}</td>
-                                                <td className="py-5 px-6 text-sm font-bold text-slate-900 dark:text-white">{log.subject}</td>
-                                                <td className="py-5 px-6">
-                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${log.status === 'Sent' ? 'bg-green-100/80 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                        log.status === 'Failed' ? 'bg-red-100/80 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                            'bg-amber-100/80 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                                        }`}>
-                                                        {log.status}
-                                                    </span>
-                                                </td>
-                                                <td className="py-5 px-6 text-sm text-slate-400 dark:text-slate-500">{log.date}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        {/* Recent Email Logs section removed as per user request to remove hardcoded data */}
 
                         {/* 2. THE 70/30 SPLIT GRID */}
                         <div className="grid grid-cols-1 xl:grid-cols-10 gap-8 items-start w-full">
@@ -156,15 +149,27 @@ export default function NotificationsEmailPage() {
                                                     value={form.to} onChange={e => setForm({ ...form, to: e.target.value })}
                                                 >
                                                     <option>All Users</option>
-                                                    <option>Admins Only</option>
-                                                    <option>Active Customers</option>
-                                                    <option>Newsletter Subscribers</option>
+                                                    <option>Specific User (Email)</option>
+                                                    <option>Specific User (User ID)</option>
                                                 </select>
                                                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
                                                     <ChevronDown size={20} />
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {(form.to === "Specific User (Email)" || form.to === "Specific User (User ID)") && (
+                                            <div className="flex flex-col gap-3">
+                                                <label className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                    {form.to === "Specific User (Email)" ? "Recipient Email" : "Recipient User ID"}
+                                                </label>
+                                                <input
+                                                    type="text" placeholder={form.to === "Specific User (Email)" ? "user@example.com" : "UUID..."}
+                                                    className="py-3.5 px-5 block w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-[#18181b] focus:ring-[#18181b] sm:text-sm outline-none transition-colors"
+                                                    value={form.customRecipient} onChange={e => setForm({ ...form, customRecipient: e.target.value })}
+                                                />
+                                            </div>
+                                        )}
 
                                         <div className="flex flex-col gap-3">
                                             <label className="text-sm font-bold text-slate-800 dark:text-slate-200">Template</label>
@@ -228,7 +233,7 @@ export default function NotificationsEmailPage() {
                                             className="inline-flex items-center justify-center rounded-full bg-[#18181b] px-8 py-4 text-sm font-bold text-white shadow-lg hover:bg-zinc-800 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed gap-2"
                                         >
                                             <Send size={18} />
-                                            {sending ? "Sending Email..." : "Send Broadcast"}
+                                            {sending ? "Sending Email..." : (form.to === "All Users" ? "Send Broadcast" : "Send Email")}
                                         </button>
                                     </div>
 
@@ -307,8 +312,48 @@ export default function NotificationsEmailPage() {
 
                                 </div>
                             </div>
-
                         </div>
+                    </div>
+                )}
+
+                {/* Notifications Tab Content */}
+                {tab === "notifications" && (
+                    <div className="flex flex-col gap-6 w-full pb-20 animate-fade-in">
+                        {loading ? (
+                            <p className="text-slate-500 font-medium">Loading notifications...</p>
+                        ) : history.length === 0 ? (
+                            <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-16 text-center border border-slate-100 dark:border-slate-800">
+                                <Bell size={48} className="mx-auto text-slate-200 dark:text-slate-800 mb-6" />
+                                <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">No Notifications</h3>
+                                <p className="text-slate-500 font-medium">You're all caught up! No recent system notifications.</p>
+                            </div>
+                        ) : (
+                            <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 p-8">
+                                <div className="flex flex-col gap-4">
+                                    {history.map((notif: any) => (
+                                        <div key={notif.id} className="p-6 border border-slate-100 dark:border-slate-800 rounded-2xl flex gap-5 items-start bg-slate-50/50 dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
+                                            <div className="bg-[#18181b] text-white p-3 rounded-2xl flex-shrink-0 shadow-md">
+                                                <Bell size={22} />
+                                            </div>
+                                            <div className="flex flex-col gap-1 w-full">
+                                                <div className="flex justify-between items-start gap-4">
+                                                    <h4 className="font-extrabold text-slate-900 dark:text-white text-lg tracking-tight">{notif.title}</h4>
+                                                    <span className="text-xs font-bold text-slate-500 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-full whitespace-nowrap shadow-sm">
+                                                        {new Date(notif.created_at).toLocaleDateString('en-IN')} • {new Date(notif.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mt-1 font-medium">{notif.message}</p>
+                                                {!notif.is_read && (
+                                                    <span className="mt-3 inline-block bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-3 py-1.5 rounded-lg w-fit">
+                                                        NEW ALERT
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

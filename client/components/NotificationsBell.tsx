@@ -28,7 +28,11 @@ export default function NotificationsBell() {
         let stopped = false;
         const doFetch = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`, {
+                const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+                if (!baseUrl) return;
+                const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+
+                const res = await fetch(`${cleanUrl}/notifications/unread-count`, {
                     headers: { Authorization: `Bearer ${token}` },
                     credentials: "include",
                 });
@@ -36,7 +40,6 @@ export default function NotificationsBell() {
                     const data = await res.json();
                     setUnread(data.unread || 0);
                 } else if (res.status === 401) {
-                    // Token is invalid/expired — stop polling
                     stopped = true;
                 }
             } catch (e) { /* silent */ }
@@ -65,8 +68,13 @@ export default function NotificationsBell() {
     const fetchNotifications = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/?limit=15`, {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+            if (!baseUrl) return;
+            const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+
+            const res = await fetch(`${cleanUrl}/notifications?limit=15`, {
                 headers: { Authorization: `Bearer ${token}` },
+                credentials: "include"
             });
             if (res.ok) {
                 const data = await res.json();
@@ -86,9 +94,14 @@ export default function NotificationsBell() {
 
     const markRead = async (id: number) => {
         try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/${id}/read`, {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+            if (!baseUrl) return;
+            const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+
+            await fetch(`${cleanUrl}/notifications/${id}/read`, {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${token}` },
+                credentials: "include"
             });
             setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
             setUnread((prev) => Math.max(0, prev - 1));
@@ -97,9 +110,14 @@ export default function NotificationsBell() {
 
     const markAllRead = async () => {
         try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/read-all`, {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+            if (!baseUrl) return;
+            const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+
+            await fetch(`${cleanUrl}/notifications/read-all`, {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${token}` },
+                credentials: "include"
             });
             setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
             setUnread(0);

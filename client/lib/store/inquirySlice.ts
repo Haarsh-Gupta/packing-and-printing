@@ -3,10 +3,13 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 export interface InquiryItem {
     id: string; // temporary UUID
     productId?: number;
+    subProductId?: number;
     serviceId?: number;
+    subServiceId?: number;
     name: string;
     quantity: number;
     options: Record<string, string | number | boolean>;
+    notes?: string;
     estimatedPrice: number;
 }
 

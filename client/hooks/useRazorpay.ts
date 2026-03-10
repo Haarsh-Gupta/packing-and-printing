@@ -12,6 +12,7 @@ import { useState } from "react";
 
 interface RazorpayOptions {
     orderId: string;
+    milestoneId?: string;
     balanceDue: number;
     productName?: string;
     userContact?: string;
@@ -46,6 +47,7 @@ export function useRazorpay() {
 
     const initiatePayment = async ({
         orderId,
+        milestoneId,
         balanceDue,
         productName = "BookBind Order",
         userContact,
@@ -77,7 +79,7 @@ export function useRazorpay() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({ order_id: orderId }),
+                body: JSON.stringify({ order_id: orderId, milestone_id: milestoneId }),
             });
 
             if (!createRes.ok) {
@@ -120,6 +122,7 @@ export function useRazorpay() {
                             },
                             body: JSON.stringify({
                                 order_id: orderId,
+                                milestone_id: milestoneId,
                                 gateway_order_id: response.razorpay_order_id,
                                 gateway_payment_id: response.razorpay_payment_id,
                                 gateway_signature: response.razorpay_signature,

@@ -54,11 +54,21 @@ export default function ProductReviews({ productId }: { productId: number }) {
         setIsLoggedIn(!!checkToken);
 
         const fetchReviews = async () => {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+            if (!baseUrl || productId === undefined || productId === null) {
+                if (!baseUrl) console.warn("NEXT_PUBLIC_API_URL is missing");
+                setIsLoading(false);
+                return;
+            }
+
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/product/${productId}`);
+                const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+                const res = await fetch(`${cleanUrl}/reviews/product/${productId}`);
                 if (res.ok) {
                     const data = await res.json();
-                    setReviews(data);
+                    setReviews(Array.isArray(data) ? data : []);
+                } else {
+                    console.error("Reviews API error:", res.status);
                 }
             } catch (error) {
                 console.error("Failed to fetch reviews:", error);
@@ -90,10 +100,12 @@ export default function ProductReviews({ productId }: { productId: number }) {
 
         setIsSubmitting(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/`, {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+            const cleanUrl = baseUrl?.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+            const res = await fetch(`${cleanUrl}/reviews/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${currentToken}` },
-                body: JSON.stringify({ product_id: productId, rating, comment }),
+                body: JSON.stringify({ product_id: Number(productId), rating, comment }),
             });
             if (res.ok) {
                 showAlert("Review submitted!", "success");

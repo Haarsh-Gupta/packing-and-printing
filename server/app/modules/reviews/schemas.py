@@ -25,10 +25,23 @@ class ReviewCreate(ReviewBase):
 class ReviewUpdate(ReviewBase):
     update_at : datetime = Field(default_factory=datetime.now)
 
+class UserReviewResponse(BaseModel):
+    name: str
+    profile_picture: Optional[str] = None
+    
+    model_config = {
+        "from_attributes": True
+    }
+
 class ReviewResponse(ReviewBase):
     id : int
     user_id : UUID
-    product_id : int
-    service_id : int
+    product_id : Optional[int] = None
+    service_id : Optional[int] = None
     created_at : datetime
     is_verified : bool
+    user: Optional[UserReviewResponse] = None
+
+    model_config = {
+        "from_attributes": True
+    }

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     ArrowLeft,
     Send,
@@ -32,6 +33,7 @@ export default function InquiryDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [newMessage, setNewMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
+    const [splitType, setSplitType] = useState<"FULL" | "HALF" | "CUSTOM_30">("FULL");
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -63,6 +65,10 @@ export default function InquiryDetailPage() {
             if (res.ok) {
                 const data = await res.json();
                 setInquiry(data);
+                // Set initial split type from admin-allowed options
+                if (data.allowed_split_types && data.allowed_split_types.length > 0) {
+                    setSplitType(data.allowed_split_types[0]);
+                }
             } else if (res.status === 401) {
                 localStorage.removeItem("access_token");
                 router.replace("/auth/login");
@@ -121,32 +127,15 @@ export default function InquiryDetailPage() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ status })
+                body: JSON.stringify(status === "ACCEPTED" ? { status, split_type: splitType } : { status })
             });
 
             if (res.ok) {
                 setInquiry(prev => prev ? { ...prev, status } : null);
 
                 if (status === "ACCEPTED") {
-                    try {
-                        const orderRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/`, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                Authorization: `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ inquiry_id: inquiryId })
-                        });
-                        if (orderRes.ok) {
-                            showAlert("Inquiry accepted and order placed successfully!", "success");
-                            setTimeout(() => router.push("/dashboard/orders"), 1500);
-                        } else {
-                            showAlert("Inquiry accepted, but failed to create order.", "error");
-                        }
-                    } catch (e) {
-                        console.error("Order creation error:", e);
-                        showAlert("Failed to create order.", "error");
-                    }
+                    showAlert("Inquiry accepted and order placed successfully!", "success");
+                    setTimeout(() => router.push("/dashboard/orders"), 1500);
                 } else {
                     showAlert(`Inquiry ${status.toLowerCase()} successfully.`, "info");
                 }
@@ -201,6 +190,11 @@ export default function InquiryDetailPage() {
                         </h1>
                         <p className="text-sm font-medium text-zinc-500 flex items-center gap-2">
                             ID #{inquiry.id.slice(0, 8).toUpperCase()} • Created on {new Date(inquiry.created_at).toLocaleDateString()}
+                            {inquiry.quote_valid_until && inquiry.status === "QUOTED" && (
+                                <span className="bg-[#fdf567] text-black px-2 py-0.5 border border-black text-[10px] font-black uppercase">
+                                    Valid Until {new Date(inquiry.quote_valid_until).toLocaleDateString()}
+                                </span>
+                            )}
                         </p>
                     </div>
                 </div>
@@ -211,25 +205,55 @@ export default function InquiryDetailPage() {
                             ₹{inquiry.total_quoted_price.toLocaleString()}
                         </div>
                     )}
-                    {inquiry.status === "QUOTED" && (
-                        <div className="flex gap-2">
-                            <Button
-                                onClick={() => handleStatusUpdate("ACCEPTED")}
-                                className="bg-[#4be794] text-black border-2 border-black rounded-none hover:bg-[#3bc27b] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase font-black"
-                            >
-                                <CheckCircle2 className="w-4 h-4 mr-2" />
-                                Accept Quote
-                            </Button>
-                            <Button
-                                onClick={() => handleStatusUpdate("REJECTED")}
-                                variant="outline"
-                                className="border-2 border-black rounded-none hover:bg-zinc-100 uppercase font-black"
-                            >
-                                <XCircle className="w-4 h-4 mr-2" />
-                                Reject
-                            </Button>
-                        </div>
-                    )}
+                    {inquiry.status === "QUOTED" && (() => {
+                        const SPLIT_LABELS: Record<string, string> = {
+                            FULL: "Pay 100% Upfront",
+                            HALF: "Pay 50% Advance",
+                            CUSTOM_30: "Pay 30% Advance"
+                        };
+                        const allowed = inquiry.allowed_split_types && inquiry.allowed_split_types.length > 0
+                            ? inquiry.allowed_split_types
+                            : ["FULL"];
+
+                        return (
+                            <div className="flex gap-2 items-center">
+                                {allowed.length > 1 ? (
+                                    <Select value={splitType} onValueChange={(val: any) => setSplitType(val)}>
+                                        <SelectTrigger className="w-fit border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white font-bold h-10 px-3 uppercase text-xs">
+                                            <SelectValue placeholder="Select Payment Type" />
+                                        </SelectTrigger>
+                                        <SelectContent className="border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
+                                            {allowed.map((s: string) => (
+                                                <SelectItem key={s} value={s} className="font-bold text-sm">
+                                                    {SPLIT_LABELS[s] || s}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <span className="border-2 border-black bg-white font-bold h-10 px-3 uppercase text-xs flex items-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                        {SPLIT_LABELS[allowed[0]] || allowed[0]}
+                                    </span>
+                                )}
+
+                                <Button
+                                    onClick={() => handleStatusUpdate("ACCEPTED")}
+                                    className="bg-[#4be794] text-black border-2 border-black rounded-none hover:bg-[#3bc27b] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase font-black"
+                                >
+                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                    Accept Quote
+                                </Button>
+                                <Button
+                                    onClick={() => handleStatusUpdate("REJECTED")}
+                                    variant="outline"
+                                    className="border-2 border-black rounded-none hover:bg-zinc-100 uppercase font-black"
+                                >
+                                    <XCircle className="w-4 h-4 mr-2" />
+                                    Reject
+                                </Button>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
 
@@ -286,6 +310,30 @@ export default function InquiryDetailPage() {
                                     {inquiry.admin_notes}
                                 </div>
                             )}
+
+                            {item?.line_item_price != null && (
+                                <div className="flex justify-between border-t-2 border-black pt-3 mt-4">
+                                    <span className="text-xs font-black uppercase tracking-widest text-[#2563eb]">Quoted Price</span>
+                                    <span className="text-lg font-black text-[#2563eb]">₹{item.line_item_price.toLocaleString()}</span>
+                                </div>
+                            )}
+
+                            {item?.images && item.images.length > 0 && (
+                                <div className="pt-4 border-t-2 border-zinc-100">
+                                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-2">Reference Images</span>
+                                    <div className="flex gap-2 overflow-x-auto pb-2">
+                                        {item.images.map((img, idx) => (
+                                            <img
+                                                key={idx}
+                                                src={img}
+                                                alt="ref"
+                                                className="w-20 h-20 object-cover border-2 border-black cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-[-2px] transition-all"
+                                                onClick={() => window.open(img, '_blank')}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -316,6 +364,32 @@ export default function InquiryDetailPage() {
                                             <div className={`space-y-1`}>
                                                 <div className={`border-2 border-black p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] ${isMe ? 'bg-white rounded-tr-none' : 'bg-white rounded-tl-none'}`}>
                                                     <p className="whitespace-pre-wrap text-sm font-medium">{msg.content}</p>
+                                                    {msg.file_urls && msg.file_urls.length > 0 && (
+                                                        <div className="mt-3 space-y-2 border-t-2 border-zinc-100 pt-2">
+                                                            {msg.file_urls.map((url, idx) => {
+                                                                const isImg = url.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
+                                                                return isImg ? (
+                                                                    <img
+                                                                        key={idx}
+                                                                        src={url}
+                                                                        alt="attachment"
+                                                                        className="w-full max-h-48 object-cover border-2 border-black cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-[-2px] transition-all"
+                                                                        onClick={() => window.open(url, '_blank')}
+                                                                    />
+                                                                ) : (
+                                                                    <a
+                                                                        key={idx}
+                                                                        href={url}
+                                                                        target="_blank"
+                                                                        rel="noreferrer"
+                                                                        className="flex items-center gap-2 text-[10px] font-black uppercase underline hover:text-[#ff90e8]"
+                                                                    >
+                                                                        <Paperclip className="w-3 h-3" /> File Attachment {idx + 1}
+                                                                    </a>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className={`text-[10px] uppercase font-bold text-zinc-400 ${isMe ? 'text-right' : 'text-left'}`}>
                                                     {isMe ? 'You' : 'Admin'} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -168,6 +168,7 @@ class SubProductUpdate(BaseModel):
 
 class SubProductResponse(SubProductCreate):
     id: int
+    product_id: int
     created_at: datetime
 
     model_config = {"from_attributes": True}

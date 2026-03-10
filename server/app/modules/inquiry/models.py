@@ -20,6 +20,10 @@ class InquiryGroup(Base):
     admin_notes = Column(Text, nullable=True)
     quoted_at = Column(DateTime(timezone=True), nullable=True)
     quote_valid_until = Column(DateTime(timezone=True), nullable=True)
+    
+    # Admin controls which payment split options the user can choose from
+    # Stored as JSON array, e.g. ["FULL", "HALF"]
+    allowed_split_types = Column(JSONB, nullable=True)
 
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

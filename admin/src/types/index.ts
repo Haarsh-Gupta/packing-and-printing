@@ -71,6 +71,16 @@ export interface Transaction {
     gateway_payment_id?: string;
 }
 
+export interface OrderMilestone {
+    id: string;
+    label: string;
+    amount: number;
+    percentage: number;
+    order_index: number;
+    is_paid: boolean;
+    paid_at: string | null;
+}
+
 export interface Order {
     id: string;
     inquiry_id: string;
@@ -83,6 +93,7 @@ export interface Order {
     created_at: string;
     updated_at: string;
     transactions?: Transaction[];
+    milestones?: OrderMilestone[];
 }
 
 // ============ Inquiries ============
@@ -119,6 +130,7 @@ export interface InquiryGroup {
     admin_notes?: string;
     quoted_at?: string;
     quote_valid_until?: string;
+    allowed_split_types?: string[];
     created_at: string;
     updated_at: string;
     items: InquiryItem[];
