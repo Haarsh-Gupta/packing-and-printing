@@ -8,7 +8,7 @@ import { InquirySkeleton } from "./InquirySkeleton";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardSearch } from "@/components/dashboard/DashboardSearch";
 import { InquiryCard, InquiryListRow } from "@/components/dashboard/InquiryComponents";
-import { FileText } from "lucide-react";
+import { FileText, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAlert } from "@/components/CustomAlert";
 
@@ -104,6 +104,50 @@ export default function MyInquiriesPage() {
         }
     };
 
+    // ── DELETE INQUIRY ──
+    const handleDelete = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this inquiry?")) return;
+        setActionLoading(`delete-${id}`);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${id}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
+            });
+            if (res.ok || res.status === 204) {
+                showAlert("Inquiry deleted.", "success");
+                setInquiries(prev => prev.filter(inq => inq.id !== id));
+            } else {
+                showAlert("Failed to delete.", "error");
+            }
+        } catch {
+            showAlert("Network error.", "error");
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    // ── REORDER INQUIRY ──
+    const handleReorder = async (id: string) => {
+        setActionLoading(`reorder-${id}`);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${id}/reorder`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
+            });
+            if (res.ok) {
+                const newInquiry = await res.json();
+                showAlert("Reorder created! Redirecting…", "success");
+                router.push(`/dashboard/inquiries/${newInquiry.id}`);
+            } else {
+                showAlert("Failed to reorder.", "error");
+            }
+        } catch {
+            showAlert("Network error.", "error");
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="space-y-8 max-w-5xl mx-auto">
@@ -148,6 +192,8 @@ export default function MyInquiriesPage() {
                             inquiry={inquiry}
                             actionLoading={actionLoading}
                             handleStatusUpdate={handleStatusUpdate}
+                            handleDelete={handleDelete}
+                            handleReorder={handleReorder}
                         />
                     ))}
                 </div>
@@ -159,6 +205,8 @@ export default function MyInquiriesPage() {
                             inquiry={inquiry}
                             actionLoading={actionLoading}
                             handleStatusUpdate={handleStatusUpdate}
+                            handleDelete={handleDelete}
+                            handleReorder={handleReorder}
                         />
                     ))}
                 </div>

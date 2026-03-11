@@ -3,7 +3,7 @@
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, IndianRupee, MessageSquare, Loader2, Clock, Box, Layers } from "lucide-react";
+import { FileText, IndianRupee, MessageSquare, Loader2, Clock, Box, Layers, Trash2, RefreshCcw } from "lucide-react";
 import { Inquiry } from "@/types/dashboard";
 import { InquiryStatusBadge } from "./InquiryStatusBadge";
 import Link from "next/link";
@@ -12,9 +12,13 @@ interface InquiryActionProps {
     inquiry: Inquiry;
     actionLoading: string | null;
     handleStatusUpdate: (id: string, status: "ACCEPTED" | "REJECTED") => void;
+    handleDelete?: (id: string) => void;
+    handleReorder?: (id: string) => void;
 }
 
-export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: InquiryActionProps) {
+export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate, handleDelete, handleReorder }: InquiryActionProps) {
+    const isPending = inquiry.status === "PENDING";
+    const canReorder = ["ACCEPTED", "REJECTED", "EXPIRED", "CANCELLED"].includes(inquiry.status);
     const item = inquiry.items && inquiry.items.length > 0 ? inquiry.items[0] : null;
 
     return (
@@ -102,31 +106,56 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                     </Link>
                 </Button>
 
-                {inquiry.status === "QUOTED" && (
-                    <div className="flex gap-4">
+                <div className="flex gap-3 items-center">
+                    {isPending && handleDelete && (
                         <Button
                             variant="outline"
-                            className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all text-black font-bold h-12 px-6 hover:bg-red-50 hover:text-red-600"
-                            disabled={actionLoading === inquiry.id}
-                            onClick={() => handleStatusUpdate(inquiry.id, "REJECTED")}
+                            className="border-2 border-red-400 text-red-600 hover:bg-red-50 font-bold h-10 px-4 rounded-none text-xs uppercase"
+                            disabled={actionLoading === `delete-${inquiry.id}`}
+                            onClick={() => handleDelete(inquiry.id)}
                         >
-                            {actionLoading === inquiry.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Decline"}
+                            {actionLoading === `delete-${inquiry.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Trash2 className="w-3.5 h-3.5 mr-1" /> Delete</>}
                         </Button>
+                    )}
+
+                    {canReorder && handleReorder && (
                         <Button
-                            className="bg-[#4be794] hover:bg-[#3cd083] text-black font-bold border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all h-12 px-8"
-                            disabled={actionLoading === inquiry.id}
-                            onClick={() => handleStatusUpdate(inquiry.id, "ACCEPTED")}
+                            className="bg-[#90e8ff] text-black border-2 border-black font-bold h-10 px-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-px rounded-none text-xs uppercase"
+                            disabled={actionLoading === `reorder-${inquiry.id}`}
+                            onClick={() => handleReorder(inquiry.id)}
                         >
-                            {actionLoading === inquiry.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Accept"}
+                            {actionLoading === `reorder-${inquiry.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <><RefreshCcw className="w-3.5 h-3.5 mr-1" /> Reorder</>}
                         </Button>
-                    </div>
-                )}
+                    )}
+
+                    {inquiry.status === "QUOTED" && (
+                        <>
+                            <Button
+                                variant="outline"
+                                className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all text-black font-bold h-12 px-6 hover:bg-red-50 hover:text-red-600"
+                                disabled={actionLoading === inquiry.id}
+                                onClick={() => handleStatusUpdate(inquiry.id, "REJECTED")}
+                            >
+                                {actionLoading === inquiry.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Decline"}
+                            </Button>
+                            <Button
+                                className="bg-[#4be794] hover:bg-[#3cd083] text-black font-bold border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all h-12 px-8"
+                                disabled={actionLoading === inquiry.id}
+                                onClick={() => handleStatusUpdate(inquiry.id, "ACCEPTED")}
+                            >
+                                {actionLoading === inquiry.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Accept"}
+                            </Button>
+                        </>
+                    )}
+                </div>
             </CardFooter>
         </Card>
     );
 }
 
-export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: InquiryActionProps) {
+export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate, handleDelete, handleReorder }: InquiryActionProps) {
+    const isPending = inquiry.status === "PENDING";
+    const canReorder = ["ACCEPTED", "REJECTED", "EXPIRED", "CANCELLED"].includes(inquiry.status);
     const item = inquiry.items && inquiry.items.length > 0 ? inquiry.items[0] : null;
 
     return (
@@ -163,6 +192,28 @@ export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: I
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {isPending && handleDelete && (
+                        <button
+                            onClick={() => handleDelete(inquiry.id)}
+                            disabled={actionLoading === `delete-${inquiry.id}`}
+                            className="p-2 hover:bg-red-50 border border-red-200 rounded-none"
+                            title="Delete inquiry"
+                        >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                    )}
+
+                    {canReorder && handleReorder && (
+                        <button
+                            onClick={() => handleReorder(inquiry.id)}
+                            disabled={actionLoading === `reorder-${inquiry.id}`}
+                            className="p-2 hover:bg-blue-50 border border-blue-200 rounded-none"
+                            title="Reorder"
+                        >
+                            <RefreshCcw className="w-4 h-4 text-blue-500" />
+                        </button>
+                    )}
+
                     <Button variant="ghost" className="text-black hover:bg-[#fdf567] bg-zinc-100 border-2 border-black transition-all px-4 font-bold h-10 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-px" asChild>
                         <Link href={`/dashboard/inquiries/${inquiry.id}`}>View</Link>
                     </Button>

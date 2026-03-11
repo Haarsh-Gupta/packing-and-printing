@@ -2,275 +2,538 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, ChevronDown, SlidersHorizontal, Package } from "lucide-react";
+import { Search, SlidersHorizontal, Package, ArrowRight, Zap } from "lucide-react";
 import { Product } from "@/types/product";
 import { ProductCard } from "@/components/products/ProductCard";
-import { staggerContainer, cardReveal } from "@/lib/animations";
 
-// ══════════════ CONSTANTS ══════════════
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const FILTERS = ["All", "Office Printing", "Packaging", "Apparel", "Marketing Materials", "Stationery"] as const;
 const SORT_OPTIONS = ["Popular", "Newest", "A–Z"] as const;
+const TICKER_ITEMS = ["Premium Printing ★", "Custom Packaging ✦", "Branded Apparel ◆", "Bulk Orders ★", "Marketing Stuff ✦", "Stationery ◆"];
 
-const PAGE_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+// ─── STYLES (fully scoped under .products-page) ───────────────────────────────
+const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Archivo+Black&family=Courier+Prime:wght@400;700&display=swap');
 
-  :root {
-    --off-white:  #f8eef0;
-    --ink:       #0d0d0d;
-    --yellow:    #f5e642;
-    --shadow-sm: 3px 3px 0 var(--ink);
-    --shadow-md: 5px 5px 0 var(--ink);
+  /* ── SCOPE ROOT ── */
+  .products-page {
+    --black:        #0a0a0a;
+    --white:        #fafafa;
+    --yellow:       #ffe135;
+    --red:          #ff2d2d;
+    --blue:         #1a1aff;
+    --bg:           #f0ede6;
+    --border:       3px solid #0a0a0a;
+    --border-thick: 5px solid #0a0a0a;
+    --sh:           6px 6px 0 #0a0a0a;
+    --sh-lg:        10px 10px 0 #0a0a0a;
+    --sh-xl:        14px 14px 0 #0a0a0a;
+
+    background: var(--bg);
+    min-height: 100vh;
+    overflow-x: hidden;
+    font-family: 'Space Grotesk', sans-serif;
   }
 
-  /* Prevent horizontal overflow globally */
-  html, body { overflow-x: hidden; max-width: 100%; }
+  .products-page *,
+  .products-page *::before,
+  .products-page *::after { box-sizing: border-box; }
 
-  .display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.01em; }
-  .body-f   { font-family: 'DM Sans', sans-serif; }
+  .products-page button,
+  .products-page select,
+  .products-page input {
+    font-family: 'Space Grotesk', sans-serif;
+  }
 
-  /* ── Responsive container ── */
-  .page-container {
-    width: 100%;
-    max-width: 88vw;
+  /* ── TYPOGRAPHY HELPERS ── */
+  .products-page .display { font-family: 'Archivo Black', sans-serif; }
+  .products-page .mono    { font-family: 'Courier Prime', monospace; }
+
+  /* ── PAGE WRAP ── */
+  .products-page .wrap {
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 0 24px;
-    box-sizing: border-box;
+    padding: 0 28px;
   }
-  @media (max-width: 640px) {
-    .page-container {
-      max-width: 100vw;
-      width: 100vw;
-      padding: 0 10px;
-      box-sizing: border-box;
-      overflow: hidden;
-    }
+  @media (max-width: 600px) {
+    .products-page .wrap { padding: 0 14px; }
   }
 
-  /* ── Hero text container ── */
-  .hero-text {
+  /* ── HERO ── */
+  .products-page .hero {
+    position: relative;
+    overflow: hidden;
+    border-bottom: var(--border-thick);
+  }
+  .products-page .hero-noise {
     position: absolute;
-    bottom: 0; left: 0; right: 0;
-    max-width: 88vw;
+    inset: 0;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .products-page .hero-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: brightness(0.55) saturate(0.8);
+  }
+  .products-page .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(10,10,10,0.0) 0%, rgba(10,10,10,0.7) 100%);
+    z-index: 2;
+  }
+  .products-page .hero-content {
+    position: relative;
+    z-index: 4;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 0 24px 48px;
-    box-sizing: border-box;
+    padding: 80px 28px 56px;
   }
   @media (max-width: 640px) {
-    .hero-text { max-width: 100%; padding: 0 16px 20px; bottom: 0; top: auto; }
-    /* Shrink hero height on mobile to cut empty top space */
-    .hero-section { height: 62vmax !important; min-height: 300px !important; max-height: 420px !important; }
+    .products-page .hero-content { padding: 48px 14px 36px; }
   }
 
-  /* ── Filter pill ── */
-  .pill {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    padding: 6px 16px;
-    border: 2px solid var(--ink);
-    cursor: pointer;
-    transition: background 0.12s, color 0.12s, box-shadow 0.12s, transform 0.12s;
-    background: transparent;
-    color: var(--ink);
-    white-space: nowrap;
+  /* Blinking badge */
+  .products-page .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    background: var(--yellow);
+    border: var(--border-thick);
+    box-shadow: var(--sh);
+    padding: 6px 16px 6px 12px;
+    margin-bottom: 22px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--black);
     user-select: none;
+  }
+  .products-page .blink-dot {
+    width: 9px;
+    height: 9px;
+    background: var(--red);
+    border: 2px solid var(--black);
     flex-shrink: 0;
+    animation: pp-blink 1.3s step-start infinite;
   }
-  .pill:hover  { background: var(--ink); color: var(--off-white); }
-  .pill.active { background: var(--ink); color: var(--yellow); box-shadow: var(--shadow-sm); }
+  @keyframes pp-blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-  /* ── Sort wrapper ── */
-  .sort-wrap {
+  /* Hero title */
+  .products-page .hero-title-wrap {
+    position: relative;
+    display: inline-block;
+  }
+  .products-page .hero-sticker {
+    position: absolute;
+    top: -18px;
+    right: -60px;
+    background: var(--red);
+    border: var(--border-thick);
+    box-shadow: var(--sh);
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
-    gap: 6px;
-    border: 2px solid var(--ink);
-    padding: 6px 12px;
-    background: transparent;
-    cursor: pointer;
-    transition: box-shadow 0.12s, transform 0.12s;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--ink);
-    flex-shrink: 0;
+    justify-content: center;
+    flex-direction: column;
+    transform: rotate(12deg);
+    z-index: 10;
   }
-  .sort-wrap:hover { box-shadow: var(--shadow-sm); transform: translate(-1px,-1px); }
-  .sort-wrap select {
-    appearance: none; background: transparent; border: none;
-    outline: none; font-family: inherit; font-size: inherit;
-    font-weight: inherit; color: inherit; cursor: pointer;
-  }
-
-  /* ── Inline search (filter bar) ── */
-  .filter-search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border: 2px solid var(--ink);
-    padding: 6px 14px;
-    background: white;
-    box-shadow: var(--shadow-sm);
-    flex-shrink: 0;
-    box-sizing: border-box;
-  }
-  .filter-search input {
-    background: transparent; border: none; outline: none;
-    font-family: 'DM Sans', sans-serif; font-size: 12px;
-    font-weight: 500; color: var(--ink); width: 148px; min-width: 0;
-  }
-
-  /* ── Filter toolbar ── */
-  /* Desktop: single row — search | pills | sort */
-  .filter-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 0;
-    border-bottom: 2px solid var(--ink);
-  }
-  .pills-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    overflow-x: auto;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  .pills-row::-webkit-scrollbar { display: none; }
-  .pills-row { -ms-overflow-style: none; scrollbar-width: none; }
-  .v-divider {
-    width: 2px; height: 26px;
-    background: var(--ink); opacity: 0.1; flex-shrink: 0;
-  }
-
-  /* Mobile: single row — [category ▾] [search] [sort icon] */
-  .mobile-cat-select {
-    display: none;
+  .products-page .hero-sticker span {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 9px;
+    color: var(--white);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.3;
+    text-align: center;
   }
   @media (max-width: 640px) {
-    /* Hide desktop elements */
-    .pills-row  { display: none; }
-    .v-divider  { display: none; }
-    .sort-wrap  { display: none; }
-    .filter-search { display: none; }
-    /* Show mobile row */
-    .mobile-toolbar {
-      display: flex !important;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 0;
-      border-bottom: 2px solid var(--ink);
+    .products-page .hero-sticker { display: none; }
+  }
+
+  /* Hero description box */
+  .products-page .hero-desc-block {
+    display: inline-flex;
+    margin-top: 24px;
+    border: var(--border-thick);
+    box-shadow: var(--sh);
+    overflow: hidden;
+    max-width: 480px;
+  }
+  @media (max-width: 640px) {
+    .products-page .hero-desc-block { max-width: 100%; }
+  }
+  .products-page .hero-desc-accent {
+    background: var(--red);
+    width: 8px;
+    flex-shrink: 0;
+  }
+  .products-page .hero-desc-inner {
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(6px);
+    padding: 14px 18px;
+  }
+  .products-page .hero-desc-inner p {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.75);
+  }
+
+  /* ── MARQUEE ── */
+  .products-page .marquee-outer {
+    background: var(--black);
+    border-top: var(--border-thick);
+    border-bottom: var(--border-thick);
+    overflow: hidden;
+  }
+  .products-page .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: pp-scroll 18s linear infinite;
+  }
+  .products-page .marquee-outer:hover .marquee-track {
+    animation-play-state: paused;
+  }
+  .products-page .marquee-item {
+    padding: 12px 32px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--yellow);
+    white-space: nowrap;
+    border-right: 2px solid rgba(255,225,53,0.2);
+  }
+  @keyframes pp-scroll { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+
+  /* ── FILTER BAR ── */
+  .products-page .filter-bar {
+    display: flex;
+    align-items: stretch;
+    border: var(--border-thick);
+    box-shadow: var(--sh-lg);
+    background: var(--white);
+    overflow: hidden;
+    margin-top: 36px;
+  }
+  @media (max-width: 640px) {
+    .products-page .filter-bar { flex-wrap: wrap; }
+  }
+
+  .products-page .search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    border-right: var(--border-thick);
+    background: var(--yellow);
+    min-width: 200px;
+    height: 56px;
+  }
+  @media (max-width: 640px) {
+    .products-page .search-box { height: 48px; min-width: 0; }
+  }
+  .products-page .search-box input {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--black);
+    width: 140px;
+    letter-spacing: 0.03em;
+  }
+  .products-page .search-box input::placeholder { color: rgba(10,10,10,0.4); }
+
+  .products-page .pills-zone {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+    height: 56px;
+  }
+  .products-page .pills-zone::-webkit-scrollbar { display: none; }
+  @media (max-width: 640px) {
+    .products-page .pills-zone {
       width: 100%;
-    }
-    /* Category pill-select */
-    .mobile-cat-select {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      border: 2px solid var(--ink);
-      background: var(--ink);
-      padding: 7px 12px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--yellow);
-      flex-shrink: 0;
-      position: relative;
-      cursor: pointer;
-    }
-    .mobile-cat-select select {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      width: 100%;
-      cursor: pointer;
-      font-size: 16px; /* prevents iOS zoom */
-    }
-    /* Compact search */
-    .mobile-search {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      border: 2px solid var(--ink);
-      background: white;
-      padding: 7px 10px;
-      flex: 1 1 auto;
-      min-width: 0;
-      box-shadow: var(--shadow-sm);
-    }
-    .mobile-search input {
-      background: transparent; border: none; outline: none;
-      font-family: 'DM Sans', sans-serif; font-size: 12px;
-      font-weight: 500; color: var(--ink); width: 100%; min-width: 0;
-    }
-    .mobile-search input::placeholder { color: rgba(13,13,13,0.35); }
-    /* Sort icon button */
-    .mobile-sort {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid var(--ink);
-      background: white;
-      padding: 7px 10px;
-      flex-shrink: 0;
-      cursor: pointer;
-      box-shadow: var(--shadow-sm);
-      position: relative;
-    }
-    .mobile-sort select {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      width: 100%;
-      cursor: pointer;
-      font-size: 16px;
+      border-top: var(--border-thick);
+      height: 48px;
     }
   }
 
-  /* ── Product grid ── */
-  .product-grid {
+  .products-page .pill {
+    border: none;
+    border-right: 2px solid rgba(10,10,10,0.1);
+    background: transparent;
+    padding: 0 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: rgba(10,10,10,0.45);
+    white-space: nowrap;
+    transition: background 0.08s, color 0.08s;
+    display: flex;
+    align-items: center;
+  }
+  .products-page .pill:hover { background: var(--black); color: var(--yellow); }
+  .products-page .pill.on {
+    background: var(--red);
+    color: var(--white);
+    box-shadow: inset 0 -4px 0 var(--black);
+  }
+  @media (max-width: 640px) {
+    .products-page .pill { font-size: 10px; padding: 0 13px; }
+  }
+
+  .products-page .sort-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 20px;
+    border-left: var(--border-thick);
+    background: var(--black);
+    color: var(--yellow);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    height: 56px;
+    transition: background 0.1s;
+    flex-shrink: 0;
+  }
+  .products-page .sort-box:hover { background: var(--blue); }
+  .products-page .sort-box select {
+    appearance: none;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: inherit;
+    font-family: 'Courier Prime', monospace;
+    font-size: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+  }
+  @media (max-width: 640px) {
+    .products-page .sort-box { height: 48px; }
+  }
+
+  /* ── STAT ROW ── */
+  .products-page .stat-row {
+    display: flex;
+    border: var(--border-thick);
+    border-top: none;
+    box-shadow: var(--sh);
+    overflow: hidden;
+    background: var(--white);
+    margin-bottom: 48px;
+  }
+  .products-page .stat-cell {
+    flex: 1;
+    padding: 16px 24px;
+    border-right: var(--border-thick);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .products-page .stat-cell:last-child { border-right: none; }
+  .products-page .stat-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(10,10,10,0.4);
+  }
+  .products-page .stat-value {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 32px;
+    color: var(--black);
+    line-height: 1;
+  }
+  .products-page .stat-value.accent { color: var(--red); }
+  @media (max-width: 600px) {
+    .products-page .stat-row { display: grid; grid-template-columns: 1fr 1fr; }
+    .products-page .stat-cell { border-bottom: var(--border-thick); }
+  }
+
+  /* ── SECTION LABEL ── */
+  .products-page .sec-label {
+    display: flex;
+    align-items: stretch;
+    border: var(--border-thick);
+    box-shadow: var(--sh);
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .products-page .sec-label-main {
+    background: var(--black);
+    color: var(--yellow);
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-right: var(--border-thick);
+    flex-shrink: 0;
+  }
+  .products-page .sec-label-fill {
+    flex: 1;
+    background: repeating-linear-gradient(
+      -45deg, transparent, transparent 8px,
+      rgba(10,10,10,0.05) 8px, rgba(10,10,10,0.05) 10px
+    );
+  }
+  .products-page .sec-label-num {
+    background: var(--red);
+    color: var(--white);
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 20px;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    border-left: var(--border-thick);
+    flex-shrink: 0;
+  }
+
+  /* ── PRODUCT GRID ── */
+  .products-page .pg {
     display: grid;
-    gap: 28px;
+    gap: 20px;
     grid-template-columns: repeat(3, 1fr);
   }
-  @media (max-width: 900px) {
-    .product-grid { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 900px) { .products-page .pg { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px)  { .products-page .pg { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+
+  .products-page .card-shell {
+    border: var(--border-thick);
+    box-shadow: var(--sh);
+    background: var(--white);
+    overflow: hidden;
+    transition: transform 0.1s, box-shadow 0.1s;
   }
-  @media (max-width: 540px) {
-    .product-grid {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-      width: calc(100vw - 20px);
-      max-width: calc(100vw - 20px);
-      box-sizing: border-box;
-      overflow: hidden;
-    }
-    .square-card {
-      width: 100%;
-      max-width: 100%;
-      min-width: 0;
-      box-sizing: border-box;
-      overflow: hidden;
-    }
+  .products-page .card-shell:hover {
+    transform: translate(-4px, -4px);
+    box-shadow: var(--sh-xl);
+  }
+  .products-page .card-shell:active {
+    transform: translate(4px, 4px);
+    box-shadow: none;
   }
 
-  /* ── Square cards ── */
-  .square-card { width: 100%; }
-  /* Mobile: 2 compact columns — let card height be natural (image + info strip) */
-  @media (max-width: 540px) {
-    .square-card { height: auto; overflow: visible; }
-    .square-card > a { height: auto !important; }
+  /* ── SPINNER ── */
+  .products-page .spin-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 100px 0;
   }
+  .products-page .spinner {
+    width: 40px;
+    height: 40px;
+    border: 5px solid var(--black);
+    border-top-color: var(--yellow);
+    animation: pp-spin 0.65s linear infinite;
+    box-shadow: var(--sh);
+  }
+  .products-page .spin-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--black);
+  }
+  @keyframes pp-spin { to { transform: rotate(360deg); } }
 
-  /* ── Hero description ── */
-  @media (max-width: 640px) {
-    .hero-desc { max-width: 100% !important; font-size: 13px !important; }
-    .hero-eyebrow { font-size: 10px !important; letter-spacing: 0.18em !important; }
+  /* ── EMPTY STATE ── */
+  .products-page .empty-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 80px 0 120px;
   }
+  .products-page .empty-box {
+    position: relative;
+    border: var(--border-thick);
+    background: var(--white);
+    box-shadow: var(--sh-xl);
+    padding: 52px 44px;
+    max-width: 420px;
+    width: 100%;
+  }
+  .products-page .empty-box::after {
+    content: '';
+    position: absolute;
+    inset: 8px -8px -8px 8px;
+    background: var(--yellow);
+    border: var(--border-thick);
+    z-index: -1;
+  }
+  .products-page .empty-icon {
+    width: 64px;
+    height: 64px;
+    border: var(--border-thick);
+    background: var(--red);
+    box-shadow: var(--sh);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+  .products-page .empty-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--black);
+    color: var(--yellow);
+    border: var(--border-thick);
+    box-shadow: var(--sh);
+    padding: 12px 22px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-top: 24px;
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .products-page .empty-cta:hover  { transform: translate(-3px,-3px); box-shadow: var(--sh-lg); }
+  .products-page .empty-cta:active { transform: translate(4px,4px);   box-shadow: none; }
 `;
 
+// ─── MARQUEE ─────────────────────────────────────────────────────────────────
+function Marquee() {
+    const items = [...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS];
+    return (
+        <div className="marquee-outer">
+            <div className="marquee-track">
+                {items.map((t, i) => (
+                    <div key={i} className="marquee-item">{t}</div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ─── PAGE ─────────────────────────────────────────────────────────────────────
 export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -279,259 +542,239 @@ export default function ProductsPage() {
     const [query, setQuery] = useState("");
 
     useEffect(() => {
-        async function fetchProducts() {
+        async function load() {
             try {
-                const res = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL}/products?_t=${Date.now()}`
-                );
-                if (!res.ok) throw new Error("Failed to fetch products");
-                const data = await res.json();
-                setProducts(data);
-            } catch (err) {
-                console.error(err);
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?_t=${Date.now()}`);
+                if (!res.ok) throw new Error("fetch failed");
+                setProducts(await res.json());
+            } catch (e) {
+                console.error(e);
             } finally {
                 setIsLoading(false);
             }
         }
-        fetchProducts();
+        load();
     }, []);
 
+    const filtered = products
+        .filter(p =>
+            (activeFilter === "All" || p.category === activeFilter) &&
+            (!query || p.name?.toLowerCase().includes(query.toLowerCase()))
+        )
+        .sort((a, b) => {
+            if (sort === "A–Z") return (a.name ?? "").localeCompare(b.name ?? "");
+            if (sort === "Newest") return ((b as any).createdAt ?? 0) - ((a as any).createdAt ?? 0);
+            return 0;
+        });
+
     return (
-        <main className="min-h-screen body-f" style={{ background: "var(--off-white)", overflowX: "hidden" }}>
-            <style>{PAGE_STYLES}</style>
+        <main className="products-page">
+            <style>{STYLES}</style>
 
-            {/* ══════════════ HERO — FULL-BLEED VIDEO BG ══════════════ */}
-            <section className="hero-section relative w-full" style={{ height: "56vh", minHeight: 400, maxHeight: 560 }}>
-
+            {/* ── HERO ── */}
+            <section className="hero" style={{ minHeight: "60vh" }}>
                 <video
                     src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260302_085640_276ea93b-d7da-4418-a09b-2aa5b490e838.mp4"
                     autoPlay muted loop playsInline
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ filter: "brightness(0.78)" }}
+                    className="hero-img"
+                    style={{ transform: "scaleY(-1)" }}
                 />
+                <div className="hero-overlay" />
+                <div className="hero-noise" />
 
-                {/* Gradient scrim */}
-                <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                        background:
-                            "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.1) 35%, rgba(0,0,0,0.2) 78%, #f8eef0 100%)",
-                    }}
-                />
-
-                {/* Grain texture */}
-                <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                        opacity: 0.045,
-                        backgroundImage:
-                            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-                        backgroundSize: "200px",
-                    }}
-                />
-
-                {/* Hero text — uses .hero-text class for responsive positioning */}
-                <div className="hero-text">
+                <div className="hero-content">
                     <motion.div
                         initial="hidden"
                         animate="visible"
-                        variants={{
-                            hidden: {},
-                            visible: { transition: { staggerChildren: 0.11, delayChildren: 0.05 } },
-                        }}
+                        variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } } }}
                     >
-                        {/* Eyebrow */}
-                        <motion.p
-                            variants={{
-                                hidden: { opacity: 0, y: 10 },
-                                visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] } },
-                            }}
-                            className="body-f text-[11px] font-semibold uppercase mb-4"
-                            style={{
-                                color: "var(--yellow)",
-                                textShadow: "0 1px 8px rgba(0,0,0,0.7), 0 0 2px rgba(0,0,0,0.9)",
-                                letterSpacing: "0.24em",
-                            }}
-                        >
-                            Premium Catalog — 2026
-                        </motion.p>
+                        {/* Badge */}
+                        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } } }}>
+                            <div className="hero-badge">
+                                <span className="blink-dot" />
+                                Live Catalog — 2026
+                            </div>
+                        </motion.div>
 
-                        {/* Heading */}
-                        <motion.h1
-                            variants={{
-                                hidden: { opacity: 0, y: 28 },
-                                visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } },
-                            }}
-                            className="display leading-[0.9]"
-                            style={{ fontSize: "clamp(46px, 10vw, 118px)" }}
-                        >
-                            <span style={{ color: "white", WebkitTextStroke: "1.5px rgba(0,0,0,0.55)", paintOrder: "stroke fill", display: "block" }}>
-                                Premium
-                            </span>
-                            <span style={{ WebkitTextStroke: "2px white", color: "transparent", filter: "drop-shadow(0 0 1px rgba(0,0,0,0.6))" }}>
-                                Printing
-                            </span>
-                            {" "}<span style={{ color: "var(--yellow)", WebkitTextStroke: "1.5px rgba(0,0,0,0.4)", paintOrder: "stroke fill" }}>&amp;</span>{" "}
-                            <span style={{ color: "white", WebkitTextStroke: "1.5px rgba(0,0,0,0.55)", paintOrder: "stroke fill" }}>
-                                Packaging
-                            </span>
-                        </motion.h1>
+                        {/* Title */}
+                        <motion.div variants={{ hidden: { opacity: 0, y: 32 }, visible: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.16, 1, 0.3, 1] } } }}>
+                            <div className="hero-title-wrap">
+                                <h1
+                                    className="display"
+                                    style={{
+                                        fontSize: "clamp(52px, 11vw, 130px)",
+                                        lineHeight: 0.88,
+                                        color: "var(--white)",
+                                    }}
+                                >
+                                    Premium<br />
+                                    <span style={{ WebkitTextStroke: "3px var(--yellow)", color: "transparent", display: "block" }}>
+                                        Printing
+                                    </span>
+                                    <span style={{ color: "var(--yellow)" }}>&amp;</span>{" "}
+                                    <span>Pack</span>
+                                </h1>
+                                <div className="hero-sticker">
+                                    <span>2026{"\n"}CATALOG{"\n"}✦</span>
+                                </div>
+                            </div>
+                        </motion.div>
 
                         {/* Description */}
-                        <motion.div
-                            variants={{
-                                hidden: { opacity: 0, y: 16 },
-                                visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] } },
-                            }}
-                            className="mt-6"
-                        >
-                            <p
-                                className="body-f hero-desc text-[14px] font-light leading-relaxed"
-                                style={{
-                                    color: "rgba(255,255,255,0.6)",
-                                    textShadow: "0 1px 8px rgba(0,0,0,0.7), 0 0 2px rgba(0,0,0,0.9)",
-                                    maxWidth: "340px",
-                                }}
-                            >
-                                High-quality branded merchandise, custom packaging, and marketing materials — crafted with precision.
-                            </p>
+                        <motion.div variants={{ hidden: { opacity: 0, y: 18 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } } }}>
+                            <div className="hero-desc-block">
+                                <div className="hero-desc-accent" />
+                                <div className="hero-desc-inner">
+                                    <p>High-quality branded merchandise, custom packaging, and marketing materials — crafted with precision.</p>
+                                </div>
+                            </div>
                         </motion.div>
                     </motion.div>
                 </div>
             </section>
 
-            {/* ══════════════ UNIFIED FILTER + SEARCH BAR ══════════════ */}
-            <div className="page-container">
-                <div className="filter-toolbar">
+            {/* ── MARQUEE ── */}
+            <Marquee />
 
-                    {/* ── MOBILE SINGLE-ROW TOOLBAR ── */}
-                    <div className="mobile-toolbar" style={{ display: "none" }}>
-                        {/* Category dropdown styled as pill */}
-                        <div className="mobile-cat-select">
-                            <span>{activeFilter}</span>
-                            <ChevronDown size={12} />
-                            <select value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)}>
-                                {FILTERS.map((f) => <option key={f} value={f}>{f}</option>)}
-                            </select>
-                        </div>
-                        {/* Compact search */}
-                        <div className="mobile-search">
-                            <Search size={12} style={{ color: "var(--ink)", opacity: 0.4, flexShrink: 0 }} />
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                            />
-                        </div>
-                        {/* Sort icon button */}
-                        <div className="mobile-sort">
-                            <SlidersHorizontal size={14} strokeWidth={2} style={{ color: "var(--ink)" }} />
-                            <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                                {SORT_OPTIONS.map((o) => <option key={o}>{o}</option>)}
-                            </select>
-                        </div>
-                    </div>
+            {/* ── CONTENT ── */}
+            <div className="wrap" style={{ paddingBottom: 100 }}>
 
-                    {/* Search */}
-                    <div className="filter-search">
-                        <Search size={13} style={{ color: "var(--ink)", opacity: 0.4, flexShrink: 0 }} />
+                {/* Filter bar */}
+                <div className="filter-bar">
+                    <div className="search-box">
+                        <Search size={14} color="var(--black)" style={{ opacity: 0.5, flexShrink: 0 }} />
                         <input
                             type="text"
                             placeholder="Search catalog..."
                             value={query}
-                            onChange={(e) => setQuery(e.target.value)}
+                            onChange={e => setQuery(e.target.value)}
                         />
                     </div>
 
-                    <div className="v-divider" />
-
-                    {/* Pills */}
-                    <div className="pills-row">
-                        {FILTERS.map((f) => (
+                    <div className="pills-zone">
+                        {FILTERS.map(f => (
                             <button
                                 key={f}
                                 onClick={() => setActiveFilter(f)}
-                                className={`pill ${activeFilter === f ? "active" : ""}`}
+                                className={`pill ${activeFilter === f ? "on" : ""}`}
                             >
                                 {f}
                             </button>
                         ))}
                     </div>
 
-                    <div className="v-divider" />
-
-                    {/* Sort */}
-                    <div className="sort-wrap">
-                        <SlidersHorizontal size={11} strokeWidth={2} />
-                        <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                            {SORT_OPTIONS.map((o) => <option key={o}>{o}</option>)}
+                    <div className="sort-box">
+                        <SlidersHorizontal size={12} strokeWidth={2.5} />
+                        <select value={sort} onChange={e => setSort(e.target.value)}>
+                            {SORT_OPTIONS.map(o => <option key={o}>{o}</option>)}
                         </select>
-                        <ChevronDown size={11} strokeWidth={2} />
                     </div>
                 </div>
 
-                {/* Count */}
-                <p
-                    className="body-f text-[11px] font-medium uppercase mt-4 mb-8"
-                    style={{ color: "rgba(13,13,13,0.32)", letterSpacing: "0.14em" }}
-                >
-                    {isLoading
-                        ? "Loading catalog…"
-                        : `${products.length} product${products.length !== 1 ? "s" : ""} available`}
-                </p>
-            </div>
-
-            {/* ══════════════ PRODUCT GRID ══════════════ */}
-            <div className="page-container" style={{ paddingBottom: 100, boxSizing: "border-box" }}>
-                {isLoading ? (
-                    <div className="py-36 flex justify-center items-center gap-3">
-                        <div
-                            className="w-5 h-5 rounded-full animate-spin border-2"
-                            style={{ borderColor: "var(--ink)", borderTopColor: "transparent" }}
-                        />
-                        <span
-                            className="body-f text-[11px] font-medium uppercase"
-                            style={{ color: "rgba(13,13,13,0.38)", letterSpacing: "0.1em" }}
-                        >
-                            Syncing Catalog…
-                        </span>
-                    </div>
-                ) : products.length > 0 ? (
+                {/* Stat row */}
+                {!isLoading && (
                     <motion.div
-                        variants={staggerContainer}
-                        initial="hidden"
-                        whileInView="visible"
-                        viewport={{ once: true, margin: "-60px" }}
-                        className="product-grid"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, delay: 0.1 }}
+                        className="stat-row"
                     >
-                        {products.map((product, idx) => (
-                            <motion.div key={product.id} variants={cardReveal} className="square-card">
-                                <ProductCard product={product} index={idx} />
-                            </motion.div>
-                        ))}
-                    </motion.div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-36 text-center">
-                        <div
-                            className="w-16 h-16 border-2 flex items-center justify-center mb-5"
-                            style={{ borderColor: "var(--ink)", background: "var(--yellow)", boxShadow: "var(--shadow-md)" }}
-                        >
-                            <Package size={28} style={{ color: "var(--ink)" }} />
+                        <div className="stat-cell">
+                            <span className="stat-label">Total Items</span>
+                            <span className="stat-value accent">{String(products.length).padStart(2, "0")}</span>
                         </div>
-                        <h3 className="display mb-2" style={{ fontSize: "38px", color: "var(--ink)" }}>
-                            Catalog Empty
-                        </h3>
-                        <p
-                            className="body-f text-[13px] font-light leading-relaxed max-w-xs"
-                            style={{ color: "rgba(13,13,13,0.45)" }}
+                        <div className="stat-cell">
+                            <span className="stat-label">Showing</span>
+                            <span className="stat-value">{String(filtered.length).padStart(2, "0")}</span>
+                        </div>
+                        <div className="stat-cell">
+                            <span className="stat-label">Category</span>
+                            <span className="stat-value mono" style={{ fontSize: 16, paddingTop: 6 }}>
+                                {activeFilter}
+                            </span>
+                        </div>
+                        <div className="stat-cell" style={{ background: "var(--yellow)" }}>
+                            <span className="stat-label">Status</span>
+                            <span className="stat-value mono" style={{ fontSize: 16, paddingTop: 6 }}>
+                                ● LIVE
+                            </span>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* Loading */}
+                {isLoading && (
+                    <div className="spin-wrap">
+                        <div className="spinner" />
+                        <span className="spin-label">Syncing catalog…</span>
+                    </div>
+                )}
+
+                {/* Grid */}
+                {!isLoading && filtered.length > 0 && (
+                    <>
+                        <div className="sec-label">
+                            <div className="sec-label-main">
+                                <Zap size={14} />
+                                All Products
+                            </div>
+                            <div className="sec-label-fill" />
+                            <div className="sec-label-num">{String(filtered.length).padStart(3, "0")}</div>
+                        </div>
+
+                        <motion.div
+                            className="pg"
+                            initial="hidden"
+                            whileInView="visible"
+                            viewport={{ once: true, margin: "-60px" }}
+                            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.07 } } }}
                         >
-                            Our new 2026 samples are arriving soon. Contact us for custom bulk orders in the meantime.
-                        </p>
+                            {filtered.map((product, idx) => (
+                                <motion.div
+                                    key={product.id}
+                                    variants={{
+                                        hidden: { opacity: 0, y: 24 },
+                                        visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } }
+                                    }}
+                                >
+                                    <div className="card-shell">
+                                        <ProductCard product={product} index={idx} />
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </motion.div>
+                    </>
+                )}
+
+                {/* Empty state */}
+                {!isLoading && filtered.length === 0 && (
+                    <div className="empty-wrap">
+                        <div className="empty-box">
+                            <div className="empty-icon">
+                                <Package size={28} color="var(--white)" />
+                            </div>
+                            <p
+                                className="mono"
+                                style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(10,10,10,0.35)", marginBottom: 8 }}
+                            >
+                                Status — Empty
+                            </p>
+                            <h3
+                                className="display"
+                                style={{ fontSize: 56, color: "var(--black)", lineHeight: 0.9, marginBottom: 12 }}
+                            >
+                                Nothing<br />Here
+                            </h3>
+                            <p style={{ fontSize: 13, fontWeight: 400, lineHeight: 1.6, color: "rgba(10,10,10,0.5)", maxWidth: 280 }}>
+                                New 2026 samples are arriving soon. Reach out for custom bulk orders in the meantime.
+                            </p>
+                            <button className="empty-cta">
+                                Contact Us <ArrowRight size={13} strokeWidth={2.5} />
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
-
         </main>
     );
 }

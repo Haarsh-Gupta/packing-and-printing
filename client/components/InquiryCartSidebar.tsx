@@ -8,6 +8,7 @@ import { ShoppingCart, Trash2, Loader2, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { useAlert } from "@/components/CustomAlert";
 import { useRouter } from "next/navigation";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 export default function InquiryCartSidebar() {
     const dispatch = useAppDispatch();
@@ -61,11 +62,10 @@ export default function InquiryCartSidebar() {
         }).filter((i): i is NonNullable<typeof i> => i !== null);
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({ items: payloadItems })
             });

@@ -21,17 +21,16 @@ export default function NotificationsBell() {
 
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
 
-    // Fetch unread count periodically
+    // Fetch unread count initially and listen via SSE
     useEffect(() => {
         if (!token) return;
 
-        let stopped = false;
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (!baseUrl) return;
+        const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+
         const doFetch = async () => {
             try {
-                const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-                if (!baseUrl) return;
-                const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-
                 const res = await fetch(`${cleanUrl}/notifications/unread-count`, {
                     headers: { Authorization: `Bearer ${token}` },
                     credentials: "include",
@@ -39,18 +38,29 @@ export default function NotificationsBell() {
                 if (res.ok) {
                     const data = await res.json();
                     setUnread(data.unread || 0);
-                } else if (res.status === 401) {
-                    stopped = true;
                 }
             } catch (e) { /* silent */ }
         };
 
         doFetch();
-        const interval = setInterval(() => {
-            if (!stopped) doFetch();
-            else clearInterval(interval);
-        }, 60000);
-        return () => clearInterval(interval);
+
+        // Connect to SSE for real-time updates
+        const eventSource = new EventSource(`${cleanUrl}/events/stream?token=${token}`);
+
+        eventSource.addEventListener("new_notification", (e) => {
+            setUnread((prev) => prev + 1);
+            // Optionally, if the panel is open, refresh the list
+            setOpen((isOpen) => {
+                if (isOpen) {
+                    fetchNotifications();
+                }
+                return isOpen;
+            });
+        });
+
+        return () => {
+            eventSource.close();
+        };
     }, [token]);
 
     // Close on outside click

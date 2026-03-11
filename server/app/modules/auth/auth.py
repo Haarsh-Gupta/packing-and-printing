@@ -67,6 +67,10 @@ async def get_current_user(request: Request, token : str = Depends(oauth2_scheme
     if not token or token in ["undefined", "null"]:
         token = request.cookies.get("access_token")
         
+    # Fallback to query param for EventSource
+    if not token or token in ["undefined", "null"]:
+        token = request.query_params.get("token")
+        
     if not token:
         raise credintials_exception
 

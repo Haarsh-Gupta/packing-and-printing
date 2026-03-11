@@ -13,16 +13,22 @@ export interface Order {
 export interface InquiryItem {
     id: string;
     inquiry_group_id?: string;
-    template_id?: number | null;
+    product_id?: number | null;
+    subproduct_id?: number | null;
     service_id?: number | null;
+    subservice_id?: number | null;
+    template_id?: number | null;
     variant_id?: number | null;
     quantity: number;
     selected_options: Record<string, any>;
     notes?: string | null;
     images?: string[];
     line_item_price?: number;
+    product_name?: string;
+    subproduct_name?: string;
     template_name?: string;
     service_name?: string;
+    subservice_name?: string;
     variant_name?: string;
 }
 
@@ -38,7 +44,7 @@ export interface InquiryMessage {
 export interface Inquiry {
     id: string;
     user_id: string;
-    status: "PENDING" | "QUOTED" | "ACCEPTED" | "REJECTED";
+    status: "PENDING" | "UNDER_REVIEW" | "QUOTED" | "NEGOTIATION" | "ACCEPTED" | "REJECTED" | "CANCELLED" | "EXPIRED";
     total_quoted_price?: number | null;
     admin_notes?: string | null;
     quoted_at?: string | null;

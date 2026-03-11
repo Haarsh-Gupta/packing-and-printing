@@ -6,13 +6,17 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const STATUS_TABS = ["ALL", "PENDING", "QUOTED", "ACCEPTED", "REJECTED"];
+const STATUS_TABS = ["ALL", "PENDING", "UNDER_REVIEW", "QUOTED", "NEGOTIATION", "ACCEPTED", "REJECTED", "CANCELLED", "EXPIRED"];
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
-    PENDING: { color: '#d97706', bg: '#fffbeb' },
-    QUOTED: { color: '#2563eb', bg: '#eff6ff' },
-    ACCEPTED: { color: '#16a34a', bg: '#f0fdf4' },
-    REJECTED: { color: '#dc2626', bg: '#fef2f2' },
+    PENDING: { color: '#d97706', bg: '#fffbeb' }, // amber
+    UNDER_REVIEW: { color: '#8b5cf6', bg: '#ede9fe' }, // violet
+    QUOTED: { color: '#2563eb', bg: '#eff6ff' }, // blue
+    NEGOTIATION: { color: '#0ea5e9', bg: '#e0f2fe' }, // sky
+    ACCEPTED: { color: '#16a34a', bg: '#f0fdf4' }, // green
+    REJECTED: { color: '#dc2626', bg: '#fef2f2' }, // red
+    CANCELLED: { color: '#475569', bg: '#f1f5f9' }, // slate
+    EXPIRED: { color: '#94a3b8', bg: '#f8fafc' }, // light slate
 };
 
 const StatusPill = ({ status }: { status: string }) => {

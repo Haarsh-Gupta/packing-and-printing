@@ -14,6 +14,7 @@ from app.modules.orders.models import Order, OrderMilestone
 from app.modules.orders.schemas import OrderResponse
 from app.modules.orders.schemas import PaymentSplitType
 from app.modules.notifications.models import Notification
+from app.core.sse import sse_manager
 from .models import InquiryGroup, InquiryItem, InquiryMessage
 from .schemas import (
     InquiryGroupCreate,
@@ -74,7 +75,7 @@ async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSessi
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid option category: {key}")
                 
                 section_data = allowed_keys[key]
-                allowed_options = section_data.get("options", [])
+                allowed_options = section_data.get("options") or []
                 
                 # options is a list of {"value": "X", "price_mod": 10.0, "label": "Y"}
                 # we need to find if selected_val matches any value in allowed_options
@@ -634,6 +635,18 @@ async def send_inquiry_message(
 
     await db.commit()
     await db.refresh(new_message)
+
+    # Broadcast SSE to admins
+    await sse_manager.publish_to_admins("new_inquiry_message", {
+        "group_id": str(group_id),
+        "message": {
+            "id": str(new_message.id),
+            "sender_id": str(new_message.sender_id),
+            "content": new_message.content,
+            "file_urls": new_message.file_urls,
+            "created_at": new_message.created_at.isoformat()
+        }
+    })
 
     return new_message
 

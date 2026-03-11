@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, UploadCloud, ShoppingCart, Plus, Minus } from "lucide-react";
+import { Loader2, UploadCloud, ShoppingCart, Plus, Minus, Zap } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { addToInquiry } from "@/lib/store/inquirySlice";
@@ -134,6 +134,54 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         e.preventDefault();
         setIsLoading(true);
 
+        // If zero-cost, do direct checkout
+        if (totalPrice === 0) {
+            try {
+                const token = localStorage.getItem("access_token");
+                if (!token) {
+                    showAlert("Please log in to continue.", "error");
+                    router.push("/auth/login");
+                    setIsLoading(false);
+                    return;
+                }
+
+                const payload: any = {
+                    quantity,
+                    selected_options: answers,
+                    notes: `Direct checkout for ${product.name}`,
+                };
+                if (product.product_id) {
+                    payload.product_id = product.product_id;
+                    payload.subproduct_id = product.id;
+                } else {
+                    payload.product_id = product.id;
+                }
+
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/direct-checkout`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    showAlert("Order placed successfully! Redirecting…", "success");
+                    setTimeout(() => router.push("/dashboard/orders"), 1200);
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    showAlert(err.detail || "Checkout failed. Try adding to cart instead.", "error");
+                }
+            } catch {
+                showAlert("Network error. Please try again.", "error");
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
+
+        // Normal add-to-cart flow
         dispatch(addToInquiry({
             id: generateId(),
             productId: product.product_id,
@@ -292,6 +340,11 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                 >
                     {isLoading ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : totalPrice === 0 ? (
+                        <>
+                            Get It Free
+                            <Zap className="h-4 w-4" />
+                        </>
                     ) : (
                         <>
                             Add to Cart

@@ -14,9 +14,13 @@ import { Textarea } from "@/components/ui/textarea";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; dot: string; icon: typeof AlertCircle }> = {
     PENDING: { color: '#f59e0b', bg: '#fffbeb', dot: '#f59e0b', icon: Clock },
+    UNDER_REVIEW: { color: '#8b5cf6', bg: '#ede9fe', dot: '#8b5cf6', icon: FileText },
     QUOTED: { color: '#2563eb', bg: '#eff6ff', dot: '#2563eb', icon: IndianRupee },
+    NEGOTIATION: { color: '#0ea5e9', bg: '#e0f2fe', dot: '#0ea5e9', icon: MessageSquare },
     ACCEPTED: { color: '#16a34a', bg: '#f0fdf4', dot: '#16a34a', icon: CheckCircle2 },
     REJECTED: { color: '#dc2626', bg: '#fef2f2', dot: '#dc2626', icon: XCircle },
+    CANCELLED: { color: '#475569', bg: '#f1f5f9', dot: '#475569', icon: XCircle },
+    EXPIRED: { color: '#94a3b8', bg: '#f8fafc', dot: '#94a3b8', icon: Clock },
 };
 
 const StatusPill = ({ status }: { status: string }) => {
@@ -164,13 +168,19 @@ export default function InquiryDetail() {
         if (!selected || !reply.trim()) return;
         setSending(true);
         try {
-            await api(`/admin/inquiries/${selected.id}/messages`, {
+            const returnedMessage = await api<any>(`/admin/inquiries/${selected.id}/messages`, {
                 method: "POST",
                 body: JSON.stringify({ content: reply }),
             });
             setReply("");
-            const data = await api<InquiryGroup>(`/admin/inquiries/${selected.id}`);
-            setSelected(data);
+
+            // Optimistic update
+            if (returnedMessage) {
+                setSelected({
+                    ...selected,
+                    messages: [...(selected.messages || []), returnedMessage]
+                });
+            }
         } catch (e) {
             console.error(e);
         } finally {
@@ -352,7 +362,7 @@ export default function InquiryDetail() {
                                                 {[
                                                     { value: 'FULL', label: '100% Advance', desc: 'Full payment upfront' },
                                                     { value: 'HALF', label: '50 / 50 Split', desc: '50% now, 50% on dispatch' },
-                                                    { value: 'CUSTOM_30', label: '30 / 30 / 40', desc: '3-milestone payment' },
+                                                    { value: 'CUSTOM', label: 'Custom Split', desc: 'Multi-milestone payment' },
                                                 ].map(opt => {
                                                     const isSelected = allowedSplits.includes(opt.value);
                                                     return (
@@ -406,7 +416,7 @@ export default function InquiryDetail() {
                         <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>Messages</p>
                     </div>
 
-                    <ScrollArea style={{ flex: 1, padding: "16px" }}>
+                    <div style={{ flex: 1, padding: "16px", overflowY: "auto", minHeight: 0 }} className="custom-scrollbar">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {(!selected.messages || selected.messages.length === 0) ? (
                                 <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', textAlign: 'center', marginTop: "20px" }}>No messages yet.</p>
@@ -452,18 +462,16 @@ export default function InquiryDetail() {
                                 })
                             )}
                         </div>
-                    </ScrollArea>
+                    </div>
 
-                    {(selected.status === 'PENDING' || selected.status === 'QUOTED') && (
-                        <div style={{ padding: '16px', borderTop: '1px solid var(--border)', background: 'var(--secondary)' }}>
-                            <div style={{ display: 'flex', width: '100%', gap: '10px' }}>
-                                <Input placeholder="Type a message..." value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()} style={{ flex: 1, height: '36px', fontSize: '13px' }} />
-                                <Button size="icon" onClick={sendMessage} disabled={sending || !reply.trim()} style={{ height: '36px', width: '36px' }}>
-                                    <Send size={16} />
-                                </Button>
-                            </div>
+                    <div style={{ padding: '16px', borderTop: '1px solid var(--border)', background: 'var(--secondary)' }}>
+                        <div style={{ display: 'flex', width: '100%', gap: '10px' }}>
+                            <Input placeholder="Type a message..." value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()} style={{ flex: 1, height: '36px', fontSize: '13px' }} />
+                            <Button size="icon" onClick={sendMessage} disabled={sending || !reply.trim()} style={{ height: '36px', width: '36px' }}>
+                                <Send size={16} />
+                            </Button>
                         </div>
-                    )}
+                    </div>
                 </div>
 
             </div>

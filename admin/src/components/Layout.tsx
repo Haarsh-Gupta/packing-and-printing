@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "./Sidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Search, Bell, ChevronRight, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const PAGE_LABELS: Record<string, string> = {
     "/": "Dashboard",
@@ -22,6 +22,35 @@ export default function Layout() {
     const { user, loading } = useAuth();
     const location = useLocation();
     const [search, setSearch] = useState("");
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        if (!user) return;
+        const token = localStorage.getItem("admin_token");
+        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+        if (!token) return;
+
+        const cleanUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+
+        fetch(`${cleanUrl}/notifications/admin/all`, {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json()).then(data => {
+            if (Array.isArray(data)) {
+                setUnreadCount(data.filter((n: any) => !n.is_read).length);
+            }
+        }).catch(e => console.error(e));
+
+        const eventSource = new EventSource(`${cleanUrl}/admin/events/stream?token=${token}`);
+
+        const handleNewNotification = () => setUnreadCount(p => p + 1);
+
+        eventSource.addEventListener("admin_new_inquiry", handleNewNotification);
+        eventSource.addEventListener("admin_order_created", handleNewNotification);
+        eventSource.addEventListener("admin_payment_recorded", handleNewNotification);
+        eventSource.addEventListener("admin_payment_received", handleNewNotification);
+
+        return () => eventSource.close();
+    }, [user]);
 
     if (loading) {
         return (
@@ -97,18 +126,19 @@ export default function Layout() {
                     </div>
 
                     {/* Bell */}
-                    <button style={{
+                    <button onClick={() => window.location.href = '/notifications'} style={{
                         width: '34px', height: '34px', border: '1px solid #e4e4e7', borderRadius: '9px',
                         background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         cursor: 'pointer', position: 'relative', color: '#71717a',
                     }}>
                         <Bell size={15} />
-                        {/* Notification dot */}
-                        <span style={{
-                            position: 'absolute', top: '7px', right: '7px',
-                            width: '6px', height: '6px', borderRadius: '50%',
-                            background: '#ef4444', border: '1.5px solid white',
-                        }} />
+                        {unreadCount > 0 && (
+                            <span style={{
+                                position: 'absolute', top: '7px', right: '7px',
+                                width: '6px', height: '6px', borderRadius: '50%',
+                                background: '#ef4444', border: '1.5px solid white',
+                            }} />
+                        )}
                     </button>
 
                     {/* Avatar */}

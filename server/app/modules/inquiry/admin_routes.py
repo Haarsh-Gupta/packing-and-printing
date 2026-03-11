@@ -10,6 +10,7 @@ from ..auth.auth import get_current_user, get_current_admin_user
 from ..auth.schemas import TokenData
 from ..users.models import User
 from ..notifications.models import Notification
+from app.core.sse import sse_manager
 from .models import InquiryGroup, InquiryItem, InquiryMessage
 from .schemas import (
     InquiryGroupCreate,
@@ -202,5 +203,16 @@ async def admin_send_message(
 
     await db.commit()
     await db.refresh(new_message)
+
+    await sse_manager.publish(str(group.user_id), "new_inquiry_message", {
+        "group_id": str(group_id),
+        "message": {
+            "id": str(new_message.id),
+            "sender_id": str(new_message.sender_id),
+            "content": new_message.content,
+            "file_urls": new_message.file_urls,
+            "created_at": new_message.created_at.isoformat()
+        }
+    });
 
     return new_message

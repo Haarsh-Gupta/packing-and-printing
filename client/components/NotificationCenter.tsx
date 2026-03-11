@@ -48,9 +48,19 @@ export default function NotificationCenter() {
 
     useEffect(() => {
         fetchNotifications();
-        // Refresh every 30 seconds
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => clearInterval(interval);
+
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+        const token = localStorage.getItem("access_token");
+        if (!baseUrl || !token) return;
+
+        const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+        const eventSource = new EventSource(`${cleanUrl}/events/stream?token=${token}`);
+
+        eventSource.addEventListener("new_notification", () => {
+            fetchNotifications();
+        });
+
+        return () => eventSource.close();
     }, []);
 
     const markAsRead = async (id: number) => {
