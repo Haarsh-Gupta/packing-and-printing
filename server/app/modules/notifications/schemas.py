@@ -7,12 +7,15 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 
 
+from uuid import UUID
+
 # ── Admin sends ──────────────────────────────────────────────
 class NotificationCreate(BaseModel):
     """Admin sends a notification to a specific user."""
-    user_id: int
+    user_id: UUID
     title: str = Field(..., max_length=200)
     message: str
+    metadata: Optional[dict] = None
 
 
 class NotificationBulkCreate(BaseModel):
@@ -24,11 +27,12 @@ class NotificationBulkCreate(BaseModel):
 # ── Responses ────────────────────────────────────────────────
 class NotificationResponse(BaseModel):
     id: int
-    user_id: int
+    user_id: UUID
     title: str
     message: str
     is_read: bool
     created_at: datetime
+    metadata: Optional[dict] = Field(None, alias="metadata_")
 
     model_config = ConfigDict(from_attributes=True)
 

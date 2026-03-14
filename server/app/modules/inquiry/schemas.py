@@ -2,22 +2,66 @@ from datetime import datetime
 from typing import Dict, Union, Optional, List
 from uuid import UUID
 from enum import Enum
-from pydantic import BaseModel, Field, model_validator, ConfigDict
-
+from pydantic import BaseModel, Field, model_validator, ConfigDict, computed_field
 from app.modules.orders.schemas import PaymentSplitType
 
 
 # --- Enums ---
 class InquiryStatus(str, Enum):
-    PENDING = "PENDING"                 # User submitted inquiry
-    UNDER_REVIEW = "UNDER_REVIEW"       # Admin reviewing inquiry
-    QUOTED = "QUOTED"                   # Admin sent quotation
-    NEGOTIATION = "NEGOTIATION"         # User and admin discussing price
-    ACCEPTED = "ACCEPTED"               # User accepted quote → order created
-    REJECTED = "REJECTED"               # User rejected quote
-    CANCELLED = "CANCELLED"             # User cancelled inquiry
-    EXPIRED = "EXPIRED"                 # Quote expired
+    PENDING = "PENDING"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    QUOTED = "QUOTED"
+    NEGOTIATION = "NEGOTIATION"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
 
+# State machine defining the valid workflows for Users vs Admins
+USER_ALLOWED_TRANSITIONS = {
+    InquiryStatus.PENDING: [InquiryStatus.CANCELLED],
+    InquiryStatus.UNDER_REVIEW: [InquiryStatus.CANCELLED],
+    InquiryStatus.QUOTED: [InquiryStatus.ACCEPTED, InquiryStatus.REJECTED, InquiryStatus.NEGOTIATION, InquiryStatus.CANCELLED],
+    InquiryStatus.NEGOTIATION: [InquiryStatus.ACCEPTED, InquiryStatus.REJECTED, InquiryStatus.CANCELLED],
+    InquiryStatus.ACCEPTED: [InquiryStatus.CANCELLED],
+    InquiryStatus.REJECTED: [],
+    InquiryStatus.CANCELLED: [],
+    InquiryStatus.EXPIRED: []
+}
+
+ADMIN_ALLOWED_TRANSITIONS = {
+    InquiryStatus.PENDING: [InquiryStatus.UNDER_REVIEW, InquiryStatus.REJECTED, InquiryStatus.CANCELLED],
+    InquiryStatus.UNDER_REVIEW: [InquiryStatus.PENDING, InquiryStatus.REJECTED, InquiryStatus.CANCELLED],
+    InquiryStatus.QUOTED: [InquiryStatus.NEGOTIATION, InquiryStatus.EXPIRED, InquiryStatus.CANCELLED, InquiryStatus.REJECTED],
+    InquiryStatus.NEGOTIATION: [InquiryStatus.CANCELLED, InquiryStatus.REJECTED], 
+    InquiryStatus.EXPIRED: [InquiryStatus.PENDING, InquiryStatus.CANCELLED], 
+    InquiryStatus.ACCEPTED: [InquiryStatus.CANCELLED], 
+    InquiryStatus.REJECTED: [InquiryStatus.PENDING], 
+    InquiryStatus.CANCELLED: [InquiryStatus.PENDING]
+}
+
+# State machine defining the valid workflows for Users vs Admins
+USER_ALLOWED_TRANSITIONS = {
+    InquiryStatus.PENDING: [InquiryStatus.CANCELLED],
+    InquiryStatus.UNDER_REVIEW: [InquiryStatus.CANCELLED],
+    InquiryStatus.QUOTED: [InquiryStatus.ACCEPTED, InquiryStatus.REJECTED, InquiryStatus.NEGOTIATION, InquiryStatus.CANCELLED],
+    InquiryStatus.NEGOTIATION: [InquiryStatus.ACCEPTED, InquiryStatus.REJECTED, InquiryStatus.CANCELLED],
+    InquiryStatus.ACCEPTED: [InquiryStatus.CANCELLED],
+    InquiryStatus.REJECTED: [],
+    InquiryStatus.CANCELLED: [],
+    InquiryStatus.EXPIRED: []
+}
+
+ADMIN_ALLOWED_TRANSITIONS = {
+    InquiryStatus.PENDING: [InquiryStatus.UNDER_REVIEW, InquiryStatus.REJECTED, InquiryStatus.CANCELLED],
+    InquiryStatus.UNDER_REVIEW: [InquiryStatus.PENDING, InquiryStatus.REJECTED, InquiryStatus.CANCELLED],
+    InquiryStatus.QUOTED: [InquiryStatus.NEGOTIATION, InquiryStatus.EXPIRED, InquiryStatus.CANCELLED, InquiryStatus.REJECTED],
+    InquiryStatus.NEGOTIATION: [InquiryStatus.CANCELLED, InquiryStatus.REJECTED], 
+    InquiryStatus.EXPIRED: [InquiryStatus.PENDING, InquiryStatus.CANCELLED], 
+    InquiryStatus.ACCEPTED: [InquiryStatus.CANCELLED], 
+    InquiryStatus.REJECTED: [InquiryStatus.PENDING], 
+    InquiryStatus.CANCELLED: [InquiryStatus.PENDING]
+}
 
 # ==========================================
 # 1. CREATE SCHEMAS (Data sent BY the user)
@@ -31,7 +75,7 @@ class InquiryItemBase(BaseModel):
     service_id: Optional[int] = None
     subservice_id: Optional[int] = None
 
-    quantity: int = Field(..., gt=0, description="Must be greater than 0")
+    quantity: Optional[int] = Field(None, gt=0, description="Must be greater than 0")
     selected_options: Optional[Dict[str, Union[str, int, float, bool, None]]] = None
     notes: Optional[str] = None
     images: Optional[List[str]] = None
@@ -55,6 +99,12 @@ class InquiryItemCreate(InquiryItemBase):
     """Schema for each item when submitting the entire cart"""
     pass
 
+class InquiryItemUpdate(BaseModel):
+    """Schema for updating an existing item in the cart"""
+    quantity: Optional[int] = Field(None, gt=0, description="Must be greater than 0")
+    selected_options: Optional[Dict[str, Union[str, int, float, bool, None]]] = None
+    notes: Optional[str] = None
+    images: Optional[List[str]] = None
 
 class InquiryGroupCreate(BaseModel):
     """Schema for submitting the entire cart as one quotation request"""
@@ -87,10 +137,18 @@ class InquiryQuotation(BaseModel):
 
 
 class InquiryStatusUpdate(BaseModel):
-    """Schema for updating inquiry status (user accepting/rejecting)"""
+    """Schema for updating inquiry status (used by both, evaluated against state machine map)"""
     status: InquiryStatus
     split_type: Optional[PaymentSplitType] = None
     custom_percentages: Optional[List[float]] = None
+
+class AdminPricingCalculatorRequest(BaseModel):
+    """Schema for computing custom pricing bypassing database lookups"""
+    is_service: bool = False
+    base_price: float = Field(0.0, description="Base price for product or price_per_unit for service")
+    quantity: int = Field(1, gt=0)
+    config_schema: Optional[Dict] = None
+    selected_options: Optional[Dict] = None
 
 
 # ==========================================
@@ -121,8 +179,22 @@ class InquiryItemResponse(InquiryItemBase):
     subproduct_name: Optional[str] = None
     service_name: Optional[str] = None
     subservice_name: Optional[str] = None
+    estimated_price: float
+
+    @computed_field
+    @property
+    def total_estimated_price(self) -> float:
+        return self.quantity * self.estimated_price if self.estimated_price is not None else 0.0
+
+    @computed_field
+    @property
+    def total_quoted_price(self) -> Optional[float]:
+        if self.line_item_price is not None:
+            return self.quantity * float(self.line_item_price)
+        return None
 
     model_config = ConfigDict(from_attributes=True)
+
 
 
 class InquiryGroupResponse(BaseModel):
@@ -140,6 +212,14 @@ class InquiryGroupResponse(BaseModel):
     messages: List[InquiryMessageResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def total_estimated_price_of_inquiry(self) -> Optional[float]:
+        total = 0
+        for item in self.items:
+            total += item.total_estimated_price
+        return total
 
 
 class InquiryGroupListResponse(BaseModel):

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { InquiryGroup } from "@/types";
 import {
     MessageSquare, Send, User, Calendar, Package, Layers,
-    IndianRupee, FileText, Hash, Clock, CheckCircle2, XCircle, AlertCircle, Loader2, ArrowLeft
+    IndianRupee, FileText, Hash, Clock, CheckCircle2, XCircle, AlertCircle, Loader2, ArrowLeft, Calculator
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,28 @@ import { Textarea } from "@/components/ui/textarea";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; dot: string; icon: typeof AlertCircle }> = {
     PENDING: { color: '#f59e0b', bg: '#fffbeb', dot: '#f59e0b', icon: Clock },
+    UNDER_REVIEW: { color: '#8b5cf6', bg: '#f5f3ff', dot: '#8b5cf6', icon: FileText },
     QUOTED: { color: '#2563eb', bg: '#eff6ff', dot: '#2563eb', icon: IndianRupee },
+    NEGOTIATION: { color: '#0891b2', bg: '#ecfeff', dot: '#0891b2', icon: MessageSquare },
     ACCEPTED: { color: '#16a34a', bg: '#f0fdf4', dot: '#16a34a', icon: CheckCircle2 },
     REJECTED: { color: '#dc2626', bg: '#fef2f2', dot: '#dc2626', icon: XCircle },
+    CANCELLED: { color: '#737373', bg: '#f5f5f5', dot: '#737373', icon: XCircle },
+    EXPIRED: { color: '#a1a1aa', bg: '#f4f4f5', dot: '#a1a1aa', icon: Clock },
+};
+
+const UserStatusIndicator = ({ isOnline }: { isOnline: boolean }) => {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ 
+                width: '8px', height: '8px', borderRadius: '50%', 
+                background: isOnline ? '#22c55e' : '#a1a1aa',
+                boxShadow: isOnline ? '0 0 10px rgba(34, 197, 94, 0.4)' : 'none'
+            }} />
+            <span style={{ fontSize: '11px', fontWeight: 600, color: isOnline ? '#16a34a' : '#71717a' }}>
+                {isOnline ? 'Active Now' : 'Offline'}
+            </span>
+        </div>
+    );
 };
 
 const StatusPill = ({ status }: { status: string }) => {
@@ -63,6 +82,122 @@ function InfoCard({ label, icon: Icon, value, sub }: { label: string; icon: type
     );
 }
 
+function ItemCalculator({ item, subProducts, subServices }: { item: any, subProducts: any[], subServices: any[] }) {
+    const [open, setOpen] = useState(false);
+
+    // We need to initialize state from the db schema and the user's selected options.
+    const [basePrice, setBasePrice] = useState<number>(0);
+    const [options, setOptions] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!open) return;
+
+        let initialBase = 0;
+        let initOpts: any[] = [];
+
+        if (item.subproduct_id) {
+            const prod = subProducts.find(p => p.id === item.subproduct_id);
+            if (prod) {
+                initialBase = prod.base_price || 0;
+                if (prod.config_schema?.sections) {
+                    prod.config_schema.sections.forEach((sec: any) => {
+                        const userVal = item.selected_options?.[sec.key];
+                        if (userVal !== undefined) {
+                            if (sec.type === "dropdown" || sec.type === "radio") {
+                                const matchedOpt = sec.options?.find((o: any) => String(o.value) === String(userVal));
+                                initOpts.push({
+                                    key: sec.key,
+                                    label: sec.label,
+                                    type: "mod",
+                                    userChoice: userVal,
+                                    val: matchedOpt ? parseFloat(matchedOpt.price_mod || "0") : 0
+                                });
+                            } else if (sec.type === "number_input") {
+                                initOpts.push({
+                                    key: sec.key,
+                                    label: sec.label,
+                                    type: "ppu",
+                                    userChoice: userVal, // qty
+                                    val: parseFloat(sec.price_per_unit || "0")
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        } else if (item.subservice_id) {
+            const serv = subServices.find(s => s.id === item.subservice_id);
+            if (serv) {
+                initialBase = serv.price_per_unit || 0;
+            }
+        }
+
+        setBasePrice(initialBase);
+        setOptions(initOpts);
+    }, [open, item, subProducts, subServices]);
+
+    const updateOpt = (index: number, newVal: number) => {
+        const newOpts = [...options];
+        newOpts[index].val = newVal;
+        setOptions(newOpts);
+    };
+
+    if (!open) {
+        return (
+            <Button size="sm" variant="outline" onClick={() => setOpen(true)} className="mt-3 h-8 text-xs font-semibold text-[#136dec] border-[#136dec]/20 hover:bg-[#136dec]/10">
+                <Calculator size={14} className="mr-2" /> Open Pricing Sandbox
+            </Button>
+        );
+    }
+
+    let unitTotal = basePrice;
+    options.forEach(o => {
+        if (o.type === "mod") {
+            unitTotal += (o.val || 0);
+        } else if (o.type === "ppu") {
+            const qty = parseFloat(String(o.userChoice) || "0");
+            unitTotal += (qty * (o.val || 0));
+        }
+    });
+    const finalTotal = unitTotal * (item.quantity || 1);
+
+    return (
+        <div className="mt-4 p-4 rounded-xl border border-[#136dec]/30 bg-[#eff6ff]/30 shadow-inner">
+            <div className="flex items-center justify-between mb-3 border-b border-[#2563eb]/20 pb-2">
+                <p className="font-bold text-[#1e40af] flex items-center gap-2 text-sm"><Calculator size={14} /> Item Sandbox Calculator</p>
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-[#2563eb]" onClick={() => setOpen(false)}>Close</Button>
+            </div>
+
+            <div className="space-y-3">
+                <div className="flex justify-between items-center bg-white p-2 rounded border border-slate-200">
+                    <span className="text-xs font-bold text-slate-700">Base Price (₹)</span>
+                    <Input type="number" className="w-24 h-7 text-xs text-right font-bold" value={basePrice} onChange={e => setBasePrice(parseFloat(e.target.value) || 0)} />
+                </div>
+
+                {options.map((opt, i) => (
+                    <div key={i} className="flex justify-between items-center bg-white p-2 rounded border border-slate-200">
+                        <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-700">{opt.label}</span>
+                            <span className="text-[10px] text-slate-500 uppercase">{opt.userChoice}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-400 font-mono">{opt.type === "ppu" ? "₹/unit" : "+₹"}</span>
+                            <Input type="number" className="w-20 h-7 text-xs text-right font-bold" value={opt.val === 0 ? "" : opt.val} placeholder="0" onChange={e => updateOpt(i, parseFloat(e.target.value) || 0)} />
+                        </div>
+                    </div>
+                ))}
+
+                <div className="pt-2 flex justify-between items-center mt-2 border-t border-slate-200/50">
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">Unit: ₹{unitTotal.toLocaleString()} × {item.quantity}</p>
+                    </div>
+                    <p className="text-xl font-black text-[#1e40af]">₹{finalTotal.toLocaleString()}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function InquiryDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -72,20 +207,117 @@ export default function InquiryDetail() {
     const [sending, setSending] = useState(false);
     const [quoteForm, setQuoteForm] = useState({ amount: "", notes: "", validDays: "7" });
 
+    const [subProducts, setSubProducts] = useState<any[]>([]);
+    const [subServices, setSubServices] = useState<any[]>([]);
+    const [userDetails, setUserDetails] = useState<any>(null);
+    const [remoteTyping, setRemoteTyping] = useState(false);
+
+    // Typing indicator throttle
+    const [isTyping, setIsTyping] = useState(false);
+    const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    const wsRef = React.useRef<WebSocket | null>(null);
+
     useEffect(() => {
         if (!id) return;
         setDetailLoading(true);
-        api<InquiryGroup>(`/inquiries/admin/${id}`)
-            .then(setSelected)
+        Promise.all([
+            api<InquiryGroup>(`/admin/inquiries/${id}`),
+            api<any[]>("/admin/products/subproducts").catch(() => []),
+            api<any[]>("/admin/services/subservices").catch(() => [])
+        ])
+            .then(([inquiry, prods, servs]) => {
+                setSelected(inquiry);
+                setSubProducts(prods);
+                setSubServices(servs);
+                // Fetch user details for online status from Redis-aware endpoint
+                api<any>(`/admin/users/${inquiry.user_id}`).then(setUserDetails).catch(console.warn);
+            })
             .catch(console.error)
             .finally(() => setDetailLoading(false));
     }, [id]);
+
+    useEffect(() => {
+        if (!id) return;
+
+        // Admin uses "admin_token" stored by the Vite admin app
+        const activeToken = localStorage.getItem("admin_token") || "";
+        const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+        const wsBase = apiBase.replace(/^http/, "ws");
+        const wsUrl = `${wsBase}/inquiries/ws/${id}?token=${activeToken}`;
+
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === "new_message") {
+                    setSelected(prev => {
+                        if (!prev) return prev;
+                        const exists = (prev.messages || []).some((m: any) =>
+                            m.id === data.message.id || String(m.id) === String(data.message.id)
+                        );
+                        if (exists) return prev;
+                        return { ...prev, messages: [...(prev.messages || []), data.message] };
+                    });
+                    setRemoteTyping(false);
+                } else if (data.type === "typing") {
+                    // Show indicator only when the USER (non-admin) is typing
+                    if (!data.is_admin) {
+                        setRemoteTyping(data.is_typing);
+                    }
+                }
+            } catch (e) {
+                console.error("WS Parse Error", e);
+            }
+        };
+
+        ws.onerror = () => console.warn("WS error for inquiry", id);
+
+        return () => {
+            ws.close();
+            wsRef.current = null;
+        };
+    }, [id]);
+
+    const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setReply(e.target.value);
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            if (!isTyping) {
+                setIsTyping(true);
+                wsRef.current.send(JSON.stringify({ type: "typing", is_typing: true }));
+            }
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => {
+                setIsTyping(false);
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ type: "typing", is_typing: false }));
+                }
+            }, 1500);
+        }
+    };
+
+    const transitionStatus = async (newStatus: string) => {
+        if (!selected) return;
+        setSending(true);
+        try {
+            const res = await api<InquiryGroup>(`/admin/inquiries/${selected.id}/status`, {
+                method: "PATCH",
+                body: JSON.stringify({ status: newStatus }),
+            });
+            setSelected(res);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSending(false);
+        }
+    };
 
     const sendQuote = async () => {
         if (!selected || !quoteForm.amount) return;
         setSending(true);
         try {
-            await api(`/inquiries/admin/${selected.id}/quote`, {
+            await api(`/admin/inquiries/${selected.id}/quote`, {
                 method: "PATCH",
                 body: JSON.stringify({
                     total_quoted_price: parseFloat(quoteForm.amount),
@@ -94,7 +326,7 @@ export default function InquiryDetail() {
                 }),
             });
             setQuoteForm({ amount: "", notes: "", validDays: "7" });
-            const data = await api<InquiryGroup>(`/inquiries/admin/${selected.id}`);
+            const data = await api<InquiryGroup>(`/admin/inquiries/${selected.id}`);
             setSelected(data);
         } catch (e) {
             console.error(e);
@@ -105,15 +337,35 @@ export default function InquiryDetail() {
 
     const sendMessage = async () => {
         if (!selected || !reply.trim()) return;
+        const msgContent = reply.trim();
         setSending(true);
         try {
-            await api(`/inquiries/admin/${selected.id}/messages`, {
+            const res = await api<any>(`/admin/inquiries/${selected.id}/messages`, {
                 method: "POST",
-                body: JSON.stringify({ content: reply }),
+                body: JSON.stringify({ content: msgContent }),
             });
+
+            // Optimistically append message locally so admin sees it immediately
+            if (res && res.id) {
+                setSelected(prev => {
+                    if (!prev) return prev;
+                    // Avoid duplicate if WS already delivered it
+                    const exists = (prev.messages || []).some((m: any) => m.id === res.id);
+                    if (exists) return prev;
+                    return {
+                        ...prev,
+                        messages: [...(prev.messages || []), res]
+                    };
+                });
+            }
+
             setReply("");
-            const data = await api<InquiryGroup>(`/inquiries/admin/${selected.id}`);
-            setSelected(data);
+            // Stop typing indicator
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: "typing", is_typing: false }));
+                setIsTyping(false);
+                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            }
         } catch (e) {
             console.error(e);
         } finally {
@@ -154,9 +406,12 @@ export default function InquiryDetail() {
                 <div style={{ flex: "1 1 auto", display: 'flex', flexDirection: 'column', overflowY: 'auto', background: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px" }}>
                     <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', letterSpacing: '0.1em' }}>
-                                #{shortId(selected.id)}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', letterSpacing: '0.1em' }}>
+                                    #{shortId(selected.id)}
+                                </span>
+                                <UserStatusIndicator isOnline={userDetails?.is_online} />
+                            </div>
                             <StatusPill status={selected.status} />
                         </div>
                         <h1 style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em' }}>Inquiry Details</h1>
@@ -216,7 +471,11 @@ export default function InquiryDetail() {
                                             </div>
                                         )}
                                         {item.notes && <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontStyle: 'italic', marginTop: '4px' }}>"{item.notes}"</p>}
-                                        {item.line_item_price != null && <p style={{ fontSize: '13px', fontWeight: 800, color: '#2563eb', marginTop: '8px', fontFamily: "'DM Mono', monospace" }}>₹{item.line_item_price.toLocaleString()}</p>}
+                                        {item.line_item_price != null ? (
+                                            <p style={{ fontSize: '13px', fontWeight: 800, color: '#2563eb', marginTop: '8px', fontFamily: "'DM Mono', monospace" }}>₹{item.line_item_price.toLocaleString()}</p>
+                                        ) : (
+                                            <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} />
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -232,7 +491,29 @@ export default function InquiryDetail() {
                             </>
                         )}
 
-                        {(selected.status === 'PENDING' || selected.status === 'QUOTED') && (
+                        <Separator />
+                        <div>
+                            <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '12px' }}>Actions</p>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {selected.status !== 'REJECTED' && (
+                                    <Button size="sm" variant="outline" onClick={() => transitionStatus('REJECTED')} className="text-red-600 border-red-200 hover:bg-red-50">
+                                        <XCircle size={14} className="mr-2" /> Reject Inquiry
+                                    </Button>
+                                )}
+                                {selected.status === 'QUOTED' && (
+                                    <Button size="sm" variant="outline" onClick={() => transitionStatus('NEGOTIATION')} className="text-cyan-600 border-cyan-200 hover:bg-cyan-50">
+                                        <MessageSquare size={14} className="mr-2" /> Move to Negotiation
+                                    </Button>
+                                )}
+                                {(selected.status === 'REJECTED' || selected.status === 'CANCELLED') && (
+                                    <Button size="sm" variant="outline" onClick={() => transitionStatus('PENDING')}>
+                                        <Clock size={14} className="mr-2" /> Reopen
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
+                        {(['PENDING', 'UNDER_REVIEW', 'QUOTED', 'NEGOTIATION'] as string[]).includes(selected.status) && (
                             <>
                                 <Separator />
                                 <div>
@@ -263,38 +544,96 @@ export default function InquiryDetail() {
                 </div>
 
                 {/* Right pane: Chat */}
-                <div style={{ width: '400px', flexShrink: 0, display: 'flex', flexDirection: 'column', background: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", overflow: "hidden" }}>
+                <div style={{ 
+                    width: '400px', 
+                    flexShrink: 0, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    background: "var(--card)", 
+                    border: "1px solid var(--border)", 
+                    borderRadius: "8px", 
+                    overflow: "hidden",
+                    height: '100%',
+                    position: 'relative'
+                }}>
                     <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>Messages</p>
                     </div>
 
-                    <ScrollArea style={{ flex: 1, padding: "16px" }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {(!selected.messages || selected.messages.length === 0) ? (
-                                <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', textAlign: 'center', marginTop: "20px" }}>No messages yet.</p>
-                            ) : (
-                                selected.messages.map((m) => {
-                                    const isAdmin = m.sender_id !== selected.user_id;
-                                    return (
-                                        <div key={m.id} style={{ alignSelf: isAdmin ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
-                                            <div style={{ padding: '10px 14px', borderRadius: '12px', borderTopRightRadius: isAdmin ? '2px' : '12px', borderTopLeftRadius: isAdmin ? '12px' : '2px', background: isAdmin ? 'var(--foreground)' : 'var(--secondary)', color: isAdmin ? 'var(--background)' : 'var(--foreground)', fontSize: '13px', fontWeight: 500, lineHeight: 1.5 }}>
-                                                {m.content}
-                                            </div>
-                                            <p style={{ fontSize: '9px', fontWeight: 700, color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginTop: '4px', textAlign: isAdmin ? 'right' : 'left' }}>
-                                                {isAdmin ? 'Admin · ' : ''}{new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
+                    <div id="chat-messages-container" style={{ 
+                        flex: 1, 
+                        overflowY: "auto", 
+                        padding: "16px",
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px' 
+                    }}>
+                        {(!selected.messages || selected.messages.length === 0) ? (
+                            <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', textAlign: 'center', marginTop: "20px" }}>No messages yet.</p>
+                        ) : (
+                            selected.messages.map((m) => {
+                                const isAdmin = m.sender_id !== selected.user_id;
+                                return (
+                                    <div key={m.id} style={{ 
+                                        alignSelf: isAdmin ? 'flex-end' : 'flex-start', 
+                                        maxWidth: '85%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: isAdmin ? 'flex-end' : 'flex-start'
+                                    }}>
+                                        <div style={{ 
+                                            padding: '8px 12px', 
+                                            borderRadius: '12px', 
+                                            borderTopRightRadius: isAdmin ? '2px' : '12px', 
+                                            borderTopLeftRadius: isAdmin ? '12px' : '2px', 
+                                            background: isAdmin ? 'var(--foreground)' : 'var(--secondary)', 
+                                            color: isAdmin ? 'var(--background)' : 'var(--foreground)', 
+                                            fontSize: '13px', 
+                                            fontWeight: 500, 
+                                            lineHeight: 1.4,
+                                            wordBreak: 'break-word'
+                                        }}>
+                                            {m.content}
                                         </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </ScrollArea>
+                                        <p style={{ 
+                                            fontSize: '8px', 
+                                            fontWeight: 700, 
+                                            color: 'var(--muted-foreground)', 
+                                            fontFamily: "'DM Mono', monospace", 
+                                            marginTop: '3px',
+                                            opacity: 0.7
+                                        }}>
+                                            {isAdmin ? 'Admin · ' : ''}{new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                );
+                            })
+                        )}
+                        {remoteTyping && (
+                            <div style={{ alignSelf: 'flex-start', maxWidth: '85%' }}>
+                                <div style={{ padding: '6px 12px', borderRadius: '12px', background: 'var(--secondary)', color: 'var(--muted-foreground)', fontSize: '11px', fontWeight: 600, fontStyle: 'italic' }}>
+                                    User is typing...
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
-                    {(selected.status === 'PENDING' || selected.status === 'QUOTED') && (
-                        <div style={{ padding: '16px', borderTop: '1px solid var(--border)', background: 'var(--secondary)' }}>
+                    {(['PENDING', 'UNDER_REVIEW', 'QUOTED', 'NEGOTIATION', 'ACCEPTED', 'REJECTED', 'CANCELLED'] as string[]).includes(selected.status) && (
+                        <div style={{ 
+                            padding: '16px', 
+                            borderTop: '1px solid var(--border)', 
+                            background: 'var(--secondary)',
+                            marginTop: 'auto'
+                        }}>
                             <div style={{ display: 'flex', width: '100%', gap: '10px' }}>
-                                <Input placeholder="Type a message..." value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()} style={{ flex: 1, height: '36px', fontSize: '13px' }} />
-                                <Button size="icon" onClick={sendMessage} disabled={sending || !reply.trim()} style={{ height: '36px', width: '36px' }}>
+                                <Input 
+                                    placeholder="Type a message..." 
+                                    value={reply} 
+                                    onChange={handleTyping} 
+                                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()} 
+                                    style={{ flex: 1, height: '38px', fontSize: '13px', background: 'var(--card)' }} 
+                                />
+                                <Button size="icon" onClick={sendMessage} disabled={sending || !reply.trim()} style={{ height: '38px', width: '38px' }}>
                                     <Send size={16} />
                                 </Button>
                             </div>

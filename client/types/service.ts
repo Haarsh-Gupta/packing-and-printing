@@ -16,5 +16,6 @@ export interface ServiceItem {
     slug: string;
     is_active: boolean;
     cover_image: string | null;
+    images?: string[];
     sub_services: SubService[];
 }

@@ -167,6 +167,19 @@ async def delete_service(
     await db.delete(service)
     await db.commit()
 
+
+@router.get("/subservices", response_model=List[SubServiceResponse])
+async def get_all_subservices(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Admin endpoint to get all subservices (used in calculators)."""
+    stmt = select(SubService).where(SubService.is_active == True).offset(skip).limit(limit)
+    return (await db.execute(stmt)).scalars().all()
+
+
 @router.delete("/subservices/{subservice_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_service_variant(
     subservice_id: int, 

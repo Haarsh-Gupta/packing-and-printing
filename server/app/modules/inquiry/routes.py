@@ -16,16 +16,64 @@ from app.modules.orders.schemas import PaymentSplitType
 from .models import InquiryGroup, InquiryItem, InquiryMessage
 from .schemas import (
     InquiryGroupCreate,
+    InquiryItemUpdate,
     InquiryItemCreate,
     InquiryQuotation,
+    InquiryStatus,
     InquiryStatusUpdate,
+    USER_ALLOWED_TRANSITIONS,
     InquiryGroupResponse,
     InquiryGroupListResponse,
     InquiryMessageCreate,
     InquiryMessageResponse
 )
+from app.modules.notifications.service import NotificationService
+
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Query
+from jose import jwt, JWTError
+from app.core.config import settings
+from app.core.websockets import ws_manager
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+@router.websocket("/ws/{group_id}")
+async def websocket_inquiry_endpoint(websocket: WebSocket, group_id: str, token: str = Query(...)):
+    """WebSocket endpoint for real-time inquiry messaging & typing indicators."""
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        token_data = TokenData(**payload)
+        user_id = str(token_data.id)
+        is_admin = token_data.admin
+        logger.info(f"WS auth OK: user={user_id}, admin={is_admin}, group={group_id}")
+    except Exception as e:
+        logger.warning(f"WS auth FAILED for group={group_id}: {e}")
+        await websocket.close(code=1008)
+        return
+
+    await ws_manager.connect(websocket, group_id, user_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                if msg.get("type") == "typing":
+                    await ws_manager.broadcast(group_id, {
+                        "type": "typing",
+                        "user_id": user_id,
+                        "is_typing": msg.get("is_typing", False),
+                        "is_admin": is_admin
+                    })
+            except json.JSONDecodeError:
+                pass
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket, group_id, user_id)
+    except Exception as e:
+        logger.error(f"WS error for user={user_id}, group={group_id}: {e}")
+        ws_manager.disconnect(websocket, group_id, user_id)
 
 async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSession) -> float:
     """
@@ -43,7 +91,7 @@ async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSessi
         if not sub_service.is_active:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This service is currently unavailable")
         if item.quantity < sub_service.minimum_quantity:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Minimum quantity required is {sub_service.minimum_quantity}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Minimum quantity required is {sub_service.minimum_quantity} for '{sub_service.name}'")
         
         # Calculation: (Base Price) + (Price Per Unit * Quantity)
         estimated_price = sub_service.price_per_unit * item.quantity
@@ -58,32 +106,66 @@ async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSessi
         if not sub_product.is_active:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This product is currently unavailable")
         if item.quantity < sub_product.minimum_quantity:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Minimum quantity required is {sub_product.minimum_quantity}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Minimum quantity required is {sub_product.minimum_quantity} for '{sub_product.name}'")
 
         base_item_price = sub_product.base_price
 
         # Options Validation using JSONB Config Schema
         if item.selected_options and sub_product.config_schema:
-            schema = sub_product.config_schema
+            config_data = sub_product.config_schema
+            sections_list = config_data.get("sections", []) if isinstance(config_data, dict) else []
+            
+            # Create a lookup map for faster validation: key -> section data
+            sections_map = {
+                section["key"]: section 
+                for section in sections_list
+                if isinstance(section, dict) and "key" in section
+            }
             
             for key, selected_val in item.selected_options.items():
-                if key not in schema:
-                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid option category: {key}")
+                if key not in sections_map:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST, 
+                        detail=f"Invalid option category: {key}"
+                    )
                 
-                allowed_options = schema[key].get("options", {})
+                section = sections_map[key]
+                s_type = section.get("type")
                 
-                if str(selected_val) not in allowed_options:
-                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid value '{selected_val}' for option '{key}'")
+                # Only validate against predefined options for dropdown/radio
+                if s_type in ["dropdown", "radio"]:
+                    options = section.get("options", []) or []
+                    # Map valid choices to their price modifiers
+                    options_map = {
+                        str(opt.get("value")): float(opt.get("price_mod", 0.0))
+                        for opt in options 
+                        if isinstance(opt, dict) and "value" in opt
+                    }
+                    
+                    val_str = str(selected_val)
+                    if val_str not in options_map:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST, 
+                            detail=f"Invalid value '{selected_val}' for option '{key}'"
+                        )
+                    
+                    base_item_price += options_map[val_str]
                 
-                # Add extra cost
-                extra_cost = allowed_options[str(selected_val)].get("price_modifier", 0.0)
-                base_item_price += float(extra_cost)
+                # For numeric inputs holding a price per unit multiplier
+                elif s_type == "number_input":
+                    try:
+                        qty = float(selected_val)
+                        ppu = float(section.get("price_per_unit", 0.0))
+                        base_item_price += (qty * ppu)
+                    except (ValueError, TypeError):
+                        pass
+                
+                # Note: text_input is allowed but adds no extra cost by default
 
         # Calculation: (Base Price + Options Cost) * Quantity
         estimated_price = base_item_price * item.quantity
 
     return estimated_price
-    
 
 @router.post("/", response_model=InquiryGroupResponse, status_code=status.HTTP_201_CREATED)
 async def create_inquiry_group(
@@ -120,7 +202,27 @@ async def create_inquiry_group(
         )
         db.add(new_item)
     
+    # Create persistent notifications for admins
+    await NotificationService.notify_admins(
+        db,
+        title="New Inquiry",
+        message=f"A new inquiry with {len(inquiry_data.items)} items was submitted.",
+        metadata={"type": "new_inquiry", "id": str(new_group.id)}
+    )
+
     await db.commit()
+
+    # Notify all admins of new inquiry via SSE
+    from app.core.sse import sse_manager
+    import asyncio
+    asyncio.create_task(
+        sse_manager.publish_to_admins("new_inquiry", {
+            "inquiry_id": str(new_group.id),
+            "user_id": str(current_user.id),
+            "item_count": len(inquiry_data.items),
+            "message": "New inquiry submitted by a user"
+        })
+    )
     
     # 3. Fetch the fully loaded group to return
     stmt = select(InquiryGroup).options(
@@ -239,7 +341,7 @@ async def add_item_to_inquiry(
 async def update_inquiry_item(
     group_id: UUID,
     item_id: UUID,
-    item_update: InquiryItemCreate,
+    item_update: InquiryItemUpdate,
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -251,8 +353,11 @@ async def update_inquiry_item(
         )
     )).scalar_one_or_none()
 
+    if not group:
+        raise HTTPException(detail="Inquiry not found", status_code=404)
+
     if group.status != "PENDING":
-        raise HTTPException(400)
+        raise HTTPException(status_code=400, detail="Cannot modify inquiry not in PENDING status")
 
     item = (await db.execute(
         select(InquiryItem).where(
@@ -261,12 +366,36 @@ async def update_inquiry_item(
         )
     )).scalar_one_or_none()
 
-    price = await calculate_item_estimated_price(item_update, db)
-
-    item.quantity = item_update.quantity
-    item.selected_options = item_update.selected_options
-    item.notes = item_update.notes
-    item.images = item_update.images
+    if not item:
+        raise HTTPException(detail="Item not found", status_code=status.HTTP_404_NOT_FOUND)
+    
+    if item.subservice_id and item_update.selected_options:
+        raise HTTPException(detail="Invalid update request, selected options are not allowed for services", status_code=status.HTTP_400_BAD_REQUEST)
+        
+    item.quantity = item_update.quantity if item_update.quantity else item.quantity
+    item.notes = item_update.notes if item_update.notes else item.notes
+    item.images = item_update.images if item_update.images else item.images
+    
+    if item_update.selected_options:
+        new_opts = dict(item.selected_options or {})
+        for key, value in item_update.selected_options.items():
+            new_opts[key] = value
+        # Assignment to trigger SQLAlchemy JSON mutability tracking
+        item.selected_options = new_opts
+    
+    # We must convert the item model back into a schema for calculation validation
+    item_schema = InquiryItemCreate(
+        product_id=item.product_id,
+        subproduct_id=item.subproduct_id,
+        service_id=item.service_id,
+        subservice_id=item.subservice_id,
+        quantity=item.quantity,
+        selected_options=item.selected_options,
+        notes=item.notes,
+        images=item.images
+    )
+    
+    price = await calculate_item_estimated_price(item_schema, db)
     item.estimated_price = price
 
     await db.commit()
@@ -293,8 +422,11 @@ async def delete_inquiry_item(
         )
     )).scalar_one_or_none()
 
+    if not group:
+        raise HTTPException(detail="Inquiry not found", status_code=404)
+
     if group.status != "PENDING":
-        raise HTTPException(400)
+        raise HTTPException(status_code=400, detail="Cannot modify inquiry not in PENDING status")
 
     item = (await db.execute(
         select(InquiryItem).where(
@@ -395,15 +527,15 @@ async def reorder_inquiry(
     return result.scalar_one()
 
 
-@router.patch("/my/{group_id}/respond", response_model=InquiryGroupResponse)
-async def respond_to_quotation(
+@router.patch("/my/{group_id}/status", response_model=InquiryGroupResponse)
+async def update_inquiry_status_user(
     group_id: UUID,
     status_update: InquiryStatusUpdate,
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Accept or reject an admin quotation for the entire cart.
+    Update inquiry status based on allowed user transitions.
     """
     stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
@@ -416,16 +548,34 @@ async def respond_to_quotation(
     group = result.scalar_one_or_none()
     
     if not group:
-        raise HTTPException(status_code=404, detail="Inquiry not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inquiry not found")
     
-    if group.status != 'QUOTED':
+    try:
+        current_enum = InquiryStatus(group.status)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Invalid status in DB")
+        
+    allowed_transitions = USER_ALLOWED_TRANSITIONS.get(current_enum, [])
+    
+    if status_update.status not in allowed_transitions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only respond to inquiries with QUOTED status"
+            detail=f"User cannot transition inquiry from {group.status} to {status_update.status.value}"
         )
     
     group.status = status_update.status.value
     await db.commit()
+    
+    # Fire SSE to admin
+    from app.core.sse import sse_manager
+    import asyncio
+    asyncio.create_task(
+        sse_manager.publish_to_admins("admin_inquiry_updated", {
+            "inquiry_id": str(group.id),
+            "status": group.status,
+            "message": f"User updated inquiry status to {group.status}"
+        })
+    )
     
     # Re-fetch the fully loaded group with relationships after commit
     fetch_stmt = select(InquiryGroup).options(
@@ -523,7 +673,7 @@ async def delete_my_inquiry(
             detail="Can only delete inquiries with PENDING status"
         )
     
-    # SQLAlchemy cascade will automatically delete associated Items and Messages
+    # The database will automatically delete associated Items and Messages via ON DELETE CASCADE
     await db.execute(delete(InquiryGroup).where(InquiryGroup.id == group_id))
     await db.commit()
 
@@ -556,9 +706,41 @@ async def send_inquiry_message(
         file_urls=message.file_urls
     )
 
-    db.add(new_message)
+    # Create persistent notification for admins
+    await NotificationService.notify_admins(
+        db,
+        title="New User Message",
+        message=f"User sent a message in inquiry #{str(group_id)[:8].upper()}",
+        metadata={"type": "inquiry_message", "id": str(group_id)}
+    )
+
     await db.commit()
     await db.refresh(new_message)
+
+    # Notify admin
+    from app.core.sse import sse_manager
+    from app.core.websockets import ws_manager
+    import asyncio
+    asyncio.create_task(
+        sse_manager.publish_to_admins("admin_inquiry_new_message", {
+            "inquiry_id": str(group_id),
+            "sender_id": str(current_user.id),
+            "message": "New message from user in inquiry thread."
+        })
+    )
+    
+    # Broadcast to websocket
+    await ws_manager.broadcast(str(group_id), {
+        "type": "new_message",
+        "message": {
+            "id": new_message.id,
+            "inquiry_group_id": str(new_message.inquiry_group_id),
+            "sender_id": str(new_message.sender_id),
+            "content": new_message.content,
+            "file_urls": new_message.file_urls,
+            "created_at": new_message.created_at.isoformat() if new_message.created_at else None
+        }
+    })
 
     return new_message
 

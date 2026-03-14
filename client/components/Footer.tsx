@@ -57,7 +57,7 @@ export default function Footer() {
               <a
                 key={idx}
                 href="#"
-                className="h-12 w-12 border-3 border-zinc-700 rounded-full flex items-center justify-center hover:bg-[#FF90E8] hover:text-black hover:border-black transition-all text-zinc-500"
+                className="h-12 w-12 border-3 border-zinc-700 rounded-full flex items-center justify-center hover:bg-[#FF90E8] hover:text-black hover:border-black transition-all hover:shadow-[1px_1px_0px_0px_#ffffff] hover:-translate-x-[1px] hover:-translate-y-[1px] text-zinc-500"
               >
                 <Icon className="h-5 w-5" />
               </a>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Bell, X, CheckCheck, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useAlert } from "@/components/CustomAlert";
 
 interface Notification {
     id: number;
@@ -10,47 +10,89 @@ interface Notification {
     message: string;
     is_read: boolean;
     created_at: string;
+    metadata?: {
+        type: string;
+        id: string;
+    };
 }
 
 export default function NotificationsBell() {
     const [open, setOpen] = useState(false);
+    const openRef = useRef(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unread, setUnread] = useState(0);
     const [loading, setLoading] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
+    const { showAlert } = useAlert();
+
+    // Keep ref in sync
+    useEffect(() => { openRef.current = open; }, [open]);
 
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
 
-    // Fetch unread count periodically
+    // ── SSE stream for real-time notifications ──────────────────────────────
     useEffect(() => {
         if (!token) return;
 
-        let stopped = false;
-        const doFetch = async () => {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+        const eventSource = new EventSource(`${apiUrl}/notifications/stream?token=${token}`);
+
+        // Initial count
+        fetch(`${apiUrl}/notifications/unread-count`, {
+            headers: { Authorization: `Bearer ${token}` },
+        }).then(r => r.ok ? r.json() : null)
+          .then(d => d && setUnread(d.unread || 0))
+          .catch(() => {});
+
+        // Handle incoming events
+        const handleEvent = (event: MessageEvent) => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                    credentials: "include",
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setUnread(data.unread || 0);
-                } else if (res.status === 401) {
-                    // Token is invalid/expired — stop polling
-                    stopped = true;
+                const payload = JSON.parse(event.data);
+
+                if (event.type === "inquiry_status_changed" || event.type === "inquiry_status_updated") {
+                    const label = payload.status?.replace(/_/g, " ") ?? "updated";
+                    showAlert(`Inquiry ${label}`, "info" as any);
+                    setUnread(prev => prev + 1);
                 }
-            } catch (e) { /* silent */ }
+
+                if (event.type === "inquiry_quoted") {
+                    showAlert(`You received a quote! ₹${payload.total_price?.toLocaleString()}`, "success");
+                    setUnread(prev => prev + 1);
+                }
+
+                if (event.type === "inquiry_new_message") {
+                    showAlert("New message from our studio", "info" as any);
+                    setUnread(prev => prev + 1);
+                }
+
+                if (event.type === "ticket_reply") {
+                    showAlert("New reply to your support ticket!", "info" as any);
+                    setUnread(prev => prev + 1);
+                }
+
+                // Refresh list if open
+                if (openRef.current) fetchNotifications();
+            } catch { /* silent */ }
         };
 
-        doFetch();
-        const interval = setInterval(() => {
-            if (!stopped) doFetch();
-            else clearInterval(interval);
-        }, 60000);
-        return () => clearInterval(interval);
-    }, [token]);
+        const handleRawMessage = (event: MessageEvent) => {
+             // Handle generic messages if needed
+        };
 
-    // Close on outside click
+        eventSource.addEventListener("inquiry_status_changed", handleEvent);
+        eventSource.addEventListener("inquiry_status_updated", handleEvent);
+        eventSource.addEventListener("inquiry_quoted", handleEvent);
+        eventSource.addEventListener("inquiry_new_message", handleEvent);
+        eventSource.addEventListener("ticket_reply", handleEvent);
+
+        eventSource.onerror = () => {
+            // SSE auto-reconnects; this is normal on idle disconnect
+        };
+
+        return () => eventSource.close();
+    }, [token]); 
+
+    // ── Close on outside click ─────────────────────────────────────────────
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
@@ -61,19 +103,24 @@ export default function NotificationsBell() {
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-
     const fetchNotifications = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/?limit=15`, {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+            const url = `${apiUrl}/notifications/?limit=15`;
+            const res = await fetch(url, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
                 const data = await res.json();
                 setNotifications(data.notifications || []);
                 setUnread(data.unread || 0);
+            } else {
+                console.error("Notifications fetch failed:", res.status);
             }
-        } catch (e) { /* silent */ } finally {
+        } catch (err) {
+            console.error("Notifications fetch error:", err);
+        } finally {
             setLoading(false);
         }
     };
@@ -84,26 +131,41 @@ export default function NotificationsBell() {
         if (next) fetchNotifications();
     };
 
+    const handleNotificationClick = async (n: Notification) => {
+        if (!n.is_read) await markRead(n.id);
+        
+        if (n.metadata) {
+            if (n.metadata.type.startsWith("inquiry_")) {
+                window.location.href = `/dashboard/inquiries/${n.metadata.id}`;
+            } else if (n.metadata.type === "ticket") {
+                window.location.href = `/dashboard/tickets/${n.metadata.id}`;
+            }
+        }
+        setOpen(false);
+    };
+
     const markRead = async (id: number) => {
         try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/${id}/read`, {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+            await fetch(`${apiUrl}/notifications/${id}/read`, {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
-            setUnread((prev) => Math.max(0, prev - 1));
-        } catch (e) { /* silent */ }
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+            setUnread(prev => Math.max(0, prev - 1));
+        } catch { /* silent */ }
     };
 
     const markAllRead = async () => {
         try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/read-all`, {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+            await fetch(`${apiUrl}/notifications/read-all`, {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
             setUnread(0);
-        } catch (e) { /* silent */ }
+        } catch { /* silent */ }
     };
 
     const formatTime = (iso: string) => {
@@ -176,7 +238,7 @@ export default function NotificationsBell() {
                             notifications.map((n) => (
                                 <div
                                     key={n.id}
-                                    onClick={() => !n.is_read && markRead(n.id)}
+                                    onClick={() => handleNotificationClick(n)}
                                     className={`p-4 border-b-2 border-zinc-100 cursor-pointer transition-colors ${n.is_read ? "bg-white hover:bg-zinc-50" : "bg-[#fdf567]/30 hover:bg-[#fdf567]/50 border-l-4 border-l-black"}`}
                                 >
                                     <div className="flex items-start justify-between gap-2">

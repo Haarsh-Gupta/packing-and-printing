@@ -145,6 +145,19 @@ async def delete_sub_product(
     return {"message": "SubProduct deleted successfully"}
 
 
+@router.get("/subproducts", response_model=List[SubProductResponse])
+async def get_all_sub_products(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Admin endpoint to get all sub-products across all categories (used in calculators)."""
+    stmt = select(SubProduct).where(SubProduct.is_active == True).offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
 @router.get("/", response_model=List[ProductResponse])
 async def get_products(
     skip : int = 0,

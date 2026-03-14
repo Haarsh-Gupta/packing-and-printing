@@ -1,13 +1,14 @@
 "use client";
 
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import { removeFromInquiry, clearInquiry } from "@/lib/store/inquirySlice";
+import { removeFromInquiry, clearInquiry, updateQuantity } from "@/lib/store/inquirySlice";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Trash2, Loader2, ArrowRight } from "lucide-react";
+import { ShoppingCart, Trash2, Loader2, ArrowRight, LayoutList } from "lucide-react";
 import { useState } from "react";
 import { useAlert } from "@/components/CustomAlert";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function InquiryCartSidebar() {
     const dispatch = useAppDispatch();
@@ -41,24 +42,22 @@ export default function InquiryCartSidebar() {
 
         const payloadItems = items.map(item => {
             if (item.productId != null) {
+                // Products need: product_id, subproduct_id, quantity, selected_options (required)
+                const { notes: _n, ...productOptions } = item.options as any;
                 return {
-                    template_id: Number(item.productId),
+                    product_id: Number(item.productId),
+                    subproduct_id: item.subproductId != null ? Number(item.subproductId) : undefined,
                     quantity: Number(item.quantity),
-                    selected_options: item.options || {},
-                    notes: (item.options?.notes as string) || "Added from cart",
+                    selected_options: Object.keys(productOptions).length > 0 ? productOptions : { _default: "true" },
+                    notes: (item.options?.notes as string) || null,
                 };
             } else if (item.serviceId != null) {
-                const variantId = item.options?.variant_id ?? item.options?.variantId;
+                // Services need: service_id, subservice_id, quantity — NO selected_options
                 return {
                     service_id: Number(item.serviceId),
-                    variant_id: variantId != null ? Number(variantId) : null,
+                    subservice_id: item.subserviceId != null ? Number(item.subserviceId) : null,
                     quantity: Number(item.quantity),
-                    selected_options: {
-                        variant_name: String(item.options?.variant_name || ""),
-                        service_slug: String(item.options?.service_slug || ""),
-                        ...item.options
-                    },
-                    notes: (item.options?.notes as string) || "Added from cart",
+                    notes: (item.options?.notes as string) || null,
                 };
             }
             return null;
@@ -75,13 +74,19 @@ export default function InquiryCartSidebar() {
             });
 
             if (res.ok) {
-                showAlert("Inquiry submitted successfully! Our studio will review it.", "success");
+                showAlert("Inquiry submitted! Our studio will review it soon.", "success");
                 dispatch(clearInquiry());
                 setIsOpen(false);
                 router.push("/dashboard/inquiries");
             } else {
                 const err = await res.json();
-                showAlert(`Submission failed: ${err.detail || "Unknown error"}`, "error");
+                // Pydantic validation errors come back as an array
+                const detail = typeof err.detail === "string"
+                    ? err.detail
+                    : Array.isArray(err.detail)
+                        ? err.detail.map((e: any) => `${e.loc?.slice(-1)[0] ?? ""}: ${e.msg}`).join("; ")
+                        : JSON.stringify(err.detail);
+                showAlert(`Submission failed: ${detail}`, "error");
             }
         } catch (error) {
             console.error("Submission error:", error);
@@ -136,15 +141,16 @@ export default function InquiryCartSidebar() {
                         items.map((item) => (
                             <div key={item.id} className="neu-border neu-card p-4 bg-white dark:bg-slate-800 flex gap-4 items-center">
                                 {/* Only missing image data from slice usually, so using a fallback abstract placeholder */}
-                                <div className="w-24 h-24 neu-border overflow-hidden flex-shrink-0 bg-zinc-100 flex items-center justify-center border-2 border-black">
+                                <div className="w-24 h-24 neu-border overflow-hidden shrink-0 bg-zinc-100 flex items-center justify-center border-2 border-black">
                                     <img
-                                        src={`https://api.dicebear.com/7.x/shapes/svg?seed=${item.id}&backgroundColor=ffffff`}
-                                        alt="Item Thumbnail"
-                                        className="w-full h-full object-cover mix-blend-multiply opacity-50"
+                                        src={item.imageUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${item.id}&backgroundColor=ffffff`}
+                                        alt={item.name}
+                                        className={`w-full h-full object-cover ${!item.imageUrl ? 'mix-blend-multiply opacity-50' : ''}`}
+                                        onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/shapes/svg?seed=${item.id}&backgroundColor=ffffff`; }}
                                     />
                                 </div>
                                 <div className="flex-1 flex flex-col gap-1 min-w-0">
-                                    <span className="text-xs font-bold uppercase text-primary line-clamp-1 break-words">
+                                    <span className="text-xs font-bold uppercase text-primary line-clamp-1 wrap-break-word">
                                         {item.productId ? 'Product' : 'Service'}
                                     </span>
                                     <h3 className="font-bold text-lg leading-tight line-clamp-2" title={item.name}>
@@ -185,6 +191,12 @@ export default function InquiryCartSidebar() {
                         </div>
                     </div>
                     <button
+                        onClick={() => { setIsOpen(false); router.push("/cart"); }}
+                        className="w-full border-2 border-black py-3 rounded-xl font-black text-base uppercase tracking-wider text-black bg-white hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] mb-3"
+                    >
+                        <LayoutList className="w-5 h-5" /> View Full Cart
+                    </button>
+                    <button
                         onClick={handleSubmitInquiry}
                         disabled={items.length === 0 || isSubmitting}
                         className="w-full neu-border neu-card bg-primary text-white py-4 rounded-xl font-black text-xl uppercase tracking-wider transition-all flex items-center justify-center gap-2 group hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
@@ -193,7 +205,7 @@ export default function InquiryCartSidebar() {
                             <Loader2 className="w-6 h-6 animate-spin" />
                         ) : (
                             <>
-                                Proceed to Checkout
+                                Submit Inquiry
                                 <ArrowRight className="font-bold group-hover:translate-x-1 transition-transform w-5 h-5" />
                             </>
                         )}

@@ -41,12 +41,13 @@ from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 from app import modules
 from app.core.config import settings
-from app.core.middleware import RateLimitMiddleware
+from app.core.middleware import RateLimitMiddleware, UserActivityMiddleware
 
 from app.core.database import check_db_connection
 from app.core.redis import check_redis_connection, redis_client
 from app.core.email.service import check_smtp_connection
 from app.core.sse import sse_manager
+from app.core.websockets import ws_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):
     
     print("Shutting down...")
     await sse_manager.shutdown()
+    await ws_manager.shutdown()
     await redis_client.close()
     await engine.dispose()
 
@@ -80,6 +82,7 @@ app.add_middleware(
 
 
 app.add_middleware(RateLimitMiddleware, limit=200, window=60)
+app.add_middleware(UserActivityMiddleware)
 app.add_middleware(SessionMiddleware , secret_key=settings.secret_key)
 
 app.include_router(user_router , prefix="/users" , tags=["Users"])

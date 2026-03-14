@@ -2,7 +2,7 @@ import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
     LayoutDashboard, ShoppingCart, MessageSquare, Package,
-    Wrench, Users, LifeBuoy, Bell, Mail, Star, Settings as SettingsIcon, LogOut,
+    Wrench, Users, LifeBuoy, Bell, Mail, Star, Settings as SettingsIcon, LogOut, Calculator
 } from "lucide-react";
 import {
     Sidebar, SidebarContent, SidebarFooter, SidebarHeader,
@@ -15,6 +15,7 @@ const navItems = [
     { label: "Inquiries", icon: MessageSquare, path: "/inquiries" },
     { label: "Products", icon: Package, path: "/products" },
     { label: "Services", icon: Wrench, path: "/services" },
+    { label: "Pricing Calculator", icon: Calculator, path: "/calculator" },
     { label: "Customers", icon: Users, path: "/users" },
     { label: "Tickets", icon: LifeBuoy, path: "/tickets" },
     { label: "Notifications & Email", icon: Bell, path: "/notifications" },

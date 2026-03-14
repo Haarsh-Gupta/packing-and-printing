@@ -116,7 +116,7 @@ export default async function ServiceRequestPage({
                         <div className="bg-white border-3 border-border-black shadow-neubrutalism p-6 sm:p-8 relative">
                             {/* Decorative ribbon */}
                             <div className="absolute -top-3 -right-3 bg-[#4be794] border-2 border-border-black px-4 py-1 text-xs font-black shadow-neubrutalism-sm rotate-6">
-                                REQUEST IT
+                                ADD TO CART
                             </div>
                             <h3 className="font-display text-2xl font-black uppercase mb-6 border-b-2 border-border-black pb-3">
                                 Configuration

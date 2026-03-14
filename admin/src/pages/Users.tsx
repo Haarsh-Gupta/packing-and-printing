@@ -16,6 +16,18 @@ const RoleBadge = ({ admin }: { admin: boolean }) => (
     </span>
 );
 
+const OnlineDot = ({ isOnline }: { isOnline: boolean }) => {
+    if (!isOnline) return null;
+    return (
+        <div style={{
+            position: 'absolute', bottom: '-1px', right: '-1px',
+            width: '11px', height: '11px', borderRadius: '50%',
+            background: '#22c55e', border: '2px solid white',
+            boxShadow: '0 0 8px rgba(34, 197, 94, 0.4)'
+        }} />
+    );
+};
+
 export default function UsersPage() {
     const [users, setUsers] = useState<AuthUser[]>([]);
     const [loading, setLoading] = useState(true);
@@ -132,14 +144,17 @@ export default function UsersPage() {
                                     {/* Identity */}
                                     <td style={{ padding: '14px 20px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{
-                                                width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
-                                                background: user.admin ? '#3b82f6' : '#e4e4e7',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: '14px', fontWeight: 700,
-                                                color: user.admin ? 'white' : '#52525b',
-                                            }}>
-                                                {(user.name || user.email || 'U')[0].toUpperCase()}
+                                            <div style={{ position: 'relative' }}>
+                                                <div style={{
+                                                    width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                                                    background: user.admin ? '#3b82f6' : '#e4e4e7',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: '14px', fontWeight: 700,
+                                                    color: user.admin ? 'white' : '#52525b',
+                                                }}>
+                                                    {(user.name || user.email || 'U')[0].toUpperCase()}
+                                                </div>
+                                                <OnlineDot isOnline={(user as any).is_online} />
                                             </div>
                                             <div>
                                                 <p style={{ fontSize: '13px', fontWeight: 600, color: '#18181b', margin: 0 }}>

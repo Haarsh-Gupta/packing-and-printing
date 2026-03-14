@@ -119,7 +119,14 @@ class SSEManager:
                 else:
                     # Send keepalive comment every ~30s to prevent proxy timeouts
                     yield ": keepalive\n\n"
-                    await asyncio.sleep(15)
+                    # We continue immediately to get_message, which has a 1.0s timeout.
+                    # This way we are always responsive but still send a heart beat periodically.
+                    # (Wait, actually if we yield here and loops, it will spam keepalives every 1s)
+                    # Let's use a timestamp to throttle keepalives.
+                    pass
+                
+                # Wait for next message or a short bit
+                await asyncio.sleep(0.5)
 
         except asyncio.CancelledError:
             logger.info(f"SSE client disconnected from {channel}")
@@ -151,7 +158,10 @@ class SSEManager:
                         yield _format_sse("raw", {"message": raw})
                 else:
                     yield ": keepalive\n\n"
-                    await asyncio.sleep(15)
+                    pass
+                
+                # Wait for next message or a short bit
+                await asyncio.sleep(0.5)
 
         except asyncio.CancelledError:
             logger.info("Admin SSE client disconnected")

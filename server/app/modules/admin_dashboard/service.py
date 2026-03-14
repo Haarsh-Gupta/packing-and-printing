@@ -21,22 +21,33 @@ from app.modules.services.models import Service
 PeriodType = Literal["today", "week", "month", "quarter", "year", "all"]
 
 
-def _period_start(period: PeriodType) -> Optional[datetime]:
-    """Return the UTC-aware start datetime for a given period filter."""
-    now = datetime.now(timezone.utc)
+def _period_delta(period: PeriodType) -> Optional[timedelta]:
+    """Return the timedelta for a given period filter."""
     match period:
         case "today":
-            return now.replace(hour=0, minute=0, second=0, microsecond=0)
+            return timedelta(days=1)
         case "week":
-            return now - timedelta(days=7)
+            return timedelta(days=7)
         case "month":
-            return now - timedelta(days=30)
+            return timedelta(days=30)
         case "quarter":
-            return now - timedelta(days=90)
+            return timedelta(days=90)
         case "year":
-            return now - timedelta(days=365)
+            return timedelta(days=365)
         case _:
             return None
+
+
+def _calculate_change(current: float, previous: float) -> dict:
+    """Calculate percentage change and trend."""
+    if previous == 0:
+        return {"change": "+100%" if current > 0 else "0%", "trend": "up" if current > 0 else "up"}
+    
+    diff = ((current - previous) / previous) * 100
+    return {
+        "change": f"{'+' if diff >= 0 else ''}{diff:.1f}%",
+        "trend": "up" if diff >= 0 else "down"
+    }
 
 
 class DashboardService:
@@ -48,29 +59,32 @@ class DashboardService:
     #  1.  OVERVIEW
     # ------------------------------------------------------------------ #
     async def get_overview(self, period: PeriodType = "all") -> dict:
-        start = _period_start(period)
+        now = datetime.now(timezone.utc)
+        delta = _period_delta(period)
+        
+        start = now - delta if delta else None
+        prev_start = start - delta if (start and delta) else None
+
+        # --- Helper for period counts ---
+        async def get_count_in_range(model, start_dt, end_dt=None):
+            q = select(func.count(model.id))
+            if start_dt:
+                q = q.where(model.created_at >= start_dt)
+            if end_dt:
+                q = q.where(model.created_at < end_dt)
+            return (await self.db.execute(q)).scalar() or 0
 
         # --- Users ---
-        total_users = (await self.db.execute(
-            select(func.count(User.id))
-        )).scalar() or 0
-
-        new_users = 0
-        if start:
-            new_users = (await self.db.execute(
-                select(func.count(User.id)).where(User.created_at >= start)
-            )).scalar() or 0
+        total_users = await get_count_in_range(User, None)
+        new_users = await get_count_in_range(User, start)
+        prev_new_users = await get_count_in_range(User, prev_start, start)
+        user_metrics = _calculate_change(new_users, prev_new_users)
 
         # --- Orders ---
-        total_orders = (await self.db.execute(
-            select(func.count(Order.id))
-        )).scalar() or 0
-
-        orders_in_period = 0
-        if start:
-            orders_in_period = (await self.db.execute(
-                select(func.count(Order.id)).where(Order.created_at >= start)
-            )).scalar() or 0
+        total_orders = await get_count_in_range(Order, None)
+        orders_in_period = await get_count_in_range(Order, start)
+        prev_orders_in_period = await get_count_in_range(Order, prev_start, start)
+        order_metrics = _calculate_change(orders_in_period, prev_orders_in_period)
 
         status_rows = (await self.db.execute(
             select(Order.status, func.count(Order.id)).group_by(Order.status)
@@ -78,37 +92,36 @@ class DashboardService:
         orders_by_status = {row[0]: row[1] for row in status_rows}
 
         # --- Revenue ---
-        rev = (await self.db.execute(
-            select(
-                func.coalesce(func.sum(Order.total_amount), 0),
-                func.coalesce(func.sum(Order.amount_paid), 0),
-            )
-        )).one()
+        rev_q = select(
+            func.coalesce(func.sum(Order.total_amount), 0),
+            func.coalesce(func.sum(Order.amount_paid), 0),
+        )
+        rev = (await self.db.execute(rev_q)).one()
         total_billed = float(rev[0])
         total_collected = float(rev[1])
         total_pending = total_billed - total_collected
 
-        collected_in_period = 0.0
-        if start:
-            collected_in_period = float((await self.db.execute(
-                select(func.coalesce(func.sum(Transaction.amount), 0))
-                .where(Transaction.created_at >= start)
-            )).scalar())
+        async def get_rev_in_range(start_dt, end_dt=None):
+            # We use Transactions for actual collected revenue
+            q = select(func.coalesce(func.sum(Transaction.amount), 0))
+            if start_dt:
+                q = q.where(Transaction.created_at >= start_dt)
+            if end_dt:
+                q = q.where(Transaction.created_at < end_dt)
+            return float((await self.db.execute(q)).scalar() or 0)
+
+        collected_in_period = await get_rev_in_range(start)
+        prev_collected_in_period = await get_rev_in_range(prev_start, start)
+        revenue_metrics = _calculate_change(collected_in_period, prev_collected_in_period)
 
         # --- Inquiries ---
-        total_inquiries = (await self.db.execute(
-            select(func.count(InquiryGroup.id))
-        )).scalar() or 0
-
+        total_inquiries = await get_count_in_range(InquiryGroup, None)
         pending_inquiries = (await self.db.execute(
             select(func.count(InquiryGroup.id)).where(InquiryGroup.status == "PENDING")
         )).scalar() or 0
-
-        inquiries_in_period = 0
-        if start:
-            inquiries_in_period = (await self.db.execute(
-                select(func.count(InquiryGroup.id)).where(InquiryGroup.created_at >= start)
-            )).scalar() or 0
+        inquiries_in_period = await get_count_in_range(InquiryGroup, start)
+        prev_inquiries_in_period = await get_count_in_range(InquiryGroup, prev_start, start)
+        inquiry_metrics = _calculate_change(inquiries_in_period, prev_inquiries_in_period)
 
         # --- Products & Services ---
         total_products = (await self.db.execute(
@@ -125,23 +138,80 @@ class DashboardService:
             select(func.count(Service.id)).where(Service.is_active == True)
         )).scalar() or 0
 
+        trending_days = 30
+        trend_start = now - timedelta(days=trending_days)
+        
+        def _pad_trend(rows: list, key: str = "count", is_float: bool = False):
+            """Pads trend data with zero values for days with no activity."""
+            data_map = {str(r[0]): r[1] for r in rows}
+            trend = []
+            for i in range(trending_days + 1):
+                d = (trend_start + timedelta(days=i)).date()
+                val = data_map.get(str(d), 0.0 if is_float else 0)
+                trend.append({"date": d.strftime("%b %d"), key: float(val) if is_float else val})
+            return trend
+
+        # --- Daily Trend (Orders & Revenue) ---
+        trend_q = (
+            select(
+                func.date(Order.created_at).label("date"),
+                func.count(Order.id).label("count"),
+                func.coalesce(func.sum(Order.total_amount), 0).label("value"),
+            )
+            .where(Order.created_at >= trend_start)
+            .group_by(func.date(Order.created_at))
+        )
+        trend_rows = (await self.db.execute(trend_q)).all()
+        order_data_map = {str(r[0]): (r[1], r[2]) for r in trend_rows}
+        daily_trend = []
+        for i in range(trending_days + 1):
+            d = (trend_start + timedelta(days=i)).date()
+            c, v = order_data_map.get(str(d), (0, 0))
+            daily_trend.append({"date": d.strftime("%b %d"), "count": c, "value": float(v)})
+
+        # --- Signup Trend ---
+        signup_q = (
+            select(func.date(User.created_at).label("date"), func.count(User.id))
+            .where(User.created_at >= trend_start).group_by(func.date(User.created_at))
+        )
+        signup_rows = (await self.db.execute(signup_q)).all()
+        signup_trend = _pad_trend(signup_rows)
+
+        # --- Inquiry Trend ---
+        inquiry_q = (
+            select(func.date(InquiryGroup.created_at).label("date"), func.count(InquiryGroup.id))
+            .where(InquiryGroup.created_at >= trend_start).group_by(func.date(InquiryGroup.created_at))
+        )
+        inquiry_rows = (await self.db.execute(inquiry_q)).all()
+        inquiry_trend = _pad_trend(inquiry_rows)
+
         return {
-            "users": {"total": total_users, "new_in_period": new_users},
+            "users": {
+                "total": total_users,
+                "new_in_period": new_users,
+                "daily_trend": signup_trend,
+                **user_metrics
+            },
             "orders": {
                 "total": total_orders,
                 "in_period": orders_in_period,
                 "by_status": orders_by_status,
+                "daily_trend": daily_trend,
+                **order_metrics
             },
             "revenue": {
                 "total_billed": total_billed,
                 "total_collected": total_collected,
                 "total_pending": total_pending,
                 "collected_in_period": collected_in_period,
+                **revenue_metrics
             },
             "inquiries": {
                 "total": total_inquiries,
                 "pending": pending_inquiries,
                 "in_period": inquiries_in_period,
+                "daily_trend": inquiry_trend,
+                **inquiry_metrics
             },
             "products": {"total": total_products, "active": active_products},
             "services": {"total": total_services, "active": active_services},

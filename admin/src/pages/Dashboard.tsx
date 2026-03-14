@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { DashboardOverview } from "@/types";
 import {
@@ -19,7 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
     CANCELLED: '#ef4444',
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, chartType }: any) => {
     if (active && payload && payload.length) {
         return (
             <div style={{
@@ -29,21 +30,37 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                 boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
             }}>
                 <p style={{ color: '#71717a', marginBottom: '2px', fontSize: '11px' }}>{label}</p>
-                <p style={{ fontWeight: 600 }}>₹{payload[0]?.value?.toLocaleString()}</p>
+                <p style={{ fontWeight: 600 }}>
+                    {chartType === 'revenue' ? `₹${payload[0]?.value?.toLocaleString()}` : payload[0]?.value?.toLocaleString()}
+                </p>
             </div>
         );
     }
     return null;
 };
 
+interface DashboardOverviewWithTrend extends DashboardOverview {
+    users: DashboardOverview['users'] & { daily_trend: { date: string; count: number }[]; change: string; trend: 'up' | 'down' };
+    orders: DashboardOverview['orders'] & { daily_trend: { date: string; value: number; count: number }[]; change: string; trend: 'up' | 'down' };
+    inquiries: DashboardOverview['inquiries'] & { daily_trend: { date: string; count: number }[]; change: string; trend: 'up' | 'down' };
+    revenue: DashboardOverview['revenue'] & { change: string; trend: 'up' | 'down' };
+}
+
 // Stat Card Component
-const StatCard = ({ label, value, change, trend, icon: Icon, accent }: any) => (
-    <div style={{
-        background: 'white', borderRadius: '14px', padding: '20px 22px',
-        border: '1px solid rgba(0,0,0,0.06)',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-        flex: 1,
-    }}>
+const StatCard = ({ label, value, change, trend, icon: Icon, accent, path, onClick, active }: any) => (
+    <div
+        onClick={onClick}
+        style={{
+            background: 'white', borderRadius: '14px', padding: '20px 22px',
+            border: active ? `2px solid ${accent}` : '1px solid rgba(0,0,0,0.06)',
+            boxShadow: active ? `0 0 0 1px ${accent}20, 0 8px 24px ${accent}15` : '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
+            flex: 1,
+            textDecoration: 'none',
+            transition: 'all 0.2s',
+            cursor: 'pointer',
+            position: 'relative',
+        }}
+    >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <span style={{ fontSize: '12px', fontWeight: 500, color: '#71717a' }}>{label}</span>
             <div style={{
@@ -71,19 +88,23 @@ const StatCard = ({ label, value, change, trend, icon: Icon, accent }: any) => (
             </span>
             <span style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 400 }}>vs last period</span>
         </div>
+        <Link to={path} style={{ position: 'absolute', top: 10, right: 10, opacity: 0.4 }}>
+            <ArrowUpRight size={14} />
+        </Link>
     </div>
 );
 
 export default function Dashboard() {
-    const [data, setData] = useState<DashboardOverview | null>(null);
+    const [data, setData] = useState<DashboardOverviewWithTrend | null>(null);
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState("month");
+    const [chartType, setChartType] = useState<"revenue" | "orders" | "inquiries" | "users">("revenue");
 
     useEffect(() => {
         setLoading(true);
         Promise.all([
-            api<DashboardOverview>(`/admin/dashboard/overview?period=${period}`),
+            api<DashboardOverviewWithTrend>(`/admin/dashboard/overview?period=${period}`),
             api<{ activities: any[] }>(`/admin/dashboard/recent-activity?limit=6`)
         ])
             .then(([overviewData, activityData]) => {
@@ -97,13 +118,25 @@ export default function Dashboard() {
     if (loading && !data) return <DashboardSkeleton />;
 
     const stats = data ? [
-        { label: "Total Revenue", value: `₹${(data.revenue.total_collected / 100000).toFixed(1)}L`, change: "+18.2%", trend: "up", icon: IndianRupee, accent: "#10b981" },
-        { label: "Total Orders", value: data.orders.total.toLocaleString(), change: "+4.5%", trend: "up", icon: ShoppingCart, accent: "#3b82f6" },
-        { label: "Inquiries", value: data.inquiries.total.toLocaleString(), change: "-2.4%", trend: "down", icon: MessageSquare, accent: "#ef4444" },
-        { label: "New Users", value: data.users.total.toLocaleString(), change: "+14.9%", trend: "up", icon: Users, accent: "#8b5cf6" },
+        { id: 'revenue', label: "Total Revenue", value: `₹${(data.revenue.total_collected / 100000).toFixed(1)}L`, change: data.revenue.change, trend: data.revenue.trend, icon: IndianRupee, accent: "#10b981", path: "/orders" },
+        { id: 'orders', label: "Total Orders", value: data.orders.total.toLocaleString(), change: data.orders.change, trend: data.orders.trend, icon: ShoppingCart, accent: "#3b82f6", path: "/orders" },
+        { id: 'inquiries', label: "Inquiries", value: data.inquiries.total.toLocaleString(), change: data.inquiries.change, trend: data.inquiries.trend, icon: MessageSquare, accent: "#ef4444", path: "/inquiries" },
+        { id: 'users', label: "New Users", value: data.users.total.toLocaleString(), change: data.users.change, trend: data.users.trend, icon: Users, accent: "#8b5cf6", path: "/users" },
     ] : [];
 
-    const chartData: any[] = [];
+    const getChartData = () => {
+        if (!data) return [];
+        switch (chartType) {
+            case "revenue": return data.orders.daily_trend.map(d => ({ date: d.date, value: d.value }));
+            case "orders": return data.orders.daily_trend.map(d => ({ date: d.date, value: d.count }));
+            case "inquiries": return data.inquiries.daily_trend.map(d => ({ date: d.date, value: d.count }));
+            case "users": return data.users.daily_trend.map(d => ({ date: d.date, value: d.count }));
+            default: return [];
+        }
+    };
+
+    const chartData = getChartData();
+    const activeStat = stats.find(s => s.id === chartType);
     const pipelineData = Object.entries(data?.orders.by_status || {}).map(([name, value]) => ({ name, value }));
     const totalOrders = pipelineData.reduce((s, d) => s + (d.value as number), 0);
 
@@ -138,7 +171,14 @@ export default function Dashboard() {
 
             {/* KPI row */}
             <div style={{ display: 'flex', gap: '14px' }}>
-                {stats.map((s, i) => <StatCard key={i} {...s} />)}
+                {stats.map((s) => (
+                    <StatCard
+                        key={s.id}
+                        {...s}
+                        active={chartType === s.id}
+                        onClick={() => setChartType(s.id as any)}
+                    />
+                ))}
             </div>
 
             {/* Revenue chart */}
@@ -150,9 +190,9 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                     <div>
                         <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#18181b', margin: 0 }}>
-                            Revenue & Order Trend
+                            {activeStat?.label} Trend
                         </h2>
-                        <p style={{ fontSize: '12px', color: '#71717a', marginTop: '3px' }}>Last 30 Days</p>
+                        <p style={{ fontSize: '12px', color: '#71717a', marginTop: '3px' }}>Current View: {chartType.charAt(0).toUpperCase() + chartType.slice(1)}</p>
                     </div>
                     <div style={{
                         display: 'flex', alignItems: 'center', gap: '5px',
@@ -167,8 +207,8 @@ export default function Dashboard() {
                         <AreaChart data={chartData}>
                             <defs>
                                 <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.15} />
-                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                                    <stop offset="0%" stopColor={activeStat?.accent || "#3b82f6"} stopOpacity={0.15} />
+                                    <stop offset="100%" stopColor={activeStat?.accent || "#3b82f6"} stopOpacity={0} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(0,0,0,0.05)" />
@@ -176,22 +216,15 @@ export default function Dashboard() {
                                 axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa' }} />
                             <YAxis fontSize={11} fontFamily="'Inter',system-ui" fontWeight={500}
                                 axisLine={false} tickLine={false}
-                                tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`}
+                                tickFormatter={v => chartType === 'revenue' ? `₹${(v / 1000).toFixed(0)}k` : v}
                                 tick={{ fill: '#a1a1aa' }} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Area type="monotone" dataKey="amount"
-                                stroke="#3b82f6" strokeWidth={2} fill="url(#revenueGrad)"
-                                dot={false} activeDot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }} />
+                            <Tooltip content={<CustomTooltip chartType={chartType} />} />
+                            <Area type="monotone" dataKey="value"
+                stroke={activeStat?.accent || "#3b82f6"} strokeWidth={2} fill="url(#revenueGrad)"
+                                dot={false} activeDot={{ r: 4, fill: activeStat?.accent || '#3b82f6', strokeWidth: 0 }} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
-                {/* Empty state for chart */}
-                {chartData.length === 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '240px', marginTop: '-240px', color: '#a1a1aa' }}>
-                        <TrendingUp size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
-                        <p style={{ fontSize: '13px', fontWeight: 500 }}>No trend data yet</p>
-                    </div>
-                )}
             </div>
 
             {/* Bottom grid: Recent Activity + Order Pipeline */}

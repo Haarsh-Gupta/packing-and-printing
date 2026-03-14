@@ -10,10 +10,15 @@ from ..auth.auth import get_current_user, get_current_admin_user
 from ..auth.schemas import TokenData
 from ..users.models import User
 from .models import InquiryGroup, InquiryItem, InquiryMessage
+from ..notifications.models import Notification
 from .schemas import (
     InquiryGroupCreate,
+    InquiryItemCreate,
+    AdminPricingCalculatorRequest,
     InquiryQuotation,
+    InquiryStatus,
     InquiryStatusUpdate,
+    ADMIN_ALLOWED_TRANSITIONS,
     InquiryGroupResponse,
     InquiryGroupListResponse,
     InquiryMessageCreate,
@@ -21,6 +26,63 @@ from .schemas import (
 )
 
 router = APIRouter()
+
+@router.post("/calculate-price", status_code=status.HTTP_200_OK)
+async def admin_calculate_custom_price(
+    request: AdminPricingCalculatorRequest,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    [ADMIN] Calculate estimated price for a product/service hypothetically (bypassing DB values).
+    Takes base_price, quantity, config_schema, and selected_options.
+    """
+    estimated_price = 0.0
+    
+    if request.is_service:
+        # Service logic: (Price Per Unit * Quantity)
+        estimated_price = request.base_price * request.quantity
+    else:
+        # Product logic: Base Price + Options
+        base_item_price = request.base_price
+        
+        if request.selected_options and request.config_schema:
+            sections_list = request.config_schema.get("sections", []) if isinstance(request.config_schema, dict) else []
+            sections_map = {
+                section["key"]: section 
+                for section in sections_list
+                if isinstance(section, dict) and "key" in section
+            }
+            
+            for key, selected_val in request.selected_options.items():
+                if key not in sections_map:
+                    raise HTTPException(status_code=400, detail=f"Invalid option category: {key}")
+                
+                section = sections_map[key]
+                s_type = section.get("type")
+                
+                if s_type in ["dropdown", "radio"]:
+                    options = section.get("options", []) or []
+                    options_map = {
+                        str(opt.get("value")): float(opt.get("price_mod", 0.0))
+                        for opt in options if isinstance(opt, dict) and "value" in opt
+                    }
+                    val_str = str(selected_val)
+                    if val_str not in options_map:
+                        raise HTTPException(status_code=400, detail=f"Invalid value '{selected_val}' for option '{key}'")
+                    base_item_price += options_map[val_str]
+                
+                elif s_type == "number_input":
+                    try:
+                        qty = float(selected_val)
+                        ppu = float(section.get("price_per_unit", 0.0))
+                        base_item_price += (qty * ppu)
+                    except (ValueError, TypeError):
+                        pass
+
+        estimated_price = base_item_price * request.quantity
+
+    return {"estimated_price": estimated_price}
 
 
 @router.get("/", response_model=list[InquiryGroupListResponse], status_code=status.HTTP_200_OK)
@@ -70,6 +132,23 @@ async def get_inquiry_by_id(
     
     if not group:
         raise HTTPException(status_code=404, detail="Inquiry not found")
+        
+    # Auto-transition to UNDER_REVIEW when admin opens a PENDING inquiry
+    if group.status == 'PENDING':
+        group.status = 'UNDER_REVIEW'
+        await db.commit()
+        await db.refresh(group)
+        
+        # Fire SSE notification to user
+        from app.core.sse import sse_manager
+        import asyncio
+        asyncio.create_task(
+            sse_manager.publish(str(group.user_id), "inquiry_status_updated", {
+                "inquiry_id": str(group.id),
+                "status": "UNDER_REVIEW",
+                "message": "An admin has started reviewing your inquiry."
+            })
+        )
     
     return group
 
@@ -96,10 +175,10 @@ async def send_quotation(
     if not group:
         raise HTTPException(status_code=404, detail="Inquiry not found")
     
-    if group.status not in ['PENDING', 'QUOTED']:
+    if group.status not in ['PENDING', 'UNDER_REVIEW', 'QUOTED']:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only quote inquiries with PENDING or QUOTED status"
+            detail="Can only quote inquiries with PENDING, UNDER_REVIEW or QUOTED status"
         )
     
     # Update Parent Total Pricing
@@ -117,6 +196,90 @@ async def send_quotation(
                 item.line_item_price = prices_map[item.id]
     
     await db.commit()
+    
+    notif = Notification(
+        user_id=group.user_id,
+        title="Quotation Received",
+        message=f"Admin has sent a quotation of ₹{float(group.total_quoted_price):,.2f} for your inquiry.",
+        metadata_={"type": "inquiry_quote", "id": str(group.id)}
+    )
+    db.add(notif)
+    await db.commit()
+
+    from app.core.sse import sse_manager
+    import asyncio
+    asyncio.create_task(
+        sse_manager.publish(str(group.user_id), "inquiry_quoted", {
+            "inquiry_id": str(group.id),
+            "total_price": float(group.total_quoted_price),
+            "message": "Admin has sent a quotation for your inquiry!"
+        })
+    )
+    
+    # Re-fetch the fully loaded group with relationships after commit
+    fetch_stmt = select(InquiryGroup).options(
+        selectinload(InquiryGroup.items),
+        selectinload(InquiryGroup.messages)
+    ).where(InquiryGroup.id == group_id)
+    
+    refreshed_result = await db.execute(fetch_stmt)
+    refreshed_group = refreshed_result.scalar_one()
+    
+    return refreshed_group
+
+
+@router.patch("/{group_id}/status", response_model=InquiryGroupResponse, status_code=status.HTTP_200_OK)
+async def update_inquiry_status(
+    group_id: UUID,
+    status_update: InquiryStatusUpdate,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    [ADMIN] Update the status of an inquiry group manually.
+    """
+    stmt = select(InquiryGroup).options(
+        selectinload(InquiryGroup.items),
+        selectinload(InquiryGroup.messages)
+    ).where(InquiryGroup.id == group_id)
+    
+    result = await db.execute(stmt)
+    group = result.scalar_one_or_none()
+    
+    if not group:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+        
+    # Lazy check for expiration before allowing transitions
+    if group.status == 'QUOTED' and group.quote_valid_until and group.quote_valid_until < datetime.now(timezone.utc):
+        group.status = 'EXPIRED'
+        
+    try:
+        current_enum = InquiryStatus(group.status)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Invalid status in DB")
+        
+    allowed_transitions = ADMIN_ALLOWED_TRANSITIONS.get(current_enum, [])
+    
+    if status_update.status not in allowed_transitions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Admin cannot transition inquiry from {group.status} to {status_update.status.value}"
+        )
+
+    target_status = status_update.status.value
+        
+    group.status = target_status
+    await db.commit()
+    
+    from app.core.sse import sse_manager
+    import asyncio
+    asyncio.create_task(
+        sse_manager.publish(str(group.user_id), "inquiry_status_updated", {
+            "inquiry_id": str(group.id),
+            "status": target_status,
+            "message": f"Admin updated your inquiry status to {target_status}"
+        })
+    )
     
     # Re-fetch the fully loaded group with relationships after commit
     fetch_stmt = select(InquiryGroup).options(
@@ -176,6 +339,38 @@ async def admin_send_message(
 
     db.add(new_message)
     await db.commit()
+    
+    notif = Notification(
+        user_id=group.user_id,
+        title="New Message",
+        message=f"You have a new message from admin regarding inquiry #{str(group_id)[:8].upper()}.",
+        metadata_={"type": "inquiry_message", "id": str(group_id)}
+    )
+    db.add(notif)
+    await db.commit()
     await db.refresh(new_message)
+    
+    from app.core.sse import sse_manager
+    from app.core.websockets import ws_manager
+    import asyncio
+    asyncio.create_task(
+        sse_manager.publish(str(group.user_id), "inquiry_new_message", {
+            "inquiry_id": str(group_id),
+            "message": "New message from admin regarding your inquiry."
+        })
+    )
+    
+    # Broadcast to websocket
+    await ws_manager.broadcast(str(group_id), {
+        "type": "new_message",
+        "message": {
+            "id": new_message.id,
+            "inquiry_group_id": str(new_message.inquiry_group_id),
+            "sender_id": str(new_message.sender_id),
+            "content": new_message.content,
+            "file_urls": new_message.file_urls,
+            "created_at": new_message.created_at.isoformat() if new_message.created_at else None
+        }
+    })
 
     return new_message
