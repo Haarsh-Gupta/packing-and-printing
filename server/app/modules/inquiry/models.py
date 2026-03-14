@@ -47,7 +47,7 @@ class InquiryItem(Base):
     __tablename__ = 'inquiry_items'
     
     id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
-    group_id = Column(Uuid, ForeignKey('inquiry_groups.id'), nullable=False)
+    group_id = Column(Uuid, ForeignKey('inquiry_groups.id', ondelete="CASCADE"), nullable=False)
 
     #product or the service
     product_id = Column(Integer, ForeignKey('products.id'), nullable=True)
@@ -107,7 +107,7 @@ class InquiryMessage(Base):
     __tablename__ = 'inquiry_messages'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    inquiry_group_id = Column(Uuid, ForeignKey('inquiry_groups.id'), nullable=False)
+    inquiry_group_id = Column(Uuid, ForeignKey('inquiry_groups.id', ondelete="CASCADE"), nullable=False)
     sender_id = Column(Uuid, ForeignKey('users.id'), nullable=False)
     
     content = Column(Text, nullable=False)

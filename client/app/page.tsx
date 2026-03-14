@@ -15,13 +15,13 @@ export default function HomePage() {
       <HeroSection />
       <StatsSection />
       <FeaturesSection />
-      <WaveDivider topColor="white" bottomColor="white" variant="smooth" />
+      <div className="h-10"></div>
       <MarqueeSection />
-      <WaveDivider topColor="white" bottomColor="black" variant="blob" />
+      <WaveDivider topColor="var(--site-bg)" bottomColor="black" variant="blob" />
       <HowItWorksSection />
-      <WaveDivider topColor="black" bottomColor="white" variant="smooth" />
+      <WaveDivider topColor="black" bottomColor="var(--site-bg)" variant="smooth" />
       <Testimonials />
-      <WaveDivider topColor="white" bottomColor="#FDF567" variant="smooth" />
+      <WaveDivider topColor="var(--site-bg)" bottomColor="#FDF567" variant="smooth" />
       <AboutSection />
       <WaveDivider topColor="#FDF567" bottomColor="#A78BFA" variant="blob" />
       <CTASection />

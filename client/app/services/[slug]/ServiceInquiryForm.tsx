@@ -61,15 +61,18 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
         dispatch(addToInquiry({
             id: generateId(),
             serviceId: service.id,
-            name: `${service.name} - ${activeVariant.name}`,
+            subserviceId: activeVariant.id,
+            name: `${service.name} — ${activeVariant.name}`,
             quantity: quantity,
             options: {
-                variant_id: activeVariant.id,
+                // stored for display only — NOT sent to the API for services
                 variant_name: activeVariant.name,
                 service_slug: service.slug,
                 notes: notes,
             },
-            estimatedPrice: totalPrice
+            estimatedPrice: totalPrice,
+            imageUrl: (activeVariant.images?.[0] || service.cover_image) ?? undefined,
+            pricePerUnit: activeVariant.price_per_unit,
         }));
 
         showAlert(`${service.name} added to cart!`, "success");

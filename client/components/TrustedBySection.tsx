@@ -96,7 +96,7 @@ const companyLogos = [
 
 export default function TrustedBySection() {
     return (
-        <section className="py-16 px-6 bg-white border-b-4 border-black">
+        <section className="py-16 px-6 bg-site-bg border-b-4 border-black">
             <div className="max-w-6xl mx-auto">
                 {/* Section Label */}
                 <div className="text-center mb-12">

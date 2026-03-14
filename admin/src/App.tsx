@@ -15,6 +15,7 @@ import InquiryDetail from "@/pages/InquiryDetail";
 import Settings from "@/pages/Settings";
 import SubProducts from "@/pages/SubProducts";
 import SubServices from "@/pages/SubServices";
+import PricingCalculator from "@/pages/PricingCalculator";
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/tickets" element={<Tickets />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/reviews" element={<Reviews />} />
+            <Route path="/calculator" element={<PricingCalculator />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>

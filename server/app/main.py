@@ -33,6 +33,7 @@ from app.modules.admin_dashboard.routes import router as dashboard_router
 from app.modules.payments.routes import router as payment_router
 from app.modules.wishlist.routes import router as wishlist_router
 from app.modules.wishlist.admin_routes import router as admin_wishlist_router
+from app.modules.events.routes import router as events_router
 
 
 from starlette.middleware.sessions import SessionMiddleware
@@ -40,11 +41,13 @@ from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 from app import modules
 from app.core.config import settings
-from app.core.middleware import RateLimitMiddleware
+from app.core.middleware import RateLimitMiddleware, UserActivityMiddleware
 
 from app.core.database import check_db_connection
 from app.core.redis import check_redis_connection, redis_client
 from app.core.email.service import check_smtp_connection
+from app.core.sse import sse_manager
+from app.core.websockets import ws_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,6 +62,8 @@ async def lifespan(app: FastAPI):
     yield
     
     print("Shutting down...")
+    await sse_manager.shutdown()
+    await ws_manager.shutdown()
     await redis_client.close()
     await engine.dispose()
 
@@ -77,6 +82,7 @@ app.add_middleware(
 
 
 app.add_middleware(RateLimitMiddleware, limit=200, window=60)
+app.add_middleware(UserActivityMiddleware)
 app.add_middleware(SessionMiddleware , secret_key=settings.secret_key)
 
 app.include_router(user_router , prefix="/users" , tags=["Users"])
@@ -112,6 +118,7 @@ app.include_router(dashboard_router, prefix="/admin/dashboard", tags=["Admin Das
 app.include_router(payment_router, prefix="/payments", tags=["Payments"])
 app.include_router(notification_router, prefix="/notifications", tags=["Notifications"])
 app.include_router(admin_notification_router, prefix="/admin/notifications", tags=["Admin Notifications"])
+app.include_router(events_router, prefix="/events", tags=["SSE Events"])
 
 
 

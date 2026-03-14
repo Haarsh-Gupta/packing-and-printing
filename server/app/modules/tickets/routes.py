@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.modules.auth import get_current_user, get_current_admin_user
 from app.modules.auth.schemas import TokenData
 from app.modules.users.models import User
+from app.modules.notifications.service import NotificationService
 
 from .models import Ticket, TicketMessage
 from .schemas import (
@@ -46,8 +47,29 @@ async def create_ticket(
         is_read=False,
     )
     db.add(msg)
+    
+    # Notify admins of new ticket
+    await NotificationService.notify_admins(
+        db,
+        title="New Support Ticket",
+        message=f"New ticket: {payload.subject[:40]}",
+        metadata={"type": "ticket", "id": str(ticket.id)}
+    )
+    
     await db.commit()
     await db.refresh(ticket)
+
+    # SSI Alert
+    from app.core.sse import sse_manager
+    import asyncio
+    asyncio.create_task(
+        sse_manager.publish_to_admins("new_ticket", {
+            "ticket_id": str(ticket.id),
+            "subject": ticket.subject,
+            "message": "New support ticket created"
+        })
+    )
+
     return ticket
 
 
@@ -123,11 +145,46 @@ async def add_message(
     db.add(msg)
 
     # Auto-update status when admin replies
-    if current_user.admin and ticket.status == "OPEN":
-        ticket.status = "IN_PROGRESS"
-
+    if current_user.admin:
+        if ticket.status == "OPEN":
+            ticket.status = "IN_PROGRESS"
+        # Notify user of admin reply
+        await NotificationService.notify_user(
+            db,
+            user_id=ticket.user_id,
+            title="Ticket Reply",
+            message=f"Admin replied to your ticket: {ticket.subject[:30]}",
+            metadata={"type": "ticket", "id": str(ticket.id)}
+        )
+    else:
+        # User is replying - notify admins
+        await NotificationService.notify_admins(
+            db,
+            title="Ticket Reply",
+            message=f"User replied to ticket: {ticket.subject[:30]}",
+            metadata={"type": "ticket", "id": str(ticket.id)}
+        )
     await db.commit()
     await db.refresh(msg)
+
+    # SSE Alerts
+    from app.core.sse import sse_manager
+    import asyncio
+    if current_user.admin:
+        asyncio.create_task(
+            sse_manager.publish(str(ticket.user_id), "ticket_reply", {
+                "ticket_id": str(ticket.id),
+                "message": "Admin has replied to your ticket"
+            })
+        )
+    else:
+        asyncio.create_task(
+            sse_manager.publish_to_admins("ticket_reply", {
+                "ticket_id": str(ticket.id),
+                "message": "User has replied to a ticket"
+            })
+        )
+
     return msg
 
 

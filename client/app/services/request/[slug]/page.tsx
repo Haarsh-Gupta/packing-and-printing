@@ -45,7 +45,7 @@ export default async function ServiceRequestPage({
     if (!parentService) notFound();
 
     return (
-        <div className="min-h-screen bg-background-light text-border-black pb-20">
+        <div className="min-h-screen bg-site-bg text-border-black pb-20">
             {/* Header Section */}
             <div className="border-b-3 border-border-black bg-accent-yellow/20">
                 <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
@@ -116,7 +116,7 @@ export default async function ServiceRequestPage({
                         <div className="bg-white border-3 border-border-black shadow-neubrutalism p-6 sm:p-8 relative">
                             {/* Decorative ribbon */}
                             <div className="absolute -top-3 -right-3 bg-[#4be794] border-2 border-border-black px-4 py-1 text-xs font-black shadow-neubrutalism-sm rotate-6">
-                                REQUEST IT
+                                ADD TO CART
                             </div>
                             <h3 className="font-display text-2xl font-black uppercase mb-6 border-b-2 border-border-black pb-3">
                                 Configuration

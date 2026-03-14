@@ -230,7 +230,7 @@ function MarqueeRow({ items, direction = "left", speed = 30 }: { items: typeof m
 
 export default function MarqueeSection() {
     return (
-        <section className="py-12 bg-white overflow-hidden">
+        <section className="py-12 bg-site-bg overflow-hidden">
             <div className="max-w-6xl mx-auto px-6 mb-8">
                 <h2 className="text-3xl md:text-4xl font-black tracking-tighter text-black text-center">
                     Unlimited <span className="bg-[#FDF567] px-2 inline-block -rotate-1">possibilities</span>

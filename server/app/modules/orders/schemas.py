@@ -25,7 +25,7 @@ class Status(str, Enum):
 class PaymentSplitType(str, Enum):
     FULL = "FULL"           # 100%
     HALF = "HALF"           # 50/50
-    CUSTOM_30 = "CUSTOM_30" # 30/30/40
+    CUSTOM = "CUSTOM"       # Custom percentages
 
 # ==================== Transaction & Milestone Schemas ====================
 class TransactionCreate(BaseModel):
@@ -62,6 +62,15 @@ class OrderMilestoneResponse(BaseModel):
 class OrderCreate(BaseModel):
     inquiry_id: UUID
     split_type: PaymentSplitType = PaymentSplitType.HALF # Admin chooses this when converting to order
+    custom_percentages: Optional[List[float]] = None
+
+class OrderMilestoneRegenerate(BaseModel):
+    split_type: PaymentSplitType
+    custom_percentages: Optional[List[float]] = None
+
+class UserMilestoneSwitchRequest(BaseModel):
+    """User-facing request to switch between FULL and HALF milestones."""
+    split_type: PaymentSplitType  # Only FULL or HALF allowed for users
 
 class OrderUpdate(BaseModel):
     status: Status

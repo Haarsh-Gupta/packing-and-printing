@@ -1,11 +1,18 @@
+import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import asyncio  
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
+from jose import jwt, JWTError
 
 from app.core.database import get_db
 from app.modules.auth import get_current_user, get_current_admin_user
 from app.modules.users.models import User
+from app.core.config import settings
+from app.core.sse import sse_manager
+from app.modules.auth.schemas import TokenData
 
 from .models import Notification
 from .schemas import (
@@ -15,8 +22,72 @@ from .schemas import (
     NotificationListResponse,
     UnreadCountResponse,
 )
+from .service import NotificationService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.get("/stream")
+async def sse_stream(request: Request, token: str = Query(..., description="JWT access token")):
+    """
+    SSE stream for real-time push notifications.
+    Accepts ?token= because EventSource cannot set Authorization headers.
+    Events: inquiry_status_changed, inquiry_quoted, inquiry_new_message, connected
+    """
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        token_data = TokenData(**payload)
+        user_id = str(token_data.id)
+    except (JWTError, Exception):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    async def event_stream():
+        # Create a queue to merge multiple generators
+        queue = asyncio.Queue()
+
+        async def producer(gen):
+            try:
+                async for item in gen:
+                    await queue.put(item)
+            except Exception as e:
+                logger.error(f"SSE producer error: {e}")
+
+        # Start user stream
+        tasks = [asyncio.create_task(producer(sse_manager.subscribe(user_id)))]
+        
+        # If admin, also start admin stream
+        if payload.get("admin"):
+            tasks.append(asyncio.create_task(producer(sse_manager.subscribe_admin())))
+
+        try:
+            while True:
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    break
+                
+                try:
+                    # Get next chunk from any producer
+                    chunk = await asyncio.wait_for(queue.get(), timeout=5.0)
+                    yield chunk
+                except asyncio.TimeoutError:
+                    # Periodic heartbeat if no events
+                    yield ": keepalive\n\n"
+                    
+        finally:
+            for task in tasks:
+                task.cancel()
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.post("/bulk", status_code=status.HTTP_201_CREATED)
@@ -76,7 +147,12 @@ async def list_my_notifications(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get all notifications for the current user."""
+    """Get all notifications for the current user and trigger lazy cleanup for admins."""
+    # Lazy cleanup: if current user is admin, clean up old read notifications
+    if current_user.admin:
+        await NotificationService.lazy_cleanup(db)
+        await db.commit() # Commit the deletions
+        
     base = select(Notification).where(Notification.user_id == current_user.id)
 
     # Total count

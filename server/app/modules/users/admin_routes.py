@@ -13,6 +13,7 @@ from ..auth import get_current_user, get_current_admin_user
 from ..auth.schemas import TokenData
 from app.modules.otps.services import get_otp_service
 from app.core.rate_limiter import RateLimiter
+from app.core.redis import redis_client
 
 router = APIRouter()
 
@@ -38,7 +39,32 @@ async def get_all_users(
         ))
     
     result = await db.execute(stmt)
-    return result.scalars().all()
+    users = result.scalars().all()
+    
+    # Check online status for all users in parallel
+    for user in users:
+        is_online = await redis_client.get(f"user_active:{user.id}")
+        user.is_online = bool(is_online)
+        
+    return users
+
+@router.get("/{user_id}", response_model=UserOut)
+async def get_user(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin_user),
+):
+    stmt = select(User).where(User.id == user_id)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    is_online = await redis_client.get(f"user_active:{user.id}")
+    user.is_online = bool(is_online)
+    
+    return user
 
 @router.delete("/{user_id}", status_code=status.HTTP_200_OK)
 async def soft_delete_user(

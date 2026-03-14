@@ -46,7 +46,7 @@ export default function DashboardLayout({
     ];
 
     return (
-        <div className="flex min-h-screen bg-zinc-50 relative overflow-x-hidden">
+        <div className="flex min-h-screen bg-site-bg relative overflow-x-hidden">
             {/* Mobile Sidebar Overlay */}
             {isMobileMenuOpen && (
                 <div

@@ -10,7 +10,9 @@ const STATUS_TABS = ["ALL", "PENDING", "QUOTED", "ACCEPTED", "REJECTED"];
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
     PENDING: { color: '#d97706', bg: '#fffbeb' },
+    UNDER_REVIEW: { color: '#8b5cf6', bg: '#f5f3ff' },
     QUOTED: { color: '#2563eb', bg: '#eff6ff' },
+    NEGOTIATION: { color: '#0891b2', bg: '#ecfeff' },
     ACCEPTED: { color: '#16a34a', bg: '#f0fdf4' },
     REJECTED: { color: '#dc2626', bg: '#fef2f2' },
 };
@@ -44,7 +46,7 @@ export default function Inquiries() {
 
     const fetchInquiries = () => {
         setLoading(true);
-        let url = "/inquiries/admin";
+        let url = "/admin/inquiries";
         if (statusFilter !== "ALL") url += `?status_filter=${statusFilter}`;
         api<InquiryGroupList[]>(url).then(setInquiries).catch(console.error).finally(() => setLoading(false));
     };
@@ -56,7 +58,7 @@ export default function Inquiries() {
         if (!confirm("Delete this inquiry? This cannot be undone.")) return;
         setDeleting(id);
         try {
-            await api(`/inquiries/admin/${id}`, { method: "DELETE" });
+            await api(`/admin/inquiries/${id}`, { method: "DELETE" });
             fetchInquiries();
         } catch (err) { console.error(err); } finally { setDeleting(null); }
     };

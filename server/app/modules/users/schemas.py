@@ -65,6 +65,7 @@ class UserOut(UserBase):
     phone : Optional[str] = None
     profile_picture: Optional[str] = None
     created_at: datetime
+    is_online: bool = False
 
     class Config:
         from_attributes = True

@@ -38,7 +38,7 @@ export interface InquiryMessage {
 export interface Inquiry {
     id: string;
     user_id: string;
-    status: "PENDING" | "QUOTED" | "ACCEPTED" | "REJECTED";
+    status: "PENDING" | "UNDER_REVIEW" | "QUOTED" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED";
     total_quoted_price?: number | null;
     admin_notes?: string | null;
     quoted_at?: string | null;

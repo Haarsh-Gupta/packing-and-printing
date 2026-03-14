@@ -2,8 +2,9 @@ import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "./Sidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Search, Bell, ChevronRight, Loader2 } from "lucide-react";
+import { Search, ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { AdminNotifications } from "./AdminNotifications";
 
 const PAGE_LABELS: Record<string, string> = {
     "/": "Dashboard",
@@ -97,19 +98,7 @@ export default function Layout() {
                     </div>
 
                     {/* Bell */}
-                    <button style={{
-                        width: '34px', height: '34px', border: '1px solid #e4e4e7', borderRadius: '9px',
-                        background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', position: 'relative', color: '#71717a',
-                    }}>
-                        <Bell size={15} />
-                        {/* Notification dot */}
-                        <span style={{
-                            position: 'absolute', top: '7px', right: '7px',
-                            width: '6px', height: '6px', borderRadius: '50%',
-                            background: '#ef4444', border: '1.5px solid white',
-                        }} />
-                    </button>
+                    <AdminNotifications />
 
                     {/* Avatar */}
                     <div style={{
@@ -125,7 +114,7 @@ export default function Layout() {
 
                 {/* Page content */}
                 <main style={{
-                    flex: 1, padding: '28px 32px', overflowX: 'hidden',
+                    flex: 1, padding: '28px 32px', overflowX: 'clip',
                 }}>
                     <Outlet />
                 </main>
