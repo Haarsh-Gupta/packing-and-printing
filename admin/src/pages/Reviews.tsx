@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import type { Review } from "@/types";
 import {
@@ -17,16 +17,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const mono: React.CSSProperties = { fontFamily: "'DM Mono', monospace" };
 
 export default function Reviews() {
-    const [pid, setPid] = useState("");
+    const [filterType, setFilterType] = useState<"product_id" | "service_id" | "user_id">("product_id");
+    const [filterValue, setFilterValue] = useState("");
     const [reviews, setReviews] = useState<Review[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
 
+    // Fetch all reviews initially
+    useEffect(() => {
+        setLoading(true);
+        api<Review[]>(`/reviews/admin/all`)
+            .then(setReviews)
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, []);
+
     const fetchReviews = () => {
-        if (!pid) return;
         setLoading(true);
         setHasSearched(true);
-        api<Review[]>(`/reviews/product/${pid}`)
+        const url = filterValue.trim() ? `/reviews/admin/all?${filterType}=${filterValue.trim()}` : `/reviews/admin/all`;
+        api<Review[]>(url)
             .then(setReviews)
             .catch((e) => {
                 console.error(e);
@@ -61,24 +71,34 @@ export default function Reviews() {
                         ...mono, marginBottom: '4px',
                     }}>Moderation</p>
                     <h1 style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>
-                        Product Reviews
+                        Product & Service Reviews
                         <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)', marginLeft: '12px', letterSpacing: 0, ...mono }}>
-                            [ID SEARCH MODE]
+                            [MODERATION PORTAL]
                         </span>
                     </h1>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
+                    <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
+                        <SelectTrigger style={{ width: '140px', height: '40px', fontSize: '12px', fontWeight: 600, ...mono }}>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="product_id">Product ID</SelectItem>
+                            <SelectItem value="service_id">Service ID</SelectItem>
+                            <SelectItem value="user_id">User ID</SelectItem>
+                        </SelectContent>
+                    </Select>
                     <div style={{ position: 'relative' }}>
-                        <Package size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
+                        <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
                         <Input
-                            placeholder="PRODUCT ID..."
-                            value={pid}
-                            onChange={e => setPid(e.target.value)}
+                            placeholder={`Enter ${filterType.replace('_', ' ').toUpperCase()}...`}
+                            value={filterValue}
+                            onChange={e => setFilterValue(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && fetchReviews()}
-                            style={{ width: '180px', height: '40px', paddingLeft: '36px', ...mono, fontSize: '11px', fontWeight: 700 }}
+                            style={{ width: '220px', height: '40px', paddingLeft: '36px', ...mono, fontSize: '11px', fontWeight: 700 }}
                         />
                     </div>
-                    <Button onClick={fetchReviews} disabled={loading || !pid} style={{ height: '40px', fontWeight: 800 }}>
+                    <Button onClick={fetchReviews} disabled={loading} style={{ height: '40px', fontWeight: 800 }}>
                         {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} className="mr-2" />}
                         FETCH FEEDBACK
                     </Button>
@@ -108,7 +128,7 @@ export default function Reviews() {
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <div style={{ padding: '16px 24px', background: 'var(--secondary)/50', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', ...mono, color: 'var(--muted-foreground)' }}>
-                                {reviews.length} ENTRIES FOUND FOR PRODUCT #{pid}
+                                {reviews.length} ENTRIES FOUND {filterValue ? `FOR ${filterType.toUpperCase()} #${filterValue}` : ''}
                             </span>
                             <Select defaultValue="newest">
                                 <SelectTrigger style={{ height: '32px', width: '160px', fontSize: '10px', fontWeight: 800, ...mono }}>

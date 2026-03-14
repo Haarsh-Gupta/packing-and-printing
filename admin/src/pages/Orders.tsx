@@ -53,7 +53,7 @@ export default function Orders() {
         if (!selected || !newStatus) return;
         setUpdating(true);
         try {
-            await api(`/orders/admin/${selected.id}/status`, { method: "PATCH", body: { status: newStatus } });
+            await api(`/orders/admin/${selected.id}/status`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
             fetchOrders();
             setSelected(prev => prev ? { ...prev, status: newStatus } : null);
         } catch (e) { console.error(e); }
@@ -94,14 +94,10 @@ export default function Orders() {
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px', flex: 1, minHeight: 0 }}>
-                {/* Left: Table */}
-                <div style={{
-                    flex: 1, minWidth: 0, background: 'white', borderRadius: '16px',
-                    border: '1px solid rgba(0,0,0,0.06)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                    overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                }}>
+            {/* Split view */}
+            <div className="flex flex-col xl:flex-row gap-5 flex-1 min-h-[500px] xl:min-h-0">
+                {/* Left: Orders Table */}
+                <div className="flex-1 bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden flex flex-col" style={{ minHeight: '400px' }}>
                     {/* Status tabs */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '12px 16px', borderBottom: '1px solid #f4f4f5' }}>
                         {STATUS_TABS.map(tab => (
@@ -185,12 +181,7 @@ export default function Orders() {
 
                 {/* Right: Detail Panel */}
                 {selected ? (
-                    <div style={{
-                        width: '340px', flexShrink: 0, background: 'white', borderRadius: '16px',
-                        border: '1px solid rgba(0,0,0,0.06)',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                        overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                    }}>
+                    <div className="w-full xl:w-[340px] shrink-0 bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden flex flex-col" style={{ minHeight: '400px' }}>
                         {/* Detail header */}
                         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #f4f4f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div>
@@ -293,14 +284,16 @@ export default function Orders() {
 
                         {/* Footer actions */}
                         <div style={{ padding: '14px 20px', borderTop: '1px solid #f4f4f5', display: 'flex', gap: '8px' }}>
-                            <button style={{
-                                flex: 1, height: '36px', border: '1px solid #e4e4e7', borderRadius: '9px',
-                                background: 'white', fontSize: '12px', fontWeight: 500, color: '#52525b',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                                fontFamily: "'Inter', system-ui",
-                            }}>
-                                <Download size={13} /> Download Invoice
-                            </button>
+                            {selected.amount_paid >= selected.total_amount && (
+                                <button style={{
+                                    flex: 1, height: '36px', border: '1px solid #e4e4e7', borderRadius: '9px',
+                                    background: 'white', fontSize: '12px', fontWeight: 500, color: '#52525b',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                                    fontFamily: "'Inter', system-ui",
+                                }}>
+                                    <Download size={13} /> Download Invoice
+                                </button>
+                            )}
                             <button style={{
                                 flex: 1, height: '36px', border: '1px solid #e4e4e7', borderRadius: '9px',
                                 background: 'white', fontSize: '12px', fontWeight: 500, color: '#52525b',

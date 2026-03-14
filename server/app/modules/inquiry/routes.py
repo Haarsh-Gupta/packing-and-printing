@@ -74,6 +74,10 @@ async def websocket_inquiry_endpoint(websocket: WebSocket, group_id: str, token:
     except Exception as e:
         logger.error(f"WS error for user={user_id}, group={group_id}: {e}")
         ws_manager.disconnect(websocket, group_id, user_id)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSession) -> float:
     """
@@ -705,6 +709,7 @@ async def send_inquiry_message(
         content=message.content,
         file_urls=message.file_urls
     )
+    db.add(new_message)
 
     # Create persistent notification for admins
     await NotificationService.notify_admins(

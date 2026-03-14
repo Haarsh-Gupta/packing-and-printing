@@ -15,7 +15,7 @@ from app.modules.services.models import SubService
 from app.modules.products.models import SubProduct
 router = APIRouter()
 
-@router.post("/", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
 async def create_or_update_review(
     review: ReviewCreate, 
     db: AsyncSession = Depends(get_db), 
@@ -46,7 +46,7 @@ async def create_or_update_review(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
     # 3. Check for Existing Review (using getattr to dynamically filter by product_id or service_id)
-    stmt = select(Review).where(
+    stmt = select(Review).options(joinedload(Review.user)).where(
         getattr(Review, id_field) == entity_id, 
         Review.user_id == current_user.id
     )
@@ -58,8 +58,12 @@ async def create_or_update_review(
         existing_review.comment = review.comment
         
         await db.commit()
-        await db.refresh(existing_review)
-        return existing_review
+        
+        # Needs explicit loading for the Pydantic schema Response
+        stmt_upd = select(Review).options(joinedload(Review.user)).where(Review.id == existing_review.id)
+        existing_review_loaded = (await db.execute(stmt_upd)).scalar_one()
+        
+        return existing_review_loaded
 
     # 5. CREATE Logic
     # Dynamically build the kwargs for the new review
@@ -74,9 +78,12 @@ async def create_or_update_review(
     new_review = Review(**review_data)
     db.add(new_review)
     await db.commit()
-    await db.refresh(new_review)
     
-    return new_review
+    # Needs explicit loading for the Pydantic schema Response
+    stmt_new = select(Review).options(joinedload(Review.user)).where(Review.id == new_review.id)
+    new_review_loaded = (await db.execute(stmt_new)).scalar_one()
+    
+    return new_review_loaded
 
 @router.get("/service/{slug}", response_model=list[ReviewResponse])
 async def get_service_reviews(

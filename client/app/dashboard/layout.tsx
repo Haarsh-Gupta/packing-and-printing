@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, FileText, Settings, LogOut, ChevronLeft, ChevronRight, Menu, X, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Package, FileText, Settings, LogOut, ChevronLeft, ChevronRight, Menu, X, MessageSquare, Home } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NotificationCenter from "@/components/NotificationCenter";
@@ -38,6 +38,7 @@ export default function DashboardLayout({
     const isActive = (path: string) => pathname === path;
 
     const navLinks = [
+        { href: "/", label: "Back to Website", icon: Home, activeColor: "#ff00ff" },
         { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, activeColor: "#fdf567" },
         { href: "/dashboard/orders", label: "My Orders", icon: Package, activeColor: "#ff90e8" },
         { href: "/dashboard/inquiries", label: "Inquiries", icon: FileText, activeColor: "#90e8ff" },

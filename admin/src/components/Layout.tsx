@@ -59,13 +59,7 @@ export default function Layout() {
             <AppSidebar />
             <SidebarInset style={{ background: '#f9f9f9', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                 {/* Header */}
-                <header style={{
-                    height: '56px', display: 'flex', alignItems: 'center',
-                    padding: '0 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', gap: '12px',
-                    flexShrink: 0, background: 'white',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                    position: 'sticky', top: 0, zIndex: 20,
-                }}>
+                <header className="h-14 flex items-center px-4 md:px-5 gap-3 shrink-0 bg-white border-b border-black/5 shadow-sm sticky top-0 z-20">
                     {/* Hamburger */}
                     <SidebarTrigger style={{ color: '#71717a' }} />
                     <div style={{ width: '1px', height: '18px', background: '#f0f0f0' }} />
@@ -113,9 +107,7 @@ export default function Layout() {
                 </header>
 
                 {/* Page content */}
-                <main style={{
-                    flex: 1, padding: '28px 32px', overflowX: 'clip',
-                }}>
+                <main className="flex-1 p-4 md:p-8 overflow-x-clip">
                     <Outlet />
                 </main>
             </SidebarInset>

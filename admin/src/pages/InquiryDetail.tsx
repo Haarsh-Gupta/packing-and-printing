@@ -400,10 +400,10 @@ export default function InquiryDetail() {
                 </Button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'row', gap: '24px', flex: 1, overflow: 'hidden' }}>
+            <div className="flex flex-col lg:flex-row gap-6 flex-1 overflow-visible lg:overflow-hidden min-h-[800px] lg:min-h-0">
 
                 {/* Left pane: Details and items */}
-                <div style={{ flex: "1 1 auto", display: 'flex', flexDirection: 'column', overflowY: 'auto', background: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px" }}>
+                <div className="flex flex-col flex-auto lg:overflow-y-auto bg-card border border-border rounded-lg">
                     <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -543,19 +543,7 @@ export default function InquiryDetail() {
                     </div>
                 </div>
 
-                {/* Right pane: Chat */}
-                <div style={{ 
-                    width: '400px', 
-                    flexShrink: 0, 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    background: "var(--card)", 
-                    border: "1px solid var(--border)", 
-                    borderRadius: "8px", 
-                    overflow: "hidden",
-                    height: '100%',
-                    position: 'relative'
-                }}>
+                <div className="w-full lg:w-[400px] shrink-0 flex flex-col bg-card border border-border rounded-lg overflow-hidden relative h-[600px] lg:h-full">
                     <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>Messages</p>
                     </div>

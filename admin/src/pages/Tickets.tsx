@@ -38,7 +38,7 @@ export default function Tickets() {
 
     const fetchTickets = () => {
         setLoading(true);
-        let url = `/tickets/admin/all?skip=0&limit=100`;
+        let url = `/admin/tickets/all?skip=0&limit=100`;
         const params = new URLSearchParams();
         if (statusFilter !== "ALL") params.append("status_filter", statusFilter);
         if (priorityFilter !== "ALL") params.append("priority_filter", priorityFilter);
@@ -72,7 +72,7 @@ export default function Tickets() {
     const markResolved = async () => {
         if (!selected) return;
         try {
-            await api(`/tickets/admin/${selected.id}/status`, {
+            await api(`/admin/tickets/${selected.id}/status`, {
                 method: "PATCH", body: JSON.stringify({ status: "RESOLVED" }),
             });
             fetchTickets();
@@ -133,15 +133,10 @@ export default function Tickets() {
             </div>
 
             {/* Split view */}
-            <div style={{ display: 'flex', gap: '16px', flex: 1, minHeight: 0, height: 'calc(100vh - 180px)' }}>
+            <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-[500px] md:min-h-0 md:h-[calc(100vh-180px)]">
 
                 {/* Left: Ticket list */}
-                <div style={{
-                    width: '320px', flexShrink: 0, background: 'white', borderRadius: '16px',
-                    border: '1px solid rgba(0,0,0,0.06)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                    display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                }}>
+                <div className="w-full md:w-[320px] flex-shrink-0 bg-white rounded-2xl border border-black/5 shadow-sm flex flex-col overflow-hidden" style={{ minHeight: '300px' }}>
                     <div style={{ padding: '14px 14px 0' }}>
                         <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#18181b', margin: '0 0 12px' }}>Support Tickets</h2>
                         {/* Search */}
@@ -200,12 +195,7 @@ export default function Tickets() {
 
                 {/* Right: Chat thread */}
                 {selected ? (
-                    <div style={{
-                        flex: 1, background: 'white', borderRadius: '16px',
-                        border: '1px solid rgba(0,0,0,0.06)',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                    }}>
+                    <div className="flex-1 bg-white rounded-2xl border border-black/5 shadow-sm flex flex-col overflow-hidden" style={{ minHeight: '400px' }}>
                         {/* Chat header */}
                         <div style={{
                             padding: '16px 20px', borderBottom: '1px solid #f4f4f5',
@@ -331,13 +321,7 @@ export default function Tickets() {
                         </div>
                     </div>
                 ) : (
-                    <div style={{
-                        flex: 1, background: 'white', borderRadius: '16px',
-                        border: '1px solid rgba(0,0,0,0.06)',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-                        color: '#d4d4d8', gap: '10px',
-                    }}>
+                    <div className="flex-1 bg-white rounded-2xl border border-black/5 shadow-sm flex flex-col items-center justify-center text-zinc-300 gap-2.5" style={{ minHeight: '400px' }}>
                         <div style={{ fontSize: '32px' }}>💬</div>
                         <div style={{ textAlign: 'center' }}>
                             <p style={{ fontSize: '14px', fontWeight: 600, color: '#71717a', margin: 0 }}>Select a ticket</p>

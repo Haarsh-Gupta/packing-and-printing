@@ -55,21 +55,21 @@ async def sse_stream(request: Request, token: str = Query(..., description="JWT 
                 logger.error(f"SSE producer error: {e}")
 
         # Start user stream
-        tasks = [asyncio.create_task(producer(sse_manager.subscribe(user_id)))]
+        tasks = [asyncio.create_task(producer(sse_manager.subscribe(user_id, request)))]
         
         # If admin, also start admin stream
         if payload.get("admin"):
-            tasks.append(asyncio.create_task(producer(sse_manager.subscribe_admin())))
+            tasks.append(asyncio.create_task(producer(sse_manager.subscribe_admin(request))))
 
         try:
-            while True:
+            while not sse_manager._shutdown_event.is_set():
                 # Check if client disconnected
                 if await request.is_disconnected():
                     break
                 
                 try:
                     # Get next chunk from any producer
-                    chunk = await asyncio.wait_for(queue.get(), timeout=5.0)
+                    chunk = await asyncio.wait_for(queue.get(), timeout=1.0)
                     yield chunk
                 except asyncio.TimeoutError:
                     # Periodic heartbeat if no events

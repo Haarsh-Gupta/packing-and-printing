@@ -181,13 +181,6 @@ export default function HeroSection() {
 
                 {/* Main Hero Content */}
                 <div className="text-center space-y-8">
-                    {/* Small badge */}
-                    <div
-                        className={`inline-flex items-center gap-2 bg-black text-white px-5 py-2.5 text-sm font-bold uppercase tracking-widest rounded-full transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
-                    >
-                        <Sparkles className="w-4 h-4" />
-                        <span>Premium Printing & Packaging</span>
-                    </div>
 
                     {/* Giant headline */}
                     <h1

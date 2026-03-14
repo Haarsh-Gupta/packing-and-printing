@@ -39,10 +39,10 @@ export default async function ServicesCatalogPage() {
 
                         {/* Left */}
                         <div>
-                            <div className="pp-badge">
+                            {/* <div className="pp-badge">
                                 <span className="pp-badge-dot" style={{ background: "#c8d8ff" }} />
                                 Premium Design Studio
-                            </div>
+                            </div> */}
 
                             <h1 className="pp-hero-title">
                                 Explore our<br />

@@ -4,11 +4,17 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Github, Twitter, Instagram, Linkedin, Mail } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 import { useAlert } from "@/components/CustomAlert";
 
 export default function Footer() {
   const { showAlert } = useAlert();
+  const pathname = usePathname();
+
+  if (pathname && pathname.startsWith("/dashboard")) {
+    return null;
+  }
 
   return (
     <footer className="bg-black mt-auto z-10 relative text-white">

@@ -18,6 +18,7 @@ import json
 import logging
 from typing import AsyncGenerator, Optional
 from uuid import UUID
+from fastapi import Request
 
 import redis.asyncio as redis
 from app.core.config import settings
@@ -59,6 +60,9 @@ class SSEManager:
     - subscribe()        → async generator that yields SSE-formatted strings
     """
 
+    def __init__(self):
+        self._shutdown_event = asyncio.Event()
+
     # ── Publishing ─────────────────────────────────────────────
 
     async def publish(
@@ -89,6 +93,7 @@ class SSEManager:
     async def subscribe(
         self,
         user_id: str | UUID,
+        request: Request
     ) -> AsyncGenerator[str, None]:
         """
         Async generator that yields SSE-formatted event strings.
@@ -105,7 +110,14 @@ class SSEManager:
             # Send initial connection confirmation
             yield _format_sse("connected", {"message": "SSE stream connected"})
 
-            while True:
+            import time
+            last_keepalive = time.monotonic()
+
+            while not self._shutdown_event.is_set():
+                if await request.is_disconnected():
+                    logger.info(f"SSE HTTP disconnect detected for {channel}")
+                    break
+                
                 message = await pubsub.get_message(
                     ignore_subscribe_messages=True, timeout=1.0
                 )
@@ -117,16 +129,10 @@ class SSEManager:
                     except (json.JSONDecodeError, KeyError):
                         yield _format_sse("raw", {"message": raw})
                 else:
-                    # Send keepalive comment every ~30s to prevent proxy timeouts
-                    yield ": keepalive\n\n"
-                    # We continue immediately to get_message, which has a 1.0s timeout.
-                    # This way we are always responsive but still send a heart beat periodically.
-                    # (Wait, actually if we yield here and loops, it will spam keepalives every 1s)
-                    # Let's use a timestamp to throttle keepalives.
-                    pass
-                
-                # Wait for next message or a short bit
-                await asyncio.sleep(0.5)
+                    now = time.monotonic()
+                    if now - last_keepalive >= 25:
+                        yield ": keepalive\n\n"
+                        last_keepalive = now
 
         except asyncio.CancelledError:
             logger.info(f"SSE client disconnected from {channel}")
@@ -134,7 +140,7 @@ class SSEManager:
             await pubsub.unsubscribe(channel)
             await pubsub.close()
 
-    async def subscribe_admin(self) -> AsyncGenerator[str, None]:
+    async def subscribe_admin(self, request: Request) -> AsyncGenerator[str, None]:
         """Async generator for admin SSE stream."""
         r = await _get_pubsub_redis()
         pubsub = r.pubsub()
@@ -145,7 +151,14 @@ class SSEManager:
 
             yield _format_sse("connected", {"message": "Admin SSE stream connected"})
 
-            while True:
+            import time
+            last_keepalive = time.monotonic()
+
+            while not self._shutdown_event.is_set():
+                if await request.is_disconnected():
+                    logger.info("Admin SSE HTTP disconnect detected")
+                    break
+
                 message = await pubsub.get_message(
                     ignore_subscribe_messages=True, timeout=1.0
                 )
@@ -157,11 +170,10 @@ class SSEManager:
                     except (json.JSONDecodeError, KeyError):
                         yield _format_sse("raw", {"message": raw})
                 else:
-                    yield ": keepalive\n\n"
-                    pass
-                
-                # Wait for next message or a short bit
-                await asyncio.sleep(0.5)
+                    now = time.monotonic()
+                    if now - last_keepalive >= 25:
+                        yield ": keepalive\n\n"
+                        last_keepalive = now
 
         except asyncio.CancelledError:
             logger.info("Admin SSE client disconnected")
@@ -173,6 +185,7 @@ class SSEManager:
 
     async def shutdown(self) -> None:
         """Close the dedicated Pub/Sub Redis connection."""
+        self._shutdown_event.set()
         global _pubsub_redis
         if _pubsub_redis:
             await _pubsub_redis.close()

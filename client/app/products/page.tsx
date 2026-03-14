@@ -39,10 +39,10 @@ export default async function ProductsPage() {
 
                         {/* Left */}
                         <div>
-                            <div className="pp-badge">
+                            {/* <div className="pp-badge">
                                 <span className="pp-badge-dot" />
                                 Premium Printing &amp; Packaging
-                            </div>
+                            </div> */}
 
                             <h1 className="pp-hero-title">
                                 Browse our<br />

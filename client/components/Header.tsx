@@ -7,9 +7,11 @@ import { User, Menu, X, ShoppingCart } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
 import InquiryCartSidebar from "@/components/InquiryCartSidebar";
 import { useAuth } from "@/context/AuthContext";
+import { usePathname } from "next/navigation";
 
 export default function Header() {
   const { user, isLoggedIn } = useAuth();
+  const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -23,6 +25,10 @@ export default function Header() {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
+
+  if (pathname && pathname.startsWith("/dashboard")) {
+    return null;
+  }
 
   return (
     <header

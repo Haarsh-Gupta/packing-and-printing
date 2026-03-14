@@ -5,7 +5,7 @@ GET /events/stream        — authenticated user's real-time event stream
 GET /admin/events/stream  — admin-only real-time event stream
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.modules.auth.auth import get_current_user, get_current_admin_user
@@ -18,6 +18,7 @@ router = APIRouter()
 
 @router.get("/stream")
 async def user_sse_stream(
+    request: Request,
     current_user: TokenData = Depends(get_current_user),
 ):
     """
@@ -38,7 +39,7 @@ async def user_sse_stream(
         });
     """
     return StreamingResponse(
-        sse_manager.subscribe(str(current_user.id)),
+        sse_manager.subscribe(str(current_user.id), request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -50,6 +51,7 @@ async def user_sse_stream(
 
 @router.get("/admin/stream")
 async def admin_sse_stream(
+    request: Request,
     current_user: User = Depends(get_current_admin_user),
 ):
     """
@@ -66,7 +68,7 @@ async def admin_sse_stream(
         es.addEventListener('admin_payment_recorded', (e) => { ... });
     """
     return StreamingResponse(
-        sse_manager.subscribe_admin(),
+        sse_manager.subscribe_admin(request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

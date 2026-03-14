@@ -34,31 +34,18 @@ export function AppSidebar() {
     return (
         <Sidebar collapsible="icon">
             {/* Logo — matches Stitch: blue circle "N" + Navart / Admin Portal */}
-            <SidebarHeader style={{
-                height: '56px', display: 'flex', flexDirection: 'row',
-                alignItems: 'center', padding: '0 16px',
-                borderBottom: '1px solid var(--sidebar-border)', gap: '10px',
-            }}>
-                <div style={{
-                    width: '30px', height: '30px', borderRadius: '8px',
-                    background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                    <span style={{ color: 'white', fontWeight: 800, fontSize: '15px', fontFamily: "'Inter', system-ui", letterSpacing: '-0.04em' }}>N</span>
+            <SidebarHeader className="h-14 flex flex-row items-center px-4 gap-2.5 border-b border-sidebar-border group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
+                <div className="w-[30px] h-[30px] rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
+                    <span className="text-white font-extrabold text-[15px] font-sans tracking-tight">N</span>
                 </div>
-                <div className="group-data-[collapsible=icon]:hidden">
-                    <span style={{
-                        fontWeight: 700, fontSize: '15px', letterSpacing: '-0.03em',
-                        color: 'var(--sidebar-foreground)', fontFamily: "'Inter', system-ui", display: 'block',
-                    }}>Navart</span>
-                    <span style={{
-                        fontSize: '10px', fontWeight: 500, color: 'var(--sidebar-foreground)',
-                        opacity: 0.45, fontFamily: "'Inter', system-ui",
-                    }}>Admin Portal</span>
+                <div className="group-data-[collapsible=icon]:hidden flex flex-col justify-center">
+                    <span className="font-bold text-[15px] tracking-tight text-sidebar-foreground font-sans block leading-tight">Navart</span>
+                    <span className="text-[10px] font-medium text-sidebar-foreground/45 font-sans leading-tight">Admin Portal</span>
                 </div>
             </SidebarHeader>
 
             {/* Navigation */}
-            <SidebarContent style={{ padding: '10px 8px' }}>
+            <SidebarContent className="p-2.5 group-data-[collapsible=icon]:px-2">
                 <SidebarMenu>
                     {navItems.map((item) => {
                         const active = isActive(item.path);
@@ -68,17 +55,13 @@ export function AppSidebar() {
                                     asChild
                                     isActive={active}
                                     tooltip={item.label}
-                                    style={{
-                                        height: '36px', borderRadius: '8px',
-                                        fontFamily: "'Inter', system-ui",
-                                        fontWeight: active ? 600 : 400,
-                                        fontSize: '13px', gap: '10px',
-                                        color: active ? 'var(--sidebar-foreground)' : 'var(--sidebar-foreground)',
-                                        background: active ? 'var(--sidebar-accent)' : 'transparent',
-                                        opacity: active ? 1 : 0.75,
-                                    }}
+                                    className={`h-9 rounded-lg font-sans text-[13px] gap-2.5 ${
+                                        active
+                                            ? 'font-semibold text-sidebar-foreground bg-sidebar-accent opacity-100'
+                                            : 'font-normal text-sidebar-foreground bg-transparent opacity-75 hover:opacity-100'
+                                    }`}
                                 >
-                                    <Link to={item.path} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Link className="flex items-center gap-2.5 w-full" to={item.path}>
                                         <item.icon size={15} />
                                         <span>{item.label}</span>
                                     </Link>
@@ -90,7 +73,7 @@ export function AppSidebar() {
             </SidebarContent>
 
             {/* Footer */}
-            <SidebarFooter style={{ borderTop: '1px solid var(--sidebar-border)', padding: '12px 8px' }}>
+            <SidebarFooter className="border-t border-sidebar-border py-3 px-2 group-data-[collapsible=icon]:px-2">
                 {/* Settings link */}
                 <SidebarMenu>
                     <SidebarMenuItem>
@@ -98,14 +81,11 @@ export function AppSidebar() {
                             asChild
                             isActive={location.pathname === '/settings'}
                             tooltip="Settings"
-                            style={{
-                                height: '36px', borderRadius: '8px',
-                                fontFamily: "'Inter', system-ui",
-                                fontWeight: location.pathname === '/settings' ? 600 : 400,
-                                fontSize: '13px', opacity: 0.8,
-                            }}
+                            className={`h-9 rounded-lg font-sans text-[13px] ${
+                                location.pathname === '/settings' ? 'font-semibold opacity-100' : 'font-normal opacity-80'
+                            }`}
                         >
-                            <Link to="/settings" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Link to="/settings" className="flex items-center gap-2.5 w-full">
                                 <SettingsIcon size={15} />
                                 <span className="group-data-[collapsible=icon]:hidden">Settings</span>
                             </Link>
@@ -115,37 +95,23 @@ export function AppSidebar() {
 
                 {/* User info */}
                 {user && (
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: '10px',
-                        padding: '8px 6px', marginTop: '4px',
-                    }} className="group-data-[collapsible=icon]:justify-center">
-                        <div style={{
-                            width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0,
-                            background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            <span style={{ color: 'white', fontWeight: 700, fontSize: '13px' }}>
+                    <div className="flex items-center gap-2.5 py-2 px-1.5 mt-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:mx-auto">
+                        <div className="w-[30px] h-[30px] rounded-full shrink-0 bg-blue-500 flex items-center justify-center">
+                            <span className="text-white font-bold text-[13px]">
                                 {(user.name || user.email || 'A')[0].toUpperCase()}
                             </span>
                         </div>
-                        <div style={{ flex: 1, minWidth: 0 }} className="group-data-[collapsible=icon]:hidden">
-                            <p style={{
-                                fontSize: '12px', fontWeight: 600, color: 'var(--sidebar-foreground)',
-                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0,
-                            }}>{user.name || "Admin User"}</p>
-                            <p style={{ fontSize: '10px', color: 'var(--sidebar-foreground)', opacity: 0.45, margin: 0 }}>
+                        <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
+                            <p className="text-[12px] font-semibold text-sidebar-foreground truncate m-0">
+                                {user.name || "Admin User"}
+                            </p>
+                            <p className="text-[10px] text-sidebar-foreground/45 m-0 truncate">
                                 {user.email}
                             </p>
                         </div>
                         <button onClick={logout}
-                            className="group-data-[collapsible=icon]:hidden"
-                            style={{
-                                background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
-                                color: 'var(--sidebar-foreground)', opacity: 0.4, borderRadius: '5px',
-                                display: 'flex', transition: 'opacity 0.15s',
-                            }}
+                            className="group-data-[collapsible=icon]:hidden p-1 text-sidebar-foreground/40 rounded-md transition-all hover:text-red-500 hover:opacity-100 flex"
                             title="Sign out"
-                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.4'; (e.currentTarget as HTMLButtonElement).style.color = ''; }}
                         >
                             <LogOut size={14} />
                         </button>

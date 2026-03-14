@@ -61,11 +61,25 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    print("Shutting down...")
+    print("\n--------- SHUTDOWN STARTED ---------")
+    
+    print("⏳ Shutting down SSE Manager...")
     await sse_manager.shutdown()
+    print("✅ SSE Manager shutdown")
+    
+    print("⏳ Shutting down WebSocket Manager...")
     await ws_manager.shutdown()
+    print("✅ WebSocket Manager shutdown")
+    
+    print("⏳ Closing Redis client...")
     await redis_client.close()
+    print("✅ Redis client closed")
+    
+    print("⏳ Disposing Database Engine...")
     await engine.dispose()
+    print("✅ Database Engine disposed")
+    
+    print("--------- SHUTDOWN COMPLETE ---------\n")
 
 app = FastAPI(lifespan=lifespan)
 

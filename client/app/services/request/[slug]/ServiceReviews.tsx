@@ -48,25 +48,24 @@ export default function ServiceReviews({ serviceId, slug }: { serviceId: number,
     const [comment, setComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const fetchReviews = async () => {
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/service/${slug}`);
+            if (res.ok) {
+                const data = await res.json();
+                setReviews(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch reviews:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Fetch reviews & check login status cleanly on the client side
     useEffect(() => {
         const checkToken = localStorage.getItem("access_token");
         setIsLoggedIn(!!checkToken);
-
-        const fetchReviews = async () => {
-            try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/service/${slug}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setReviews(data);
-                }
-            } catch (error) {
-                console.error("Failed to fetch reviews:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         fetchReviews();
     }, [slug]);
 
@@ -90,7 +89,7 @@ export default function ServiceReviews({ serviceId, slug }: { serviceId: number,
 
         setIsSubmitting(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${currentToken}` },
                 body: JSON.stringify({ service_id: serviceId, rating, comment }),
@@ -100,6 +99,7 @@ export default function ServiceReviews({ serviceId, slug }: { serviceId: number,
                 setShowForm(false);
                 setComment("");
                 setRating(5);
+                fetchReviews();
             } else {
                 const err = await res.json();
                 const errorMessage = Array.isArray(err.detail)

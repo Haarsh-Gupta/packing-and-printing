@@ -18,6 +18,8 @@ import {
     Wifi,
     WifiOff,
     Loader2,
+    X,
+    FileText,
 } from "lucide-react";
 
 import Link from "next/link";
@@ -36,9 +38,13 @@ export default function InquiryDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [newMessage, setNewMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+    const [attachmentName, setAttachmentName] = useState<string | null>(null);
     const [wsStatus, setWsStatus] = useState<WsStatus>("disconnected");
     const [adminTyping, setAdminTyping] = useState(false);
 
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -142,10 +148,43 @@ export default function InquiryDetailPage() {
         }, 1500);
     };
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            showAlert("File must be under 5MB size limit", "error");
+            return;
+        }
+        setIsUploading(true);
+        try {
+            const token = localStorage.getItem("access_token");
+            const formData = new FormData();
+            formData.append("file", file);
+            
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=inquiry`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setAttachmentUrl(data.url);
+                setAttachmentName(data.filename || file.name);
+            } else {
+                showAlert("Failed to upload file.", "error");
+            }
+        } catch {
+            showAlert("Upload error.", "error");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     // ── Send message ─────────────────────────────────────────────────────
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || !inquiry) return;
+        if ((!newMessage.trim() && !attachmentUrl) || !inquiry || isSending) return;
 
         setIsSending(true);
         // Stop typing indicator immediately
@@ -163,7 +202,10 @@ export default function InquiryDetailPage() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ content: newMessage })
+                body: JSON.stringify({ 
+                    content: newMessage,
+                    file_urls: attachmentUrl ? [attachmentUrl] : []
+                })
             });
 
             if (res.ok) {
@@ -178,6 +220,9 @@ export default function InquiryDetailPage() {
                     return { ...prev, messages: [...(prev.messages || []), sentMsg] };
                 });
                 setNewMessage("");
+                setAttachmentUrl(null);
+                setAttachmentName(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
             } else if (res.status === 401) {
                 localStorage.removeItem("access_token");
                 router.replace("/auth/login");
@@ -252,7 +297,7 @@ export default function InquiryDetailPage() {
     const canMessage = ["PENDING", "UNDER_REVIEW", "QUOTED"].includes(inquiry.status);
 
     return (
-        <div className="space-y-6 max-w-6xl mx-auto h-[calc(100vh-100px)] flex flex-col">
+        <div className="space-y-6 max-w-6xl mx-auto min-h-[calc(100vh-100px)] lg:h-[calc(100vh-100px)] flex flex-col">
 
             {/* ── Header ──────────────────────────────────────────────── */}
             <div className="flex items-center justify-between border-b-4 border-black pb-4 shrink-0">
@@ -269,10 +314,10 @@ export default function InquiryDetailPage() {
                             </h1>
                             {/* WS Connection badge */}
                             {wsStatus === "connected"
-                                ? <Wifi className="w-4 h-4 text-green-600" title="Live – connected" />
+                                ? <span title="Live – connected"><Wifi className="w-4 h-4 text-green-600" /></span>
                                 : wsStatus === "connecting"
-                                    ? <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" title="Connecting..." />
-                                    : <WifiOff className="w-4 h-4 text-zinc-400" title="Offline – reconnect to get live updates" />}
+                                    ? <span title="Connecting..."><Loader2 className="w-4 h-4 text-yellow-500 animate-spin" /></span>
+                                    : <span title="Offline – reconnect to get live updates"><WifiOff className="w-4 h-4 text-zinc-400" /></span>}
                         </div>
                         <p className="text-sm font-medium text-zinc-500">
                             #{inquiry.id.slice(0, 8).toUpperCase()} · {new Date(inquiry.created_at).toLocaleDateString()}
@@ -301,10 +346,10 @@ export default function InquiryDetailPage() {
             </div>
 
             {/* ── Body ────────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 grow overflow-hidden">
+            <div className="flex flex-col-reverse lg:grid lg:grid-cols-3 gap-6 grow overflow-visible lg:overflow-hidden pb-6 lg:pb-0">
 
                 {/* Left: Project specs */}
-                <div className="lg:col-span-1 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col overflow-hidden">
+                <div className="lg:col-span-1 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col overflow-hidden shrink-0">
                     <CardHeader className="bg-zinc-50 border-b-2 border-black py-3">
                         <CardTitle className="uppercase text-base font-black">Project Specs</CardTitle>
                     </CardHeader>
@@ -377,7 +422,7 @@ export default function InquiryDetailPage() {
                 </div>
 
                 {/* Right: Chat */}
-                <div className="lg:col-span-2 border-2 border-black bg-zinc-50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col overflow-hidden">
+                <div className="lg:col-span-2 border-2 border-black bg-zinc-50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col overflow-hidden h-[calc(100vh-200px)] lg:h-auto">
 
                     {/* Header for chat panel */}
                     <div className="bg-white border-b-2 border-black px-5 py-3 flex items-center justify-between shrink-0">
@@ -407,6 +452,15 @@ export default function InquiryDetailPage() {
                                             <div className="space-y-1">
                                                 <div className={`border-2 border-black p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] bg-white ${isMe ? "rounded-tr-none" : "rounded-tl-none"}`}>
                                                     <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed">{msg.content}</p>
+                                                    {msg.file_urls && msg.file_urls.length > 0 && (
+                                                        <div className={`mt-2 pt-2 border-t ${isMe ? 'border-zinc-200' : 'border-zinc-200'}`}>
+                                                            {msg.file_urls.map((url, i) => (
+                                                                <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline mt-1">
+                                                                    <FileText className="w-3 h-3" /> Attachment {i + 1}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className={`text-[10px] uppercase font-bold text-zinc-400 ${isMe ? "text-right" : "text-left"}`}>
                                                     {isMe ? "You" : "Studio"} · {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -436,11 +490,38 @@ export default function InquiryDetailPage() {
                     </div>
 
                     {/* Input area */}
-                    <div className="bg-white border-t-2 border-black p-4 shrink-0">
+                    <div className="bg-white border-t-2 border-black p-4 shrink-0 flex flex-col gap-2">
+                        {attachmentUrl && (
+                            <div className="flex items-center gap-2 bg-zinc-100 border border-black px-3 py-1.5 w-max">
+                                <FileText className="w-4 h-4 text-[#ff90e8]" />
+                                <span className="text-xs font-bold truncate max-w-[200px]">{attachmentName}</span>
+                                <button type="button" onClick={() => {
+                                    setAttachmentUrl(null);
+                                    setAttachmentName(null);
+                                    if(fileInputRef.current) fileInputRef.current.value="";
+                                }} className="p-1 hover:text-red-500">
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        )}
                         {canMessage ? (
                             <form onSubmit={handleSendMessage} className="flex gap-2">
-                                <Button type="button" variant="outline" size="icon" className="border-2 border-black rounded-none shrink-0" disabled>
-                                    <Paperclip className="w-4 h-4" />
+                                <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    ref={fileInputRef} 
+                                    onChange={handleFileUpload} 
+                                    accept="image/*,application/pdf" 
+                                />
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="icon" 
+                                    className="border-2 border-black rounded-none shrink-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50" 
+                                    disabled={isSending || isUploading || attachmentUrl !== null} 
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
                                 </Button>
                                 <input
                                     type="text"
@@ -453,8 +534,8 @@ export default function InquiryDetailPage() {
                                 <Button
                                     type="submit"
                                     size="icon"
-                                    className="bg-black text-white border-2 border-black rounded-none hover:bg-zinc-800 shrink-0"
-                                    disabled={isSending || !newMessage.trim()}
+                                    className="bg-black text-white border-2 border-black rounded-none hover:bg-zinc-800 shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                                    disabled={isSending || isUploading || (!newMessage.trim() && !attachmentUrl)}
                                 >
                                     {isSending ? <Clock className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                 </Button>
