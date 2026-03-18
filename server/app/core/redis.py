@@ -41,3 +41,19 @@ async def check_redis_connection():
 async def get_redis() -> redis.Redis:
     """FastAPI dependency that yields a Redis connection."""
     yield redis_client
+
+
+def create_dedicated_redis_client() -> redis.Redis:
+    """
+    Creates a new, unpooled connection specifically for long-lived Pub/Sub tasks.
+    Using the shared pool for Pub/Sub locks the connection into Subscriber Mode,
+    starving the app of standard connections.
+    """
+    return redis.Redis(
+        host=settings.redis_host,
+        port=settings.redis_port,
+        password=settings.redis_password or None,
+        db=settings.redis_db,
+        decode_responses=True,
+        ssl=settings.redis_ssl
+    )

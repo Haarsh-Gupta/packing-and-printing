@@ -5,11 +5,10 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.modules.auth.auth import get_current_user, get_current_admin_user
+from app.modules.auth.auth import get_current_user
 from app.modules.auth.schemas import TokenData
-from app.modules.users.models import User
-from app.modules.services.models import Service, SubService
-from app.modules.products.models import Product, SubProduct
+from app.modules.services.models import SubService
+from app.modules.products.models import SubProduct
 from app.modules.orders.models import Order, OrderMilestone
 from app.modules.orders.schemas import OrderResponse
 from app.modules.orders.schemas import PaymentSplitType
@@ -18,7 +17,6 @@ from .schemas import (
     InquiryGroupCreate,
     InquiryItemUpdate,
     InquiryItemCreate,
-    InquiryQuotation,
     InquiryStatus,
     InquiryStatusUpdate,
     USER_ALLOWED_TRANSITIONS,
@@ -29,8 +27,8 @@ from .schemas import (
 )
 from app.modules.notifications.service import NotificationService
 
-from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Query
-from jose import jwt, JWTError
+from fastapi import WebSocket, WebSocketDisconnect, Query
+from jose import jwt
 from app.core.config import settings
 from app.core.websockets import ws_manager
 import json

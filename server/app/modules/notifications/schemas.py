@@ -6,8 +6,19 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 
-
 from uuid import UUID
+
+# ── Standard UI Event Payload ────────────────────────────────
+class UINotification(BaseModel):
+    """Standardized payload structure for raw real-time SSE websocket messages."""
+    id: str
+    event_type: str
+    title: str
+    body: str
+    action_url: Optional[str] = None
+    is_read: bool = False
+    metadata: Optional[dict] = None
+
 
 # ── Admin sends ──────────────────────────────────────────────
 class NotificationCreate(BaseModel):

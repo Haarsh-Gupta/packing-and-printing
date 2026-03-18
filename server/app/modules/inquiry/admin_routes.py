@@ -6,14 +6,11 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from ..auth.auth import get_current_user, get_current_admin_user
-from ..auth.schemas import TokenData
+from ..auth.auth import get_current_admin_user
 from ..users.models import User
-from .models import InquiryGroup, InquiryItem, InquiryMessage
+from .models import InquiryGroup, InquiryMessage
 from ..notifications.models import Notification
 from .schemas import (
-    InquiryGroupCreate,
-    InquiryItemCreate,
     AdminPricingCalculatorRequest,
     InquiryQuotation,
     InquiryStatus,

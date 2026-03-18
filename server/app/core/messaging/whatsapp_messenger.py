@@ -11,7 +11,6 @@
 
 import urllib.parse
 import logging
-from typing import Optional
 
 from .base import BaseMessenger, MessengerResult
 

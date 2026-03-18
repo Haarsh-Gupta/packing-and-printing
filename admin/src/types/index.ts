@@ -249,10 +249,20 @@ export interface Notification {
 export interface Review {
     id: number;
     user_id: string;
-    product_id: number;
+    product_id?: number | null;
+    service_id?: number | null;
     rating: number;
     comment: string;
     is_verified: boolean;
     created_at: string;
-    user?: { name: string; avatar_url?: string };
+    user?: { name: string; avatar_url?: string; profile_picture?: string };
+    product?: { id: number; name: string; product_id: number };
+    service?: { id: number; name: string; service_id: number };
+}
+
+export interface ReviewListResponse {
+    total: number;
+    skip: number;
+    limit: number;
+    reviews: Review[];
 }

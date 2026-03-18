@@ -4,13 +4,14 @@ from .schemas import TokenData
 from jose import JWTError , jwt
 from datetime import datetime , timedelta , timezone
 from fastapi import HTTPException , Depends , status, Request
-from fastapi.security import OAuth2PasswordBearer, SecurityScopes
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from ..users.models import User
 from app.core.database import get_db
 from app.core.config import settings
-import secrets, string
+import secrets
+import string
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 

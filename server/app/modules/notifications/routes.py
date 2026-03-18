@@ -16,7 +16,6 @@ from app.modules.auth.schemas import TokenData
 
 from .models import Notification
 from .schemas import (
-    NotificationCreate,
     NotificationBulkCreate,
     NotificationResponse,
     NotificationListResponse,
@@ -68,11 +67,11 @@ async def sse_stream(request: Request, token: str = Query(..., description="JWT 
                     break
                 
                 try:
-                    # Get next chunk from any producer
+                    # Get next chunk from any producer (15s timeout to avoid keepalive storm;
+                    # inner generators already send keepalives at 25s intervals)
                     chunk = await asyncio.wait_for(queue.get(), timeout=1.0)
                     yield chunk
                 except asyncio.TimeoutError:
-                    # Periodic heartbeat if no events
                     yield ": keepalive\n\n"
                     
         finally:
@@ -147,11 +146,10 @@ async def list_my_notifications(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get all notifications for the current user and trigger lazy cleanup for admins."""
-    # Lazy cleanup: if current user is admin, clean up old read notifications
-    if current_user.admin:
-        await NotificationService.lazy_cleanup(db)
-        await db.commit() # Commit the deletions
+    """Get all notifications for the current user and trigger lazy cleanup."""
+    # Lazy cleanup for all users to prevent DB bloat
+    await NotificationService.lazy_cleanup(db, current_user.id)
+    await db.commit() # Commit the deletions
         
     base = select(Notification).where(Notification.user_id == current_user.id)
 
@@ -229,3 +227,35 @@ async def mark_all_as_read(
     )
     await db.commit()
     return {"message": "All notifications marked as read"}
+
+@router.delete("/all")
+async def clear_all_notifications(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete all notifications for the current user."""
+    from sqlalchemy import delete
+    await db.execute(
+        delete(Notification).where(Notification.user_id == current_user.id)
+    )
+    await db.commit()
+    return {"message": "All notifications cleared"}
+
+@router.delete("/{notification_id}")
+async def delete_notification(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a single notification."""
+    from sqlalchemy import delete
+    result = await db.execute(
+        delete(Notification).where(
+            Notification.id == notification_id,
+            Notification.user_id == current_user.id,
+        )
+    )
+    await db.commit()
+    if result.rowcount == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    return {"message": "Notification deleted"}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Bell, CheckCircle2, Info, Loader2, X, CheckCheck } from "lucide-react";
+import { Bell, CheckCircle2, Info, Loader2, X, CheckCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAlert } from "@/components/CustomAlert";
@@ -120,6 +120,40 @@ export default function NotificationCenter() {
         }
     };
 
+    const deleteAll = async () => {
+        if (!token) return;
+        try {
+            const res = await fetch(`${apiUrl}/notifications/all`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                setNotifications([]);
+                setUnreadCount(0);
+            }
+        } catch (err) {
+            console.error("Failed to delete all", err);
+        }
+    };
+
+    const deleteNotification = async (id: number, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!token) return;
+        try {
+            const res = await fetch(`${apiUrl}/notifications/${id}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                setNotifications(prev => prev.filter(n => n.id !== id));
+                fetchNotifications();
+            }
+        } catch (err) {
+            console.error("Failed to delete", err);
+        }
+    };
+
     const toggleOpen = () => {
         const next = !isOpen;
         setIsOpen(next);
@@ -162,10 +196,17 @@ export default function NotificationCenter() {
                             <h3 className="font-black uppercase text-sm tracking-tight flex items-center gap-2">
                                 <Bell className="w-4 h-4" /> Notifications
                             </h3>
-                            {unreadCount > 0 && (
-                                <button onClick={markAllRead} className="text-[10px] font-bold uppercase underline text-zinc-500 hover:text-black">
-                                    Mark all read
-                                </button>
+                            {notifications.length > 0 && (
+                                <div className="flex gap-3">
+                                    {unreadCount > 0 && (
+                                        <button onClick={markAllRead} className="text-[10px] font-bold uppercase underline text-zinc-500 hover:text-black">
+                                            Mark all read
+                                        </button>
+                                    )}
+                                    <button onClick={deleteAll} className="text-[10px] font-bold uppercase underline text-red-500 hover:text-red-600">
+                                        Clear all
+                                    </button>
+                                </div>
                             )}
                         </div>
 
@@ -200,14 +241,22 @@ export default function NotificationCenter() {
                                                             <h4 className={`text-xs uppercase tracking-tight ${!n.is_read ? 'font-black' : 'font-bold text-zinc-600'}`}>
                                                                 {n.title}
                                                             </h4>
-                                                            {!n.is_read && <span className="w-1.5 h-1.5 bg-black rounded-full mt-1"></span>}
+                                                            {!n.is_read && <span className="w-1.5 h-1.5 bg-black rounded-full mt-1 shrink-0 ml-2"></span>}
                                                         </div>
                                                         <p className="text-xs font-medium text-zinc-500 line-clamp-2 leading-relaxed">
                                                             {n.message}
                                                         </p>
-                                                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mt-2 block">
-                                                            {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </span>
+                                                        <div className="flex justify-between items-center mt-2">
+                                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">
+                                                                {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                            <button 
+                                                                onClick={(e) => deleteNotification(n.id, e)} 
+                                                                className="p-1 hover:bg-zinc-200 rounded-md text-zinc-400 hover:text-red-500 transition-colors"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </Comp>
                                             </li>

@@ -539,3 +539,144 @@
 .pp-btn-outline:hover {
   background: rgba(0, 0, 0, 0.06);
 }
+
+/* ── Doodle animations (mirrors HeroSection) ── */
+@keyframes pp-doodle-float-1 {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25%  { transform: translateY(-12px) rotate(3deg); }
+  50%  { transform: translateY(-6px)  rotate(-2deg); }
+  75%  { transform: translateY(-18px) rotate(4deg); }
+}
+@keyframes pp-doodle-float-2 {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  33% { transform: translateY(-15px) rotate(-4deg); }
+  66% { transform: translateY(-8px)  rotate(3deg); }
+}
+@keyframes pp-doodle-float-3 {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  30% { transform: translateY(-10px) rotate(5deg)  scale(1.05); }
+  60% { transform: translateY(-20px) rotate(-3deg) scale(0.95); }
+}
+@keyframes pp-doodle-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes pp-doodle-spin-slow {
+  0%   { transform: rotate(0deg)   scale(1); }
+  50%  { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.pp-doodle-float-1  { animation: pp-doodle-float-1  6s ease-in-out infinite; }
+.pp-doodle-float-2  { animation: pp-doodle-float-2  8s ease-in-out infinite; }
+.pp-doodle-float-3  { animation: pp-doodle-float-3  7s ease-in-out infinite; }
+.pp-doodle-spin     { animation: pp-doodle-spin    12s linear infinite; }
+.pp-doodle-spin-slow{ animation: pp-doodle-spin-slow 15s linear infinite; }
+
+/* ── Informational strip (How It Works / Why Us) ── */
+.pp-strip-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem 3rem;
+}
+
+.pp-strip-header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  flex-wrap: wrap;
+}
+
+.pp-strip-tag {
+  display: inline-block;
+  background: #000;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 999px;
+}
+
+.pp-strip-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.625rem;
+  font-style: italic;
+  color: #000;
+  line-height: 1;
+}
+
+.pp-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+@media (max-width: 720px) {
+  .pp-strip-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pp-strip-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  border: 2.5px solid #000;
+  border-radius: 16px;
+  padding: 1.5rem 1.5rem 1.75rem;
+  box-shadow: 4px 4px 0 #000;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.pp-strip-card:hover {
+  box-shadow: none;
+  transform: translate(4px, 4px);
+}
+
+.pp-strip-num {
+  font-family: 'DM Serif Display', serif;
+  font-size: 2.5rem;
+  font-style: italic;
+  line-height: 1;
+  color: rgba(0,0,0,0.12);
+}
+
+.pp-strip-icon {
+  width: 48px;
+  height: 48px;
+  border: 2.5px solid #000;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2px 2px 0 #000;
+}
+
+.pp-strip-card-title {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #000;
+  text-transform: uppercase;
+}
+
+.pp-strip-card-body {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #555;
+  font-weight: 400;
+}
+
+/* ── Card accent top bar ── */
+.pp-accent-bar {
+  height: 5px;
+  width: 100%;
+  border-radius: 12px 12px 0 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+

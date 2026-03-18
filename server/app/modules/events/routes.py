@@ -5,7 +5,7 @@ GET /events/stream        — authenticated user's real-time event stream
 GET /admin/events/stream  — admin-only real-time event stream
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from app.modules.auth.auth import get_current_user, get_current_admin_user

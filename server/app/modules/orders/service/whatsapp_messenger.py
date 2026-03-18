@@ -1,6 +1,5 @@
 import urllib.parse
 from typing import Optional, Dict, Any
-from datetime import datetime
 
 
 class WhatsAppMessenger:
@@ -302,28 +301,29 @@ class TwilioWhatsAppSender:
 
 # ==============================================================
 
-inquiry_data = {
-    "inquiry_id": 1024,
-    "product_name": "Engineering Mathematics – Volume 1",
-    "quantity": 2,
-    "quoted_price": 850.00,
-    "selected_options": {
-        "Edition": "2023",
-        "Author": "B.S. Grewal",
-        "Condition": "New",
-        "Delivery": "Home Delivery"
-    },
-    "admin_notes": "Price valid for 48 hours. Delivery within 3–4 working days."
-}
+if __name__ == "__main__":
+    inquiry_data = {
+        "inquiry_id": 1024,
+        "product_name": "Engineering Mathematics – Volume 1",
+        "quantity": 2,
+        "quoted_price": 850.00,
+        "selected_options": {
+            "Edition": "2023",
+            "Author": "B.S. Grewal",
+            "Condition": "New",
+            "Delivery": "Home Delivery"
+        },
+        "admin_notes": "Price valid for 48 hours. Delivery within 3–4 working days."
+    }
 
-phone_number = "+919315865758"
-customer_name = "Harsh"
-company_name = "Navart"
+    phone_number = "+919315865758"
+    customer_name = "Harsh"
+    company_name = "Navart"
 
 
-link = WhatsAppMessenger.send_estimation_whatsapp(
-    phone_number=phone_number,
-    customer_name=customer_name,
-    inquiry_data=inquiry_data,
-    company_name=company_name
-)
+    link = WhatsAppMessenger.send_estimation_whatsapp(
+        phone_number=phone_number,
+        customer_name=customer_name,
+        inquiry_data=inquiry_data,
+        company_name=company_name
+    )

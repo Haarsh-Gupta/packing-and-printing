@@ -4,19 +4,13 @@ from uuid import UUID
 from app.modules.tickets.schemas import TicketResponse
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select
 from app.core.database import get_db
 from app.modules.auth import get_current_admin_user
 from app.modules.users.models import User
-from app.modules.tickets.models import Ticket, TicketMessage
+from app.modules.tickets.models import Ticket
 from app.modules.tickets.schemas import (
-    TicketCreate,
     TicketStatusUpdate,
-    TicketMessageCreate,
-    TicketResponse,
-    TicketDetailResponse,
-    TicketMessageResponse,
 )
 
 

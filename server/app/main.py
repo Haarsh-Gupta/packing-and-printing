@@ -1,6 +1,7 @@
+import asyncio
 from fastapi import FastAPI 
 from fastapi.responses import HTMLResponse 
-from app.core.database import engine , Base , get_db
+from app.core.database import engine
 from app.modules.users.routes import router as user_router
 from app.modules.users.admin_routes import router as admin_user_router
 
@@ -39,7 +40,6 @@ from app.modules.events.routes import router as events_router
 from starlette.middleware.sessions import SessionMiddleware
 
 from contextlib import asynccontextmanager
-from app import modules
 from app.core.config import settings
 from app.core.middleware import RateLimitMiddleware, UserActivityMiddleware
 
@@ -63,21 +63,29 @@ async def lifespan(app: FastAPI):
     
     print("\n--------- SHUTDOWN STARTED ---------")
     
-    print("⏳ Shutting down SSE Manager...")
-    await sse_manager.shutdown()
-    print("✅ SSE Manager shutdown")
-    
-    print("⏳ Shutting down WebSocket Manager...")
-    await ws_manager.shutdown()
-    print("✅ WebSocket Manager shutdown")
-    
-    print("⏳ Closing Redis client...")
-    await redis_client.close()
-    print("✅ Redis client closed")
-    
-    print("⏳ Disposing Database Engine...")
-    await engine.dispose()
-    print("✅ Database Engine disposed")
+    async def _graceful_shutdown():
+        print("⏳ Shutting down SSE Manager...")
+        await sse_manager.shutdown()
+        print("✅ SSE Manager shutdown")
+        
+        print("⏳ Shutting down WebSocket Manager...")
+        await ws_manager.shutdown()
+        print("✅ WebSocket Manager shutdown")
+        
+        print("⏳ Closing Redis client...")
+        await redis_client.close()
+        print("✅ Redis client closed")
+        
+        print("⏳ Disposing Database Engine...")
+        await engine.dispose()
+        print("✅ Database Engine disposed")
+
+    try:
+        await asyncio.wait_for(_graceful_shutdown(), timeout=5.0)
+    except asyncio.TimeoutError:
+        print("⚠️  Shutdown timed out after 5s — forcing exit")
+    except Exception as e:
+        print(f"⚠️  Shutdown error: {e}")
     
     print("--------- SHUTDOWN COMPLETE ---------\n")
 
@@ -95,9 +103,10 @@ app.add_middleware(
 )
 
 
-app.add_middleware(RateLimitMiddleware, limit=200, window=60)
+app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 app.add_middleware(UserActivityMiddleware)
-app.add_middleware(SessionMiddleware , secret_key=settings.secret_key)
+app.add_middleware(RateLimitMiddleware, limit=200, window=60)
+# RateLimitMiddleware is now the outermost — runs first on every request
 
 app.include_router(user_router , prefix="/users" , tags=["Users"])
 app.include_router(admin_user_router, prefix="/admin/users", tags=["Admin Users"])
@@ -134,25 +143,6 @@ app.include_router(notification_router, prefix="/notifications", tags=["Notifica
 app.include_router(admin_notification_router, prefix="/admin/notifications", tags=["Admin Notifications"])
 app.include_router(events_router, prefix="/events", tags=["SSE Events"])
 
-
-
-
-from app.modules.orders.utils.whatsapp_messenger import link
-
-from fastapi.responses import HTMLResponse
-
-@app.get("/link")
-async def get_link():
-    return HTMLResponse(
-        f"""
-        <html>
-          <body>
-            <h3>Open WhatsApp</h3>
-            <a href="{link}" target="_blank">Send Message</a>
-          </body>
-        </html>
-        """
-    )
 
 
 @app.get("/")

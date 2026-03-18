@@ -1,16 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, and_
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 
 from app.core.database import get_db
-from app.modules.auth.auth import get_current_user, get_current_admin_user
+from app.modules.auth.auth import get_current_admin_user
 from app.modules.users.models import User
 from app.modules.wishlist.models import Wishlist
-from app.modules.products.models import SubProduct
-from app.modules.services.models import SubService
-from app.modules.wishlist.schemas import WishlistToggleRequest, WishlistSyncRequest, WishlistItemResponse
+from app.modules.wishlist.schemas import WishlistItemResponse
 
 router = APIRouter()
 

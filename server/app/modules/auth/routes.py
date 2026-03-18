@@ -1,12 +1,12 @@
 from app.modules.auth import get_current_user
 from fastapi import APIRouter , Depends, status, HTTPException
 from fastapi.requests import Request
-from fastapi.responses import Response, JSONResponse, RedirectResponse
+from fastapi.responses import Response, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select 
 from .auth import verify_password, create_access_token , create_refresh_token, verify_token
-from .schemas import TokenData, Token
+from .schemas import TokenData
 from ..users.models import User
 from app.core.database import get_db
 from app.core.config import settings
@@ -152,7 +152,7 @@ async def google_login(request: Request):
 async def google_callback(request: Request, db : AsyncSession = Depends(get_db)):
     try:
         token = await oauth.google.authorize_access_token(request)
-    except OAuthError as e:
+    except OAuthError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google authentication failed")
 
     is_secure = request.url.scheme == "https" and "localhost" not in request.url.hostname

@@ -2,17 +2,19 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Order } from "@/types";
 import {
-    Download, Trash2, Search, X, Loader2, MapPin, CreditCard, Calendar, Printer
+    Download, Trash2, Search, X, Loader2, MapPin, CreditCard, Calendar, Printer, Plus, Minus
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const STATUS_TABS = ["All", "Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
+const STATUS_TABS = ["All", "Waiting Payment", "Partially Paid", "Paid", "Processing", "Ready", "Completed", "Cancelled"];
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
-    PENDING: { color: '#d97706', bg: '#fffbeb' },
-    PROCESSING: { color: '#2563eb', bg: '#eff6ff' },
-    SHIPPED: { color: '#7c3aed', bg: '#f5f3ff' },
-    DELIVERED: { color: '#16a34a', bg: '#f0fdf4' },
+    WAITING_PAYMENT: { color: '#d97706', bg: '#fffbeb' },
+    PARTIALLY_PAID: { color: '#2563eb', bg: '#eff6ff' },
+    PAID: { color: '#16a34a', bg: '#f0fdf4' },
+    PROCESSING: { color: '#8b5cf6', bg: '#f5f3ff' },
+    READY: { color: '#0ea5e9', bg: '#e0f2fe' },
+    COMPLETED: { color: '#059669', bg: '#d1fae5' },
     CANCELLED: { color: '#dc2626', bg: '#fef2f2' },
 };
 
@@ -39,11 +41,14 @@ export default function Orders() {
     const [selected, setSelected] = useState<Order | null>(null);
     const [updating, setUpdating] = useState(false);
     const [newStatus, setNewStatus] = useState("");
+    const [fullOrder, setFullOrder] = useState<any | null>(null);
+    const [editingSchedule, setEditingSchedule] = useState(false);
+    const [customMilestones, setCustomMilestones] = useState<{label: string; percentage: number}[]>([]);
 
     const fetchOrders = () => {
         setLoading(true);
-        let url = "/orders/admin/all?skip=0&limit=100";
-        if (statusFilter !== "All") url += `&status_filter=${statusFilter.toUpperCase()}`;
+        let url = "/admin/orders/all?skip=0&limit=100";
+        if (statusFilter !== "All") url += `&status_filter=${statusFilter.toUpperCase().replace(/ /g, "_")}`;
         api<Order[]>(url).then(setOrders).catch(console.error).finally(() => setLoading(false));
     };
 
@@ -53,11 +58,47 @@ export default function Orders() {
         if (!selected || !newStatus) return;
         setUpdating(true);
         try {
-            await api(`/orders/admin/${selected.id}/status`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
+            await api(`/admin/orders/${selected.id}/status`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
             fetchOrders();
             setSelected(prev => prev ? { ...prev, status: newStatus } : null);
         } catch (e) { console.error(e); }
         finally { setUpdating(false); }
+    };
+
+    const handleSelectOrder = async (order: Order) => {
+        setSelected(order);
+        setNewStatus(order.status);
+        setFullOrder(null);
+        setEditingSchedule(false);
+        try {
+            const data = await api(`/admin/orders/${order.id}`);
+            setFullOrder(data);
+        } catch (e) {
+            console.error("Failed to load full order", e);
+        }
+    };
+
+    const updateCustomMilestones = async () => {
+        if (!selected) return;
+        setUpdating(true);
+        try {
+            // Server expects POST /admin/orders/{order_id}/milestones
+            await api(`/admin/orders/${selected.id}/milestones`, {
+                method: "POST",
+                body: JSON.stringify({
+                    split_type: "CUSTOM",
+                    milestones: customMilestones
+                })
+            });
+            // refresh data
+            const data = await api(`/admin/orders/${selected.id}`);
+            setFullOrder(data);
+            setEditingSchedule(false);
+        } catch (e: any) {
+            alert(e.message || "Failed to update custom milestones.");
+        } finally {
+            setUpdating(false);
+        }
     };
 
     const filtered = orders.filter(o =>
@@ -141,7 +182,7 @@ export default function Orders() {
                                 <tbody>
                                     {filtered.map(order => (
                                         <tr key={order.id}
-                                            onClick={() => { setSelected(order); setNewStatus(order.status); }}
+                                            onClick={() => handleSelectOrder(order)}
                                             style={{
                                                 borderBottom: '1px solid #f9f9f9',
                                                 cursor: 'pointer', transition: 'background 0.1s',
@@ -221,6 +262,107 @@ export default function Orders() {
                                 </div>
                             </div>
 
+                            {/* Payment Schedule */}
+                            {fullOrder && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                        <p style={{ fontSize: '11px', fontWeight: 600, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>PAYMENT SCHEDULE</p>
+                                        {fullOrder.amount_paid === 0 && (
+                                            <button 
+                                                onClick={() => {
+                                                    if (!editingSchedule) {
+                                                        if (fullOrder.milestones?.length >= 2) {
+                                                            setCustomMilestones(fullOrder.milestones.map((m: any) => ({ label: m.label, percentage: m.percentage })));
+                                                        } else {
+                                                            setCustomMilestones([{ label: "Advance", percentage: 50 }, { label: "Balance", percentage: 50 }]);
+                                                        }
+                                                    }
+                                                    setEditingSchedule(!editingSchedule);
+                                                }}
+                                                style={{ fontSize: '11px', fontWeight: 600, color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', outline: 'none', padding: 0 }}
+                                            >
+                                                {editingSchedule ? 'Cancel Edit' : 'Edit Schedule'}
+                                            </button>
+                                        )}
+                                    </div>
+                                    
+                                    {!editingSchedule ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {fullOrder.milestones?.slice().sort((a: any, b: any) => a.order_index - b.order_index).map((m: any, idx: number) => (
+                                                <div key={m.id || idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: '#f9f9f9', borderRadius: '8px', alignItems: 'center' }}>
+                                                    <div>
+                                                        <p style={{ fontSize: '13px', fontWeight: 600, color: '#18181b', margin: 0 }}>{idx + 1}. {m.label} ({m.percentage}%)</p>
+                                                        <p style={{ fontSize: '12px', color: '#71717a', margin: '2px 0 0' }}>₹{m.amount.toLocaleString()}</p>
+                                                    </div>
+                                                    <StatusPill status={m.status} />
+                                                </div>
+                                            ))}
+                                            {(!fullOrder.milestones || fullOrder.milestones.length === 0) && (
+                                                <p style={{ fontSize: '12px', color: '#a1a1aa', margin: 0 }}>No milestones found.</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '12px', border: '1px solid #e4e4e7', borderRadius: '10px', background: 'white' }}>
+                                            {customMilestones.map((cm, idx) => (
+                                                <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                                                    <input 
+                                                        value={cm.label} 
+                                                        onChange={(e) => {
+                                                            const newM = [...customMilestones];
+                                                            newM[idx].label = e.target.value;
+                                                            setCustomMilestones(newM);
+                                                        }}
+                                                        placeholder="Label"
+                                                        style={{ flex: 1, height: '32px', border: '1px solid #e4e4e7', borderRadius: '6px', padding: '0 8px', fontSize: '12px' }}
+                                                    />
+                                                    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #e4e4e7', borderRadius: '6px', background: '#f9f9f9' }}>
+                                                        <input 
+                                                            type="number" value={cm.percentage === 0 ? '' : cm.percentage} 
+                                                            onChange={(e) => {
+                                                                const newM = [...customMilestones];
+                                                                newM[idx].percentage = Number(e.target.value);
+                                                                setCustomMilestones(newM);
+                                                            }}
+                                                            placeholder="%"
+                                                            style={{ width: '45px', height: '30px', border: 'none', background: 'transparent', padding: '0 8px', fontSize: '12px', textAlign: 'right' }}
+                                                        />
+                                                        <span style={{ fontSize: '12px', color: '#a1a1aa', paddingRight: '8px', fontWeight: 600 }}>%</span>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => setCustomMilestones(customMilestones.filter((_, i) => i !== idx))}
+                                                        disabled={customMilestones.length <= 2}
+                                                        style={{ padding: '6px', color: customMilestones.length <= 2 ? '#d4d4d8' : '#ef4444', background: 'none', border: 'none', cursor: customMilestones.length <= 2 ? 'not-allowed' : 'pointer' }}
+                                                    >
+                                                        <Minus size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                                                <button 
+                                                    onClick={() => setCustomMilestones([...customMilestones, { label: "New Milestone", percentage: 0 }])}
+                                                    disabled={customMilestones.length >= 5}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600, color: customMilestones.length >= 5 ? '#a1a1aa' : '#18181b', background: 'none', border: 'none', cursor: customMilestones.length >= 5 ? 'not-allowed' : 'pointer', padding: 0 }}
+                                                >
+                                                    <Plus size={14} /> Add Stage
+                                                </button>
+                                                <div style={{ fontSize: '12px', fontWeight: 600, color: customMilestones.reduce((s, m) => s + m.percentage, 0) === 100 ? '#16a34a' : '#ef4444' }}>
+                                                    Total: {customMilestones.reduce((s, m) => s + m.percentage, 0)}%
+                                                </div>
+                                            </div>
+                                            
+                                            <button 
+                                                onClick={updateCustomMilestones}
+                                                disabled={updating || customMilestones.some(m => !m.label) || customMilestones.reduce((s, m) => s + m.percentage, 0) !== 100}
+                                                style={{ width: '100%', height: '32px', marginTop: '12px', background: '#18181b', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: (updating || customMilestones.some(m => !m.label) || customMilestones.reduce((s, m) => s + m.percentage, 0) !== 100) ? 'not-allowed' : 'pointer', opacity: (updating || customMilestones.some(m => !m.label) || customMilestones.reduce((s, m) => s + m.percentage, 0) !== 100) ? 0.5 : 1 }}
+                                            >
+                                                {updating ? 'Saving...' : 'Save Schedule'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Customer Info */}
                             <div style={{ marginBottom: '20px' }}>
                                 <p style={{ fontSize: '11px', fontWeight: 600, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>CUSTOMER INFORMATION</p>
@@ -258,7 +400,7 @@ export default function Orders() {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(s => (
+                                        {['PROCESSING', 'READY', 'COMPLETED', 'CANCELLED'].map(s => (
                                             <SelectItem key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</SelectItem>
                                         ))}
                                     </SelectContent>

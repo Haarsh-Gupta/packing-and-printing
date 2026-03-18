@@ -1,310 +1,463 @@
-from datetime import datetime, timezone
+"""
+Admin-facing order routes.
+
+Admins can:
+  - View all orders
+  - Create / regenerate milestones (FULL, HALF, CUSTOM)
+  - Record offline payments (cash, bank, cheque)
+  - Review payment declarations (approve / reject)
+  - View all pending declarations
+  - Update order status (PROCESSING, READY, COMPLETED, CANCELLED)
+"""
+
+import asyncio
+import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
-from sqlalchemy.orm import selectinload
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.modules.auth.auth import get_current_admin_user
 from app.modules.users.models import User
-from app.modules.inquiry.models import InquiryGroup
-from app.modules.orders.models import Order, Transaction, OrderMilestone
-from app.modules.orders.schemas import (
-    OrderCreate, OrderUpdate, OrderResponse, OrderMilestoneRegenerate,
-    TransactionCreate, TransactionResponse, PaymentSplitType
-)
-from app.core.sse import sse_manager
 from app.core.messaging import get_dispatcher
+from .models import Order, PaymentDeclaration
+from .schemas import (
+    OrderStatus, DeclarationStatus,
+    AdminMilestoneCreateRequest,
+    AdminRecordPaymentRequest,
+    OrderStatusUpdate,
+    PaymentDeclarationReview,
+    PaymentDeclarationResponse,
+    TransactionResponse,
+    OrderResponse,
+    OrderListResponse,
+    AdminRefundRequest,
+)
+from .service.order import OrderService
+from .service.payment import PaymentService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.post("/{order_id}/regenerate-milestones", status_code=status.HTTP_200_OK, response_model=OrderResponse)
-async def regenerate_milestones(
-    order_id: UUID,
-    milestone_data: OrderMilestoneRegenerate,
-    current_user: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db)
+
+# ── Order listing ─────────────────────────────────────────────────────────────
+
+@router.get("/all", response_model=list[OrderListResponse])
+async def list_all_orders(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    status_filter: Optional[OrderStatus] = Query(None),
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Admin refactors the payment milestones for an unpaid order."""
-    
-    # 1. Get the order with existing milestones
-    stmt = select(Order).options(selectinload(Order.milestones)).where(Order.id == order_id)
-    order = (await db.execute(stmt)).scalar_one_or_none()
+    svc = OrderService(db)
+    return await svc.get_all_orders(
+        status_filter=status_filter,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.get("/{order_id}", response_model=OrderResponse)
+async def get_order(
+    order_id: UUID,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    svc = OrderService(db)
+    order = await svc.get_order(order_id)
+    if not order:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    return order
+
+
+# ── Milestone management ──────────────────────────────────────────────────────
+
+@router.post("/{order_id}/milestones", response_model=OrderResponse)
+async def create_or_regenerate_milestones(
+    order_id: UUID,
+    payload: AdminMilestoneCreateRequest,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Admin creates or regenerates milestones for an order.
+    Supports FULL, HALF, and CUSTOM (2–5 milestones, percentages sum to 100).
+    Blocked if any payment has been made or a declaration is pending.
+
+    Example CUSTOM payload:
+    {
+        "split_type": "CUSTOM",
+        "milestones": [
+            {"label": "Advance", "percentage": 30},
+            {"label": "Mid-production", "percentage": 40},
+            {"label": "Before dispatch", "percentage": 30}
+        ]
+    }
+    """
+    svc = OrderService(db)
+    order = await svc.get_order(order_id)
 
     if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
 
-    # 2. Prevent changes if payment has begun
-    if order.amount_paid > 0:
-        raise HTTPException(status_code=400, detail="Cannot regenerate milestones because payment has already started")
-
-    # 3. Delete old unpaid milestones (technically all are unpaid)
-    for m in order.milestones:
-        await db.delete(m)
-
-    # 4. Generate Milestones based on Split Type
-    total = order.total_amount
-    new_milestones = []
-
-    if milestone_data.split_type == PaymentSplitType.FULL:
-        new_milestones.append(OrderMilestone(
-            order_id=order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
-        ))
-    
-    elif milestone_data.split_type == PaymentSplitType.HALF:
-        new_milestones.append(OrderMilestone(
-            order_id=order.id, label="Advance Payment (50%)", amount=total * 0.5, percentage=50.0, order_index=1
-        ))
-        new_milestones.append(OrderMilestone(
-            order_id=order.id, label="Balance Before Dispatch (50%)", amount=total * 0.5, percentage=50.0, order_index=2
-        ))
-        
-    elif milestone_data.split_type == PaymentSplitType.CUSTOM and milestone_data.custom_percentages:
-        if abs(sum(milestone_data.custom_percentages) - 100.0) > 0.1:
-            raise HTTPException(status_code=400, detail="Custom percentages must sum to 100")
-        
-        if len(milestone_data.custom_percentages) > 5:
-            raise HTTPException(status_code=400, detail="A maximum of 5 milestones is allowed")
-
-        for i, pct in enumerate(milestone_data.custom_percentages):
-            m_amount = (total * pct) / 100.0
-            new_milestones.append(OrderMilestone(
-                order_id=order.id, label=f"Custom Milestone {i+1} ({pct}%)", amount=m_amount, percentage=pct, order_index=i+1
-            ))
-    else:
-        new_milestones.append(OrderMilestone(
-            order_id=order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
-        ))
-
-    db.add_all(new_milestones)
-    await db.commit()
-
-    # Fetch fresh with relationships
-    fetch_stmt = select(Order).options(
-        selectinload(Order.milestones),
-        selectinload(Order.transactions)
-    ).where(Order.id == order.id)
-    return (await db.execute(fetch_stmt)).scalar_one()
-
-
-# ==================== MILESTONE PAYMENT RECORDING ====================
-
-@router.post("/{order_id}/payment", response_model=TransactionResponse)
-async def record_milestone_payment(
-    order_id: UUID,
-    payment_data: TransactionCreate,
-    current_user: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Admin manually approves/records a payment against a specific milestone (e.g. verifying a UTR/QR payment)."""
-    
-    # 1. Get Order and Specific Milestone
-    stmt = select(OrderMilestone).where(
-        OrderMilestone.id == payment_data.milestone_id,
-        OrderMilestone.order_id == order_id
-    )
-    result = await db.execute(stmt)
-    milestone = result.scalar_one_or_none()
-
-    if not milestone:
-        raise HTTPException(status_code=404, detail="Milestone not found for this order")
-    
-    if milestone.is_paid:
-        raise HTTPException(status_code=400, detail="This milestone is already paid")
-
-    # 2. Get parent order
-    order_stmt = select(Order).where(Order.id == order_id)
-    order = (await db.execute(order_stmt)).scalar_one()
-
-    # 3. Create Transaction
-    new_transaction = Transaction(
-        order_id=order.id,
-        milestone_id=milestone.id,
-        amount=payment_data.amount,
-        payment_mode=payment_data.payment_mode,
-        notes=payment_data.notes,
-        gateway_payment_id=payment_data.gateway_payment_id
-    )
-
-    # 4. Update Milestone & Order Totals
-    milestone.is_paid = True
-    milestone.paid_at = datetime.now(timezone.utc)
-    milestone.verification_status = "APPROVED"
-    
-    order.amount_paid += payment_data.amount
-    
-    if order.amount_paid >= order.total_amount:
-        order.status = "PAID"
-    else:
-        order.status = "PARTIALLY_PAID"
-
-    db.add(new_transaction)
-    await db.commit()
-    await db.refresh(new_transaction)
-
-    # ── Notifications (SSE + Email/WhatsApp) ──
     try:
-        user_stmt = select(User).where(User.id == order.user_id)
-        user_obj = (await db.execute(user_stmt)).scalar_one_or_none()
+        await svc.regenerate_milestones(order, payload)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e))
 
-        dispatcher = get_dispatcher()
-        await dispatcher.dispatch(
-            to_email=user_obj.email if user_obj else None,
-            to_phone=user_obj.phone if user_obj else None,
-            subject=f"Payment Recorded — ₹{payment_data.amount:,.2f}",
-            body_html=f"""
-                <p>Hi {user_obj.name if user_obj else 'Customer'},</p>
-                <p>Your payment of <strong>₹{payment_data.amount:,.2f}</strong> for 
-                milestone <em>{milestone.label}</em> has been approved by the admin.</p>
-                <p>Order status: <strong>{order.status}</strong></p>
-                <p>Total paid: ₹{order.amount_paid:,.2f} / ₹{order.total_amount:,.2f}</p>
-            """,
-            body_text=(
-                f"Hi {user_obj.name if user_obj else 'Customer'}, "
-                f"your payment of ₹{payment_data.amount:,.2f} for {milestone.label} has been approved. "
-                f"Order status: {order.status}."
-            ),
-            sse_user_id=str(order.user_id),
-            sse_event="payment_recorded",
-            sse_data={
-                "order_id": str(order.id),
-                "milestone_id": str(milestone.id),
-                "amount": payment_data.amount,
-                "status": order.status,
-            },
-            sse_admin_event="admin_payment_recorded",
-            sse_admin_data={
-                "order_id": str(order.id),
-                "user_id": str(order.user_id),
-                "amount": payment_data.amount,
-                "milestone": milestone.label,
-            },
-        )
-    except Exception:
-        pass  # Logged inside dispatcher
+    await db.commit()
 
-    return new_transaction
+    _fire_sse(str(order.user_id), "milestones_updated", {
+        "order_id": str(order_id),
+        "message": "Admin has updated your payment schedule.",
+    })
+
+    return await svc.get_order(order_id)
 
 
-#  ==================== ADMIN ENDPOINTS ====================
+# ── Offline payment recording ─────────────────────────────────────────────────
 
-@router.get("/all", response_model=list[OrderResponse])
-async def get_all_orders(
-    skip: int = 0,
-    limit: int = 50,
-    status_filter: Optional[str] = None,
-    current_user: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db)
+@router.post("/{order_id}/payments", response_model=TransactionResponse)
+async def record_payment(
+    order_id: UUID,
+    payload: AdminRecordPaymentRequest,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    [ADMIN] Get all orders with optional status filter
+    Admin records a confirmed offline payment.
+    Allowed modes: CASH, BANK_TRANSFER, CHEQUE.
+    ONLINE → use /payments/verify.
+    UPI_MANUAL → approve a declaration instead.
     """
-    stmt = select(Order).options(
-        selectinload(Order.transactions),
-        selectinload(Order.milestones)
-    )
-    
-    if status_filter:
-        stmt = stmt.where(Order.status == status_filter.upper())
-    
-    stmt = stmt.order_by(Order.created_at.desc()).offset(skip).limit(limit)
-    result = await db.execute(stmt)
-    
-    return result.scalars().all()
+    svc = PaymentService(db)
+    order = await svc.record_admin_payment(order_id, payload, admin.id)
+    await db.commit()
 
+    # Reload to get the transaction we just created
+    refreshed = await OrderService(db).get_order(order_id)
+    latest_txn = sorted(refreshed.transactions, key=lambda t: t.created_at)[-1]
+
+    _notify_payment_recorded(order, latest_txn.amount, admin)
+
+    return latest_txn
+
+
+# ── Declaration management ────────────────────────────────────────────────────
+
+@router.get("/declarations/pending", response_model=list[PaymentDeclarationResponse])
+async def get_pending_declarations(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    All pending UPI/bank declarations across all orders.
+    Oldest first (FIFO) — admin works through the queue in order.
+    """
+    declarations = list((await db.execute(
+        select(PaymentDeclaration)
+        .where(PaymentDeclaration.status == DeclarationStatus.PENDING)
+        .order_by(PaymentDeclaration.created_at.asc())
+        .offset(skip)
+        .limit(limit)
+    )).scalars().all())
+
+    return declarations
+
+
+@router.get("/{order_id}/declarations", response_model=list[PaymentDeclarationResponse])
+async def get_order_declarations(
+    order_id: UUID,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """All declarations for a specific order (all statuses)."""
+    declarations = list((await db.execute(
+        select(PaymentDeclaration)
+        .where(PaymentDeclaration.order_id == order_id)
+        .order_by(PaymentDeclaration.created_at.desc())
+    )).scalars().all())
+
+    return declarations
+
+
+@router.patch(
+    "/{order_id}/declarations/{declaration_id}/review",
+    response_model=OrderResponse,
+)
+async def review_declaration(
+    order_id: UUID,
+    declaration_id: UUID,
+    payload: PaymentDeclarationReview,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Approve or reject a user's UPI/bank payment declaration.
+
+    Approve:
+    {
+        "is_approved": true
+    }
+
+    Reject:
+    {
+        "is_approved": false,
+        "rejection_reason": "UTR not found in bank statement"
+    }
+
+    On approval: Transaction created, milestone marked PAID automatically.
+    On rejection: Milestone reset to UNPAID, user notified.
+    """
+    svc = PaymentService(db)
+    order = await svc.review_declaration(declaration_id, payload, admin.id)
+    await db.commit()
+
+    if payload.is_approved:
+        _fire_sse(str(order.user_id), "payment_approved", {
+            "order_id": str(order_id),
+            "declaration_id": str(declaration_id),
+            "message": "Your payment has been verified.",
+        })
+        _notify_declaration_approved(order, admin)
+    else:
+        _fire_sse(str(order.user_id), "payment_rejected", {
+            "order_id": str(order_id),
+            "declaration_id": str(declaration_id),
+            "reason": payload.rejection_reason,
+        })
+        _notify_declaration_rejected(order, payload.rejection_reason)
+
+    return await OrderService(db).get_order(order_id)
+
+
+# ── Order status ──────────────────────────────────────────────────────────────
 
 @router.patch("/{order_id}/status", response_model=OrderResponse)
 async def update_order_status(
     order_id: UUID,
-    status_update: OrderUpdate,
-    current_user: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db)
+    payload: OrderStatusUpdate,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    [ADMIN] Update order status
+    Move order through fulfilment stages.
+    Allowed: PROCESSING, READY, COMPLETED, CANCELLED.
+    Financial statuses are set automatically — schema rejects them here.
     """
-    stmt = select(Order).options(
-        selectinload(Order.transactions),
-        selectinload(Order.milestones)
-    ).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
+    svc = OrderService(db)
+    order = await svc.get_order(order_id)
+
     if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found"
-        )
-    
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+
     old_status = order.status
-    order.status = status_update.status
-    
-    await db.commit()
-    
-    # ── SSE + Messaging on status change ──
+
     try:
-        user_stmt = select(User).where(User.id == order.user_id)
-        user_obj = (await db.execute(user_stmt)).scalar_one_or_none()
-
-        dispatcher = get_dispatcher()
-        await dispatcher.dispatch(
-            to_email=user_obj.email if user_obj else None,
-            to_phone=user_obj.phone if user_obj else None,
-            subject=f"Order Status Updated — {status_update.status}",
-            body_html=f"""
-                <p>Hi {user_obj.name if user_obj else 'Customer'},</p>
-                <p>Your order status has been updated from 
-                <strong>{old_status}</strong> to <strong>{status_update.status}</strong>.</p>
-            """,
-            body_text=(
-                f"Hi {user_obj.name if user_obj else 'Customer'}, "
-                f"your order status changed from {old_status} to {status_update.status}."
-            ),
-            sse_user_id=str(order.user_id),
-            sse_event="order_status_changed",
-            sse_data={
-                "order_id": str(order.id),
-                "old_status": old_status,
-                "new_status": status_update.status,
-            },
-            sse_admin_event="admin_order_status_changed",
-            sse_admin_data={
-                "order_id": str(order.id),
-                "user_id": str(order.user_id),
-                "old_status": old_status,
-                "new_status": status_update.status,
-            },
+        await svc.transition_status(
+            order,
+            payload.status,
+            actor="admin",
+            admin_notes=payload.admin_notes,
         )
-    except Exception:
-        pass
-    
-    stmt = select(Order).options(
-        selectinload(Order.transactions),
-        selectinload(Order.milestones)
-    ).where(Order.id == order_id)
-    return (await db.execute(stmt)).scalar_one_or_none()
+    except ValueError as e:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e))
+
+    await db.commit()
+
+    _fire_sse(str(order.user_id), "order_status_changed", {
+        "order_id": str(order_id),
+        "old_status": old_status.value,
+        "new_status": payload.status.value,
+    })
+    _notify_status_change(order, old_status, payload.status, admin)
+
+    return await svc.get_order(order_id)
 
 
-@router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def admin_delete_order(
+# ── Notification helpers ──────────────────────────────────────────────────────
+
+_background_tasks = set()
+
+def _fire_sse(user_id: str, event: str, data: dict) -> None:
+    from app.core.sse import sse_manager
+    task = asyncio.create_task(sse_manager.publish(user_id, event, data))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    task.add_done_callback(lambda t: _log_task_error(t, event))
+
+
+def _log_task_error(task: asyncio.Task, event: str) -> None:
+    if not task.cancelled() and task.exception():
+        logger.error(f"SSE publish failed for '{event}': {task.exception()}")
+
+
+def _notify_payment_recorded(order: Order, amount: float, admin: User) -> None:
+    async def _send():
+        try:
+            user = order.user
+            if not user:
+                return
+            dispatcher = get_dispatcher()
+            await dispatcher.dispatch(
+                to_email=user.email,
+                to_phone=getattr(user, "phone", None),
+                subject=f"Payment recorded — ₹{amount:,.2f}",
+                body_html=f"""
+                    <p>Hi {user.name or 'Customer'},</p>
+                    <p>A payment of <strong>₹{amount:,.2f}</strong> has been
+                    recorded for your order.</p>
+                    <p>Balance remaining:
+                    <strong>₹{order.total_amount - order.amount_paid:,.2f}</strong></p>
+                """,
+                body_text=(
+                    f"Payment of ₹{amount:,.2f} recorded. "
+                    f"Balance: ₹{order.total_amount - order.amount_paid:,.2f}"
+                ),
+                sse_admin_event="admin_payment_recorded",
+                sse_admin_data={
+                    "order_id": str(order.id),
+                    "amount": amount,
+                    "admin": str(admin.id),
+                },
+            )
+        except Exception as e:
+            logger.error(f"Payment recorded notification failed: {e}")
+            
+    task = asyncio.create_task(_send())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
+def _notify_declaration_approved(order: Order, admin: User) -> None:
+    async def _send():
+        try:
+            user = order.user
+            if not user:
+                return
+            dispatcher = get_dispatcher()
+            await dispatcher.dispatch(
+                to_email=user.email,
+                to_phone=getattr(user, "phone", None),
+                subject="Payment verified",
+                body_html=f"""
+                    <p>Hi {user.name or 'Customer'},</p>
+                    <p>Your payment has been verified and recorded.</p>
+                    <p>Order status: <strong>{order.status.value}</strong></p>
+                """,
+                body_text=f"Your payment has been verified. Order status: {order.status.value}",
+            )
+        except Exception as e:
+            logger.error(f"Declaration approved notification failed: {e}")
+            
+    task = asyncio.create_task(_send())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
+def _notify_declaration_rejected(order: Order, reason: str) -> None:
+    async def _send():
+        try:
+            user = order.user
+            if not user:
+                return
+            dispatcher = get_dispatcher()
+            await dispatcher.dispatch(
+                to_email=user.email,
+                to_phone=getattr(user, "phone", None),
+                subject="Payment verification failed",
+                body_html=f"""
+                    <p>Hi {user.name or 'Customer'},</p>
+                    <p>Your payment declaration was not verified.</p>
+                    <p><strong>Reason:</strong> {reason}</p>
+                    <p>Please contact us if you believe this is an error.</p>
+                """,
+                body_text=f"Payment not verified. Reason: {reason}",
+            )
+        except Exception as e:
+            logger.error(f"Declaration rejected notification failed: {e}")
+            
+    task = asyncio.create_task(_send())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
+def _notify_status_change(
+    order: Order,
+    old_status: OrderStatus,
+    new_status: OrderStatus,
+    admin: User,
+) -> None:
+    async def _send():
+        try:
+            user = order.user
+            if not user:
+                return
+            dispatcher = get_dispatcher()
+            await dispatcher.dispatch(
+                to_email=user.email,
+                to_phone=getattr(user, "phone", None),
+                subject=f"Order update — {new_status.value}",
+                body_html=f"""
+                    <p>Hi {user.name or 'Customer'},</p>
+                    <p>Your order status has been updated to
+                    <strong>{new_status.value}</strong>.</p>
+                    {f'<p>{order.admin_notes}</p>' if order.admin_notes else ''}
+                """,
+                body_text=(
+                    f"Order status: {new_status.value}. "
+                    f"{order.admin_notes or ''}"
+                ),
+                sse_admin_event="admin_order_status_changed",
+                sse_admin_data={
+                    "order_id": str(order.id),
+                    "old": old_status.value,
+                    "new": new_status.value,
+                },
+            )
+        except Exception as e:
+            logger.error(f"Status change notification failed: {e}")
+            
+    task = asyncio.create_task(_send())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
+
+@router.post("/{order_id}/milestones/{milestone_id}/refund", response_model=OrderResponse)
+async def issue_refund(
     order_id: UUID,
-    current_user: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db)
+    milestone_id: UUID,
+    payload: AdminRefundRequest,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    [ADMIN] Delete an order and all associated transactions
+    Issue a refund against a paid milestone.
+    Creates a negative transaction. Milestone may revert to UNPAID.
+    Amount cannot exceed what was paid on the milestone.
     """
-    stmt = select(Order).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found"
-        )
-    
-    await db.execute(delete(Order).where(Order.id == order_id))
+    svc = PaymentService(db)
+    order = await svc.issue_refund(
+        order_id=order_id,
+        milestone_id=milestone_id,
+        amount=payload.amount,
+        reason=payload.reason,
+        admin_id=admin.id,
+    )
     await db.commit()
+
+    _fire_sse(str(order.user_id), "refund_issued", {
+        "order_id": str(order_id),
+        "milestone_id": str(milestone_id),
+        "amount": payload.amount,
+        "reason": payload.reason,
+    })
+
+    return await OrderService(db).get_order(order_id)

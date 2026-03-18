@@ -17,6 +17,11 @@ def valid_password(password):
 
         if not (upper and lower and num):
             raise ValueError("Password must contain at least one uppercase letter, one lowercase letter, and one number")
+
+def valid_phone(phone):
+    if not phone.isdigit() or len(phone) != 10:
+        raise ValueError("Phone number must be 10 digits")
+    return phone
  
 
 class UserBase(BaseModel):
@@ -24,6 +29,12 @@ class UserBase(BaseModel):
     email: EmailStr
     phone: Optional[str] = None
     is_active: bool = True
+
+    @field_validator("phone")
+    def check_phone(cls , value):
+        if value:
+            valid_phone(value)
+        return value
 
 class UserCreate(UserBase):
     password: str = Field(min_length = 6)
@@ -66,6 +77,12 @@ class UserOut(UserBase):
     profile_picture: Optional[str] = None
     created_at: datetime
     is_online: bool = False
+
+    @field_validator("phone")
+    def check_phone(cls , value):
+        if value:
+            valid_phone(value)
+        return value
 
     class Config:
         from_attributes = True

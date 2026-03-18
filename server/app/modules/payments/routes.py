@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.core.payment import get_payment_provider
 from app.modules.auth import get_current_user
 from app.modules.users.models import User
-from app.modules.orders.models import Order, Transaction, OrderMilestone
+from app.modules.orders.models import Order, Transaction
 
 from .schemas import CreatePaymentOrder, PaymentOrderResponse, VerifyPayment
 
@@ -59,7 +59,7 @@ async def create_payment_order(
     if payload.milestone_id:
         # Specific milestone requested
         milestone = next(
-            (m for m in order.milestones if m.id == payload.milestone_id and not m.is_paid),
+            (m for m in order.milestones if m.id == payload.milestone_id and m.status != "PAID"),
             None,
         )
         if not milestone:
@@ -70,7 +70,7 @@ async def create_payment_order(
     else:
         # Auto-pick the next unpaid milestone (lowest order_index)
         unpaid = sorted(
-            [m for m in order.milestones if not m.is_paid],
+            [m for m in order.milestones if m.status != "PAID"],
             key=lambda m: m.order_index,
         )
         if not unpaid:
@@ -172,7 +172,7 @@ async def verify_payment(
     if not milestone:
         # Fallback: pick the next unpaid milestone
         unpaid = sorted(
-            [m for m in order.milestones if not m.is_paid],
+            [m for m in order.milestones if m.status != "PAID"],
             key=lambda m: m.order_index,
         )
         milestone = unpaid[0] if unpaid else None
@@ -197,9 +197,8 @@ async def verify_payment(
     db.add(txn)
 
     # 5. Update milestone
-    milestone.is_paid = True
+    milestone.status = "PAID"
     milestone.paid_at = datetime.now(timezone.utc)
-    milestone.verification_status = "APPROVED"
 
     # 6. Update order totals
     order.amount_paid += paid_amount

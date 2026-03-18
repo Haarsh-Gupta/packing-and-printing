@@ -58,24 +58,25 @@ class NotificationService:
             logger.error(f"Failed to notify user: {e}")
 
     @staticmethod
-    async def lazy_cleanup(db: AsyncSession):
+    async def lazy_cleanup(db: AsyncSession, user_id):
         """
-        Delete notifications that are read and older than 24 hours.
+        Delete notifications that are read and older than 24 hours for a specific user.
         This keeps the table slim since these are 'temporary' alerts.
         """
         try:
-            from sqlalchemy import delete, and_, DateTime
+            from sqlalchemy import delete, and_
             from datetime import datetime, timedelta, timezone
             
             # Simple policy: Delete read notifications older than 1 day
             threshold = datetime.now(timezone.utc) - timedelta(days=1)
             stmt = delete(Notification).where(
                 and_(
+                    Notification.user_id == user_id,
                     Notification.is_read == True,
                     Notification.created_at < threshold
                 )
             )
             result = await db.execute(stmt)
-            logger.info(f"Lazy cleanup: deleted {result.rowcount} old read notifications")
+            logger.info(f"Lazy cleanup for user {user_id}: deleted {result.rowcount} old read notifications")
         except Exception as e:
             logger.error(f"Cleanup failed: {e}")

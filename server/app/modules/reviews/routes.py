@@ -1,16 +1,12 @@
 from app.modules.reviews.schemas import ReviewResponse
 from fastapi import  APIRouter , Depends , HTTPException , status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select
 from app.core.database import get_db
 from app.modules.auth.auth import get_current_admin_user, get_current_user, TokenData
-from app.modules.users.models import User
-from datetime import datetime
 from sqlalchemy.orm import joinedload
-from app.modules.orders.models import Order
-from app.modules.inquiry.models import InquiryGroup, InquiryItem
 from app.modules.reviews.models import Review 
-from app.modules.reviews.schemas import ReviewBase , ReviewUpdate, ReviewCreate, ReviewResponse
+from app.modules.reviews.schemas import ReviewCreate
 from app.modules.services.models import SubService
 from app.modules.products.models import SubProduct
 router = APIRouter()

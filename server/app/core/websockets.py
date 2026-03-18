@@ -2,34 +2,21 @@ import asyncio
 import json
 import logging
 from typing import Dict, Set
-from uuid import UUID
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 import redis.asyncio as redis
-from app.core.config import settings
+from app.core.redis import create_dedicated_redis_client
 
 logger = logging.getLogger(__name__)
 
-# Dedicated Redis connections — one for publishing, one for subscribing
+# Dedicated Redis connection for PUBLISHING only
 _ws_publish_redis: redis.Redis | None = None
-_ws_subscribe_redis: redis.Redis | None = None
-
-
-def _create_redis_connection() -> redis.Redis:
-    return redis.Redis(
-        host=settings.redis_host,
-        port=settings.redis_port,
-        password=settings.redis_password or None,
-        db=settings.redis_db,
-        decode_responses=True,
-        ssl=settings.redis_ssl,
-    )
 
 
 async def get_publish_redis() -> redis.Redis:
     global _ws_publish_redis
     if _ws_publish_redis is None:
-        _ws_publish_redis = _create_redis_connection()
+        _ws_publish_redis = create_dedicated_redis_client()
     return _ws_publish_redis
 
 
@@ -39,6 +26,7 @@ class ConnectionManager:
         self.active_connections: Dict[str, Dict[str, Set[WebSocket]]] = {}
         # Keep track of active redis pub/sub tasks per group
         self.pubsub_tasks: Dict[str, asyncio.Task] = {}
+        self._shutdown_event = asyncio.Event()
 
     async def connect(self, websocket: WebSocket, group_id: str, client_id: str):
         await websocket.accept()
@@ -54,7 +42,8 @@ class ConnectionManager:
             task = asyncio.create_task(self._listen_to_redis(group_id))
             self.pubsub_tasks[group_id] = task
 
-        logger.info(f"WS client {client_id} connected to group {group_id} (total clients: {sum(len(s) for s in self.active_connections[group_id].values())})")
+        total = sum(len(s) for s in self.active_connections[group_id].values())
+        logger.info(f"WS client {client_id} connected to group {group_id} (total clients: {total})")
 
     def disconnect(self, websocket: WebSocket, group_id: str, client_id: str):
         if group_id in self.active_connections and client_id in self.active_connections[group_id]:
@@ -102,28 +91,47 @@ class ConnectionManager:
         logger.info(f"Local broadcast to {group_id}: sent to {sent_count} connections")
 
     async def _listen_to_redis(self, group_id: str):
-        """Listen for messages on Redis channel and forward to local WebSocket clients."""
+        """
+        Listen for messages on Redis channel and forward to local WebSocket clients.
+        Uses a retry loop with exponential backoff so a transient Redis failure
+        doesn't permanently kill the listener for this group.
+        """
         channel = f"ws:inquiry:{group_id}"
+        retry_delay = 1  # seconds, grows on consecutive failures
 
-        # Create a DEDICATED Redis connection for this subscription
-        # (pubsub requires its own connection, separate from the publish connection)
-        sub_redis = _create_redis_connection()
-        pubsub = sub_redis.pubsub()
+        while not self._shutdown_event.is_set():
+            # Create a DEDICATED Redis connection for this subscription
+            sub_redis = create_dedicated_redis_client()
+            pubsub = sub_redis.pubsub()
 
-        try:
-            await pubsub.subscribe(channel)
-            logger.info(f"Redis pubsub subscribed to {channel}")
+            try:
+                await pubsub.subscribe(channel)
+                logger.info(f"Redis pubsub subscribed to {channel}")
+                retry_delay = 1  # reset on successful connect
 
-            while True:
-                try:
-                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                while not self._shutdown_event.is_set():
+                    try:
+                        message = await asyncio.wait_for(
+                            pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5),
+                            timeout=1.0,
+                        )
+                    except asyncio.TimeoutError:
+                        message = None
+                    except asyncio.CancelledError:
+                        raise  # let the outer handler deal with it
+                    except Exception as inner_e:
+                        logger.error(f"Redis pubsub read error on {channel}: {inner_e}")
+                        break  # break inner loop to reconnect
+
                     if message and message["type"] == "message":
                         raw = message["data"]
                         try:
                             parsed = json.loads(raw)
                             # Send to all local connections for this group
                             if group_id in self.active_connections:
-                                for client_id, websockets in list(self.active_connections[group_id].items()):
+                                for client_id, websockets in list(
+                                    self.active_connections[group_id].items()
+                                ):
                                     for ws in list(websockets):
                                         try:
                                             await ws.send_json(parsed)
@@ -131,26 +139,42 @@ class ConnectionManager:
                                             self.disconnect(ws, group_id, client_id)
                         except json.JSONDecodeError:
                             logger.warning(f"Invalid JSON on {channel}: {raw[:100]}")
-                    else:
-                        await asyncio.sleep(0.1)
-                except Exception as inner_e:
-                    logger.error(f"Redis pubsub read error on {channel}: {inner_e}")
-                    await asyncio.sleep(2)  # Back off before retrying
 
-        except asyncio.CancelledError:
-            logger.info(f"Redis pubsub cancelled for {channel}")
-        except Exception as e:
-            logger.error(f"Redis pubsub fatal error for {channel}: {e}")
-        finally:
+            except asyncio.CancelledError:
+                logger.info(f"Redis pubsub cancelled for {channel}")
+                return  # exit the retry loop entirely
+            except Exception as e:
+                logger.error(f"Redis pubsub connection error for {channel}: {e}")
+            finally:
+                try:
+                    await pubsub.unsubscribe(channel)
+                    await pubsub.close()
+                except Exception:
+                    pass
+                try:
+                    await sub_redis.close()
+                except Exception:
+                    pass
+
+            # If group no longer exists locally, stop retrying
+            if group_id not in self.active_connections:
+                logger.info(f"No more local clients for {group_id}, stopping listener")
+                return
+
+            # Exponential backoff (cap at 30s)
+            logger.info(f"Reconnecting to {channel} in {retry_delay}s...")
             try:
-                await pubsub.unsubscribe(channel)
-                await pubsub.close()
-                await sub_redis.close()
-            except Exception:
+                await asyncio.wait_for(self._shutdown_event.wait(), timeout=retry_delay)
+                # If we get here, shutdown was signalled — exit
+                return
+            except asyncio.TimeoutError:
+                # Normal timeout — retry
                 pass
+            retry_delay = min(retry_delay * 2, 30)
 
     async def shutdown(self):
         logger.info("Shutting down ConnectionManager...")
+        self._shutdown_event.set()
         
         # 1. Cancel all Redis Pub/Sub tasks
         tasks = list(self.pubsub_tasks.values())
@@ -159,8 +183,7 @@ class ConnectionManager:
             for task in tasks:
                 task.cancel()
             try:
-                # Wait briefly for cancellation to propagate
-                await asyncio.wait(tasks, timeout=2.0)
+                await asyncio.wait(tasks, timeout=3.0)
             except Exception:
                 pass
         self.pubsub_tasks.clear()
@@ -177,7 +200,6 @@ class ConnectionManager:
             
             async def close_ws(ws):
                 try:
-                    # Use a short timeout to prevent blocking if a socket is dead
                     await asyncio.wait_for(ws.close(), timeout=1.0)
                 except Exception:
                     pass

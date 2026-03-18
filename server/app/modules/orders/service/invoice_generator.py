@@ -1,11 +1,10 @@
-from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
-from datetime import datetime
+from reportlab.lib.enums import TA_CENTER
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 import base64
 from io import BytesIO
@@ -171,9 +170,10 @@ class InvoiceGenerator:
         
         # Add items
         for idx, item in enumerate(items, 1):
+            description_text = item.get('description', '').replace('\n', '<br/>')
             table_data.append([
                 str(idx),
-                item.get('description', ''),
+                Paragraph(description_text, self.styles['Normal']),
                 str(item.get('quantity', 0)),
                 f"₹{item.get('unit_price', 0):.2f}",
                 f"₹{item.get('total', 0):.2f}"
@@ -306,7 +306,7 @@ def generate_simple_invoice(
     
     generator.generate_invoice(
         invoice_number=invoice_data['invoice_number'],
-        invoice_date=invoice_data.get('invoice_date', datetime.now()),
+        invoice_date=invoice_data.get('invoice_date', datetime.now(timezone.utc)),
         order_data=invoice_data['order_data'],
         company_info=invoice_data['company_info'],
         customer_info=invoice_data['customer_info'],

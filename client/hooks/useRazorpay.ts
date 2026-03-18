@@ -89,6 +89,33 @@ export function useRazorpay() {
 
             const { gateway_order_id, amount, currency, razorpay_key_id } = await createRes.json();
 
+            // Mock bypass if no real key is present
+            if (!razorpay_key_id || razorpay_key_id.includes("mock") || razorpay_key_id === "test" || String(razorpay_key_id) === "null") {
+                const verifyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/verify`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        gateway_order_id,
+                        gateway_payment_id: `pay_mock_${Date.now()}`,
+                        gateway_signature: "mock_signature",
+                    }),
+                });
+
+                if (verifyRes.ok) {
+                    const data = await verifyRes.json();
+                    onSuccess?.(data);
+                } else {
+                    const err = await verifyRes.json();
+                    onError?.(err.detail || "Mock Payment verification failed.");
+                }
+                setIsProcessing(false);
+                return;
+            }
+
             // Step 3: Open Razorpay modal
             const options = {
                 key: razorpay_key_id,

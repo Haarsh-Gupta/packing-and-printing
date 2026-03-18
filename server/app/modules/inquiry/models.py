@@ -1,4 +1,3 @@
-from datetime import datetime
 from sqlalchemy import Column, Integer, Double, String, DateTime, ForeignKey, Text, func , ARRAY, Uuid, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB

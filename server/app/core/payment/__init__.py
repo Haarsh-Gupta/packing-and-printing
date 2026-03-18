@@ -16,6 +16,10 @@ def get_payment_provider() -> PaymentProvider:
     Factory that returns the active payment provider.
     Switch providers by changing this function — no route/model changes needed.
     """
+    if not settings.razorpay_key_id or settings.razorpay_key_id == "mock_key":
+        from .mock_provider import MockProvider
+        return MockProvider()
+
     return RazorpayProvider(
         key_id=settings.razorpay_key_id,
         key_secret=settings.razorpay_key_secret,

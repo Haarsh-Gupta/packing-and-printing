@@ -1,107 +1,208 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ServiceItem } from "@/types/service";
 import { ServiceCard } from "@/components/services/ServiceCard";
 
-async function getServices(): Promise<ServiceItem[]> {
-    try {
-        const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/services?_t=${Date.now()}`,
-            { cache: "no-store" }
-        );
-        if (!res.ok) throw new Error(`Failed to fetch services: ${res.status}`);
-        return res.json();
-    } catch (error) {
-        console.error(error);
-        return [];
-    }
+/* ── Doodle SVG helpers ──────────────────────────────────────── */
+
+function DoodlePenTool({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 80 80" fill="none" className={className}>
+            <path d="M55 20L60 25L30 55L20 60L25 50L55 20Z" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M48 27L53 32" stroke="black" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="20" cy="60" r="3" stroke="black" strokeWidth="2" />
+        </svg>
+    );
 }
 
+function DoodleLayers({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 80 80" fill="none" className={className}>
+            <path d="M15 55L40 67L65 55" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M15 45L40 57L65 45" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M15 35L40 47L65 35L40 23L15 35Z" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
+}
+
+function DoodlePalette({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 80 80" fill="none" className={className}>
+            <path d="M40 15C25 15 12 27 12 42C12 52 18 58 27 58C30 58 33 55 33 52C33 50 35 48 38 48H50C58 48 68 42 68 33C68 22 55 15 40 15Z" stroke="black" strokeWidth="2.5" strokeLinecap="round" />
+            <circle cx="25" cy="32" r="4" fill="#FF90E8" stroke="black" strokeWidth="2" />
+            <circle cx="38" cy="24" r="4" fill="#FDF567" stroke="black" strokeWidth="2" />
+            <circle cx="52" cy="28" r="4" fill="#b8f0c8" stroke="black" strokeWidth="2" />
+            <circle cx="58" cy="40" r="4" fill="#c8d8ff" stroke="black" strokeWidth="2" />
+        </svg>
+    );
+}
+
+function DoodleStar({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 50 50" fill="none" className={className}>
+            <path d="M25 5L30 18L44 20L33 30L36 44L25 37L14 44L17 30L6 20L20 18L25 5Z" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="#c8d8ff" />
+        </svg>
+    );
+}
+
+function DoodleArrow({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 80 40" fill="none" className={className}>
+            <path d="M5 30C15 30 25 10 40 10C55 10 60 25 75 20" stroke="black" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M68 14L75 20L66 24" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
+}
+
+function DoodleSparkle({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 40 40" fill="none" className={className}>
+            <path d="M20 5L22 16L33 14L24 22L30 32L20 26L10 32L16 22L7 14L18 16L20 5Z" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
+}
+
+/* ── Filter config ───────────────────────────────────────────── */
+
 const FILTERS = [
-    { label: "All Services", color: "bg-black text-white" },
-    { label: "Design", color: "bg-[#b8f0c8] text-black hover:bg-[#a0e8b4]" },
-    { label: "Consulting", color: "bg-[#ffd6e8] text-black hover:bg-[#ffbfda]" },
-    { label: "Printing", color: "bg-[#fff0a0] text-black hover:bg-[#ffe880]" },
-    { label: "Prototyping", color: "bg-[#c8d8ff] text-black hover:bg-[#b0c8ff]" },
+    { label: "All Services",  color: "bg-black text-white",         keyword: "" },
+    { label: "Design",        color: "bg-[#b8f0c8] text-black",     keyword: "design" },
+    { label: "Consulting",    color: "bg-[#ffd6e8] text-black",     keyword: "consulting" },
+    { label: "Printing",      color: "bg-[#fff0a0] text-black",     keyword: "printing" },
+    { label: "Prototyping",   color: "bg-[#c8d8ff] text-black",     keyword: "prototyping" },
 ] as const;
 
-export default async function ServicesCatalogPage() {
-    const services = await getServices();
+/* ── Why Us strip ────────────────────────────────────────────── */
+
+const WHY_CARDS = [
+    {
+        num: "01",
+        icon: <span className="material-symbols-outlined" style={{ fontSize: 22 }}>verified</span>,
+        color: "#c8d8ff",
+        title: "Expert studio",
+        body: "Every service is handled by specialists — from pre-press designers to production engineers with years in the trade.",
+    },
+    {
+        num: "02",
+        icon: <span className="material-symbols-outlined" style={{ fontSize: 22 }}>receipt_long</span>,
+        color: "#fff0a0",
+        title: "Transparent pricing",
+        body: "No hidden fees. You get a detailed quote before any work begins. Approve, negotiate, or cancel — your call.",
+    },
+    {
+        num: "03",
+        icon: <span className="material-symbols-outlined" style={{ fontSize: 22 }}>bolt</span>,
+        color: "#b8f0c8",
+        title: "Fast turnaround",
+        body: "Rush jobs accepted. Our studio keeps capacity reserved for urgent requests with guaranteed delivery windows.",
+    },
+];
+
+/* ── Page ───────────────────────────────────────────────────── */
+
+export default function ServicesCatalogPage() {
+    const [services, setServices] = useState<ServiceItem[]>([]);
+    const [activeKeyword, setActiveKeyword] = useState("");
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/services?_t=${Date.now()}`)
+            .then((r) => (r.ok ? r.json() : []))
+            .then(setServices)
+            .catch(() => setServices([]));
+    }, []);
+
+    const visible = services.filter((s) => {
+        const haystack = s.name.toLowerCase();
+        return activeKeyword === "" || haystack.includes(activeKeyword);
+    });
 
     return (
         <>
             <main className="pp-root">
 
                 {/* ══════════════════════════════════════════════════════
-            HERO — blue background alternative
-        ══════════════════════════════════════════════════════ */}
-                <section className="pp-hero" style={{ background: "#c8d8ff" }}>
-                    <div className="pp-hero-inner">
+                    HERO
+                ══════════════════════════════════════════════════════ */}
+                <section className="pp-hero" style={{ background: "#c8d8ff", position: "relative", overflow: "hidden" }}>
+
+                    {/* Dot pattern */}
+                    <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                            opacity: 0.05,
+                            backgroundImage: "radial-gradient(circle, #000 1px, transparent 1px)",
+                            backgroundSize: "24px 24px",
+                        }}
+                    />
+
+                    {/* Floating doodles */}
+                    <DoodlePenTool  className="absolute top-14 left-[4%]         w-16 opacity-20 pp-doodle-float-1 hidden sm:block" />
+                    <DoodleLayers   className="absolute top-20 right-[6%]        w-14 opacity-20 pp-doodle-float-2 hidden sm:block" />
+                    <DoodlePalette  className="absolute top-[42%] left-[2%]      w-16 opacity-20 pp-doodle-float-3 hidden md:block" />
+                    <DoodleStar     className="absolute top-[28%] right-[5%]     w-10 opacity-25 pp-doodle-spin   hidden sm:block" />
+                    <DoodleArrow    className="absolute bottom-[20%] right-[5%]  w-20 opacity-20 pp-doodle-float-1 hidden sm:block" />
+                    <DoodleSparkle  className="absolute top-[55%] right-[14%]    w-8  opacity-20 pp-doodle-spin-slow hidden md:block" />
+                    <DoodleStar     className="absolute top-12 right-[25%]       w-7  opacity-15 pp-doodle-float-2 hidden lg:block" />
+                    <DoodleSparkle  className="absolute top-[60%] left-[15%]     w-6  opacity-15 pp-doodle-float-3 hidden lg:block" />
+
+                    <div className="pp-hero-inner" style={{ position: "relative", zIndex: 1 }}>
 
                         {/* Left */}
                         <div>
-                            {/* <div className="pp-badge">
-                                <span className="pp-badge-dot" style={{ background: "#c8d8ff" }} />
-                                Premium Design Studio
-                            </div> */}
-
-                            <h1 className="pp-hero-title">
+                            <h1
+                                className="pp-hero-title"
+                                style={{
+                                    opacity:    mounted ? 1 : 0,
+                                    transform:  mounted ? "translateY(0)" : "translateY(24px)",
+                                    transition: "opacity 0.6s ease, transform 0.6s ease",
+                                }}
+                            >
                                 Explore our<br />
                                 <em>service catalog.</em>
                             </h1>
 
-                            <p className="pp-hero-sub">
-                                From conceptual mockups to full architectural setups — every service
+                            <p
+                                className="pp-hero-sub"
+                                style={{
+                                    opacity:    mounted ? 1 : 0,
+                                    transform:  mounted ? "translateY(0)" : "translateY(24px)",
+                                    transition: "opacity 0.6s ease 0.15s, transform 0.6s ease 0.15s",
+                                }}
+                            >
+                                From conceptual mockups to full production setups — every service
                                 is executed with precision by our studio masters.
                             </p>
 
-                            {/* Stats anchored to bottom of hero */}
-                            <div className="pp-stats">
-                                {[
-                                    { value: "50+", label: "Services" },
-                                    { value: "10+", label: "Categories" },
-                                    { value: "24/7", label: "Consulting" },
-                                    { value: "100%", label: "Satisfaction" },
-                                ].map(({ value, label }) => (
-                                    <div key={label} className="pp-stat">
-                                        <div className="pp-stat-value">{value}</div>
-                                        <div className="pp-stat-label">{label}</div>
-                                    </div>
-                                ))}
-                            </div>
+
                         </div>
 
-                        {/* Right */}
+                        {/* Right — deco */}
                         <div className="pp-hero-right">
                             <div className="pp-hero-deco" aria-hidden>
                                 {String(services.length).padStart(2, "0")}
-                            </div>
-                            <div>
-                                <p className="pp-search-label">Search services</p>
-                                <div className="pp-search-row">
-                                    <input
-                                        className="pp-search-input"
-                                        placeholder="e.g. 3D modeling, packaging design…"
-                                        type="text"
-                                    />
-                                    <button className="pp-search-btn" aria-label="Search">
-                                        <span className="material-symbols-outlined" style={{ fontSize: 20 }}>search</span>
-                                    </button>
-                                </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
                 {/* ══════════════════════════════════════════════════════
-            STICKY FILTER BAR — pill buttons like homepage tags
-        ══════════════════════════════════════════════════════ */}
+                    STICKY FILTER BAR
+                ══════════════════════════════════════════════════════ */}
                 <nav className="pp-filters" aria-label="Filter by category">
                     <div className="pp-filters-inner">
-
-                        {FILTERS.map(({ label, color }, i) => (
+                        {FILTERS.map(({ label, color, keyword }, i) => (
                             <button
                                 key={label}
-                                className={`pp-filter-btn ${color}${i === 0 ? " active" : ""}`}
+                                onClick={() => setActiveKeyword(keyword)}
+                                className={`pp-filter-btn ${color}${
+                                    activeKeyword === keyword || (i === 0 && activeKeyword === "")
+                                        ? " active"
+                                        : ""
+                                }`}
                             >
                                 {label}
                             </button>
@@ -110,31 +211,37 @@ export default async function ServicesCatalogPage() {
                         <div className="pp-filter-divider" aria-hidden />
 
                         <div className="pp-filter-right">
-                            <span className="pp-count-pill">
-                                {services.length} items
-                            </span>
-                            <button className="pp-sort-btn">
-                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>swap_vert</span>
-                                Sort
+                            <span className="pp-count-pill">{visible.length} items</span>
+                            <button
+                                className="pp-sort-btn"
+                                onClick={() => { setActiveKeyword(""); }}
+                                title="Clear filters"
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>filter_list_off</span>
+                                Reset
                             </button>
                         </div>
                     </div>
                 </nav>
 
                 {/* ══════════════════════════════════════════════════════
-            SERVICE GRID
-        ══════════════════════════════════════════════════════ */}
+                    SERVICE GRID
+                ══════════════════════════════════════════════════════ */}
                 <div className="pp-content">
                     <div className="pp-section-header">
-                        <h2 className="pp-section-heading">All Categories</h2>
+                        <h2 className="pp-section-heading">
+                            {activeKeyword
+                                ? FILTERS.find((f) => f.keyword === activeKeyword)?.label ?? "Services"
+                                : "All Categories"}
+                        </h2>
                         <span className="pp-section-sub">
-                            {services.length} service{services.length !== 1 ? "s" : ""} found
+                            {visible.length} service{visible.length !== 1 ? "s" : ""} found
                         </span>
                     </div>
 
                     <div className="pp-grid">
-                        {services.length > 0 ? (
-                            services.map((service, index) => (
+                        {visible.length > 0 ? (
+                            visible.map((service, index) => (
                                 <div key={service.id} className="pp-card">
                                     <ServiceCard service={service} index={index} />
                                 </div>
@@ -146,7 +253,7 @@ export default async function ServicesCatalogPage() {
                                 </div>
                                 <p className="pp-empty-title">Nothing here yet</p>
                                 <p className="pp-empty-body">
-                                    New services are being added. Check back soon or request custom architecture.
+                                    New services are being added. Check back soon or request custom work.
                                 </p>
                                 <Link href="/contact" className="pp-empty-cta">
                                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_forward</span>
@@ -158,8 +265,32 @@ export default async function ServicesCatalogPage() {
                 </div>
 
                 {/* ══════════════════════════════════════════════════════
-            BOTTOM CTA — yellow card matching homepage CTA tone
-        ══════════════════════════════════════════════════════ */}
+                    WHY US STRIP
+                ══════════════════════════════════════════════════════ */}
+                <div className="pp-strip-wrap">
+                    <div className="pp-strip-header">
+                        <span className="pp-strip-tag">Why us</span>
+                        <span className="pp-strip-title">What sets us apart.</span>
+                    </div>
+                    <div className="pp-strip-grid">
+                        {WHY_CARDS.map((card) => (
+                            <div key={card.num} className="pp-strip-card" style={{ background: "#fff" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                    <div className="pp-strip-icon" style={{ background: card.color }}>
+                                        {card.icon}
+                                    </div>
+                                    <span className="pp-strip-num">{card.num}</span>
+                                </div>
+                                <p className="pp-strip-card-title">{card.title}</p>
+                                <p className="pp-strip-card-body">{card.body}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* ══════════════════════════════════════════════════════
+                    BOTTOM CTA
+                ══════════════════════════════════════════════════════ */}
                 <div className="pp-cta-wrap">
                     <div className="pp-cta">
                         <div className="pp-cta-deco" aria-hidden />
@@ -168,15 +299,15 @@ export default async function ServicesCatalogPage() {
                         <div style={{ position: "relative", zIndex: 1 }}>
                             <div className="pp-cta-badge">
                                 <span className="material-symbols-outlined" style={{ fontSize: 12 }}>support_agent</span>
-                                Custom Architect
+                                Custom Studio Work
                             </div>
                             <h2 className="pp-cta-title">
-                                Can't find what<br />
+                                Can&apos;t find what<br />
                                 <em>you need?</em>
                             </h2>
                             <p className="pp-cta-body">
-                                Can't find exactly what you're looking for? Our master designers handle
-                                complex bespoke engineering and prototyping daily.
+                                Can&apos;t find exactly what you&apos;re looking for? Our master designers handle
+                                complex bespoke engineering and prototyping projects daily.
                             </p>
                         </div>
 

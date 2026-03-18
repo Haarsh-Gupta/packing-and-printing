@@ -1,15 +1,13 @@
-import asyncio
-from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, or_
+from sqlalchemy import select, update
 
 from .schemas import UserCreate, UserOut, UserUpdate
 from .models import User
 from app.core.database import get_db
 from ..auth.auth import get_password_hash
-from ..auth import get_current_user, get_current_admin_user
+from ..auth import get_current_user
 from ..auth.schemas import TokenData
 from app.modules.otps.services import get_otp_service
 from app.core.rate_limiter import RateLimiter

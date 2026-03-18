@@ -8,12 +8,12 @@ Each method returns a plain dict ready to serialize as JSON.
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Literal
 
-from sqlalchemy import select, func, case, desc
+from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User
 from app.modules.orders.models import Order, Transaction
-from app.modules.inquiry.models import InquiryGroup, InquiryItem, InquiryMessage
+from app.modules.inquiry.models import InquiryGroup, InquiryItem
 from app.modules.products.models import SubProduct
 from app.modules.services.models import Service
 
@@ -36,6 +36,14 @@ def _period_delta(period: PeriodType) -> Optional[timedelta]:
             return timedelta(days=365)
         case _:
             return None
+
+
+def _period_start(period: PeriodType) -> Optional[datetime]:
+    """Calculate the start datetime for a given period."""
+    delta = _period_delta(period)
+    if delta is None:
+        return None
+    return datetime.now(timezone.utc) - delta
 
 
 def _calculate_change(current: float, previous: float) -> dict:
@@ -462,6 +470,13 @@ class DashboardService:
     #  6.  RECENT ACTIVITY
     # ------------------------------------------------------------------ #
     async def get_recent_activity(self, limit: int = 20) -> dict:
+        """
+        Fetches the most recent activities across multiple types.
+        NOTE: This currently fetches 'limit' items of EACH type, merges them, 
+        and then truncates to 'limit' total activities. This ensures we have 
+        enough diversity but might not be a perfectly global top-N if one type 
+        has a massive burst and others have none.
+        """
         activities = []
 
         # Recent users

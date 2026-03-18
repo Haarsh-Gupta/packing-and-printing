@@ -40,28 +40,6 @@ ADMIN_ALLOWED_TRANSITIONS = {
     InquiryStatus.CANCELLED: [InquiryStatus.PENDING]
 }
 
-# State machine defining the valid workflows for Users vs Admins
-USER_ALLOWED_TRANSITIONS = {
-    InquiryStatus.PENDING: [InquiryStatus.CANCELLED],
-    InquiryStatus.UNDER_REVIEW: [InquiryStatus.CANCELLED],
-    InquiryStatus.QUOTED: [InquiryStatus.ACCEPTED, InquiryStatus.REJECTED, InquiryStatus.NEGOTIATION, InquiryStatus.CANCELLED],
-    InquiryStatus.NEGOTIATION: [InquiryStatus.ACCEPTED, InquiryStatus.REJECTED, InquiryStatus.CANCELLED],
-    InquiryStatus.ACCEPTED: [InquiryStatus.CANCELLED],
-    InquiryStatus.REJECTED: [],
-    InquiryStatus.CANCELLED: [],
-    InquiryStatus.EXPIRED: []
-}
-
-ADMIN_ALLOWED_TRANSITIONS = {
-    InquiryStatus.PENDING: [InquiryStatus.UNDER_REVIEW, InquiryStatus.REJECTED, InquiryStatus.CANCELLED],
-    InquiryStatus.UNDER_REVIEW: [InquiryStatus.PENDING, InquiryStatus.REJECTED, InquiryStatus.CANCELLED],
-    InquiryStatus.QUOTED: [InquiryStatus.NEGOTIATION, InquiryStatus.EXPIRED, InquiryStatus.CANCELLED, InquiryStatus.REJECTED],
-    InquiryStatus.NEGOTIATION: [InquiryStatus.CANCELLED, InquiryStatus.REJECTED], 
-    InquiryStatus.EXPIRED: [InquiryStatus.PENDING, InquiryStatus.CANCELLED], 
-    InquiryStatus.ACCEPTED: [InquiryStatus.CANCELLED], 
-    InquiryStatus.REJECTED: [InquiryStatus.PENDING], 
-    InquiryStatus.CANCELLED: [InquiryStatus.PENDING]
-}
 
 # ==========================================
 # 1. CREATE SCHEMAS (Data sent BY the user)

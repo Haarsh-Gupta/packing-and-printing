@@ -16,32 +16,26 @@
 import asyncio
 import json
 import logging
+import time
 from typing import AsyncGenerator, Optional
 from uuid import UUID
 from fastapi import Request
 
 import redis.asyncio as redis
-from app.core.config import settings
+from app.core.redis import create_dedicated_redis_client, redis_client
 
 logger = logging.getLogger(__name__)
 
-# Dedicated Redis connection for Pub/Sub (separate from the shared client)
-_pubsub_redis: Optional[redis.Redis] = None
+# Dedicated Redis connection for PUBLISHING only (lightweight, reusable)
+_publish_redis: Optional[redis.Redis] = None
 
 
-async def _get_pubsub_redis() -> redis.Redis:
-    """Lazily create a dedicated Redis connection for Pub/Sub."""
-    global _pubsub_redis
-    if _pubsub_redis is None:
-        _pubsub_redis = redis.Redis(
-            host=settings.redis_host,
-            port=settings.redis_port,
-            password=settings.redis_password or None,
-            db=settings.redis_db,
-            decode_responses=True,
-            ssl=settings.redis_ssl,
-        )
-    return _pubsub_redis
+async def _get_publish_redis() -> redis.Redis:
+    """Lazily create the shared publish-only Redis connection."""
+    global _publish_redis
+    if _publish_redis is None:
+        _publish_redis = create_dedicated_redis_client()
+    return _publish_redis
 
 
 def _user_channel(user_id: str | UUID) -> str:
@@ -55,13 +49,14 @@ class SSEManager:
     """
     Manages Server-Sent Event streams backed by Redis Pub/Sub.
 
-    - publish()          → push an event to a specific user's channel
+    - publish()           → push an event to a specific user's channel
     - publish_to_admins() → push an event to the admin channel
-    - subscribe()        → async generator that yields SSE-formatted strings
+    - subscribe()         → async generator that yields SSE-formatted strings
     """
 
     def __init__(self):
         self._shutdown_event = asyncio.Event()
+        self._active_tasks: set[asyncio.Task] = set()
 
     # ── Publishing ─────────────────────────────────────────────
 
@@ -72,10 +67,13 @@ class SSEManager:
         data: dict,
     ) -> None:
         """Send an event to a specific user's SSE channel."""
-        r = await _get_pubsub_redis()
-        payload = json.dumps({"event": event_type, "data": data})
-        await r.publish(_user_channel(user_id), payload)
-        logger.debug(f"SSE publish → {_user_channel(user_id)}: {event_type}")
+        try:
+            r = await _get_publish_redis()
+            payload = json.dumps({"event": event_type, "data": data})
+            await r.publish(_user_channel(user_id), payload)
+            logger.debug(f"SSE publish → {_user_channel(user_id)}: {event_type}")
+        except Exception as e:
+            logger.error(f"SSE publish failed for {_user_channel(user_id)}: {e}")
 
     async def publish_to_admins(
         self,
@@ -83,25 +81,31 @@ class SSEManager:
         data: dict,
     ) -> None:
         """Send an event to all connected admin SSE clients."""
-        r = await _get_pubsub_redis()
-        payload = json.dumps({"event": event_type, "data": data})
-        await r.publish(ADMIN_CHANNEL, payload)
-        logger.debug(f"SSE publish → {ADMIN_CHANNEL}: {event_type}")
+        try:
+            r = await _get_publish_redis()
+            payload = json.dumps({"event": event_type, "data": data})
+            await r.publish(ADMIN_CHANNEL, payload)
+            logger.debug(f"SSE publish → {ADMIN_CHANNEL}: {event_type}")
+        except Exception as e:
+            logger.error(f"SSE publish failed for {ADMIN_CHANNEL}: {e}")
 
     # ── Subscribing ────────────────────────────────────────────
 
     async def subscribe(
         self,
         user_id: str | UUID,
-        request: Request
+        request: Request,
     ) -> AsyncGenerator[str, None]:
         """
         Async generator that yields SSE-formatted event strings.
-        One generator per connected client; runs until the client disconnects.
+        Each subscriber gets its own dedicated Redis connection to avoid
+        contention under load.
         """
-        r = await _get_pubsub_redis()
-        pubsub = r.pubsub()
         channel = _user_channel(user_id)
+
+        # Each subscriber gets a DEDICATED Redis connection for its pubsub
+        sub_redis = create_dedicated_redis_client()
+        pubsub = sub_redis.pubsub()
 
         try:
             await pubsub.subscribe(channel)
@@ -110,17 +114,34 @@ class SSEManager:
             # Send initial connection confirmation
             yield _format_sse("connected", {"message": "SSE stream connected"})
 
-            import time
             last_keepalive = time.monotonic()
+            
+            # Initial active user registration
+            try:
+                await redis_client.zadd("active_users", {str(user_id): time.time()})
+            except Exception:
+                pass
 
             while not self._shutdown_event.is_set():
                 if await request.is_disconnected():
                     logger.info(f"SSE HTTP disconnect detected for {channel}")
                     break
-                
-                message = await pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=1.0
-                )
+
+                try:
+                    message = await asyncio.wait_for(
+                        pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5),
+                        timeout=1.0,
+                    )
+                except asyncio.TimeoutError:
+                    message = None
+                except asyncio.CancelledError:
+                    logger.info(f"SSE subscriber cancelled for {channel}")
+                    return
+                except Exception as e:
+                    logger.error(f"SSE pubsub read error on {channel}: {e}")
+                    await asyncio.sleep(1)
+                    continue
+
                 if message and message["type"] == "message":
                     raw = message["data"]
                     try:
@@ -133,17 +154,36 @@ class SSEManager:
                     if now - last_keepalive >= 25:
                         yield ": keepalive\n\n"
                         last_keepalive = now
+                        # Heartbeat for active user tracking
+                        try:
+                            await redis_client.zadd("active_users", {str(user_id): time.time()})
+                        except Exception:
+                            pass
 
         except asyncio.CancelledError:
             logger.info(f"SSE client disconnected from {channel}")
+        except Exception as e:
+            logger.error(f"SSE subscribe fatal error for {channel}: {e}")
         finally:
-            await pubsub.unsubscribe(channel)
-            await pubsub.close()
+            try:
+                await asyncio.wait_for(pubsub.unsubscribe(channel), timeout=1.0)
+            except Exception:
+                pass
+            try:
+                await asyncio.wait_for(pubsub.close(), timeout=1.0)
+            except Exception:
+                pass
+            try:
+                await asyncio.wait_for(sub_redis.close(), timeout=1.0)
+            except Exception:
+                pass
 
     async def subscribe_admin(self, request: Request) -> AsyncGenerator[str, None]:
-        """Async generator for admin SSE stream."""
-        r = await _get_pubsub_redis()
-        pubsub = r.pubsub()
+        """Async generator for admin SSE stream (dedicated Redis connection)."""
+
+        # Each admin subscriber gets a DEDICATED Redis connection
+        sub_redis = create_dedicated_redis_client()
+        pubsub = sub_redis.pubsub()
 
         try:
             await pubsub.subscribe(ADMIN_CHANNEL)
@@ -151,7 +191,6 @@ class SSEManager:
 
             yield _format_sse("connected", {"message": "Admin SSE stream connected"})
 
-            import time
             last_keepalive = time.monotonic()
 
             while not self._shutdown_event.is_set():
@@ -159,9 +198,21 @@ class SSEManager:
                     logger.info("Admin SSE HTTP disconnect detected")
                     break
 
-                message = await pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=1.0
-                )
+                try:
+                    message = await asyncio.wait_for(
+                        pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5),
+                        timeout=1.0,
+                    )
+                except asyncio.TimeoutError:
+                    message = None
+                except asyncio.CancelledError:
+                    logger.info("Admin SSE subscriber cancelled")
+                    return
+                except Exception as e:
+                    logger.error(f"SSE pubsub read error on {ADMIN_CHANNEL}: {e}")
+                    await asyncio.sleep(1)
+                    continue
+
                 if message and message["type"] == "message":
                     raw = message["data"]
                     try:
@@ -177,20 +228,56 @@ class SSEManager:
 
         except asyncio.CancelledError:
             logger.info("Admin SSE client disconnected")
+        except Exception as e:
+            logger.error(f"Admin SSE subscribe fatal error: {e}")
         finally:
-            await pubsub.unsubscribe(ADMIN_CHANNEL)
-            await pubsub.close()
+            try:
+                await asyncio.wait_for(pubsub.unsubscribe(ADMIN_CHANNEL), timeout=1.0)
+            except Exception:
+                pass
+            try:
+                await asyncio.wait_for(pubsub.close(), timeout=1.0)
+            except Exception:
+                pass
+            try:
+                await asyncio.wait_for(sub_redis.close(), timeout=1.0)
+            except Exception:
+                pass
+
+    def track_task(self, task: asyncio.Task) -> None:
+        """Register an active subscriber task for cleanup on shutdown."""
+        self._active_tasks.add(task)
+        task.add_done_callback(self._active_tasks.discard)
 
     # ── Cleanup ────────────────────────────────────────────────
 
     async def shutdown(self) -> None:
-        """Close the dedicated Pub/Sub Redis connection."""
+        """Signal all subscribers to stop and close the publish Redis connection."""
+        logger.info("SSE Manager: shutting down...")
         self._shutdown_event.set()
-        global _pubsub_redis
-        if _pubsub_redis:
-            await _pubsub_redis.close()
-            _pubsub_redis = None
-            logger.info("SSE Redis connection closed")
+
+        # Cancel all tracked subscriber tasks
+        if self._active_tasks:
+            logger.info(f"SSE Manager: cancelling {len(self._active_tasks)} active subscriber tasks")
+            for task in list(self._active_tasks):
+                task.cancel()
+            # Wait max 2s for them to finish
+            try:
+                await asyncio.wait(list(self._active_tasks), timeout=2.0)
+            except Exception:
+                pass
+            self._active_tasks.clear()
+
+        global _publish_redis
+        if _publish_redis:
+            try:
+                await asyncio.wait_for(_publish_redis.close(), timeout=2.0)
+            except Exception as e:
+                logger.error(f"Error closing SSE publish Redis: {e}")
+            _publish_redis = None
+            logger.info("SSE publish Redis connection closed")
+
+        logger.info("SSE Manager: shutdown complete")
 
 
 def _format_sse(event: str, data: dict) -> str:

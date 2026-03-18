@@ -60,3 +60,8 @@ dependencies = [
     "uvicorn==0.40.0",
     "websockets>=16.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.6",
+]

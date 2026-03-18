@@ -1,6 +1,6 @@
 import cloudinary
 import cloudinary.uploader
-from fastapi import UploadFile, HTTPException, status
+from fastapi import UploadFile, HTTPException
 from app.core.config import settings
 import os
 

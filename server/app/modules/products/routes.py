@@ -1,17 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete
 from sqlalchemy.orm import selectinload
 
 # Adjust these imports based on your actual project structure
 from app.core.database import get_db
-from app.modules.auth.auth import get_current_admin_user
-from app.modules.users.models import User
 from app.modules.products.models import Product, SubProduct
 from app.modules.products.schemas import (
-    ProductCreate, ProductUpdate, ProductResponse,
-    SubProductCreate, SubProductUpdate, SubProductResponse
+    ProductResponse,
+    SubProductResponse
 )
 
 router = APIRouter()

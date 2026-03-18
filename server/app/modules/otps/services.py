@@ -6,7 +6,8 @@ email delivery (via BaseEmailService). Business logic is fully
 decoupled from vendors — swap Redis or Brevo without touching this file.
 """
 
-import secrets, string
+import secrets
+import string
 from app.core.config import settings
 from app.core.otp_store import BaseOTPStore, get_otp_store
 from app.core.email.service import BaseEmailService, get_email_service

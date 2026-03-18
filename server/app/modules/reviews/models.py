@@ -1,10 +1,7 @@
-from sqlalchemy import Column , Integer , String , DateTime , Boolean , func , Float , ARRAY, ForeignKey, ForeignKeyConstraint, CheckConstraint, Uuid
+from sqlalchemy import Column , Integer , String , DateTime , Boolean , func , ForeignKey, CheckConstraint, Uuid
 from sqlalchemy.orm import relationship
 from app.core.database import Base
-from app.modules.users.models import User
-from app.modules.products.models import SubProduct
 
-from app.modules.services.models import SubService
 
 class Review(Base):
     __tablename__ = "reviews"
@@ -19,10 +16,10 @@ class Review(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     is_verified = Column(Boolean , default = False)
 
-    # Relationships
-    user = relationship("User")
-    product = relationship("SubProduct", back_populates="reviews")
-    service = relationship("SubService", back_populates="reviews")
+    # Relationships — lazy="selectin" prevents MissingGreenlet in async context
+    user = relationship("User", lazy="selectin")
+    product = relationship("SubProduct", back_populates="reviews", lazy="selectin")
+    service = relationship("SubService", back_populates="reviews", lazy="selectin")
 
     __table_args__ = (
         CheckConstraint(

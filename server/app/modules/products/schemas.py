@@ -3,9 +3,6 @@ from pydantic import BaseModel, Field, model_validator
 from slugify import slugify
 from enum import Enum
 from datetime import datetime
-from fastapi import FastAPI
-
-app = FastAPI(title="Product Customization API")
 
 
 # =========================================================

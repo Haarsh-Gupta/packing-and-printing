@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, X, CheckCheck, Loader2 } from "lucide-react";
+import { Bell, X, CheckCheck, Loader2, Trash2 } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 
 interface Notification {
@@ -168,6 +168,32 @@ export default function NotificationsBell() {
         } catch { /* silent */ }
     };
 
+    const deleteAll = async () => {
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+            await fetch(`${apiUrl}/notifications/all`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setNotifications([]);
+            setUnread(0);
+        } catch { /* silent */ }
+    };
+
+    const deleteNotification = async (id: number, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+            await fetch(`${apiUrl}/notifications/${id}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setNotifications(prev => prev.filter(n => n.id !== id));
+            fetchNotifications();
+        } catch { /* silent */ }
+    };
+
     const formatTime = (iso: string) => {
         const d = new Date(iso);
         const now = new Date();
@@ -210,14 +236,21 @@ export default function NotificationsBell() {
                                 </span>
                             )}
                         </div>
-                        <div className="flex items-center gap-2">
-                            {unread > 0 && (
-                                <button onClick={markAllRead} className="text-xs font-bold hover:text-[#fdf567] flex items-center gap-1">
-                                    <CheckCheck className="h-4 w-4" /> All
-                                </button>
-                            )}
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                {unread > 0 && (
+                                    <button onClick={markAllRead} className="text-xs font-bold hover:text-[#fdf567] flex items-center gap-1">
+                                        <CheckCheck className="h-4 w-4" /> All
+                                    </button>
+                                )}
+                                {notifications.length > 0 && (
+                                    <button onClick={deleteAll} className="text-xs font-bold hover:text-[#fdf567] flex items-center gap-1 ml-2 text-zinc-400">
+                                        <Trash2 className="h-4 w-4" /> Clear
+                                    </button>
+                                )}
+                            </div>
                             <button onClick={() => setOpen(false)}>
-                                <X className="h-5 w-5" />
+                                <X className="h-5 w-5 ml-2" />
                             </button>
                         </div>
                     </div>
@@ -250,9 +283,17 @@ export default function NotificationsBell() {
                                             <span className="h-2 w-2 bg-black rounded-full mt-1 shrink-0" />
                                         )}
                                     </div>
-                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-2">
-                                        {formatTime(n.created_at)}
-                                    </p>
+                                    <div className="flex justify-between items-center mt-3">
+                                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                            {formatTime(n.created_at)}
+                                        </p>
+                                        <button 
+                                            onClick={(e) => deleteNotification(n.id, e)} 
+                                            className="p-1 hover:bg-zinc-200 rounded-md text-zinc-400 hover:text-red-500 transition-colors"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
                                 </div>
                             ))
                         )}

@@ -5,7 +5,6 @@ All endpoints are GET-only, admin-protected, and accept an optional
 `?period=today|week|month|quarter|year|all` query parameter.
 """
 
-from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
 class ReviewBase(BaseModel):
@@ -32,6 +32,24 @@ class ReviewUserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class ReviewProductResponse(BaseModel):
+    id: int
+    name: str
+    product_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class ReviewServiceResponse(BaseModel):
+    id: int
+    name: str
+    service_id: int
+
+    class Config:
+        from_attributes = True
+
 class ReviewResponse(ReviewBase):
     id : int
     user_id : UUID
@@ -40,6 +58,15 @@ class ReviewResponse(ReviewBase):
     created_at : datetime
     is_verified : bool
     user: Optional[ReviewUserResponse] = None
+    product: Optional[ReviewProductResponse] = None
+    service: Optional[ReviewServiceResponse] = None
 
     class Config:
         from_attributes = True
+
+
+class ReviewListResponse(BaseModel):
+    total: int
+    skip: int
+    limit: int
+    reviews: List[ReviewResponse]

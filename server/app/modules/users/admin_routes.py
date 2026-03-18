@@ -1,21 +1,65 @@
-import asyncio
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, or_
 
-from .schemas import UserCreate, UserOut, UserUpdate
+from .schemas import UserOut
 from .models import User
 from app.core.database import get_db
-from ..auth.auth import get_password_hash
-from ..auth import get_current_user, get_current_admin_user
-from ..auth.schemas import TokenData
-from app.modules.otps.services import get_otp_service
-from app.core.rate_limiter import RateLimiter
+from ..auth import get_current_admin_user
 from app.core.redis import redis_client
 
 router = APIRouter()
+
+@router.get("/online")
+async def get_online_users_and_count(
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """[ADMIN] Get an exact count and list of currently online users. Merges SSE/WS tracking and HTTP tracking."""
+    import time
+    
+    # 1. Clean up stale SSE connections (older than 35s since last heartbeat)
+    cutoff = time.time() - 35
+    await redis_client.zremrangebyscore("active_users", "-inf", cutoff)
+    
+    # 2. Get SSE online users
+    sse_active_ids = await redis_client.zrange("active_users", 0, -1)
+    
+    # 3. Get HTTP active users (from middleware, TTL 5 mins)
+    cursor = 0
+    http_active_ids = set()
+    while True:
+        cursor, keys = await redis_client.scan(cursor=cursor, match="user_active:*", count=100)
+        for key in keys:
+             user_id_str = key.replace("user_active:", "")
+             http_active_ids.add(user_id_str)
+        if cursor == 0:
+            break
+             
+    # Union both tracking sources
+    all_online_ids = list(set(sse_active_ids) | http_active_ids)
+    
+    if not all_online_ids:
+        return {"count": 0, "users": []}
+        
+    stmt = select(User).where(User.id.in_(all_online_ids))
+    result = await db.execute(stmt)
+    users = result.scalars().all()
+    
+    return {
+        "count": len(users),
+        "users": [
+            {
+                "id": str(u.id), 
+                "name": u.name, 
+                "email": u.email, 
+                "is_active": u.is_active, 
+                "role": "admin" if u.admin else "user"
+            } for u in users
+        ]
+    }
 
 @router.get("/all" , response_model=list[UserOut])
 async def get_all_users(

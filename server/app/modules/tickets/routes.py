@@ -2,19 +2,17 @@ from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.modules.auth import get_current_user, get_current_admin_user
+from app.modules.auth import get_current_user
 from app.modules.auth.schemas import TokenData
-from app.modules.users.models import User
 from app.modules.notifications.service import NotificationService
 
 from .models import Ticket, TicketMessage
 from .schemas import (
     TicketCreate,
-    TicketStatusUpdate,
     TicketMessageCreate,
     TicketResponse,
     TicketDetailResponse,
@@ -133,7 +131,8 @@ async def add_message(
     if not current_user.admin and ticket.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your ticket")
 
-    if ticket.status == "CLOSED":
+    # Admins can reply to closed tickets (it will re-open them)
+    if not current_user.admin and ticket.status == "CLOSED":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ticket is closed")
 
     msg = TicketMessage(
@@ -146,8 +145,10 @@ async def add_message(
 
     # Auto-update status when admin replies
     if current_user.admin:
-        if ticket.status == "OPEN":
+        # If admin replies, ensure it's in IN_PROGRESS (re-opens if CLOSED)
+        if ticket.status in ["OPEN", "CLOSED"]:
             ticket.status = "IN_PROGRESS"
+            
         # Notify user of admin reply
         await NotificationService.notify_user(
             db,

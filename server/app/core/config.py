@@ -3,7 +3,7 @@ from pydantic import computed_field
 
 class Settings(BaseSettings):
     # Cloudinary
-    cloudinary_api_key: int
+    cloudinary_api_key: str
     cloudinary_api_secret: str
     cloudinary_cloud_name: str
 

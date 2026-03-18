@@ -1,15 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, and_
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from uuid import UUID
 
 from app.core.database import get_db
-from app.modules.auth.auth import get_current_user, get_current_admin_user
+from app.modules.auth.auth import get_current_user
 from app.modules.users.models import User
 from app.modules.wishlist.models import Wishlist
-from app.modules.products.models import SubProduct
-from app.modules.services.models import SubService
 from app.modules.wishlist.schemas import WishlistToggleRequest, WishlistSyncRequest, WishlistItemResponse
 
 router = APIRouter()
@@ -29,6 +26,8 @@ async def toggle_wishlist_item(
     Used for the instant Heart Icon click.
     """
     # 1. Check if it already exists
+    # NOTE: SQLAlchemy translates == None to IS NULL correctly.
+    # If using raw SQL, this would fail for NULL values (e.g. when toggling a product, sub_service_id is None).
     stmt = select(Wishlist).where(
         Wishlist.user_id == current_user.id,
         Wishlist.sub_product_id == request.sub_product_id,
@@ -52,7 +51,7 @@ async def toggle_wishlist_item(
     
     try:
         await db.commit()
-    except Exception as e:
+    except Exception:
         await db.rollback()
         raise HTTPException(status_code=400, detail="Invalid Product or Service ID")
         
