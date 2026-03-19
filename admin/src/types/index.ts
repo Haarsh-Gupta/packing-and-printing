@@ -61,6 +61,40 @@ export interface ActivityItem {
 }
 
 // ============ Orders ============
+export type OrderStatus = 
+    | "WAITING_PAYMENT" 
+    | "PARTIALLY_PAID" 
+    | "PAID" 
+    | "PROCESSING" 
+    | "READY" 
+    | "COMPLETED" 
+    | "CANCELLED";
+
+export interface Milestone {
+    id: string;
+    order_id: string;
+    label: string;
+    amount: number;
+    percentage: number;
+    order_index: number;
+    status: string;
+    paid_at?: string;
+}
+
+export interface PaymentDeclaration {
+    id: string;
+    order_id: string;
+    milestone_id: string;
+    user_id: string;
+    payment_mode: string;
+    utr_number?: string;
+    screenshot_url?: string;
+    status: string;
+    rejection_reason?: string;
+    created_at: string;
+    reviewed_at?: string;
+}
+
 export interface Transaction {
     id: string;
     order_id: string;
@@ -77,12 +111,14 @@ export interface Order {
     user_id: string;
     total_amount: number;
     amount_paid: number;
-    status: string;
+    status: OrderStatus;
     product_name?: string;
     payment_id?: string;
     created_at: string;
     updated_at: string;
+    milestones?: Milestone[];
     transactions?: Transaction[];
+    declarations?: PaymentDeclaration[];
 }
 
 // ============ Inquiries ============
@@ -111,14 +147,26 @@ export interface InquiryMessage {
     created_at: string;
 }
 
+export interface QuoteVersion {
+    id: string;
+    inquiry_id: string;
+    version_number: number;
+    total_price: number;
+    valid_until: string;
+    admin_notes?: string;
+    milestones?: { label: string; percentage: number; description?: string }[];
+    line_items?: Record<string, unknown>[];
+    status: string;
+    created_at: string;
+}
+
 export interface InquiryGroup {
     id: string;
     user_id: string;
     status: string;
-    total_quoted_price?: number;
-    admin_notes?: string;
-    quoted_at?: string;
-    quote_valid_until?: string;
+    active_quote_id?: string;
+    active_quote?: QuoteVersion;
+    quote_versions?: QuoteVersion[];
     created_at: string;
     updated_at: string;
     items: InquiryItem[];
@@ -129,7 +177,7 @@ export interface InquiryGroupList {
     id: string;
     user_id: string;
     status: string;
-    total_quoted_price?: number;
+    active_quote?: { total_price: number };
     created_at: string;
     item_count: number;
 }

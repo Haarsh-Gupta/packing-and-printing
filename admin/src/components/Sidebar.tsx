@@ -12,6 +12,7 @@ import {
 const navItems = [
     { label: "Dashboard", icon: LayoutDashboard, path: "/" },
     { label: "Orders", icon: ShoppingCart, path: "/orders" },
+    { label: "Declarations", icon: ShoppingCart, path: "/declarations" },
     { label: "Inquiries", icon: MessageSquare, path: "/inquiries" },
     { label: "Products", icon: Package, path: "/products" },
     { label: "Services", icon: Wrench, path: "/services" },
@@ -23,7 +24,7 @@ const navItems = [
 ];
 
 export function AppSidebar() {
-    const { user, logout } = useAuth();
+    const { admin: user, logout } = useAuth();
     const location = useLocation();
 
     const isActive = (path: string) => {

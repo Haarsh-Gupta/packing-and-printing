@@ -5,14 +5,14 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.task_registry import fire
 from app.modules.auth.auth import get_current_user
 from app.modules.auth.schemas import TokenData
-from app.modules.services.models import SubService
-from app.modules.products.models import SubProduct
 from app.modules.orders.models import Order, OrderMilestone
 from app.modules.orders.schemas import OrderResponse
 from app.modules.orders.schemas import PaymentSplitType
 from .models import InquiryGroup, InquiryItem, InquiryMessage
+from .service import calculate_item_estimated_price
 from .schemas import (
     InquiryGroupCreate,
     InquiryItemUpdate,
@@ -77,97 +77,7 @@ async def websocket_inquiry_endpoint(websocket: WebSocket, group_id: str, token:
         except Exception:
             pass
 
-async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSession) -> float:
-    """
-    Validates the inquiry item options and calculates the estimated price 
-    based on backend database values.
-    """
-    estimated_price = 0.0
-    # 1. SERVICE VALIDATION & CALCULATION
-    if item.subservice_id:
-        stmt = select(SubService).where(SubService.id == item.subservice_id)
-        sub_service = (await db.execute(stmt)).scalar_one_or_none()
-        
-        if not sub_service:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"SubService {item.subservice_id} not found")
-        if not sub_service.is_active:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This service is currently unavailable")
-        if item.quantity < sub_service.minimum_quantity:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Minimum quantity required is {sub_service.minimum_quantity} for '{sub_service.name}'")
-        
-        # Calculation: (Base Price) + (Price Per Unit * Quantity)
-        estimated_price = sub_service.price_per_unit * item.quantity
-
-    # 2. PRODUCT VALIDATION & CALCULATION
-    elif item.subproduct_id:
-        stmt = select(SubProduct).where(SubProduct.id == item.subproduct_id)
-        sub_product = (await db.execute(stmt)).scalar_one_or_none()
-        
-        if not sub_product:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"SubProduct {item.subproduct_id} not found")
-        if not sub_product.is_active:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This product is currently unavailable")
-        if item.quantity < sub_product.minimum_quantity:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Minimum quantity required is {sub_product.minimum_quantity} for '{sub_product.name}'")
-
-        base_item_price = sub_product.base_price
-
-        # Options Validation using JSONB Config Schema
-        if item.selected_options and sub_product.config_schema:
-            config_data = sub_product.config_schema
-            sections_list = config_data.get("sections", []) if isinstance(config_data, dict) else []
-            
-            # Create a lookup map for faster validation: key -> section data
-            sections_map = {
-                section["key"]: section 
-                for section in sections_list
-                if isinstance(section, dict) and "key" in section
-            }
-            
-            for key, selected_val in item.selected_options.items():
-                if key not in sections_map:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST, 
-                        detail=f"Invalid option category: {key}"
-                    )
-                
-                section = sections_map[key]
-                s_type = section.get("type")
-                
-                # Only validate against predefined options for dropdown/radio
-                if s_type in ["dropdown", "radio"]:
-                    options = section.get("options", []) or []
-                    # Map valid choices to their price modifiers
-                    options_map = {
-                        str(opt.get("value")): float(opt.get("price_mod", 0.0))
-                        for opt in options 
-                        if isinstance(opt, dict) and "value" in opt
-                    }
-                    
-                    val_str = str(selected_val)
-                    if val_str not in options_map:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST, 
-                            detail=f"Invalid value '{selected_val}' for option '{key}'"
-                        )
-                    
-                    base_item_price += options_map[val_str]
-                
-                # For numeric inputs holding a price per unit multiplier
-                elif s_type == "number_input":
-                    try:
-                        qty = float(selected_val)
-                        ppu = float(section.get("price_per_unit", 0.0))
-                        base_item_price += (qty * ppu)
-                    except (ValueError, TypeError):
-                        pass
-                
-                # Note: text_input is allowed but adds no extra cost by default
-
-        # Calculation: (Base Price + Options Cost) * Quantity
-        estimated_price = base_item_price * item.quantity
-
-    return estimated_price
+# calculate_item_estimated_price is imported from .service
 
 @router.post("/", response_model=InquiryGroupResponse, status_code=status.HTTP_201_CREATED)
 async def create_inquiry_group(
@@ -182,7 +92,7 @@ async def create_inquiry_group(
     # 1. Create the parent container
     new_group = InquiryGroup(
         user_id=current_user.id,
-        status='PENDING'
+        status='SUBMITTED'
     )
     db.add(new_group)
     await db.flush()  # Flush to generate the new_group.id for the item
@@ -216,8 +126,7 @@ async def create_inquiry_group(
 
     # Notify all admins of new inquiry via SSE
     from app.core.sse import sse_manager
-    import asyncio
-    asyncio.create_task(
+    fire(
         sse_manager.publish_to_admins("new_inquiry", {
             "inquiry_id": str(new_group.id),
             "user_id": str(current_user.id),
@@ -229,7 +138,9 @@ async def create_inquiry_group(
     # 3. Fetch the fully loaded group to return
     stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.quote_versions),
+        selectinload(InquiryGroup.active_quote),
     ).where(InquiryGroup.id == new_group.id)
     
     result = await db.execute(stmt)
@@ -248,7 +159,7 @@ async def get_my_inquiries(
     """
     stmt = (
         select(InquiryGroup)
-        .options(selectinload(InquiryGroup.items))
+        .options(selectinload(InquiryGroup.items), selectinload(InquiryGroup.quote_versions), selectinload(InquiryGroup.active_quote))
         .where(InquiryGroup.user_id == current_user.id)
         .order_by(InquiryGroup.created_at.desc())
         .offset(skip)
@@ -275,7 +186,9 @@ async def get_my_inquiry(
     """
     stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.quote_versions),
+        selectinload(InquiryGroup.active_quote),
     ).where(
         InquiryGroup.id == group_id,
         InquiryGroup.user_id == current_user.id
@@ -310,8 +223,8 @@ async def add_item_to_inquiry(
     if not group:
         raise HTTPException(404)
 
-    if group.status != "PENDING":
-        raise HTTPException(400, "Cannot modify inquiry")
+    if group.status != "DRAFT":
+        raise HTTPException(400, "Cannot modify inquiry not in DRAFT status")
 
     price = await calculate_item_estimated_price(item, db)
 
@@ -334,7 +247,9 @@ async def add_item_to_inquiry(
 
     stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.quote_versions),
+        selectinload(InquiryGroup.active_quote),
     ).where(InquiryGroup.id == group_id)
     
     return (await db.execute(stmt)).scalar_one()
@@ -358,8 +273,8 @@ async def update_inquiry_item(
     if not group:
         raise HTTPException(detail="Inquiry not found", status_code=404)
 
-    if group.status != "PENDING":
-        raise HTTPException(status_code=400, detail="Cannot modify inquiry not in PENDING status")
+    if group.status != "DRAFT":
+        raise HTTPException(status_code=400, detail="Cannot modify inquiry not in DRAFT status")
 
     item = (await db.execute(
         select(InquiryItem).where(
@@ -404,7 +319,9 @@ async def update_inquiry_item(
 
     stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.quote_versions),
+        selectinload(InquiryGroup.active_quote),
     ).where(InquiryGroup.id == group_id)
     
     return (await db.execute(stmt)).scalar_one()
@@ -427,8 +344,8 @@ async def delete_inquiry_item(
     if not group:
         raise HTTPException(detail="Inquiry not found", status_code=404)
 
-    if group.status != "PENDING":
-        raise HTTPException(status_code=400, detail="Cannot modify inquiry not in PENDING status")
+    if group.status != "DRAFT":
+        raise HTTPException(status_code=400, detail="Cannot modify inquiry not in DRAFT status")
 
     item = (await db.execute(
         select(InquiryItem).where(
@@ -456,7 +373,7 @@ async def reorder_inquiry(
 
     stmt = (
         select(InquiryGroup)
-        .options(selectinload(InquiryGroup.items))
+        .options(selectinload(InquiryGroup.items), selectinload(InquiryGroup.quote_versions), selectinload(InquiryGroup.active_quote))
         .where(
             InquiryGroup.id == group_id,
             InquiryGroup.user_id == current_user.id
@@ -474,7 +391,7 @@ async def reorder_inquiry(
 
     new_group = InquiryGroup(
         user_id=current_user.id,
-        status="PENDING"
+        status="DRAFT"
     )
 
     db.add(new_group)
@@ -519,7 +436,9 @@ async def reorder_inquiry(
         select(InquiryGroup)
         .options(
             selectinload(InquiryGroup.items),
-            selectinload(InquiryGroup.messages)
+            selectinload(InquiryGroup.messages),
+            selectinload(InquiryGroup.quote_versions),
+            selectinload(InquiryGroup.active_quote),
         )
         .where(InquiryGroup.id == new_group.id)
     )
@@ -541,7 +460,9 @@ async def update_inquiry_status_user(
     """
     stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.active_quote),
+        selectinload(InquiryGroup.quote_versions),
     ).where(
         InquiryGroup.id == group_id,
         InquiryGroup.user_id == current_user.id
@@ -570,8 +491,7 @@ async def update_inquiry_status_user(
     
     # Fire SSE to admin
     from app.core.sse import sse_manager
-    import asyncio
-    asyncio.create_task(
+    fire(
         sse_manager.publish_to_admins("admin_inquiry_updated", {
             "inquiry_id": str(group.id),
             "status": group.status,
@@ -582,7 +502,8 @@ async def update_inquiry_status_user(
     # Re-fetch the fully loaded group with relationships after commit
     fetch_stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.active_quote),
     ).where(InquiryGroup.id == group_id)
     
     refreshed_result = await db.execute(fetch_stmt)
@@ -594,22 +515,24 @@ async def update_inquiry_status_user(
         existing_order = (await db.execute(existing_stmt)).scalar_one_or_none()
         
         if not existing_order:
-            # Enforce split_type options for user acceptance: FULL or HALF
-            split_type = status_update.split_type or PaymentSplitType.FULL
-            if split_type not in [PaymentSplitType.FULL, PaymentSplitType.HALF, PaymentSplitType.CUSTOM]:
-                # If they send an invalid split type, fallback to HALF
-                split_type = PaymentSplitType.HALF
-            
+            # Get total from the active quote
+            if not group.active_quote:
+                raise HTTPException(status_code=400, detail="No active quote found on this inquiry")
+            quoted_total = group.active_quote.total_price
+
+            # Enforce split_type: default to HALF
+            split_type = PaymentSplitType.HALF
+
             new_order = Order(
                 inquiry_id=group.id,
                 user_id=group.user_id,
-                total_amount=group.total_quoted_price,
+                total_amount=quoted_total,
                 status="WAITING_PAYMENT"
             )
             db.add(new_order)
-            await db.flush() # flush to get new_order.id
+            await db.flush()
             
-            total = group.total_quoted_price
+            total = quoted_total
             milestones = []
             
             if total == 0:
@@ -628,20 +551,6 @@ async def update_inquiry_status_user(
                     ))
                     milestones.append(OrderMilestone(
                         order_id=new_order.id, label="Balance Before Dispatch (50%)", amount=total * 0.5, percentage=50.0, order_index=2
-                    ))
-                elif split_type == PaymentSplitType.CUSTOM and status_update.custom_percentages:
-                    if abs(sum(status_update.custom_percentages) - 100.0) > 0.1:
-                        raise HTTPException(status_code=400, detail="Custom percentages must sum to 100")
-                    
-                    for i, pct in enumerate(status_update.custom_percentages):
-                        m_amount = (total * pct) / 100.0
-                        milestones.append(OrderMilestone(
-                            order_id=new_order.id, label=f"Custom Milestone {i+1} ({pct}%)", amount=m_amount, percentage=pct, order_index=i+1
-                        ))
-                else: 
-                    # Default if CUSTOM but no percentages
-                    milestones.append(OrderMilestone(
-                        order_id=new_order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
                     ))
             
             db.add_all(milestones)
@@ -669,10 +578,10 @@ async def delete_my_inquiry(
     if not group:
         raise HTTPException(status_code=404, detail="Inquiry not found")
     
-    if group.status != 'PENDING':
+    if group.status != 'DRAFT':
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only delete inquiries with PENDING status"
+            detail="Can only delete inquiries with DRAFT status"
         )
     
     # The database will automatically delete associated Items and Messages via ON DELETE CASCADE
@@ -722,9 +631,7 @@ async def send_inquiry_message(
 
     # Notify admin
     from app.core.sse import sse_manager
-    from app.core.websockets import ws_manager
-    import asyncio
-    asyncio.create_task(
+    fire(
         sse_manager.publish_to_admins("admin_inquiry_new_message", {
             "inquiry_id": str(group_id),
             "sender_id": str(current_user.id),
@@ -771,7 +678,6 @@ async def direct_checkout_zero_cost(
     new_group = InquiryGroup(
         user_id=current_user.id,
         status='ACCEPTED',
-        total_quoted_price=0.0
     )
     db.add(new_group)
     await db.flush()

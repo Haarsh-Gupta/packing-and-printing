@@ -236,8 +236,8 @@ export default function InquiryDetailPage() {
         }
     };
 
-    // ── Status update (accept / reject quote) ────────────────────────────
-    const handleStatusUpdate = async (status: "ACCEPTED" | "REJECTED") => {
+    // ── Status update (accept / reject quote / submit draft) ────────────────────────────
+    const handleStatusUpdate = async (status: "ACCEPTED" | "REJECTED" | "SUBMITTED") => {
         setIsLoading(true);
         try {
             const token = localStorage.getItem("access_token");
@@ -255,6 +255,8 @@ export default function InquiryDetailPage() {
                 if (status === "ACCEPTED") {
                     showAlert("Quote accepted! Your order is being placed...", "success");
                     setTimeout(() => router.push("/dashboard/orders"), 1800);
+                } else if (status === "SUBMITTED") {
+                    showAlert("Inquiry submitted to the studio!", "success");
                 } else {
                     showAlert("Quote declined.", "info");
                 }
@@ -271,16 +273,24 @@ export default function InquiryDetailPage() {
     // ── Status badge ─────────────────────────────────────────────────────
     const getStatusBadge = (status: string) => {
         switch (status) {
-            case "PENDING":
+            case "DRAFT":
+                return <Badge className="bg-zinc-100 text-zinc-500 border-2 border-zinc-400 rounded-none"><FileText className="w-3 h-3 mr-1" /> Draft</Badge>;
+            case "SUBMITTED":
                 return <Badge className="bg-[#fdf567] text-black border-2 border-black rounded-none"><Clock className="w-3 h-3 mr-1" /> Pending Review</Badge>;
             case "UNDER_REVIEW":
                 return <Badge className="bg-[#c7d2fe] text-black border-2 border-black rounded-none"><AlertCircle className="w-3 h-3 mr-1" /> Under Review</Badge>;
+            case "NEGOTIATING":
+                return <Badge className="bg-cyan-100 text-cyan-700 border-2 border-cyan-400 rounded-none"><AlertCircle className="w-3 h-3 mr-1" /> Negotiating</Badge>;
             case "QUOTED":
                 return <Badge className="bg-[#ff90e8] text-black border-2 border-black rounded-none animate-pulse"><AlertCircle className="w-3 h-3 mr-1" /> Quote Ready!</Badge>;
             case "ACCEPTED":
                 return <Badge className="bg-[#4be794] text-black border-2 border-black rounded-none"><CheckCircle2 className="w-3 h-3 mr-1" /> Accepted</Badge>;
             case "REJECTED":
                 return <Badge className="bg-zinc-200 text-zinc-500 border-2 border-zinc-500 rounded-none"><XCircle className="w-3 h-3 mr-1" /> Rejected</Badge>;
+            case "CANCELLED":
+                return <Badge className="bg-zinc-200 text-zinc-500 border-2 border-zinc-400 rounded-none"><XCircle className="w-3 h-3 mr-1" /> Cancelled</Badge>;
+            case "EXPIRED":
+                return <Badge className="bg-zinc-100 text-zinc-400 border-2 border-zinc-300 rounded-none"><Clock className="w-3 h-3 mr-1" /> Expired</Badge>;
             default:
                 return <Badge>{status}</Badge>;
         }
@@ -294,7 +304,7 @@ export default function InquiryDetailPage() {
     }
 
     const item = inquiry.items && inquiry.items.length > 0 ? inquiry.items[0] : null;
-    const canMessage = ["PENDING", "UNDER_REVIEW", "QUOTED"].includes(inquiry.status);
+    const canMessage = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "NEGOTIATING", "QUOTED"].includes(inquiry.status);
 
     return (
         <div className="space-y-6 max-w-6xl mx-auto min-h-[calc(100vh-100px)] lg:h-[calc(100vh-100px)] flex flex-col">
@@ -327,10 +337,15 @@ export default function InquiryDetailPage() {
 
                 <div className="flex items-center gap-3 flex-wrap justify-end">
                     {getStatusBadge(inquiry.status)}
-                    {inquiry.total_quoted_price != null && (
+                    {inquiry.active_quote?.total_price != null && (
                         <div className="text-xl font-black bg-[#4be794] text-black border-2 border-black px-4 py-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                            ₹{inquiry.total_quoted_price.toLocaleString()}
+                            ₹{inquiry.active_quote.total_price.toLocaleString()}
                         </div>
+                    )}
+                    {inquiry.status === "DRAFT" && (
+                        <Button onClick={() => handleStatusUpdate("SUBMITTED")} className="bg-black text-white hover:bg-zinc-800 border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase font-black">
+                            <Send className="w-4 h-4 mr-2" /> Submit to Studio
+                        </Button>
                     )}
                     {inquiry.status === "QUOTED" && (
                         <div className="flex gap-2">
@@ -405,16 +420,33 @@ export default function InquiryDetailPage() {
                                 </div>
                             )}
 
-                            {inquiry.admin_notes && (
+                            {inquiry.active_quote?.admin_notes && (
                                 <div className="bg-[#fdf567] p-4 border-2 border-black text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                                     <span className="font-black uppercase block mb-1">Studio Note:</span>
-                                    {inquiry.admin_notes}
+                                    {inquiry.active_quote.admin_notes}
                                 </div>
                             )}
 
-                            {inquiry.quote_valid_until && (
+                            {inquiry.active_quote?.valid_until && (
                                 <div className="text-xs font-bold text-zinc-400 uppercase">
-                                    Quote valid until: {new Date(inquiry.quote_valid_until).toLocaleDateString()}
+                                    Quote valid until: {new Date(inquiry.active_quote.valid_until).toLocaleDateString()}
+                                </div>
+                            )}
+
+                            {inquiry.quote_versions && inquiry.quote_versions.length > 0 && (
+                                <div className="mt-6 border-t-2 border-dashed border-zinc-200 pt-4">
+                                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Quote History</div>
+                                    <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
+                                        {[...inquiry.quote_versions].sort((a,b) => b.version_number - a.version_number).map(vq => (
+                                            <div key={vq.id} className={`p-3 border-2 border-black flex items-center justify-between ${vq.id === inquiry.active_quote_id ? "bg-[#4be794]" : "bg-zinc-50"}`}>
+                                                <div>
+                                                    <div className="text-xs font-black uppercase tracking-tighter">v{vq.version_number} {vq.id === inquiry.active_quote_id && "(Active)"}</div>
+                                                    <div className="text-[10px] font-bold text-zinc-500 uppercase">{new Date(vq.created_at).toLocaleDateString()}</div>
+                                                </div>
+                                                <div className="font-black text-sm">₹{vq.total_price.toLocaleString()}</div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>

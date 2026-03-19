@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { Order } from "@/types";
+import type { Order, OrderStatus } from "@/types";
 import {
     Download, Trash2, Search, X, Loader2, MapPin, CreditCard, Calendar, Printer, Plus, Minus
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const STATUS_TABS = ["All", "Waiting Payment", "Partially Paid", "Paid", "Processing", "Ready", "Completed", "Cancelled"];
+const STATUS_TABS = ["All", "Waiting_payment", "Partially_paid", "Paid", "Processing", "Ready", "Completed", "Cancelled"];
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
     WAITING_PAYMENT: { color: '#d97706', bg: '#fffbeb' },
@@ -40,10 +40,45 @@ export default function Orders() {
     const [search, setSearch] = useState("");
     const [selected, setSelected] = useState<Order | null>(null);
     const [updating, setUpdating] = useState(false);
-    const [newStatus, setNewStatus] = useState("");
+    const [newStatus, setNewStatus] = useState<OrderStatus | "">("");
     const [fullOrder, setFullOrder] = useState<any | null>(null);
     const [editingSchedule, setEditingSchedule] = useState(false);
     const [customMilestones, setCustomMilestones] = useState<{label: string; percentage: number}[]>([]);
+    const [linkedInquiry, setLinkedInquiry] = useState<any | null>(null);
+    const [rightWidth, setRightWidth] = useState<number>(350);
+
+    const [recordingPayment, setRecordingPayment] = useState<{ milestone_id: string; amount: number; label: string } | null>(null);
+    const [paymentMode, setPaymentMode] = useState<string>("BANK_TRANSFER");
+    const [paymentNotes, setPaymentNotes] = useState("");
+    const [confirmText, setConfirmText] = useState("");
+    const [submittingPayment, setSubmittingPayment] = useState(false);
+
+    const handleRecordPayment = async () => {
+        if (!selected || !recordingPayment || confirmText !== "CONFIRM") return;
+        setSubmittingPayment(true);
+        try {
+            await api(`/admin/orders/${selected.id}/payments`, {
+                method: "POST",
+                body: JSON.stringify({
+                    milestone_id: recordingPayment.milestone_id,
+                    amount: recordingPayment.amount,
+                    payment_mode: paymentMode,
+                    notes: paymentNotes || undefined
+                })
+            });
+            const data = await api(`/admin/orders/${selected.id}`);
+            setFullOrder(data);
+            fetchOrders();
+            setRecordingPayment(null);
+            setPaymentNotes("");
+            setConfirmText("");
+            setPaymentMode("BANK_TRANSFER");
+        } catch (e: any) {
+            alert(e.message || "Failed to record offline payment");
+        } finally {
+            setSubmittingPayment(false);
+        }
+    };
 
     const fetchOrders = () => {
         setLoading(true);
@@ -70,11 +105,15 @@ export default function Orders() {
         setNewStatus(order.status);
         setFullOrder(null);
         setEditingSchedule(false);
+        setLinkedInquiry(null);
         try {
             const data = await api(`/admin/orders/${order.id}`);
             setFullOrder(data);
+            if (order.inquiry_id) {
+                api(`/admin/inquiries/${order.inquiry_id}`).then(setLinkedInquiry).catch(console.error);
+            }
         } catch (e) {
-            console.error("Failed to load full order", e);
+            console.error("Failed to load order details", e);
         }
     };
 
@@ -136,7 +175,7 @@ export default function Orders() {
             </div>
 
             {/* Split view */}
-            <div className="flex flex-col xl:flex-row gap-5 flex-1 min-h-[500px] xl:min-h-0">
+            <div className="flex flex-col xl:flex-row flex-1 min-h-[500px] xl:min-h-0">
                 {/* Left: Orders Table */}
                 <div className="flex-1 bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden flex flex-col" style={{ minHeight: '400px' }}>
                     {/* Status tabs */}
@@ -222,7 +261,34 @@ export default function Orders() {
 
                 {/* Right: Detail Panel */}
                 {selected ? (
-                    <div className="w-full xl:w-[340px] shrink-0 bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden flex flex-col" style={{ minHeight: '400px' }}>
+                    <>
+                        {/* Resizer Handle */}
+                        <div className="hidden xl:flex"
+                            style={{ 
+                                width: '20px', cursor: 'col-resize', position: 'relative', 
+                                alignItems: 'center', justifyContent: 'center', zIndex: 10, flexShrink: 0 
+                            }}
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                const startX = e.clientX;
+                                const startWidth = rightWidth;
+                                const onMouseMove = (me: MouseEvent) => {
+                                    setRightWidth(Math.max(300, Math.min(800, startWidth - (me.clientX - startX))));
+                                };
+                                const onMouseUp = () => {
+                                    window.removeEventListener('mousemove', onMouseMove);
+                                    window.removeEventListener('mouseup', onMouseUp);
+                                };
+                                window.addEventListener('mousemove', onMouseMove);
+                                window.addEventListener('mouseup', onMouseUp);
+                            }}
+                        >
+                            <div style={{ width: '4px', height: '32px', background: '#d4d4d8', borderRadius: '4px', transition: 'background 0.2s' }} 
+                                 onMouseEnter={e => e.currentTarget.style.background = '#a1a1aa'}
+                                 onMouseLeave={e => e.currentTarget.style.background = '#d4d4d8'} />
+                        </div>
+
+                        <div className="w-full shrink-0 bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden flex flex-col" style={{ width: window.innerWidth >= 1280 ? `${rightWidth}px` : '100%', minHeight: '400px' }}>
                         {/* Detail header */}
                         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #f4f4f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div>
@@ -262,6 +328,20 @@ export default function Orders() {
                                 </div>
                             </div>
 
+                            {/* Linked Quotation */}
+                            {linkedInquiry?.active_quote && (
+                                <div style={{ marginBottom: '20px', padding: '14px', background: '#eff6ff', borderRadius: '12px', border: '1px solid #2563eb30' }}>
+                                    <p style={{ fontSize: '11px', fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>APPROVED QUOTE (v{linkedInquiry.active_quote.version_number})</p>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '18px', fontWeight: 800, color: '#1e40af', letterSpacing: '-0.03em' }}>₹{linkedInquiry.active_quote.total_price.toLocaleString()}</span>
+                                        <a href={`/inquiries/${selected.inquiry_id}`} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            View Inquiry ↗
+                                        </a>
+                                    </div>
+                                    <p style={{ fontSize: '11px', color: '#60a5fa', margin: '6px 0 0', fontWeight: 500 }}>Generated on {new Date(linkedInquiry.active_quote.created_at).toLocaleDateString()}</p>
+                                </div>
+                            )}
+
                             {/* Payment Schedule */}
                             {fullOrder && (
                                 <div style={{ marginBottom: '20px' }}>
@@ -294,7 +374,19 @@ export default function Orders() {
                                                         <p style={{ fontSize: '13px', fontWeight: 600, color: '#18181b', margin: 0 }}>{idx + 1}. {m.label} ({m.percentage}%)</p>
                                                         <p style={{ fontSize: '12px', color: '#71717a', margin: '2px 0 0' }}>₹{m.amount.toLocaleString()}</p>
                                                     </div>
-                                                    <StatusPill status={m.status} />
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {m.status === 'UNPAID' && (
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); setRecordingPayment({ milestone_id: m.id, amount: m.amount, label: m.label }); setConfirmText(""); }}
+                                                                style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, color: '#fff', background: '#3b82f6', border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#2563eb'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = '#3b82f6'}
+                                                            >
+                                                                Record Payment
+                                                            </button>
+                                                        )}
+                                                        <StatusPill status={m.status} />
+                                                    </div>
                                                 </div>
                                             ))}
                                             {(!fullOrder.milestones || fullOrder.milestones.length === 0) && (
@@ -395,7 +487,7 @@ export default function Orders() {
                             {/* Update Status */}
                             <div>
                                 <p style={{ fontSize: '11px', fontWeight: 600, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>UPDATE STATUS</p>
-                                <Select value={newStatus} onValueChange={setNewStatus}>
+                                <Select value={newStatus} onValueChange={(val) => setNewStatus(val as OrderStatus)}>
                                     <SelectTrigger style={{ height: '38px', borderRadius: '9px', fontSize: '13px', fontFamily: "'Inter', system-ui" }}>
                                         <SelectValue />
                                     </SelectTrigger>
@@ -461,6 +553,7 @@ export default function Orders() {
                             </button>
                         </div>
                     </div>
+                    </>
                 ) : (
                     <div style={{
                         width: '300px', flexShrink: 0, background: 'white', borderRadius: '16px',
@@ -477,6 +570,74 @@ export default function Orders() {
                     </div>
                 )}
             </div>
+
+            {/* Offline Payment Modal */}
+            {recordingPayment && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '360px', background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+                        <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700, color: '#18181b' }}>Record Offline Payment</h3>
+                        
+                        <div style={{ marginBottom: '16px' }}>
+                            <p style={{ fontSize: '12px', color: '#71717a', margin: '0 0 4px' }}>Milestone</p>
+                            <p style={{ fontSize: '14px', fontWeight: 600, color: '#18181b', margin: 0 }}>{recordingPayment.label}</p>
+                        </div>
+                        <div style={{ marginBottom: '16px' }}>
+                            <p style={{ fontSize: '12px', color: '#71717a', margin: '0 0 4px' }}>Amount</p>
+                            <p style={{ fontSize: '18px', fontWeight: 700, color: '#3b82f6', margin: 0 }}>₹{recordingPayment.amount.toLocaleString()}</p>
+                        </div>
+
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', color: '#71717a', marginBottom: '4px' }}>Payment Mode</label>
+                            <Select value={paymentMode} onValueChange={setPaymentMode}>
+                                <SelectTrigger style={{ width: '100%', height: '36px', borderRadius: '8px' }}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="CASH">Cash</SelectItem>
+                                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                                    <SelectItem value="CHEQUE">Cheque</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', color: '#71717a', marginBottom: '4px' }}>Notes {paymentMode === 'CHEQUE' && "(Required for Cheque)"}</label>
+                            <input 
+                                type="text"
+                                placeholder={paymentMode === 'CHEQUE' ? "Enter Cheque Number" : "Optional notes"}
+                                value={paymentNotes}
+                                onChange={e => setPaymentNotes(e.target.value)}
+                                style={{ width: '100%', height: '36px', borderRadius: '8px', border: '1px solid #e4e4e7', padding: '0 10px', fontSize: '13px' }}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: '24px', padding: '12px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', color: '#b91c1c', fontWeight: 600, marginBottom: '6px' }}>Type 'CONFIRM' to finalize this offline payment.</label>
+                            <input 
+                                type="text"
+                                placeholder="CONFIRM"
+                                value={confirmText}
+                                onChange={e => setConfirmText(e.target.value.toUpperCase())}
+                                style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid #fecaca', background: 'white', padding: '0 10px', fontSize: '13px', fontWeight: 600, color: '#ef4444', outline: 'none' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                                onClick={() => { setRecordingPayment(null); setConfirmText(""); }}
+                                style={{ flex: 1, height: '36px', background: '#f4f4f5', color: '#18181b', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleRecordPayment}
+                                disabled={submittingPayment || confirmText !== 'CONFIRM' || (paymentMode === 'CHEQUE' && !paymentNotes.trim())}
+                                style={{ flex: 1, height: '36px', background: '#18181b', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: (submittingPayment || confirmText !== 'CONFIRM' || (paymentMode === 'CHEQUE' && !paymentNotes.trim())) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', opacity: (submittingPayment || confirmText !== 'CONFIRM' || (paymentMode === 'CHEQUE' && !paymentNotes.trim())) ? 0.5 : 1 }}>
+                                {submittingPayment ? <Loader2 size={14} className="animate-spin" /> : "Verify & Pay"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

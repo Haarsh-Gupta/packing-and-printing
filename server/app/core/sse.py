@@ -13,6 +13,7 @@
 #   await sse_manager.publish_to_admins("payment_received", {...})
 # ===========================================================================
 
+from sqlalchemy.sql.coercions import expect
 import asyncio
 import json
 import logging
@@ -25,17 +26,6 @@ import redis.asyncio as redis
 from app.core.redis import create_dedicated_redis_client, redis_client
 
 logger = logging.getLogger(__name__)
-
-# Dedicated Redis connection for PUBLISHING only (lightweight, reusable)
-_publish_redis: Optional[redis.Redis] = None
-
-
-async def _get_publish_redis() -> redis.Redis:
-    """Lazily create the shared publish-only Redis connection."""
-    global _publish_redis
-    if _publish_redis is None:
-        _publish_redis = create_dedicated_redis_client()
-    return _publish_redis
 
 
 def _user_channel(user_id: str | UUID) -> str:
@@ -60,18 +50,16 @@ class SSEManager:
 
     # ── Publishing ─────────────────────────────────────────────
 
-    async def publish(
-        self,
+    async def publish(self,
         user_id: str | UUID,
         event_type: str,
         data: dict,
     ) -> None:
         """Send an event to a specific user's SSE channel."""
         try:
-            r = await _get_publish_redis()
-            payload = json.dumps({"event": event_type, "data": data})
-            await r.publish(_user_channel(user_id), payload)
-            logger.debug(f"SSE publish → {_user_channel(user_id)}: {event_type}")
+            payload = json.dumps({"event": event_type , "data" : data})
+            await redis_client.publish(_user_channel(user_id), payload)
+            logger.debug(f"SSE publish -> {_user_channel(user_id)}: {event_type}")
         except Exception as e:
             logger.error(f"SSE publish failed for {_user_channel(user_id)}: {e}")
 
@@ -82,10 +70,9 @@ class SSEManager:
     ) -> None:
         """Send an event to all connected admin SSE clients."""
         try:
-            r = await _get_publish_redis()
-            payload = json.dumps({"event": event_type, "data": data})
-            await r.publish(ADMIN_CHANNEL, payload)
-            logger.debug(f"SSE publish → {ADMIN_CHANNEL}: {event_type}")
+            payload = json.dumps({"event":event_type, "data":data})
+            await redis_client.publish(ADMIN_CHANNEL, payload)
+            logger.debug(f"SSE publish -> {ADMIN_CHANNEL}: {event_type}")
         except Exception as e:
             logger.error(f"SSE publish failed for {ADMIN_CHANNEL}: {e}")
 
@@ -101,26 +88,14 @@ class SSEManager:
         Each subscriber gets its own dedicated Redis connection to avoid
         contention under load.
         """
-        channel = _user_channel(user_id)
-
-        # Each subscriber gets a DEDICATED Redis connection for its pubsub
+        channel = _user_channel(user_id) # Each subscriber gets a DEDICATED Redis connection for its pubsub
         sub_redis = create_dedicated_redis_client()
         pubsub = sub_redis.pubsub()
 
         try:
             await pubsub.subscribe(channel)
-            logger.info(f"SSE subscribe → {channel}")
-
-            # Send initial connection confirmation
             yield _format_sse("connected", {"message": "SSE stream connected"})
-
             last_keepalive = time.monotonic()
-            
-            # Initial active user registration
-            try:
-                await redis_client.zadd("active_users", {str(user_id): time.time()})
-            except Exception:
-                pass
 
             while not self._shutdown_event.is_set():
                 if await request.is_disconnected():
@@ -130,22 +105,21 @@ class SSEManager:
                 try:
                     message = await asyncio.wait_for(
                         pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5),
-                        timeout=1.0,
+                        timeout=2.0,
                     )
                 except asyncio.TimeoutError:
                     message = None
                 except asyncio.CancelledError:
-                    logger.info(f"SSE subscriber cancelled for {channel}")
-                    return
+                    logger.info(f"SSE HTTP disconnect detected for {channel}")
+                    break
                 except Exception as e:
-                    logger.error(f"SSE pubsub read error on {channel}: {e}")
-                    await asyncio.sleep(1)
-                    continue
+                    logger.error(f"SSE HTTP disconnect detected for {channel}: {e}")
+                    await asyncio.sleep(0.1)
+                    continue 
 
                 if message and message["type"] == "message":
-                    raw = message["data"]
                     try:
-                        parsed = json.loads(raw)
+                        parsed = json.loads(messages)
                         yield _format_sse(parsed["event"], parsed["data"])
                     except (json.JSONDecodeError, KeyError):
                         yield _format_sse("raw", {"message": raw})
@@ -161,22 +135,12 @@ class SSEManager:
                             pass
 
         except asyncio.CancelledError:
-            logger.info(f"SSE client disconnected from {channel}")
+            logger.info(f"SSE subcriber cancelled : {channel}")
         except Exception as e:
-            logger.error(f"SSE subscribe fatal error for {channel}: {e}")
+            logger.error(f"SSE subcriber error on {channel}: {e}")
         finally:
-            try:
-                await asyncio.wait_for(pubsub.unsubscribe(channel), timeout=1.0)
-            except Exception:
-                pass
-            try:
-                await asyncio.wait_for(pubsub.close(), timeout=1.0)
-            except Exception:
-                pass
-            try:
-                await asyncio.wait_for(sub_redis.close(), timeout=1.0)
-            except Exception:
-                pass
+            await _safe_cleanup(pubsub, channel, sub_redis)
+
 
     async def subscribe_admin(self, request: Request) -> AsyncGenerator[str, None]:
         """Async generator for admin SSE stream (dedicated Redis connection)."""
@@ -201,7 +165,7 @@ class SSEManager:
                 try:
                     message = await asyncio.wait_for(
                         pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5),
-                        timeout=1.0,
+                        timeout=0.2,
                     )
                 except asyncio.TimeoutError:
                     message = None
@@ -210,16 +174,15 @@ class SSEManager:
                     return
                 except Exception as e:
                     logger.error(f"SSE pubsub read error on {ADMIN_CHANNEL}: {e}")
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.1)
                     continue
 
                 if message and message["type"] == "message":
-                    raw = message["data"]
                     try:
-                        parsed = json.loads(raw)
+                        parsed = json.loads(message["data"])
                         yield _format_sse(parsed["event"], parsed["data"])
                     except (json.JSONDecodeError, KeyError):
-                        yield _format_sse("raw", {"message": raw})
+                        yield _format_sse("raw", {"message": message["data"]})
                 else:
                     now = time.monotonic()
                     if now - last_keepalive >= 25:
@@ -231,59 +194,41 @@ class SSEManager:
         except Exception as e:
             logger.error(f"Admin SSE subscribe fatal error: {e}")
         finally:
-            try:
-                await asyncio.wait_for(pubsub.unsubscribe(ADMIN_CHANNEL), timeout=1.0)
-            except Exception:
-                pass
-            try:
-                await asyncio.wait_for(pubsub.close(), timeout=1.0)
-            except Exception:
-                pass
-            try:
-                await asyncio.wait_for(sub_redis.close(), timeout=1.0)
-            except Exception:
-                pass
-
-    def track_task(self, task: asyncio.Task) -> None:
-        """Register an active subscriber task for cleanup on shutdown."""
-        self._active_tasks.add(task)
-        task.add_done_callback(self._active_tasks.discard)
+            await _safe_cleanup(pubsub, ADMIN_CHANNEL, sub_redis)
 
     # ── Cleanup ────────────────────────────────────────────────
 
     async def shutdown(self) -> None:
         """Signal all subscribers to stop and close the publish Redis connection."""
-        logger.info("SSE Manager: shutting down...")
         self._shutdown_event.set()
-
-        # Cancel all tracked subscriber tasks
-        if self._active_tasks:
-            logger.info(f"SSE Manager: cancelling {len(self._active_tasks)} active subscriber tasks")
+        if self._active_task:
             for task in list(self._active_tasks):
                 task.cancel()
-            # Wait max 2s for them to finish
             try:
                 await asyncio.wait(list(self._active_tasks), timeout=2.0)
-            except Exception:
-                pass
-            self._active_tasks.clear()
-
-        global _publish_redis
-        if _publish_redis:
-            try:
-                await asyncio.wait_for(_publish_redis.close(), timeout=2.0)
             except Exception as e:
                 logger.error(f"Error closing SSE publish Redis: {e}")
-            _publish_redis = None
-            logger.info("SSE publish Redis connection closed")
-
-        logger.info("SSE Manager: shutdown complete")
-
+            self._active_tasks.clear()
 
 def _format_sse(event: str, data: dict) -> str:
     """Format a payload as an SSE text block."""
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
+async def _safe_cleanup(pubsub, channel: str, sub_redis: redis.Redis) -> None:
+    
+    for coro in [
+        pubsub.unsubscribe(channel),
+        pubsub.aclose(),
+        sub_redis.aclose(),
+    ]:
+
+        try:
+            await asyncio.wait_for(coro, timeout=0.5)
+        except Exception as e:
+            logger.error(f"Error closing SSE pubsub for {channel}: {e}")
+        pass
+    
+    
 
 # Singleton
 sse_manager = SSEManager()

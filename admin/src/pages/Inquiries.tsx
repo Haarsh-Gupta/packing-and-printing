@@ -6,15 +6,18 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const STATUS_TABS = ["ALL", "PENDING", "QUOTED", "ACCEPTED", "REJECTED"];
+const STATUS_TABS = ["ALL", "DRAFT", "SUBMITTED", "UNDER_REVIEW", "QUOTED", "ACCEPTED", "REJECTED"];
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
-    PENDING: { color: '#d97706', bg: '#fffbeb' },
+    DRAFT: { color: '#71717a', bg: '#f4f4f5' },
+    SUBMITTED: { color: '#d97706', bg: '#fffbeb' },
     UNDER_REVIEW: { color: '#8b5cf6', bg: '#f5f3ff' },
+    NEGOTIATING: { color: '#0891b2', bg: '#ecfeff' },
     QUOTED: { color: '#2563eb', bg: '#eff6ff' },
-    NEGOTIATION: { color: '#0891b2', bg: '#ecfeff' },
     ACCEPTED: { color: '#16a34a', bg: '#f0fdf4' },
     REJECTED: { color: '#dc2626', bg: '#fef2f2' },
+    CANCELLED: { color: '#737373', bg: '#f5f5f5' },
+    EXPIRED: { color: '#a1a1aa', bg: '#f4f4f5' },
 };
 
 const StatusPill = ({ status }: { status: string }) => {
@@ -166,7 +169,7 @@ export default function Inquiries() {
                                     </td>
                                     <td style={{ padding: '13px 20px' }}>
                                         <span style={{ fontSize: '13px', fontWeight: 600, color: '#18181b' }}>
-                                            {iq.total_quoted_price ? `₹${iq.total_quoted_price.toLocaleString()}` : '—'}
+                                            {iq.active_quote?.total_price ? `₹${iq.active_quote.total_price.toLocaleString()}` : '—'}
                                         </span>
                                     </td>
                                     <td style={{ padding: '13px 20px' }}>

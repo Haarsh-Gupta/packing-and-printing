@@ -1,7 +1,19 @@
 import asyncio
-from fastapi import FastAPI 
-from fastapi.responses import HTMLResponse 
-from app.core.database import engine
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+
+from app.core.config import settings
+from app.core.database import engine, check_db_connection
+from app.core.middleware import RateLimitMiddleware, UserActivityMiddleware
+from app.core.redis import check_redis_connection, redis_client
+from app.core.email.service import check_smtp_connection
+from app.core.sse import sse_manager
+from app.core.websockets import ws_manager
+from app.core.task_registry import cancel_all, pending_count
+
+
 from app.modules.users.routes import router as user_router
 from app.modules.users.admin_routes import router as admin_user_router
 
@@ -37,18 +49,6 @@ from app.modules.wishlist.admin_routes import router as admin_wishlist_router
 from app.modules.events.routes import router as events_router
 
 
-from starlette.middleware.sessions import SessionMiddleware
-
-from contextlib import asynccontextmanager
-from app.core.config import settings
-from app.core.middleware import RateLimitMiddleware, UserActivityMiddleware
-
-from app.core.database import check_db_connection
-from app.core.redis import check_redis_connection, redis_client
-from app.core.email.service import check_smtp_connection
-from app.core.sse import sse_manager
-from app.core.websockets import ws_manager
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("\n--------- STARTUP CHECKS ---------")
@@ -62,6 +62,8 @@ async def lifespan(app: FastAPI):
     yield
     
     print("\n--------- SHUTDOWN STARTED ---------")
+
+    await cancel_all(timeout=3.0)
     
     async def _graceful_shutdown():
         print("⏳ Shutting down SSE Manager...")
@@ -81,11 +83,15 @@ async def lifespan(app: FastAPI):
         print("✅ Database Engine disposed")
 
     try:
-        await asyncio.wait_for(_graceful_shutdown(), timeout=5.0)
-    except asyncio.TimeoutError:
-        print("⚠️  Shutdown timed out after 5s — forcing exit")
+        await asyncio.wait_for(redis_client.aclose(), timeout=2.0)
     except Exception as e:
-        print(f"⚠️  Shutdown error: {e}")
+        print(f"⚠️  Redis close error: {e}")
+    
+
+    try:
+        await asyncio.wait_for(engine.dispose(), timeout=3.0)
+    except Exception as e:
+        print(f"⚠️ DB Engine dispose error: {e}")
     
     print("--------- SHUTDOWN COMPLETE ---------\n")
 
@@ -96,7 +102,6 @@ from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
-    allow_origin_regex=r"http://localhost:\d+",
     allow_credentials=True, # Critical for setting the refresh_token cookie!
     allow_methods=["*"],
     allow_headers=["*"],

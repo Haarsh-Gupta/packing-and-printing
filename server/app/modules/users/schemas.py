@@ -30,11 +30,11 @@ class UserBase(BaseModel):
     phone: Optional[str] = None
     is_active: bool = True
 
-    @field_validator("phone")
-    def check_phone(cls , value):
-        if value:
-            valid_phone(value)
-        return value
+    # @field_validator("phone")
+    # def check_phone(cls , value):
+    #     if value:
+    #         valid_phone(value)
+    #     return value
 
 class UserCreate(UserBase):
     password: str = Field(min_length = 6)
@@ -77,12 +77,6 @@ class UserOut(UserBase):
     profile_picture: Optional[str] = None
     created_at: datetime
     is_online: bool = False
-
-    @field_validator("phone")
-    def check_phone(cls , value):
-        if value:
-            valid_phone(value)
-        return value
 
     class Config:
         from_attributes = True

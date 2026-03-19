@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User
 from app.modules.orders.models import Order, Transaction
-from app.modules.inquiry.models import InquiryGroup, InquiryItem
+from app.modules.inquiry.models import InquiryGroup, InquiryItem, QuoteVersion
 from app.modules.products.models import SubProduct
 from app.modules.services.models import Service
 
@@ -125,7 +125,7 @@ class DashboardService:
         # --- Inquiries ---
         total_inquiries = await get_count_in_range(InquiryGroup, None)
         pending_inquiries = (await self.db.execute(
-            select(func.count(InquiryGroup.id)).where(InquiryGroup.status == "PENDING")
+            select(func.count(InquiryGroup.id)).where(InquiryGroup.status == "SUBMITTED")
         )).scalar() or 0
         inquiries_in_period = await get_count_in_range(InquiryGroup, start)
         prev_inquiries_in_period = await get_count_in_range(InquiryGroup, prev_start, start)
@@ -435,8 +435,8 @@ class DashboardService:
 
         # Average quoted price
         avg_quoted = (await self.db.execute(
-            select(func.coalesce(func.avg(InquiryGroup.total_quoted_price), 0))
-            .where(InquiryGroup.total_quoted_price.isnot(None))
+            select(func.coalesce(func.avg(QuoteVersion.total_price), 0))
+            .where(QuoteVersion.status == "PENDING_REVIEW")
         )).scalar()
 
         # Popular products (top 10 by inquiry item count)

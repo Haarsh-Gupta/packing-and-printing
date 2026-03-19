@@ -20,7 +20,7 @@ const PAGE_LABELS: Record<string, string> = {
 };
 
 export default function Layout() {
-    const { user, loading } = useAuth();
+    const { admin: user, isLoading: loading } = useAuth();
     const location = useLocation();
     const [search, setSearch] = useState("");
 

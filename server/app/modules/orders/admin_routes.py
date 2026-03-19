@@ -43,6 +43,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+from app.core.task_registry import fire
+
+def _fire_sse(user_id: str, event: str, data: dict) -> None:
+    from app.core.sse import sse_manager
+    fire(sse_manager.publish(user_id, event, data))
+
+def _fire_admin_sse(event: str, data: dict) -> None:
+    from app.core.sse import sse_manager
+    fire(sse_manager.publish_to_admins(event, data))
+
 # ── Order listing ─────────────────────────────────────────────────────────────
 
 @router.get("/all", response_model=list[OrderListResponse])
@@ -283,15 +293,10 @@ async def update_order_status(
 
 # ── Notification helpers ──────────────────────────────────────────────────────
 
-_background_tasks = set()
 
-def _fire_sse(user_id: str, event: str, data: dict) -> None:
-    from app.core.sse import sse_manager
-    task = asyncio.create_task(sse_manager.publish(user_id, event, data))
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
-    task.add_done_callback(lambda t: _log_task_error(t, event))
 
+
+_background_tasks: set[asyncio.Task] = set()
 
 def _log_task_error(task: asyncio.Task, event: str) -> None:
     if not task.cancelled() and task.exception():

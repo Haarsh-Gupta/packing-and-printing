@@ -73,7 +73,7 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
 
                 <div className="space-y-4 border-l-2 border-dashed border-zinc-300 pl-8">
                     <h4 className="font-bold text-lg uppercase border-b-2 border-black inline-block">Official Quote</h4>
-                    {inquiry.status === "PENDING" ? (
+                    {(inquiry.status === "DRAFT" || inquiry.status === "SUBMITTED") ? (
                         <div className="text-zinc-500 flex items-center h-full pb-8">
                             <Clock className="w-5 h-5 mr-2 animate-spin-slow" />
                             Our team is calculating the best price for your requirements.
@@ -82,12 +82,12 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                         <div className="space-y-4">
                             <div className="text-4xl font-black text-black flex items-center">
                                 <IndianRupee className="w-8 h-8 mr-1" />
-                                {inquiry.total_quoted_price?.toLocaleString() || "N/A"}
+                                {inquiry.active_quote?.total_price?.toLocaleString() || "N/A"}
                             </div>
                             <p className="text-sm text-zinc-600 font-medium">Total estimated cost</p>
-                            {inquiry.admin_notes && (
+                            {inquiry.active_quote?.admin_notes && (
                                 <div className="bg-blue-50 text-blue-900 p-3 border-2 border-blue-200 text-sm">
-                                    <strong>Admin Note:</strong> {inquiry.admin_notes}
+                                    <strong>Admin Note:</strong> {inquiry.active_quote.admin_notes}
                                 </div>
                             )}
                         </div>
@@ -155,7 +155,7 @@ export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: I
             <div className="flex flex-wrap items-center gap-6">
                 <div className="text-right hidden sm:block">
                     <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Quote</p>
-                    <p className="font-bold">{inquiry.total_quoted_price ? `₹${inquiry.total_quoted_price.toLocaleString()}` : "Pending"}</p>
+                    <p className="font-bold">{inquiry.active_quote?.total_price ? `₹${inquiry.active_quote.total_price.toLocaleString()}` : "Pending"}</p>
                 </div>
 
                 <div className="shrink-0">

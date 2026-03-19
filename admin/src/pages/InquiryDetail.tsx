@@ -13,10 +13,11 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; dot: string; icon: typeof AlertCircle }> = {
-    PENDING: { color: '#f59e0b', bg: '#fffbeb', dot: '#f59e0b', icon: Clock },
+    DRAFT: { color: '#71717a', bg: '#f4f4f5', dot: '#71717a', icon: FileText },
+    SUBMITTED: { color: '#f59e0b', bg: '#fffbeb', dot: '#f59e0b', icon: Clock },
     UNDER_REVIEW: { color: '#8b5cf6', bg: '#f5f3ff', dot: '#8b5cf6', icon: FileText },
+    NEGOTIATING: { color: '#0891b2', bg: '#ecfeff', dot: '#0891b2', icon: MessageSquare },
     QUOTED: { color: '#2563eb', bg: '#eff6ff', dot: '#2563eb', icon: IndianRupee },
-    NEGOTIATION: { color: '#0891b2', bg: '#ecfeff', dot: '#0891b2', icon: MessageSquare },
     ACCEPTED: { color: '#16a34a', bg: '#f0fdf4', dot: '#16a34a', icon: CheckCircle2 },
     REJECTED: { color: '#dc2626', bg: '#fef2f2', dot: '#dc2626', icon: XCircle },
     CANCELLED: { color: '#737373', bg: '#f5f5f5', dot: '#737373', icon: XCircle },
@@ -320,9 +321,9 @@ export default function InquiryDetail() {
             await api(`/admin/inquiries/${selected.id}/quote`, {
                 method: "PATCH",
                 body: JSON.stringify({
-                    total_quoted_price: parseFloat(quoteForm.amount),
+                    total_price: parseFloat(quoteForm.amount),
                     admin_notes: quoteForm.notes || null,
-                    valid_for_days: parseInt(quoteForm.validDays) || 7,
+                    valid_days: parseInt(quoteForm.validDays) || 7,
                 }),
             });
             setQuoteForm({ amount: "", notes: "", validDays: "7" });
@@ -426,18 +427,35 @@ export default function InquiryDetail() {
                             <InfoCard label="Submitted" icon={Calendar} value={new Date(selected.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} sub={new Date(selected.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} />
                         </div>
 
-                        {selected.total_quoted_price && (
+                        {selected.active_quote && (
                             <div style={{ padding: '16px 20px', border: '1px solid #2563eb30', borderRadius: '8px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div>
                                     <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#2563eb', fontFamily: "'DM Mono', monospace", marginBottom: '4px' }}>Quoted Price</p>
-                                    <p style={{ fontSize: '24px', fontWeight: 900, color: '#1e40af', letterSpacing: '-0.03em' }}>₹{selected.total_quoted_price.toLocaleString()}</p>
+                                    <p style={{ fontSize: '24px', fontWeight: 900, color: '#1e40af', letterSpacing: '-0.03em' }}>₹{selected.active_quote.total_price.toLocaleString()}</p>
                                 </div>
-                                {selected.quote_valid_until && (
+                                {selected.active_quote.valid_until && (
                                     <div style={{ textAlign: 'right' }}>
                                         <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6b7280', fontFamily: "'DM Mono', monospace", marginBottom: '2px' }}>Valid Until</p>
-                                        <p style={{ fontSize: '12px', fontWeight: 700, color: '#374151', fontFamily: "'DM Mono', monospace" }}>{new Date(selected.quote_valid_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                        <p style={{ fontSize: '12px', fontWeight: 700, color: '#374151', fontFamily: "'DM Mono', monospace" }}>{new Date(selected.active_quote.valid_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {selected.quote_versions && selected.quote_versions.length > 0 && (
+                            <div>
+                                <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginTop: '16px', marginBottom: '4px' }}>Quote History</p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
+                                    {[...selected.quote_versions].sort((a,b) => b.version_number - a.version_number).map(vq => (
+                                        <div key={vq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: vq.id === selected.active_quote_id ? '#eff6ff' : 'var(--secondary)', border: `1px solid ${vq.id === selected.active_quote_id ? '#2563eb30' : 'var(--border)'}`, borderRadius: '6px' }}>
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--foreground)' }}>v{vq.version_number} {vq.id === selected.active_quote_id && <span style={{ color: '#2563eb', marginLeft: '4px' }}>(ACTIVE)</span>}</div>
+                                                <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--muted-foreground)', marginTop: '2px', fontFamily: "'DM Mono', monospace" }}>{new Date(vq.created_at).toLocaleDateString()}</div>
+                                            </div>
+                                            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--foreground)' }}>₹{vq.total_price.toLocaleString()}</div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
@@ -481,12 +499,12 @@ export default function InquiryDetail() {
                             </div>
                         </div>
 
-                        {selected.admin_notes && (
+                        {selected.active_quote?.admin_notes && (
                             <>
                                 <Separator />
                                 <div style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--secondary)' }}>
                                     <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '8px' }}>Admin Notes</p>
-                                    <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)', lineHeight: 1.6 }}>{selected.admin_notes}</p>
+                                    <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)', lineHeight: 1.6 }}>{selected.active_quote.admin_notes}</p>
                                 </div>
                             </>
                         )}
@@ -501,19 +519,19 @@ export default function InquiryDetail() {
                                     </Button>
                                 )}
                                 {selected.status === 'QUOTED' && (
-                                    <Button size="sm" variant="outline" onClick={() => transitionStatus('NEGOTIATION')} className="text-cyan-600 border-cyan-200 hover:bg-cyan-50">
+                                    <Button size="sm" variant="outline" onClick={() => transitionStatus('NEGOTIATING')} className="text-cyan-600 border-cyan-200 hover:bg-cyan-50">
                                         <MessageSquare size={14} className="mr-2" /> Move to Negotiation
                                     </Button>
                                 )}
                                 {(selected.status === 'REJECTED' || selected.status === 'CANCELLED') && (
-                                    <Button size="sm" variant="outline" onClick={() => transitionStatus('PENDING')}>
+                                    <Button size="sm" variant="outline" onClick={() => transitionStatus('NEGOTIATING')}>
                                         <Clock size={14} className="mr-2" /> Reopen
                                     </Button>
                                 )}
                             </div>
                         </div>
 
-                        {(['PENDING', 'UNDER_REVIEW', 'QUOTED', 'NEGOTIATION'] as string[]).includes(selected.status) && (
+                        {(['SUBMITTED', 'UNDER_REVIEW', 'QUOTED', 'NEGOTIATING'] as string[]).includes(selected.status) && (
                             <>
                                 <Separator />
                                 <div>
@@ -606,7 +624,7 @@ export default function InquiryDetail() {
                         )}
                     </div>
 
-                    {(['PENDING', 'UNDER_REVIEW', 'QUOTED', 'NEGOTIATION', 'ACCEPTED', 'REJECTED', 'CANCELLED'] as string[]).includes(selected.status) && (
+                    {(['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'QUOTED', 'NEGOTIATING', 'ACCEPTED', 'REJECTED', 'CANCELLED'] as string[]).includes(selected.status) && (
                         <div style={{ 
                             padding: '16px', 
                             borderTop: '1px solid var(--border)', 

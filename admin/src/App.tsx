@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import Login from "@/components/Login";
 import Dashboard from "@/pages/Dashboard";
 import Orders from "@/pages/Orders";
+import Declarations from "@/pages/Declarations";
 import Inquiries from "@/pages/Inquiries";
 import Products from "@/pages/Products";
 import Services from "@/pages/Services";
@@ -26,6 +27,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/orders" element={<Orders />} />
+            <Route path="/declarations" element={<Declarations />} />
             <Route path="/inquiries" element={<Inquiries />} />
             <Route path="/inquiries/:id" element={<InquiryDetail />} />
             <Route path="/products" element={<Products />} />

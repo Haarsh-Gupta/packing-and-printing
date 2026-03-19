@@ -6,13 +6,14 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.task_registry import fire
 from ..auth.auth import get_current_admin_user
 from ..users.models import User
-from .models import InquiryGroup, InquiryMessage
+from .models import InquiryGroup, InquiryMessage, QuoteVersion
 from ..notifications.models import Notification
 from .schemas import (
     AdminPricingCalculatorRequest,
-    InquiryQuotation,
+    QuoteVersionCreate,
     InquiryStatus,
     InquiryStatusUpdate,
     ADMIN_ALLOWED_TRANSITIONS,
@@ -121,7 +122,9 @@ async def get_inquiry_by_id(
     """
     stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.quote_versions),
+        selectinload(InquiryGroup.active_quote),
     ).where(InquiryGroup.id == group_id)
     
     result = await db.execute(stmt)
@@ -130,16 +133,15 @@ async def get_inquiry_by_id(
     if not group:
         raise HTTPException(status_code=404, detail="Inquiry not found")
         
-    # Auto-transition to UNDER_REVIEW when admin opens a PENDING inquiry
-    if group.status == 'PENDING':
+    # Auto-transition to UNDER_REVIEW when admin opens a SUBMITTED inquiry
+    if group.status == 'SUBMITTED':
         group.status = 'UNDER_REVIEW'
         await db.commit()
         await db.refresh(group)
         
         # Fire SSE notification to user
         from app.core.sse import sse_manager
-        import asyncio
-        asyncio.create_task(
+        fire(
             sse_manager.publish(str(group.user_id), "inquiry_status_updated", {
                 "inquiry_id": str(group.id),
                 "status": "UNDER_REVIEW",
@@ -153,17 +155,19 @@ async def get_inquiry_by_id(
 @router.patch("/{group_id}/quote", response_model=InquiryGroupResponse, status_code=status.HTTP_200_OK)
 async def send_quotation(
     group_id: UUID,
-    quotation: InquiryQuotation,
+    quotation: QuoteVersionCreate,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    [ADMIN] Send a quotation/price estimate for the entire cart.
-    Can also apply specific line-item pricing if provided.
+    [ADMIN] Send a quotation by creating a new QuoteVersion.
+    Supersedes any previous active quote.
     """
     stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.quote_versions),
+        selectinload(InquiryGroup.active_quote),
     ).where(InquiryGroup.id == group_id)
     
     result = await db.execute(stmt)
@@ -172,43 +176,61 @@ async def send_quotation(
     if not group:
         raise HTTPException(status_code=404, detail="Inquiry not found")
     
-    if group.status not in ['PENDING', 'UNDER_REVIEW', 'QUOTED']:
+    if group.status not in ['SUBMITTED', 'UNDER_REVIEW', 'NEGOTIATING', 'QUOTED']:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only quote inquiries with PENDING, UNDER_REVIEW or QUOTED status"
+            detail=f"Cannot quote inquiries with {group.status} status"
         )
     
-    # Update Parent Total Pricing
-    group.total_quoted_price = quotation.total_quoted_price
-    group.admin_notes = quotation.admin_notes
-    group.quoted_at = datetime.now(timezone.utc)
-    group.status = 'QUOTED'
-    group.quote_valid_until = datetime.now(timezone.utc) + timedelta(days=quotation.valid_for_days)
+    # Supersede the current active quote if one exists
+    if group.active_quote and group.active_quote.status == "PENDING_REVIEW":
+        group.active_quote.status = "SUPERSEDED"
+
+    # Determine next version number
+    next_version = len(group.quote_versions) + 1
+
+    # Create the new QuoteVersion
+    new_quote = QuoteVersion(
+        inquiry_id=group.id,
+        version=next_version,
+        created_by=current_user.id,
+        total_price=quotation.total_price,
+        valid_until=datetime.now(timezone.utc) + timedelta(days=quotation.valid_days),
+        admin_notes=quotation.admin_notes,
+        milestones=[m.model_dump() for m in quotation.milestones],
+        line_items=[li for li in quotation.line_items] if quotation.line_items else None,
+        status="PENDING_REVIEW",
+    )
+    db.add(new_quote)
+    await db.flush()
+
+    # Update parent group
+    group.active_quote_id = new_quote.id
+    group.status = "QUOTED"
     
-    # Update Child Line-Item Pricing (if provided by admin)
+    # Update line-item pricing on inquiry items if provided
     if quotation.line_items:
-        prices_map = {li.item_id: li.line_item_price for li in quotation.line_items}
+        prices_map = {li.get("item_id"): li.get("line_item_price") for li in quotation.line_items if li.get("item_id")}
         for item in group.items:
-            if item.id in prices_map:
-                item.line_item_price = prices_map[item.id]
+            if str(item.id) in prices_map:
+                item.line_item_price = prices_map[str(item.id)]
     
     await db.commit()
     
     notif = Notification(
         user_id=group.user_id,
         title="Quotation Received",
-        message=f"Admin has sent a quotation of ₹{float(group.total_quoted_price):,.2f} for your inquiry.",
+        message=f"Admin has sent a quotation of ₹{float(new_quote.total_price):,.2f} for your inquiry.",
         metadata_={"type": "inquiry_quote", "id": str(group.id)}
     )
     db.add(notif)
     await db.commit()
 
     from app.core.sse import sse_manager
-    import asyncio
-    asyncio.create_task(
+    fire(
         sse_manager.publish(str(group.user_id), "inquiry_quoted", {
             "inquiry_id": str(group.id),
-            "total_price": float(group.total_quoted_price),
+            "total_price": float(new_quote.total_price),
             "message": "Admin has sent a quotation for your inquiry!"
         })
     )
@@ -216,7 +238,9 @@ async def send_quotation(
     # Re-fetch the fully loaded group with relationships after commit
     fetch_stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.quote_versions),
+        selectinload(InquiryGroup.active_quote),
     ).where(InquiryGroup.id == group_id)
     
     refreshed_result = await db.execute(fetch_stmt)
@@ -237,7 +261,9 @@ async def update_inquiry_status(
     """
     stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.quote_versions),
+        selectinload(InquiryGroup.active_quote),
     ).where(InquiryGroup.id == group_id)
     
     result = await db.execute(stmt)
@@ -246,9 +272,10 @@ async def update_inquiry_status(
     if not group:
         raise HTTPException(status_code=404, detail="Inquiry not found")
         
-    # Lazy check for expiration before allowing transitions
-    if group.status == 'QUOTED' and group.quote_valid_until and group.quote_valid_until < datetime.now(timezone.utc):
+    # Lazy check for expiration: if QUOTED and active quote is expired, auto-transition
+    if group.status == 'QUOTED' and group.active_quote and group.active_quote.valid_until < datetime.now(timezone.utc):
         group.status = 'EXPIRED'
+        group.active_quote.status = 'EXPIRED'
         
     try:
         current_enum = InquiryStatus(group.status)
@@ -266,11 +293,20 @@ async def update_inquiry_status(
     target_status = status_update.status.value
         
     group.status = target_status
+    
+    # Notify the user persistently
+    notif = Notification(
+        user_id=group.user_id,
+        title="Inquiry Status Updated",
+        message=f"Your inquiry #{str(group.id).split('-')[0].upper()} was updated to {target_status.replace('_', ' ')}.",
+        metadata_={"type": "inquiry_status", "id": str(group.id), "status": target_status}
+    )
+    db.add(notif)
+    
     await db.commit()
     
     from app.core.sse import sse_manager
-    import asyncio
-    asyncio.create_task(
+    fire(
         sse_manager.publish(str(group.user_id), "inquiry_status_updated", {
             "inquiry_id": str(group.id),
             "status": target_status,
@@ -281,7 +317,9 @@ async def update_inquiry_status(
     # Re-fetch the fully loaded group with relationships after commit
     fetch_stmt = select(InquiryGroup).options(
         selectinload(InquiryGroup.items),
-        selectinload(InquiryGroup.messages)
+        selectinload(InquiryGroup.messages),
+        selectinload(InquiryGroup.quote_versions),
+        selectinload(InquiryGroup.active_quote),
     ).where(InquiryGroup.id == group_id)
     
     refreshed_result = await db.execute(fetch_stmt)
@@ -349,8 +387,7 @@ async def admin_send_message(
     
     from app.core.sse import sse_manager
     from app.core.websockets import ws_manager
-    import asyncio
-    asyncio.create_task(
+    fire(
         sse_manager.publish(str(group.user_id), "inquiry_new_message", {
             "inquiry_id": str(group_id),
             "message": "New message from admin regarding your inquiry."
