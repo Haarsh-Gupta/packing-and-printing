@@ -57,17 +57,18 @@ logger = logging.getLogger("app.main")
 async def lifespan(app: FastAPI):
     setup_logging()
 
-    logger.info("--------- STARTUP CHECKS ---------")
-
+    # logger.info("--------- STARTUP CHECKS ---------")
+    print("--------- STARTUP CHECKS ---------")
     await check_db_connection()
     await check_redis_connection()
     await check_smtp_connection()
     
-    logger.info("--------- STARTUP COMPLETE ---------")
+    # logger.info("--------- STARTUP COMPLETE ---------")
+    print("--------- STARTUP COMPLETE ---------")
     
     yield
     
-    logger.info("--------- SHUTDOWN STARTED ---------")
+    # logger.info("--------- SHUTDOWN STARTED ---------")
 
     await cancel_all(timeout=3.0)
 

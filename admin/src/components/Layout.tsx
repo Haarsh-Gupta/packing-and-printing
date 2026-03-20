@@ -26,17 +26,10 @@ export default function Layout() {
 
     if (loading) {
         return (
-            <div style={{
-                minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: '#f2f2f7', fontFamily: "'Inter', system-ui",
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                        width: '30px', height: '30px',
-                        border: '2px solid #e4e4e7', borderTopColor: '#3b82f6',
-                        borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px',
-                    }} />
-                    <p style={{ fontSize: '12px', fontWeight: 500, color: '#71717a' }}>Loading…</p>
+            <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 font-sans">
+                <div className="text-center flex flex-col items-center">
+                    <Loader2 size={30} className="text-blue-500 animate-spin mb-3" />
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Loading…</p>
                 </div>
             </div>
         );
@@ -57,37 +50,33 @@ export default function Layout() {
     return (
         <SidebarProvider>
             <AppSidebar />
-            <SidebarInset style={{ background: '#f9f9f9', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <SidebarInset className="bg-slate-50 dark:bg-[#0a0a0a] flex flex-col min-h-screen transition-colors">
                 {/* Header */}
-                <header className="h-14 flex items-center px-4 md:px-5 gap-3 shrink-0 bg-white border-b border-black/5 shadow-sm sticky top-0 z-20">
+                <header className="h-14 flex items-center px-4 md:px-5 gap-3 shrink-0 bg-white dark:bg-slate-900 border-b border-black/5 dark:border-white/5 shadow-sm sticky top-0 z-20 transition-colors">
                     {/* Hamburger */}
-                    <SidebarTrigger style={{ color: '#71717a' }} />
-                    <div style={{ width: '1px', height: '18px', background: '#f0f0f0' }} />
+                    <SidebarTrigger className="text-slate-500 dark:text-slate-400" />
+                    <div className="w-px h-4 bg-slate-200 dark:bg-slate-800" />
 
                     {/* Breadcrumb */}
-                    <nav style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '12.5px', color: '#a1a1aa', fontFamily: "'Inter', system-ui", fontWeight: 400 }}>
+                    <nav className="hidden sm:flex items-center gap-1.5">
+                        <span className="text-[12.5px] text-slate-400 dark:text-slate-500 font-sans font-normal">
                             Admin
                         </span>
-                        <ChevronRight size={12} style={{ color: '#d4d4d8' }} />
-                        <span style={{ fontSize: '12.5px', color: '#18181b', fontWeight: 600, fontFamily: "'Inter', system-ui" }}>
+                        <ChevronRight size={12} className="text-slate-300 dark:text-slate-600" />
+                        <span className="text-[12.5px] text-slate-900 dark:text-slate-100 font-semibold font-sans">
                             {pageLabel}
                         </span>
                     </nav>
 
-                    <div style={{ flex: 1 }} />
+                    <div className="flex-1" />
 
                     {/* Search */}
-                    <div style={{ position: 'relative' }}>
-                        <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa' }} />
+                    <div className="relative">
+                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                         <input
                             type="text" placeholder="Search…"
                             value={search} onChange={e => setSearch(e.target.value)}
-                            style={{
-                                height: '34px', paddingLeft: '30px', paddingRight: '12px', width: '180px',
-                                border: '1px solid #e4e4e7', borderRadius: '9px', fontSize: '13px',
-                                color: '#18181b', background: '#f9f9f9', fontFamily: "'Inter', system-ui", outline: 'none',
-                            }}
+                            className="h-8 pl-8 pr-3 w-32 md:w-44 border border-slate-200 dark:border-slate-800 rounded-lg text-[13px] text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950/50 font-sans outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors"
                         />
                     </div>
 
@@ -95,19 +84,15 @@ export default function Layout() {
                     <AdminNotifications />
 
                     {/* Avatar */}
-                    <div style={{
-                        width: '34px', height: '34px', borderRadius: '50%',
-                        background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', flexShrink: 0,
-                    }} title={user.email}>
-                        <span style={{ color: 'white', fontWeight: 700, fontSize: '13px', fontFamily: "'Inter', system-ui" }}>
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center cursor-pointer shrink-0" title={user.email}>
+                        <span className="text-white font-bold text-[13px] font-sans">
                             {(user.name || user.email || 'A')[0].toUpperCase()}
                         </span>
                     </div>
                 </header>
 
                 {/* Page content */}
-                <main className="flex-1 p-4 md:p-8 overflow-x-clip">
+                <main className="flex-1 p-4 md:p-8 overflow-x-clip text-slate-900 dark:text-slate-100">
                     <Outlet />
                 </main>
             </SidebarInset>

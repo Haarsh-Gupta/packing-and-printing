@@ -12,15 +12,17 @@ class PaymentService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def submit_declaration(self, order_id, milestone_id, user_id, utr_number, screenshot_url, notes):
+    async def submit_declaration(self, order_id, milestone_id, user_id, utr_number, screenshot_url):
         order = await self._get_order_locked(order_id)
         if str(order.user_id) != str(user_id):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your order")
         milestone = await self._get_milestone(milestone_id, order_id)
         if milestone.status == MilestoneStatus.PAID:
             raise HTTPException(status.HTTP_409_CONFLICT, "Milestone already paid")
+        if milestone.status == MilestoneStatus.PENDING:
+            raise HTTPException(status.HTTP_409_CONFLICT, "A declaration is already pending verification for this milestone")
 
-        # FIX 1: UTR duplicate check — both conditions in same if block
+        # UTR duplicate check — both conditions in same if block
         if utr_number:
             duplicate = await self.db.scalar(
                 select(PaymentDeclaration).where(
@@ -33,8 +35,10 @@ class PaymentService:
 
         declaration = PaymentDeclaration(
             order_id=order_id, milestone_id=milestone_id, user_id=user_id,
-            utr_number=utr_number, screenshot_url=screenshot_url, notes=notes, status="PENDING",
+            payment_mode="UPI_MANUAL",
+            utr_number=utr_number, screenshot_url=screenshot_url, status="PENDING",
         )
+        milestone.status = MilestoneStatus.PENDING
         self.db.add(declaration)
         await self.db.flush()
         return declaration
@@ -79,6 +83,18 @@ class PaymentService:
             declaration.reviewed_by = admin_id
             declaration.reviewed_at = datetime.now(timezone.utc)
             declaration.rejection_reason = payload.rejection_reason
+            
+            # Check if there are any other pending declarations for this milestone.
+            # If not, revert milestone status to UNPAID.
+            other_pending = await self.db.scalar(
+                select(PaymentDeclaration).where(
+                    PaymentDeclaration.milestone_id == milestone.id,
+                    PaymentDeclaration.id != declaration.id,
+                    PaymentDeclaration.status == "PENDING"
+                )
+            )
+            if not other_pending:
+                milestone.status = MilestoneStatus.UNPAID
 
         return order
 

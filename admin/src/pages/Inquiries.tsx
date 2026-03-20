@@ -8,28 +8,24 @@ import { useNavigate } from "react-router-dom";
 
 const STATUS_TABS = ["ALL", "DRAFT", "SUBMITTED", "UNDER_REVIEW", "QUOTED", "ACCEPTED", "REJECTED"];
 
-const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
-    DRAFT: { color: '#71717a', bg: '#f4f4f5' },
-    SUBMITTED: { color: '#d97706', bg: '#fffbeb' },
-    UNDER_REVIEW: { color: '#8b5cf6', bg: '#f5f3ff' },
-    NEGOTIATING: { color: '#0891b2', bg: '#ecfeff' },
-    QUOTED: { color: '#2563eb', bg: '#eff6ff' },
-    ACCEPTED: { color: '#16a34a', bg: '#f0fdf4' },
-    REJECTED: { color: '#dc2626', bg: '#fef2f2' },
-    CANCELLED: { color: '#737373', bg: '#f5f5f5' },
-    EXPIRED: { color: '#a1a1aa', bg: '#f4f4f5' },
+const STATUS_CONFIG: Record<string, string> = {
+    DRAFT: 'text-slate-500 bg-slate-100 dark:bg-slate-800',
+    SUBMITTED: 'text-amber-600 bg-amber-50 dark:bg-amber-500/10',
+    UNDER_REVIEW: 'text-purple-600 bg-purple-50 dark:bg-purple-500/10',
+    NEGOTIATING: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-500/10',
+    QUOTED: 'text-blue-600 bg-blue-50 dark:bg-blue-500/10',
+    ACCEPTED: 'text-green-600 bg-green-50 dark:bg-green-500/10',
+    REJECTED: 'text-red-600 bg-red-50 dark:bg-red-500/10',
+    CANCELLED: 'text-neutral-500 bg-neutral-100 dark:bg-neutral-800',
+    EXPIRED: 'text-zinc-400 bg-zinc-100 dark:bg-zinc-800',
 };
 
 const StatusPill = ({ status }: { status: string }) => {
-    const cfg = STATUS_CONFIG[status] || { color: '#71717a', bg: '#f4f4f5' };
+    const classes = STATUS_CONFIG[status] || 'text-slate-500 bg-slate-100 dark:bg-slate-800';
     const label = status.charAt(0) + status.slice(1).toLowerCase();
     return (
-        <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 9px',
-            background: cfg.bg, borderRadius: '999px', fontSize: '11px', fontWeight: 600,
-            color: cfg.color, fontFamily: "'Inter', system-ui",
-        }}>
-            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold font-sans ${classes}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0 opacity-75" />
             {label}
         </span>
     );
@@ -73,134 +69,114 @@ export default function Inquiries() {
     );
 
     return (
-        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: "'Inter', system-ui" }}>
+        <div className="animate-fade-in flex flex-col gap-5 font-sans">
 
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="flex items-center justify-between">
                 <div>
-                    <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#18181b', margin: 0 }}>
+                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white m-0">
                         Inquiries
                     </h1>
-                    <p style={{ fontSize: '13px', color: '#71717a', marginTop: '3px' }}>
+                    <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1 m-0">
                         {inquiries.length} customer {inquiries.length === 1 ? 'inquiry' : 'inquiries'}
                     </p>
                 </div>
-                <div style={{ position: 'relative' }}>
-                    <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa' }} />
+                <div className="relative">
+                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                     <input
                         type="text" placeholder="Search by ID…" value={search}
                         onChange={e => setSearch(e.target.value)}
-                        style={{
-                            height: '36px', paddingLeft: '30px', paddingRight: '12px', width: '220px',
-                            border: '1px solid #e4e4e7', borderRadius: '9px', fontSize: '13px',
-                            color: '#18181b', background: 'white', fontFamily: "'Inter', system-ui", outline: 'none',
-                        }}
+                        className="h-9 pl-8 pr-3 w-56 border border-slate-200 dark:border-slate-800 rounded-lg text-[13px] text-slate-900 dark:text-white bg-white dark:bg-slate-900 outline-none focus:border-blue-500 transition-colors"
                     />
                 </div>
             </div>
 
             {/* Status tabs */}
-            <div style={{ display: 'flex', gap: '2px' }}>
+            <div className="flex gap-0.5 overflow-x-auto pb-1 scrollbar-hide">
                 {STATUS_TABS.map(tab => (
-                    <button key={tab} onClick={() => setStatusFilter(tab)} style={{
-                        padding: '6px 14px', border: 'none', borderRadius: '9px',
-                        fontSize: '12.5px', fontWeight: statusFilter === tab ? 600 : 400,
-                        color: statusFilter === tab ? '#18181b' : '#71717a',
-                        background: statusFilter === tab ? '#f4f4f5' : 'transparent',
-                        cursor: 'pointer', transition: 'all 0.12s', fontFamily: "'Inter', system-ui",
-                    }}>
+                    <button key={tab} onClick={() => setStatusFilter(tab)} className={`
+                        px-3.5 py-1.5 border-none rounded-lg text-[12.5px] font-sans cursor-pointer whitespace-nowrap transition-colors
+                        ${statusFilter === tab 
+                            ? 'font-semibold bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' 
+                            : 'font-normal bg-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}
+                    `}>
                         {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
                     </button>
                 ))}
             </div>
 
             {/* Table */}
-            <div style={{
-                background: 'white', borderRadius: '16px',
-                border: '1px solid rgba(0,0,0,0.06)',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                overflow: 'hidden',
-            }}>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm overflow-hidden">
                 {loading ? (
-                    <div style={{ padding: '64px', textAlign: 'center' }}>
-                        <Loader2 size={24} style={{ animation: 'spin 0.8s linear infinite', color: '#3b82f6', margin: '0 auto' }} />
+                    <div className="p-16 text-center text-slate-400 dark:text-slate-500">
+                        <Loader2 size={24} className="animate-spin text-blue-500 mx-auto" />
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div style={{ padding: '64px', textAlign: 'center' }}>
-                        <MessageSquare size={32} style={{ opacity: 0.3, margin: '0 auto 10px', display: 'block' }} />
-                        <p style={{ fontSize: '14px', fontWeight: 500, color: '#71717a' }}>No inquiries found</p>
+                    <div className="p-16 text-center text-slate-400 dark:text-slate-500">
+                        <MessageSquare size={32} className="opacity-30 mx-auto mb-2.5 block" />
+                        <p className="text-sm font-medium m-0">No inquiries found</p>
                     </div>
                 ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '1px solid #f4f4f5' }}>
-                                {['ID', 'STATUS', 'ITEMS', 'QUOTED PRICE', 'DATE', ''].map((h, i) => (
-                                    <th key={i} style={{
-                                        padding: '12px 20px', fontSize: '10px', fontWeight: 600,
-                                        color: '#a1a1aa', textAlign: 'left', letterSpacing: '0.06em',
-                                    }}>{h}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.map(iq => (
-                                <tr key={iq.id}
-                                    onClick={() => navigate(`/inquiries/${iq.id}`)}
-                                    style={{ borderBottom: '1px solid #f9f9f9', cursor: 'pointer', transition: 'background 0.1s' }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = '#f9f9f9')}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                    <td style={{ padding: '13px 20px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Hash size={11} style={{ color: '#a1a1aa' }} />
-                                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#3b82f6', letterSpacing: '0.02em' }}>
-                                                {shortId(iq.id)}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '13px 20px' }}><StatusPill status={iq.status} /></td>
-                                    <td style={{ padding: '13px 20px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Layers size={13} style={{ color: '#a1a1aa' }} />
-                                            <span style={{ fontSize: '13px', fontWeight: 500, color: '#52525b' }}>
-                                                {iq.item_count} {iq.item_count === 1 ? 'item' : 'items'}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '13px 20px' }}>
-                                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#18181b' }}>
-                                            {iq.active_quote?.total_price ? `₹${iq.active_quote.total_price.toLocaleString()}` : '—'}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '13px 20px' }}>
-                                        <span style={{ fontSize: '12px', color: '#71717a' }}>
-                                            {new Date(iq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '13px 20px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                                            <button
-                                                onClick={e => deleteInquiry(iq.id, e)}
-                                                disabled={deleting === iq.id}
-                                                style={{
-                                                    background: 'none', border: 'none', cursor: 'pointer',
-                                                    color: '#d4d4d8', padding: '4px', borderRadius: '6px',
-                                                }}
-                                                onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fef2f2'; }}
-                                                onMouseLeave={e => { e.currentTarget.style.color = '#d4d4d8'; e.currentTarget.style.background = 'none'; }}
-                                            >
-                                                {deleting === iq.id
-                                                    ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} />
-                                                    : <Trash2 size={14} />
-                                                }
-                                            </button>
-                                            <ChevronRight size={15} style={{ color: '#d4d4d8' }} />
-                                        </div>
-                                    </td>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="border-b border-slate-100 dark:border-slate-800/60">
+                                    {['ID', 'STATUS', 'ITEMS', 'QUOTED PRICE', 'DATE', ''].map((h, i) => (
+                                        <th key={i} className="px-5 py-3 text-[10px] font-semibold text-slate-400 dark:text-slate-500 text-left tracking-wider">
+                                            {h}
+                                        </th>
+                                    ))}
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {filtered.map(iq => (
+                                    <tr key={iq.id}
+                                        onClick={() => navigate(`/inquiries/${iq.id}`)}
+                                        className="border-b border-slate-50 dark:border-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
+                                    >
+                                        <td className="px-5 py-3.5">
+                                            <div className="flex items-center gap-1.5 text-[13px] font-semibold text-blue-500 dark:text-blue-400 tracking-tight">
+                                                <Hash size={11} className="text-slate-400 dark:text-slate-500" />
+                                                {shortId(iq.id)}
+                                            </div>
+                                        </td>
+                                        <td className="px-5 py-3.5"><StatusPill status={iq.status} /></td>
+                                        <td className="px-5 py-3.5">
+                                            <div className="flex items-center gap-1.5 text-[13px] font-medium text-slate-600 dark:text-slate-300">
+                                                <Layers size={13} className="text-slate-400 dark:text-slate-500" />
+                                                {iq.item_count} {iq.item_count === 1 ? 'item' : 'items'}
+                                            </div>
+                                        </td>
+                                        <td className="px-5 py-3.5">
+                                            <span className="text-[13px] font-semibold text-slate-900 dark:text-white">
+                                                {iq.active_quote?.total_price ? `₹${iq.active_quote.total_price.toLocaleString()}` : '—'}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-3.5">
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                {new Date(iq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-3.5 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={e => deleteInquiry(iq.id, e)}
+                                                    disabled={deleting === iq.id}
+                                                    className="bg-transparent border-none cursor-pointer text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 p-1.5 rounded-md transition-colors"
+                                                >
+                                                    {deleting === iq.id
+                                                        ? <Loader2 size={14} className="animate-spin" />
+                                                        : <Trash2 size={14} />
+                                                    }
+                                                </button>
+                                                <ChevronRight size={15} className="text-slate-300 dark:text-slate-600" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
         </div>

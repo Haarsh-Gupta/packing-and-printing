@@ -35,7 +35,7 @@ def setup_logging(level: str = "INFO") -> None:
     app_logger.propagate = False
 
     # ── Silence noisy third-party loggers ─────────────────────────────────
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.access").setLevel(logging.INFO)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)

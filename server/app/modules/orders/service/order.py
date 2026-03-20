@@ -61,6 +61,46 @@ class OrderService:
         milestones = _build_milestones(order.id, order.total_amount, payload)
         self.db.add_all(milestones)
         await self.db.flush()
+        await self.db.refresh(order, ['milestones'])
+    async def switch_milestones_user(self, order: Order, split_type) -> None:
+        """
+        Switch user payment schedule between FULL and HALF.
+        This must be done before any payments are made.
+        """
+        from app.modules.orders.schemas import PaymentSplitType, AdminMilestoneCreateRequest, MilestoneDefinition
+
+        if order.amount_paid and order.amount_paid > 0:
+            raise ValueError(f"Cannot change payment schedule: ₹{order.amount_paid:,.2f} already paid.")
+
+        if order.declarations and len(order.declarations) > 0:
+            raise ValueError("Cannot change payment schedule while a payment declaration is pending verification.")
+
+        if split_type == PaymentSplitType.CUSTOM:
+            raise ValueError("Users cannot switch to custom milestones. Contact admin.")
+
+        # Delete existing milestones
+        await self.db.execute(delete(OrderMilestone).where(OrderMilestone.order_id == order.id))
+        await self.db.flush()
+
+        # Generate new milestones based on choice
+        total = order.total_amount
+        milestones = []
+        if split_type == PaymentSplitType.FULL:
+            milestones.append(OrderMilestone(
+                order_id=order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
+            ))
+        elif split_type == PaymentSplitType.HALF:
+            milestones.append(OrderMilestone(
+                order_id=order.id, label="Advance Payment (50%)", amount=round(total * 0.5, 2), percentage=50.0, order_index=1
+            ))
+            milestones.append(OrderMilestone(
+                order_id=order.id, label="Balance Before Dispatch (50%)", amount=round(total - round(total * 0.5, 2), 2), percentage=50.0, order_index=2
+            ))
+        else:
+            raise ValueError(f"Invalid split_type: {split_type}")
+        self.db.add_all(milestones)
+        await self.db.flush()
+        await self.db.refresh(order, ['milestones'])
 
     async def transition_status(self, order: Order, new_status: OrderStatus, actor="admin", admin_notes=None):
         allowed = _status_transitions(order.status)

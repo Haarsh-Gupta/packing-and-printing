@@ -39,6 +39,7 @@ from app.modules.orders.schemas import (
     OrderStatus
 )
 from app.modules.orders.service.order import OrderService
+from app.modules.orders.service.payment import PaymentService
 from app.modules.orders.service.invoice_generator import generate_simple_invoice
 from app.modules.orders.service.qr_generator import generate_upi_qr
 
@@ -207,16 +208,21 @@ async def submit_payment_declaration(
     """
     User declares they've paid via UPI or bank transfer.
     Creates a pending declaration for admin to review.
-    UTR is optional — SMS parser fills it automatically in background.
+    UTR is optional — screenshot is the primary proof.
     """
     svc = PaymentService(db)
-    declaration = await svc.submit_declaration(order_id, payload, current_user.id)
+    declaration = await svc.submit_declaration(
+        order_id=order_id,
+        milestone_id=payload.milestone_id,
+        user_id=current_user.id,
+        utr_number=payload.utr_number,
+        screenshot_url=payload.screenshot_url,
+    )
     await db.commit()
 
     _fire_admin_sse("admin_declaration_submitted", {
         "order_id": str(order_id),
         "declaration_id": str(declaration.id),
-        "amount": declaration.amount,
         "user_id": str(current_user.id),
     })
 
