@@ -46,17 +46,21 @@ class ProposedMilestone(BaseModel):
     percentage:  float = Field(..., gt=0, le=100)
     description: Optional[str] = Field(None, max_length=200)
     trigger:     Optional[str] = None
+    
 
 
 class QuoteVersionCreate(BaseModel):
-    total_price:  float = Field(..., gt=0)
-    valid_days:   int   = Field(7, gt=0, le=90)
-    admin_notes:  Optional[str] = Field(None, max_length=2000)
-    milestones:   List[ProposedMilestone] = Field(default_factory=lambda: [
+    total_price:     float = Field(..., gt=0)
+    tax_amount:      float = Field(0.0, ge=0)
+    shipping_amount: float = Field(0.0, ge=0)
+    discount_amount: float = Field(0.0, ge=0)
+    valid_days:      int   = Field(7, gt=0, le=90)
+    admin_notes:     Optional[str] = Field(None, max_length=2000)
+    milestones:      List[ProposedMilestone] = Field(default_factory=lambda: [
         ProposedMilestone(label="Advance payment", percentage=50, description="Due on order confirmation"),
         ProposedMilestone(label="Balance before dispatch", percentage=50, description="Due before dispatch"),
     ])
-    line_items:   Optional[List[Dict]] = None
+    line_items:      Optional[List[Dict]] = None
 
     @model_validator(mode="after")
     def validate_milestones(self):
@@ -73,7 +77,11 @@ class QuoteVersionCreate(BaseModel):
 
 class QuoteVersionResponse(BaseModel):
     id: UUID; inquiry_id: UUID; version: int; status: str
-    total_price: float; valid_until: datetime; admin_notes: Optional[str]
+    total_price: float
+    tax_amount: Optional[float] = 0.0
+    shipping_amount: Optional[float] = 0.0
+    discount_amount: Optional[float] = 0.0
+    valid_until: datetime; admin_notes: Optional[str]
     milestones: List[Dict]; line_items: Optional[List[Dict]]
     created_by: UUID; created_at: datetime
     model_config = ConfigDict(from_attributes=True)

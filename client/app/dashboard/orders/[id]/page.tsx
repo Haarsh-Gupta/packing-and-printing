@@ -67,10 +67,10 @@ export default function OrderDetailPage() {
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSwitching, setIsSwitching] = useState(false);
-    
+
     // Manual QR Modal States
     const [showQrModal, setShowQrModal] = useState(false);
-    const [qrData, setQrData] = useState<{qr_code: string, amount: number, milestone_label: string, milestone_id: string} | null>(null);
+    const [qrData, setQrData] = useState<{ qr_code: string, amount: number, milestone_label: string, milestone_id: string } | null>(null);
     const [utrNumber, setUtrNumber] = useState("");
     const [isFetchingQr, setIsFetchingQr] = useState(false);
     const [isSubmittingUtr, setIsSubmittingUtr] = useState(false);
@@ -123,9 +123,9 @@ export default function OrderDetailPage() {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/milestones`, {
                 method: "PATCH",
-                headers: { 
+                headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` 
+                    "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify({ split_type: type })
             });
@@ -183,9 +183,9 @@ export default function OrderDetailPage() {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/declarations`, {
                 method: "POST",
-                headers: { 
+                headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` 
+                    "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     milestone_id: qrData.milestone_id || nextMilestone.id,
@@ -283,7 +283,7 @@ export default function OrderDetailPage() {
                         <>
                             <p className="text-sm font-medium text-zinc-600 mb-4">You can change how you want to pay for this order before making your first payment.</p>
                             <div className="flex flex-wrap gap-3">
-                                <Button 
+                                <Button
                                     variant={currentSplitType === "FULL" ? "default" : "outline"}
                                     className={`flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg ${currentSplitType === "FULL" ? "bg-[#fdf567] text-black hover:bg-[#ece459]" : "hover:bg-zinc-100"}`}
                                     onClick={() => handleSwitchSplit("FULL")}
@@ -291,7 +291,7 @@ export default function OrderDetailPage() {
                                 >
                                     Full Payment
                                 </Button>
-                                <Button 
+                                <Button
                                     variant={currentSplitType === "HALF" ? "default" : "outline"}
                                     className={`flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg ${currentSplitType === "HALF" ? "bg-[#fdf567] text-black hover:bg-[#ece459]" : "hover:bg-zinc-100"}`}
                                     onClick={() => handleSwitchSplit("HALF")}
@@ -299,7 +299,7 @@ export default function OrderDetailPage() {
                                 >
                                     Half & Half (50%)
                                 </Button>
-                                <Button 
+                                <Button
                                     variant="outline"
                                     className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg hover:bg-zinc-100"
                                     onClick={() => showAlert("Please contact support to request a custom payment schedule for this order.", "info")}
@@ -351,11 +351,11 @@ export default function OrderDetailPage() {
                         {isFetchingQr ? <Loader2 className="h-5 w-5 animate-spin" /> : <><CreditCard className="h-4 w-4 mr-2" /> Pay {nextMilestone.label} (₹{nextMilestone.amount.toLocaleString()})</>}
                     </Button>
                 )}
-                
+
                 {showQrModal && qrData && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
                         <div className="bg-white border-4 border-black p-6 md:p-8 rounded-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] w-full max-w-md relative">
-                            <button 
+                            <button
                                 onClick={() => setShowQrModal(false)}
                                 className="absolute top-4 right-4 h-8 w-8 bg-zinc-100 hover:bg-zinc-200 border-2 border-black rounded-full flex items-center justify-center transition-colors focus:outline-none"
                             >
@@ -372,7 +372,7 @@ export default function OrderDetailPage() {
                             </div>
                             <div className="space-y-3">
                                 <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Enter 12-Digit UTR Number</label>
-                                <input 
+                                <input
                                     type="text"
                                     value={utrNumber}
                                     onChange={(e) => setUtrNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
@@ -381,7 +381,7 @@ export default function OrderDetailPage() {
                                     className="w-full h-12 border-2 border-black rounded-lg px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#4be794] focus:border-transparent transition-all"
                                 />
                             </div>
-                            <Button 
+                            <Button
                                 onClick={handleSubmitUtr}
                                 disabled={isSubmittingUtr || utrNumber.length < 6}
                                 className="w-full h-12 mt-6 bg-[#4be794] hover:bg-[#3cd083] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all text-black font-black uppercase rounded-lg disabled:opacity-50"

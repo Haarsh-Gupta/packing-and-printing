@@ -10,6 +10,9 @@ class Order(Base):
     user_id = Column(Uuid, ForeignKey('users.id'), nullable=False)
     
     total_amount = Column(Double, nullable=False)
+    tax_amount = Column(Double, default=0.0)
+    shipping_amount = Column(Double, default=0.0)
+    discount_amount = Column(Double, default=0.0)
     amount_paid = Column(Double, default=0.0) # Cache: Sum of related Transactions
     status = Column(String, default='WAITING_PAYMENT')
     admin_notes = Column(String, nullable=True)

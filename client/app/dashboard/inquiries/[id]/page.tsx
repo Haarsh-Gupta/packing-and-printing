@@ -160,7 +160,7 @@ export default function InquiryDetailPage() {
             const token = localStorage.getItem("access_token");
             const formData = new FormData();
             formData.append("file", file);
-            
+
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=inquiry`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}` },
@@ -202,7 +202,7 @@ export default function InquiryDetailPage() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     content: newMessage,
                     file_urls: attachmentUrl ? [attachmentUrl] : []
                 })
@@ -437,7 +437,7 @@ export default function InquiryDetailPage() {
                                 <div className="mt-6 border-t-2 border-dashed border-zinc-200 pt-4">
                                     <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Quote History</div>
                                     <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
-                                        {[...inquiry.quote_versions].sort((a,b) => b.version_number - a.version_number).map(vq => (
+                                        {[...inquiry.quote_versions].sort((a, b) => b.version_number - a.version_number).map(vq => (
                                             <div key={vq.id} className={`p-3 border-2 border-black flex items-center justify-between ${vq.id === inquiry.active_quote_id ? "bg-[#4be794]" : "bg-zinc-50"}`}>
                                                 <div>
                                                     <div className="text-xs font-black uppercase tracking-tighter">v{vq.version_number} {vq.id === inquiry.active_quote_id && "(Active)"}</div>
@@ -530,7 +530,7 @@ export default function InquiryDetailPage() {
                                 <button type="button" onClick={() => {
                                     setAttachmentUrl(null);
                                     setAttachmentName(null);
-                                    if(fileInputRef.current) fileInputRef.current.value="";
+                                    if (fileInputRef.current) fileInputRef.current.value = "";
                                 }} className="p-1 hover:text-red-500">
                                     <X className="w-3 h-3" />
                                 </button>
@@ -538,19 +538,19 @@ export default function InquiryDetailPage() {
                         )}
                         {canMessage ? (
                             <form onSubmit={handleSendMessage} className="flex gap-2">
-                                <input 
-                                    type="file" 
-                                    className="hidden" 
-                                    ref={fileInputRef} 
-                                    onChange={handleFileUpload} 
-                                    accept="image/*,application/pdf" 
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    ref={fileInputRef}
+                                    onChange={handleFileUpload}
+                                    accept="image/*,application/pdf"
                                 />
-                                <Button 
-                                    type="button" 
-                                    variant="outline" 
-                                    size="icon" 
-                                    className="border-2 border-black rounded-none shrink-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50" 
-                                    disabled={isSending || isUploading || attachmentUrl !== null} 
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="border-2 border-black rounded-none shrink-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={isSending || isUploading || attachmentUrl !== null}
                                     onClick={() => fileInputRef.current?.click()}
                                 >
                                     {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}

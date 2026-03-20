@@ -86,6 +86,9 @@ class QuoteVersion(Base):
     created_by  = Column(Uuid, ForeignKey("users.id"), nullable=False)
 
     total_price = Column(Float, nullable=False)
+    tax_amount  = Column(Float, default=0.0)
+    shipping_amount = Column(Float, default=0.0)
+    discount_amount = Column(Float, default=0.0)
     valid_until = Column(DateTime(timezone=True), nullable=False)
     admin_notes = Column(Text, nullable=True)
 

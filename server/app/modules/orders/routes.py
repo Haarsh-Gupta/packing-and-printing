@@ -332,28 +332,49 @@ async def get_invoice(
             name = itm.sub_product.name if itm.sub_product else "Custom item"
             qty = itm.quantity or 1
             total = float(itm.line_item_price or 0)
+            options = itm.selected_options or {}
+            variant = options.pop("variant_name", None) if isinstance(options, dict) else None
             items.append({
                 "description": name,
                 "quantity": qty,
                 "unit_price": round(total / qty, 2) if qty > 0 else 0,
                 "total": total,
+                "variant": variant,
+                "options": options if options else None,
             })
+
+    # Build milestones data
+    milestones_data = []
+    if order.milestones:
+        for ms in sorted(order.milestones, key=lambda m: m.order_index):
+            milestones_data.append({
+                "label": ms.label,
+                "percentage": float(ms.percentage),
+                "amount": float(ms.amount),
+                "status": ms.status,
+            })
+
+    # Logo path: configurable via env or placed in server/static/logo.png
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "static", "logo.png")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         filepath = tmp.name
 
     await run_in_threadpool(
         generate_simple_invoice,
-        filepath, 
+        filepath,
         {
             "invoice_number": f"INV-{str(order_id)[:8].upper()}",
             "invoice_date": order.created_at,
             "order_data": {
-                "total_amount": order.total_amount,
-                "amount_paid": order.amount_paid,
-                "subtotal": order.total_amount,
-                "tax": 0,
-                "discount": 0,
+                "order_id": str(order_id)[:8].upper(),
+                "status": order.status,
+                "order_date": order.created_at.strftime("%d %b %Y"),
+                "total_amount": float(order.total_amount or 0),
+                "tax_amount": float(order.tax_amount or 0),
+                "shipping_amount": float(order.shipping_amount or 0),
+                "discount_amount": float(order.discount_amount or 0),
+                "amount_paid": float(order.amount_paid or 0),
             },
             "company_info": {
                 "name": settings.company_name,
@@ -361,6 +382,7 @@ async def get_invoice(
                 "phone": settings.company_phone,
                 "email": settings.company_email,
                 "gstin": settings.company_gstin or None,
+                "website": settings.company_website or None,
             },
             "customer_info": {
                 "name": order.user.name or "Customer",
@@ -369,6 +391,8 @@ async def get_invoice(
                 "address": "",
             },
             "items": items,
+            "milestones": milestones_data if milestones_data else None,
+            "logo_path": logo_path,
             "qr_code": None,
         }
     )

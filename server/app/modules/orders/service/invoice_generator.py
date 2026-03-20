@@ -1,317 +1,579 @@
+"""
+invoice_generator.py  –  Professional Printing & Packing Tax Invoice
+Sections: Header | Info Box | Items | Taxes | Financial Summary | Declaration | Footer
+"""
+
+import os
+import logging
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any, List
+
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph,
+    Spacer, Image, HRFlowable,
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any
-import base64
-from io import BytesIO
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+logger = logging.getLogger(__name__)
+
+# ── Fonts (DejaVu supports the ₹ glyph; falls back to Helvetica) ──────────────
+_FD = "/usr/share/fonts/truetype/dejavu"
+try:
+    pdfmetrics.registerFont(TTFont("DV",    f"{_FD}/DejaVuSans.ttf"))
+    pdfmetrics.registerFont(TTFont("DV-B",  f"{_FD}/DejaVuSans-Bold.ttf"))
+    pdfmetrics.registerFont(TTFont("DV-I",  f"{_FD}/DejaVuSans-Oblique.ttf"))
+    pdfmetrics.registerFont(TTFont("DV-BI", f"{_FD}/DejaVuSans-BoldOblique.ttf"))
+    pdfmetrics.registerFontFamily("DV", normal="DV", bold="DV-B",
+                                  italic="DV-I", boldItalic="DV-BI")
+    NRM, BLD = "DV", "DV-B"
+except Exception:
+    NRM, BLD = "Helvetica", "Helvetica-Bold"
+
+# ── Palette ────────────────────────────────────────────────────────────────────
+NAVY     = colors.HexColor("#2c3e6b")
+DARK     = colors.HexColor("#111827")
+LIGHT_BG = colors.HexColor("#f8f9fc")
+HDR_BG   = colors.HexColor("#eef0f8")
+BORDER   = colors.HexColor("#c8cdd8")
+GRID     = colors.HexColor("#dde1ea")
+MUTED    = colors.HexColor("#6b7280")
+WHITE    = colors.white
+
+# Row padding constants
+HP, RP, SP = 5, 5, 2   # header / regular / summary
 
 
-class InvoiceGenerator:
-    """Generate professional PDF invoices"""
-    
+# ── Helpers ────────────────────────────────────────────────────────────────────
+def _grand_total(items: List[Dict], order_data: Dict) -> float:
+    """Compute invoice grand total from line items + shipping - order discount."""
+    tax_mult = lambda i: (
+        float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
+        * (1 - float(i.get("discount_pct", 0)) / 100)
+    )
+    subtotal = sum(tax_mult(i) for i in items)
+    tax = sum(
+        tax_mult(i) * (
+            float(i.get("cgst_rate", 0)) +
+            float(i.get("sgst_rate", 0)) +
+            float(i.get("igst_rate", 0))
+        ) / 100
+        for i in items
+    )
+    shipping   = float(order_data.get("shipping_amount", 0) or 0)
+    order_disc = float(order_data.get("order_discount",  0) or 0)
+    return round(subtotal + tax + shipping - order_disc, 2)
+
+
+def _amount_in_words(amount: float) -> str:
+    """Convert a rupee amount to Indian-English words."""
+    ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
+            "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen",
+            "Sixteen", "Seventeen", "Eighteen", "Nineteen"]
+    tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty",
+            "Sixty", "Seventy", "Eighty", "Ninety"]
+
+    def _b1k(n):
+        if n == 0:   return ""
+        if n < 20:   return ones[n]
+        if n < 100:  return tens[n // 10] + (" " + ones[n % 10] if n % 10 else "")
+        return ones[n // 100] + " Hundred" + (" " + _b1k(n % 100) if n % 100 else "")
+
+    def _conv(n):
+        if n == 0: return "Zero"
+        parts = []
+        for thr, lbl in [(10_000_000, "Crore"), (100_000, "Lakh"), (1_000, "Thousand")]:
+            if n >= thr:
+                parts.append(_b1k(n // thr) + " " + lbl)
+                n %= thr
+        if n: parts.append(_b1k(n))
+        return " ".join(parts)
+
+    r, p = int(amount), round((amount - int(amount)) * 100)
+    return _conv(r) + " Rupees" + (f" and {_conv(p)} Paise" if p else "") + " Only"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+class TaxInvoiceGenerator:
+
     def __init__(self, filename: str, pagesize=A4):
         self.filename = filename
-        self.pagesize = pagesize
-        self.width, self.height = pagesize
+        self.W, self.H = pagesize
         self.styles = getSampleStyleSheet()
-        self._setup_custom_styles()
-    
-    def _setup_custom_styles(self):
-        """Setup custom paragraph styles"""
-        self.styles.add(ParagraphStyle(
-            name='InvoiceTitle',
-            parent=self.styles['Heading1'],
-            fontSize=24,
-            textColor=colors.HexColor('#1a1a1a'),
-            spaceAfter=30,
-            alignment=TA_CENTER
-        ))
-        
-        self.styles.add(ParagraphStyle(
-            name='CompanyName',
-            parent=self.styles['Heading2'],
-            fontSize=16,
-            textColor=colors.HexColor('#2c3e50'),
-            spaceAfter=6
-        ))
-        
-        self.styles.add(ParagraphStyle(
-            name='SectionHeader',
-            parent=self.styles['Heading3'],
-            fontSize=12,
-            textColor=colors.HexColor('#34495e'),
-            spaceAfter=12,
-            spaceBefore=12
-        ))
-    
+        self._build_styles()
+
+    # ── Paragraph styles ───────────────────────────────────────────────────────
+    def _build_styles(self):
+        def A(name, **kw):
+            self.styles.add(ParagraphStyle(name,
+                parent=kw.pop("p", self.styles["Normal"]), **kw))
+
+        # Header
+        A("CoName",    fontName=BLD, fontSize=13, textColor=NAVY,  leading=17)
+        A("CoSub",     fontName=NRM, fontSize=7,  textColor=DARK,  leading=10)
+        A("TaxHdr",    fontName=BLD, fontSize=20, textColor=NAVY,  leading=25, alignment=TA_RIGHT)
+
+        # Section heading
+        A("SecHdr",    fontName=BLD, fontSize=9,  textColor=NAVY,  leading=13, spaceAfter=3)
+
+        # Info box
+        A("LblSm",     fontName=NRM, fontSize=7,  textColor=MUTED, leading=9.5)
+        A("LblBold",   fontName=BLD, fontSize=7.5,textColor=DARK,  leading=10.5)
+        A("ValNorm",   fontName=NRM, fontSize=8,  textColor=DARK,  leading=11)
+        A("ValBold",   fontName=BLD, fontSize=8.5,textColor=DARK,  leading=12)
+        A("BillTitle", fontName=BLD, fontSize=7.5,textColor=MUTED, leading=10)
+        A("BillName",  fontName=BLD, fontSize=10, textColor=DARK,  leading=13)
+        A("BillSub",   fontName=NRM, fontSize=7,  textColor=DARK,  leading=10)
+
+        # Table cells
+        A("TC",        fontName=NRM, fontSize=7.5,textColor=DARK,  leading=10)
+        A("TCR",       fontName=NRM, fontSize=7.5,textColor=DARK,  leading=10, alignment=TA_RIGHT)
+        A("TCC",       fontName=NRM, fontSize=7.5,textColor=DARK,  leading=10, alignment=TA_CENTER)
+        A("TBR",       fontName=BLD, fontSize=7.5,textColor=DARK,  leading=10, alignment=TA_RIGHT)
+        A("TBC",       fontName=BLD, fontSize=7.5,textColor=DARK,  leading=10, alignment=TA_CENTER)
+        A("TBL",       fontName=BLD, fontSize=7.5,textColor=DARK,  leading=10)
+        A("Specs",     fontName=NRM, fontSize=6.5,textColor=MUTED, leading=9)
+
+        # Footer
+        A("Ftr",       fontName=NRM, fontSize=8.5,textColor=MUTED, leading=12, alignment=TA_CENTER)
+        A("FtrB",      fontName=BLD, fontSize=10, textColor=NAVY,  leading=14, alignment=TA_CENTER)
+
+    # ── Entry point ────────────────────────────────────────────────────────────
     def generate_invoice(
         self,
         invoice_number: str,
-        invoice_date: datetime,
-        order_data: Dict[str, Any],
-        company_info: Dict[str, str],
-        customer_info: Dict[str, str],
-        items: list,
-        qr_code_base64: Optional[str] = None
+        invoice_date:   datetime,
+        order_data:     Dict[str, Any],
+        company_info:   Dict[str, str],
+        customer_info:  Dict[str, str],
+        items:          List[Dict],
+        logo_path:      Optional[str] = None,
+        due_date:       Optional[datetime] = None,
     ):
-        """
-        Generate a complete invoice PDF
-        
-        Args:
-            invoice_number: Invoice number
-            invoice_date: Invoice date
-            order_data: Order details (total, paid, due, etc.)
-            company_info: Company details (name, address, phone, email, GSTIN)
-            customer_info: Customer details (name, email, phone, address)
-            items: List of invoice items
-            qr_code_base64: Optional base64 QR code for payment
-        """
         doc = SimpleDocTemplate(
-            self.filename,
-            pagesize=self.pagesize,
-            rightMargin=0.5*inch,
-            leftMargin=0.5*inch,
-            topMargin=0.5*inch,
-            bottomMargin=0.5*inch
+            self.filename, pagesize=(self.W, self.H),
+            rightMargin=0.50*inch, leftMargin=0.50*inch,
+            topMargin=0.40*inch,   bottomMargin=0.45*inch,
         )
-        
-        story = []
-        
-        # Header
-        story.extend(self._create_header(company_info, invoice_number, invoice_date))
-        story.append(Spacer(1, 0.3*inch))
-        
-        # Customer Info
-        story.extend(self._create_customer_section(customer_info))
-        story.append(Spacer(1, 0.3*inch))
-        
-        # Invoice Items Table
-        story.extend(self._create_items_table(items))
-        story.append(Spacer(1, 0.2*inch))
-        
-        # Totals
-        story.extend(self._create_totals_section(order_data))
-        story.append(Spacer(1, 0.3*inch))
-        
-        # Payment QR Code if provided
-        if qr_code_base64:
-            story.extend(self._create_qr_section(qr_code_base64))
-        
-        # Footer
-        story.extend(self._create_footer(company_info))
-        
-        # Build PDF
-        doc.build(story)
-    
-    def _create_header(self, company_info: Dict[str, str], invoice_number: str, invoice_date: datetime):
-        """Create invoice header"""
-        elements = []
-        
-        # Company name
-        company_name = Paragraph(company_info.get('name', 'Company Name'), self.styles['CompanyName'])
-        elements.append(company_name)
-        
-        # Company details
-        company_details = f"""
-        <font size=9>
-        {company_info.get('address', 'Address')}<br/>
-        Phone: {company_info.get('phone', 'N/A')} | Email: {company_info.get('email', 'N/A')}<br/>
-        {f"GSTIN: {company_info['gstin']}" if company_info.get('gstin') else ''}
-        </font>
-        """
-        elements.append(Paragraph(company_details, self.styles['Normal']))
-        elements.append(Spacer(1, 0.2*inch))
-        
-        # Invoice title and details
-        invoice_title = Paragraph("INVOICE", self.styles['InvoiceTitle'])
-        elements.append(invoice_title)
-        
-        invoice_details = f"""
-        <font size=10>
-        <b>Invoice Number:</b> {invoice_number}<br/>
-        <b>Date:</b> {invoice_date.strftime('%d %B %Y')}
-        </font>
-        """
-        elements.append(Paragraph(invoice_details, self.styles['Normal']))
-        
-        return elements
-    
-    def _create_customer_section(self, customer_info: Dict[str, str]):
-        """Create customer information section"""
-        elements = []
-        
-        bill_to = Paragraph("<b>Bill To:</b>", self.styles['SectionHeader'])
-        elements.append(bill_to)
-        
-        customer_details = f"""
-        <font size=10>
-        <b>{customer_info.get('name', 'Customer Name')}</b><br/>
-        {customer_info.get('email', 'N/A')}<br/>
-        {customer_info.get('phone', 'N/A')}<br/>
-        {customer_info.get('address', '')}
-        </font>
-        """
-        elements.append(Paragraph(customer_details, self.styles['Normal']))
-        
-        return elements
-    
-    def _create_items_table(self, items: list):
-        """Create invoice items table"""
-        elements = []
-        
-        # Table header
-        table_data = [
-            ['#', 'Description', 'Quantity', 'Unit Price', 'Total']
-        ]
-        
-        # Add items
+        U = self.W - 1.0*inch   # usable width
+        s = []
+
+        s += self._header(company_info, logo_path, U)
+        s.append(HRFlowable(width="100%", thickness=2, color=NAVY, spaceAfter=4))
+        s += self._info_box(customer_info, order_data, invoice_number,
+                            invoice_date, due_date, U)
+        s.append(Spacer(1, 5))
+        s += self._items_table(items, U)
+        s.append(Spacer(1, 4))
+        s += self._taxes_table(items, U)
+        s.append(Spacer(1, 4))
+        s += self._financial_summary(items, order_data, U)
+        s.append(Spacer(1, 4))
+        s += self._declaration_block(items, order_data, U)
+        s.append(Spacer(1, 3))
+        s += self._footer(company_info)
+
+        doc.build(s)
+
+    # ── S1: Header ─────────────────────────────────────────────────────────────
+    def _header(self, co, logo_path, U):
+        left = []
+        if logo_path and os.path.isfile(logo_path):
+            try:
+                img = Image(logo_path, width=1.0*inch, height=0.45*inch)
+                img.hAlign = "LEFT"
+                left.append(img)
+                left.append(Spacer(1, 2))
+            except Exception:
+                pass
+
+        left.append(Paragraph(co.get("name", ""), self.styles["CoName"]))
+        lines = []
+        if co.get("address"):  lines.append(co["address"])
+        if co.get("gstin"):    lines.append(f"GSTIN/UIN : {co['gstin']}")
+        if co.get("pan"):      lines.append(f"PAN        : {co['pan']}")
+        cx = []
+        if co.get("phone"):    cx.append(f"Phone: {co['phone']}")
+        if co.get("email"):    cx.append(f"Email: {co['email']}")
+        if cx: lines.append("  |  ".join(cx))
+        if co.get("website"):  lines.append(co["website"])
+        left.append(Paragraph("<br/>".join(lines), self.styles["CoSub"]))
+
+        lt = Table([[r] for r in left], colWidths=[U * 0.58])
+        lt.setStyle(TableStyle([
+            ("VALIGN",       (0,0),(-1,-1), "TOP"),
+            ("LEFTPADDING",  (0,0),(-1,-1), 0), ("RIGHTPADDING", (0,0),(-1,-1), 0),
+            ("TOPPADDING",   (0,0),(-1,-1), 0), ("BOTTOMPADDING",(0,0),(-1,-1), 2),
+        ]))
+        rt = Table([[Paragraph("TAX INVOICE", self.styles["TaxHdr"])]],
+                   colWidths=[U * 0.42])
+        rt.setStyle(TableStyle([
+            ("VALIGN",       (0,0),(-1,-1), "MIDDLE"),
+            ("LEFTPADDING",  (0,0),(-1,-1), 0), ("RIGHTPADDING", (0,0),(-1,-1), 0),
+        ]))
+        hdr = Table([[lt, rt]], colWidths=[U * 0.58, U * 0.42])
+        hdr.setStyle(TableStyle([
+            ("VALIGN",       (0,0),(-1,-1), "TOP"),
+            ("LEFTPADDING",  (0,0),(-1,-1), 0), ("RIGHTPADDING", (0,0),(-1,-1), 0),
+        ]))
+        return [hdr, Spacer(1, 5)]
+
+    # ── S2: Info box ───────────────────────────────────────────────────────────
+    def _info_box(self, cust, order, inv_num, inv_date, due_date, U):
+        def _lv(lbl, val, bold=False):
+            return [Paragraph(lbl, self.styles["LblSm"]),
+                    Paragraph(str(val), self.styles["ValBold" if bold else "ValNorm"])]
+
+        # Column widths that sum exactly to U
+        C1W = U * 0.35
+        C2W = U * 0.34
+        C3W = U - C1W - C2W
+
+        # Col 1 – Bill To
+        c1 = [[Paragraph("Bill To", self.styles["BillTitle"])],
+               [Paragraph(cust.get("name", ""), self.styles["BillName"])]]
+        for fld, lbl in [("address",""), ("gstin","GSTIN/UIN"),
+                          ("email","Email"), ("phone","Phone")]:
+            if cust.get(fld):
+                txt = f"{lbl} : {cust[fld]}" if lbl else cust[fld]
+                c1.append([Paragraph(txt, self.styles["BillSub"])])
+        col1 = Table(c1, colWidths=[C1W])
+        col1.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),
+            ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),2),
+            ("TOPPADDING",(0,0),(-1,-1),1),("BOTTOMPADDING",(0,0),(-1,-1),1)]))
+
+        # Col 2 – Invoice details
+        status = order.get("status", "").replace("_", " ").title()
+        c2 = (_lv("Invoice No:", inv_num, bold=True) +
+               _lv("Order ID:", order.get("order_id", "")) +
+               [Spacer(1, 3)] + _lv("Status:", status))
+        col2 = Table([[r] for r in c2], colWidths=[C2W])
+        col2.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),
+            ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),2),
+            ("TOPPADDING",(0,0),(-1,-1),1),("BOTTOMPADDING",(0,0),(-1,-1),1)]))
+
+        # Col 3 – Dates
+        due_str = due_date.strftime("%d-%b-%Y") if due_date else inv_date.strftime("%d-%b-%Y")
+        c3 = (_lv("Invoice Date:", inv_date.strftime("%d-%b-%Y"), bold=True) +
+               [Spacer(1, 3)] + _lv("Due Date:", due_str, bold=True))
+        if order.get("order_date"):
+            c3 += [Spacer(1, 3)] + _lv("Order Date:", order["order_date"])
+        col3 = Table([[r] for r in c3], colWidths=[C3W])
+        col3.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),
+            ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0),
+            ("TOPPADDING",(0,0),(-1,-1),1),("BOTTOMPADDING",(0,0),(-1,-1),1)]))
+
+        box = Table([[col1, col2, col3]], colWidths=[C1W, C2W, C3W])
+        box.setStyle(TableStyle([
+            ("VALIGN",       (0,0),(-1,-1), "TOP"),
+            ("BOX",          (0,0),(-1,-1), 0.75, BORDER),
+            ("LINEBEFORE",   (1,0),(1,-1),  0.5,  BORDER),
+            ("LINEBEFORE",   (2,0),(2,-1),  0.5,  BORDER),
+            ("BACKGROUND",   (0,0),(-1,-1), LIGHT_BG),
+            ("LEFTPADDING",  (0,0),(-1,-1), 7), ("RIGHTPADDING", (0,0),(-1,-1), 7),
+            ("TOPPADDING",   (0,0),(-1,-1), 8), ("BOTTOMPADDING",(0,0),(-1,-1), 8),
+        ]))
+        return [box]
+
+    # ── S3: Items table ────────────────────────────────────────────────────────
+    # Cols: S.No | Description + Specs | HSN/SAC | Quantity | Rate | Disc% | Amount
+    def _items_table(self, items, U):
+        elems = [Paragraph("Items", self.styles["SecHdr"])]
+
+        NUM  = 0.28*inch
+        HSN  = 0.78*inch
+        QTY  = 0.72*inch
+        RATE = 0.80*inch
+        DISC = 0.44*inch
+        AMT  = 1.05*inch          # shared with taxes table
+        DESC = U - NUM - HSN - QTY - RATE - DISC - AMT
+        cw   = [NUM, DESC, HSN, QTY, RATE, DISC, AMT]
+
+        def _h(txt, al=TA_CENTER):
+            return Paragraph(txt, ParagraphStyle("_ih", parent=self.styles["Normal"],
+                fontName=BLD, fontSize=7.5, textColor=WHITE, alignment=al, leading=10))
+
+        data = [[_h("S.No"), _h("Description of Goods", TA_LEFT),
+                 _h("HSN/SAC"), _h("Quantity"), _h("Rate"), _h("Disc%"), _h("Amount")]]
+
+        subtotal = 0.0
         for idx, item in enumerate(items, 1):
-            description_text = item.get('description', '').replace('\n', '<br/>')
-            table_data.append([
-                str(idx),
-                Paragraph(description_text, self.styles['Normal']),
-                str(item.get('quantity', 0)),
-                f"₹{item.get('unit_price', 0):.2f}",
-                f"₹{item.get('total', 0):.2f}"
+            qty  = float(item.get("quantity", 1))
+            rate = float(item.get("unit_price", 0))
+            disc = float(item.get("discount_pct", 0))
+            net  = rate * qty * (1 - disc / 100)
+            subtotal += net
+
+            desc = item.get("description", "Item")
+            if item.get("variant"): desc += f" ({item['variant']})"
+            specs = item.get("specs", "")
+            if specs:
+                desc_tbl = Table(
+                    [[Paragraph(desc, self.styles["TC"])],
+                     [Paragraph(specs, self.styles["Specs"])]],
+                    colWidths=[DESC])
+                desc_tbl.setStyle(TableStyle([
+                    ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0),
+                    ("TOPPADDING",(0,0),(-1,-1),0),("BOTTOMPADDING",(0,0),(-1,-1),0),
+                ]))
+                desc_cell = desc_tbl
+            else:
+                desc_cell = Paragraph(desc, self.styles["TC"])
+
+            qty_str = f"{qty:.2f}" + (f" {item['unit']}" if item.get("unit") else "")
+            data.append([
+                Paragraph(str(idx),         self.styles["TCC"]),
+                desc_cell,
+                Paragraph(str(item.get("hsn_sac", "")), self.styles["TCC"]),
+                Paragraph(qty_str,          self.styles["TCC"]),
+                Paragraph(f"₹{rate:,.2f}",  self.styles["TCR"]),
+                Paragraph(f"{disc:.0f}%",   self.styles["TCC"]),
+                Paragraph(f"₹{net:,.2f}",   self.styles["TBR"]),
             ])
-        
-        # Create table
-        table = Table(table_data, colWidths=[0.5*inch, 3.5*inch, 1*inch, 1.2*inch, 1.2*inch])
-        
-        # Style table
-        table.setStyle(TableStyle([
-            # Header
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495e')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('TOPPADDING', (0, 0), (-1, 0), 12),
-            
-            # Body
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('ALIGN', (0, 1), (0, -1), 'CENTER'),
-            ('ALIGN', (2, 1), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('TOPPADDING', (0, 1), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
-            
-            # Grid
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            
-            # Alternating rows
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.beige]),
+
+        n = len(data)   # rows so far (header + items)
+
+        # Summary rows below items: cols 0-5 span as label, col 6 = value
+        cgst_r = max((float(i.get("cgst_rate", 0)) for i in items), default=0)
+        sgst_r = max((float(i.get("sgst_rate", 0)) for i in items), default=0)
+        igst_r = max((float(i.get("igst_rate", 0)) for i in items), default=0)
+        cgst_a = subtotal * cgst_r / 100
+        sgst_a = subtotal * sgst_r / 100
+        igst_a = subtotal * igst_r / 100
+        grand  = subtotal + cgst_a + sgst_a + igst_a
+
+        def _sr(lbl, val, bold=False):
+            ls = "TBR" if bold else "TCR"
+            return [Paragraph(lbl, self.styles[ls]), "", "", "", "", "",
+                    Paragraph(val, self.styles[ls])]
+
+        data.append(_sr("Subtotal:", f"₹{subtotal:,.2f}"))
+        if cgst_r: data.append(_sr(f"CGST @ {cgst_r:.0f}%:", f"₹{cgst_a:,.2f}"))
+        if sgst_r: data.append(_sr(f"SGST @ {sgst_r:.0f}%:", f"₹{sgst_a:,.2f}"))
+        if igst_r: data.append(_sr(f"IGST @ {igst_r:.0f}%:", f"₹{igst_a:,.2f}"))
+        data.append(_sr("Total Amount Due:", f"₹{grand:,.2f}", bold=True))
+
+        span_cmds = [("SPAN", (0, r), (5, r)) for r in range(n, len(data))]
+
+        t = Table(data, colWidths=cw, repeatRows=1)
+        t.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0),(-1,0),   NAVY),
+            ("TEXTCOLOR",     (0,0),(-1,0),   WHITE),
+            ("TOPPADDING",    (0,0),(-1,0),   HP), ("BOTTOMPADDING",(0,0),(-1,0),   HP),
+            ("TOPPADDING",    (0,1),(-1,n-1), RP), ("BOTTOMPADDING",(0,1),(-1,n-1), RP),
+            ("ROWBACKGROUNDS",(0,1),(-1,n-1), [WHITE, LIGHT_BG]),
+            ("LINEBELOW",     (0,1),(-1,n-2), 0.3, GRID),
+            ("BACKGROUND",    (0,n),(-1,-1),  WHITE),
+            ("TOPPADDING",    (0,n),(-1,-1),  SP), ("BOTTOMPADDING",(0,n),(-1,-1), SP),
+            *span_cmds,
+            ("BACKGROUND",    (0,-1),(-1,-1), HDR_BG),
+            ("TOPPADDING",    (0,-1),(-1,-1), HP), ("BOTTOMPADDING",(0,-1),(-1,-1), HP),
+            ("LINEABOVE",     (0,-1),(-1,-1), 0.75, BORDER),
+            ("LEFTPADDING",   (0,0),(-1,-1),  4), ("RIGHTPADDING", (0,0),(-1,-1), 4),
+            ("BOX",           (0,0),(-1,-1),  0.75, BORDER),
+            ("VALIGN",        (0,0),(-1,-1),  "MIDDLE"),
         ]))
-        
-        elements.append(table)
-        
-        return elements
-    
-    def _create_totals_section(self, order_data: Dict[str, Any]):
-        """Create totals section"""
-        elements = []
-        
-        totals_data = [
-            ['', 'Subtotal:', f"₹{order_data.get('subtotal', order_data.get('total_amount', 0)):.2f}"],
+        elems.append(t)
+        return elems
+
+    # ── S4: Taxes table ────────────────────────────────────────────────────────
+    # Cols: HSN/SAC | Taxable Value | CGST | SGST | IGST | Amount
+    def _taxes_table(self, items, U):
+        elems = [Paragraph("Taxes", self.styles["SecHdr"])]
+
+        AMT  = 1.05*inch          # matches items table last column
+        HSN  = 0.80*inch
+        CGST = 1.05*inch
+        SGST = 1.05*inch
+        IGST = 0.72*inch
+        TVAL = U - HSN - CGST - SGST - IGST - AMT
+        cw   = [HSN, TVAL, CGST, SGST, IGST, AMT]
+
+        def _h(txt, al=TA_CENTER):
+            return Paragraph(txt, ParagraphStyle("_th", parent=self.styles["Normal"],
+                fontName=BLD, fontSize=7.5, textColor=WHITE, alignment=al, leading=10))
+
+        # Defined once, outside the loop
+        def _tc(v, r):
+            if r == 0: return Paragraph("—", self.styles["TCC"])
+            return Paragraph(f"₹{v:,.2f} ({r:.0f}%)", self.styles["TCC"])
+
+        data = [[_h("HSN/SAC"), _h("Taxable Value"), _h("CGST"),
+                 _h("SGST"), _h("IGST"), _h("Amount")]]
+
+        groups: Dict[str, dict] = {}
+        for item in items:
+            hsn = str(item.get("hsn_sac", "—"))
+            tv  = (float(item.get("unit_price", 0)) * float(item.get("quantity", 1))
+                   * (1 - float(item.get("discount_pct", 0)) / 100))
+            if hsn not in groups:
+                groups[hsn] = {"tv": 0,
+                               "cgst": float(item.get("cgst_rate", 0)),
+                               "sgst": float(item.get("sgst_rate", 0)),
+                               "igst": float(item.get("igst_rate", 0))}
+            groups[hsn]["tv"] += tv
+
+        tv_tot = cg_tot = sg_tot = ig_tot = amt_tot = 0.0
+        for hsn, g in groups.items():
+            tv  = g["tv"]
+            cg  = tv * g["cgst"] / 100
+            sg  = tv * g["sgst"] / 100
+            ig  = tv * g["igst"] / 100
+            amt = tv + cg + sg + ig
+            tv_tot += tv; cg_tot += cg; sg_tot += sg; ig_tot += ig; amt_tot += amt
+            data.append([Paragraph(hsn,           self.styles["TCC"]),
+                         Paragraph(f"₹{tv:,.2f}", self.styles["TCR"]),
+                         _tc(cg, g["cgst"]), _tc(sg, g["sgst"]), _tc(ig, g["igst"]),
+                         Paragraph(f"₹{amt:,.2f}", self.styles["TBR"])])
+
+        data.append([Paragraph("Total:", self.styles["TBL"]),
+                     Paragraph(f"₹{tv_tot:,.2f}", self.styles["TBR"]),
+                     Paragraph(f"₹{cg_tot:,.2f}", self.styles["TBC"]),
+                     Paragraph(f"₹{sg_tot:,.2f}", self.styles["TBC"]),
+                     Paragraph(f"₹{ig_tot:,.2f}", self.styles["TBC"]),
+                     Paragraph(f"₹{amt_tot:,.2f}", self.styles["TBR"])])
+
+        t = Table(data, colWidths=cw, repeatRows=1)
+        t.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0),(-1,0),   NAVY),
+            ("TEXTCOLOR",     (0,0),(-1,0),   WHITE),
+            ("TOPPADDING",    (0,0),(-1,0),   HP), ("BOTTOMPADDING",(0,0),(-1,0),   HP),
+            ("TOPPADDING",    (0,1),(-1,-1),  RP), ("BOTTOMPADDING",(0,1),(-1,-1),  RP),
+            ("LEFTPADDING",   (0,0),(-1,-1),  4),  ("RIGHTPADDING", (0,0),(-1,-1),  4),
+            ("ROWBACKGROUNDS",(0,1),(-1,-2),  [WHITE, LIGHT_BG]),
+            ("LINEBELOW",     (0,1),(-1,-2),  0.3, GRID),
+            ("BACKGROUND",    (0,-1),(-1,-1), HDR_BG),
+            ("LINEABOVE",     (0,-1),(-1,-1), 0.75, BORDER),
+            ("BOX",           (0,0),(-1,-1),  0.75, BORDER),
+            ("VALIGN",        (0,0),(-1,-1),  "MIDDLE"),
+        ]))
+        elems.append(t)
+        return elems
+
+    # ── S5: Financial summary (horizontal row) ─────────────────────────────────
+    # Three equal cells side-by-side: Grand Total | Amount Paid | Balance Due
+    def _financial_summary(self, items, order_data, U):
+        subtotal = sum(
+            float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
+            * (1 - float(i.get("discount_pct", 0)) / 100) for i in items)
+        tax = sum(
+            float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
+            * (1 - float(i.get("discount_pct", 0)) / 100)
+            * (float(i.get("cgst_rate", 0)) + float(i.get("sgst_rate", 0))
+               + float(i.get("igst_rate", 0))) / 100
+            for i in items)
+        shipping   = float(order_data.get("shipping_amount", 0) or 0)
+        order_disc = float(order_data.get("order_discount",  0) or 0)
+        gross      = round(subtotal + tax + shipping - order_disc, 2)
+        amount_paid= float(order_data.get("amount_paid", 0) or 0)
+        balance    = max(0.0, round(gross - amount_paid, 2))
+
+        # Integer-safe third-split: give any rounding remainder to the middle cell
+        CW1     = int(U / 3)
+        CW2     = int(U / 3)
+        CW3     = U - CW1 - CW2
+        INNER_W = CW1 - 12   # 6pt left + 6pt right cell padding
+
+        def _cell(lbl, val, lbl_color=WHITE, val_color=WHITE):
+            lp = Paragraph(lbl, ParagraphStyle("_fl", parent=self.styles["Normal"],
+                fontName=BLD, fontSize=8, textColor=lbl_color,
+                alignment=TA_CENTER, leading=11))
+            vp = Paragraph(val, ParagraphStyle("_fv", parent=self.styles["Normal"],
+                fontName=BLD, fontSize=12, textColor=val_color,
+                alignment=TA_CENTER, leading=16))
+            inner = Table([[lp], [vp]], colWidths=[INNER_W])
+            inner.setStyle(TableStyle([
+                ("LEFTPADDING",  (0,0),(-1,-1), 0), ("RIGHTPADDING", (0,0),(-1,-1), 0),
+                ("TOPPADDING",   (0,0),(-1,-1), 1), ("BOTTOMPADDING",(0,0),(-1,-1), 1),
+            ]))
+            return inner
+
+        DIVIDER = colors.HexColor("#4a6080")
+        t = Table([[
+            _cell("Grand Total",  f"₹{gross:,.2f}"),
+            _cell("Amount Paid",  f"₹{amount_paid:,.2f}",
+                  lbl_color=colors.HexColor("#b0c8e8")),
+            _cell("Balance Due",  f"₹{balance:,.2f}"),
+        ]], colWidths=[CW1, CW2, CW3])
+        t.setStyle(TableStyle([
+            ("BACKGROUND",   (0,0),(-1,-1), NAVY),
+            ("TOPPADDING",   (0,0),(-1,-1), 8), ("BOTTOMPADDING",(0,0),(-1,-1), 8),
+            ("LEFTPADDING",  (0,0),(-1,-1), 6), ("RIGHTPADDING", (0,0),(-1,-1), 6),
+            ("VALIGN",       (0,0),(-1,-1), "MIDDLE"),
+            ("LINEBEFORE",   (1,0),(1,-1),  0.5, DIVIDER),
+            ("LINEBEFORE",   (2,0),(2,-1),  0.5, DIVIDER),
+            ("BOX",          (0,0),(-1,-1), 0.75, BORDER),   # same as all other tables
+        ]))
+        return [t]
+
+    # ── S6: Declaration block ──────────────────────────────────────────────────
+    # Row 1: Amount in Words (full-width)
+    # Row 2: Remarks | Declaration text
+    def _declaration_block(self, items, order_data, U):
+        grand = _grand_total(items, order_data)
+        words = _amount_in_words(grand)
+
+        lbl_s = ParagraphStyle("_dl", parent=self.styles["Normal"],
+            fontName=BLD, fontSize=7,   textColor=MUTED, leading=10)
+        txt_s = ParagraphStyle("_dt", parent=self.styles["Normal"],
+            fontName=NRM, fontSize=7,   textColor=DARK,  leading=10)
+        wrd_s = ParagraphStyle("_dw", parent=self.styles["Normal"],
+            fontName=BLD, fontSize=7.5, textColor=DARK,  leading=11)
+
+        rows = [
+            [Paragraph("Amount in Words :", lbl_s), Paragraph(words, wrd_s), "", ""],
+            [Paragraph("Remarks :", lbl_s),
+             Paragraph("BEING GOODS SALES", txt_s),
+             Paragraph("Declaration :", lbl_s),
+             Paragraph("We declare that this invoice shows the actual price of the "
+                       "goods described and that all particulars are true and correct.",
+                       txt_s)],
         ]
-        
-        if order_data.get('tax', 0) > 0:
-            totals_data.append(['', f"Tax ({order_data.get('tax_rate', 0)}%):", f"₹{order_data.get('tax', 0):.2f}"])
-        
-        if order_data.get('discount', 0) > 0:
-            totals_data.append(['', 'Discount:', f"-₹{order_data.get('discount', 0):.2f}"])
-        
-        totals_data.append(['', '<b>Total Amount:</b>', f"<b>₹{order_data.get('total_amount', 0):.2f}</b>"])
-        totals_data.append(['', 'Amount Paid:', f"₹{order_data.get('amount_paid', 0):.2f}"])
-        totals_data.append(['', '<b>Amount Due:</b>', f"<b>₹{order_data.get('total_amount', 0) - order_data.get('amount_paid', 0):.2f}</b>"])
-        
-        # Convert to Paragraphs for bold support
-        for row in totals_data:
-            row[1] = Paragraph(row[1], self.styles['Normal'])
-            row[2] = Paragraph(row[2], self.styles['Normal'])
-        
-        totals_table = Table(totals_data, colWidths=[3.5*inch, 2*inch, 1.9*inch])
-        totals_table.setStyle(TableStyle([
-            ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
-            ('FONTNAME', (0, -2), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ('LINEABOVE', (1, -3), (-1, -3), 1, colors.black),
-            ('LINEABOVE', (1, -1), (-1, -1), 2, colors.black),
+        t = Table(rows, colWidths=[U*0.14, U*0.36, U*0.14, U*0.36])
+        t.setStyle(TableStyle([
+            ("SPAN",          (1,0),(3,0)),
+            ("BOX",           (0,0),(-1,-1), 0.75, BORDER),   # matches all other tables
+            ("LINEBELOW",     (0,0),(-1,0),  0.4,  GRID),
+            ("LINEBEFORE",    (2,1),(2,1),   0.4,  GRID),
+            ("BACKGROUND",    (0,0),(-1,-1), LIGHT_BG),
+            ("TOPPADDING",    (0,0),(-1,-1), 4), ("BOTTOMPADDING",(0,0),(-1,-1), 4),
+            ("LEFTPADDING",   (0,0),(-1,-1), 6), ("RIGHTPADDING", (0,0),(-1,-1), 6),
+            ("VALIGN",        (0,0),(-1,-1), "TOP"),
         ]))
-        
-        elements.append(totals_table)
-        
-        return elements
-    
-    def _create_qr_section(self, qr_code_base64: str):
-        """Create QR code payment section"""
-        elements = []
-        
-        elements.append(Spacer(1, 0.2*inch))
-        elements.append(Paragraph("<b>Scan to Pay:</b>", self.styles['SectionHeader']))
-        
-        # Decode base64 and create image
-        img_data = base64.b64decode(qr_code_base64)
-        img = Image(BytesIO(img_data), width=1.5*inch, height=1.5*inch)
-        
-        elements.append(img)
-        
-        return elements
-    
-    def _create_footer(self, company_info: Dict[str, str]):
-        """Create invoice footer"""
-        elements = []
-        
-        elements.append(Spacer(1, 0.4*inch))
-        
-        footer_text = """
-        <font size=8>
-        <b>Terms & Conditions:</b><br/>
-        1. Payment is due within 30 days of invoice date.<br/>
-        2. Please include invoice number with payment.<br/>
-        3. Late payments may incur additional charges.<br/>
-        <br/>
-        Thank you for your business!
-        </font>
-        """
-        elements.append(Paragraph(footer_text, self.styles['Normal']))
-        
-        return elements
+        return [t]
+
+    # ── S7: Footer ─────────────────────────────────────────────────────────────
+    def _footer(self, co):
+        name  = co.get("name", "")
+        parts = name.rsplit(" ", 1)
+        bold  = f"{parts[0]} <b>{parts[1]}</b>" if len(parts) == 2 else f"<b>{name}</b>"
+        return [
+            HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=6),
+            Paragraph("Thank you for your business!", self.styles["Ftr"]),
+            Spacer(1, 3),
+            HRFlowable(width=1.0*inch, thickness=2, color=NAVY,
+                       hAlign="CENTER", spaceAfter=4),
+            Paragraph(bold, self.styles["FtrB"]),
+        ]
 
 
-def generate_simple_invoice(
-    filepath: str,
-    invoice_data: Dict[str, Any]
-) -> str:
-    """
-    Simple wrapper to generate invoice
-    
-    Args:
-        filepath: Path to save PDF
-        invoice_data: Complete invoice data
-    
-    Returns:
-        Path to generated PDF
-    """
-    generator = InvoiceGenerator(filepath)
-    
-    generator.generate_invoice(
-        invoice_number=invoice_data['invoice_number'],
-        invoice_date=invoice_data.get('invoice_date', datetime.now(timezone.utc)),
-        order_data=invoice_data['order_data'],
-        company_info=invoice_data['company_info'],
-        customer_info=invoice_data['customer_info'],
-        items=invoice_data['items'],
-        qr_code_base64=invoice_data.get('qr_code')
+# ── Public helper ──────────────────────────────────────────────────────────────
+def generate_simple_invoice(filepath: str, invoice_data: Dict[str, Any]) -> str:
+    """Generate a professional GST Tax Invoice PDF. Returns filepath."""
+    gen = TaxInvoiceGenerator(filepath)
+    gen.generate_invoice(
+        invoice_number = invoice_data["invoice_number"],
+        invoice_date   = invoice_data.get("invoice_date", datetime.now(timezone.utc)),
+        order_data     = invoice_data["order_data"],
+        company_info   = invoice_data["company_info"],
+        customer_info  = invoice_data["customer_info"],
+        items          = invoice_data["items"],
+        logo_path      = invoice_data.get("logo_path"),
+        due_date       = invoice_data.get("due_date"),
     )
-    
     return filepath
