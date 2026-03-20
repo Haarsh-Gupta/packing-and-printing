@@ -1,2 +1,2 @@
-from . import routes
-from . import admin_routes
+from app.modules.services import routes
+from app.modules.services import admin_routes

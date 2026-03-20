@@ -23,21 +23,19 @@ const STATUS_COLORS: Record<string, string> = {
 const CustomTooltip = ({ active, payload, label, chartType }: any) => {
     if (active && payload && payload.length) {
         return (
-            <div style={{
-                background: 'white', border: '1px solid rgba(0,0,0,0.08)',
-                borderRadius: '10px', padding: '8px 12px',
-                fontFamily: "'Inter', system-ui", fontSize: '12px', color: '#18181b',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-            }}>
-                <p style={{ color: '#71717a', marginBottom: '2px', fontSize: '11px' }}>{label}</p>
-                <p style={{ fontWeight: 600 }}>
-                    {chartType === 'revenue' ? `₹${payload[0]?.value?.toLocaleString()}` : payload[0]?.value?.toLocaleString()}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white shadow-lg">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-0.5 m-0">{label}</p>
+                <p className="font-semibold m-0">
+                    {chartType === 'revenue' 
+                        ? `₹${payload[0]?.value?.toLocaleString()}` 
+                        : payload[0]?.value?.toLocaleString()}
                 </p>
             </div>
         );
     }
     return null;
 };
+
 const formatValue = (val: number, type: string) => {
     if (type !== 'revenue') return val.toLocaleString();
     if (val === 0) return "₹0";
@@ -50,45 +48,33 @@ const formatValue = (val: number, type: string) => {
 const StatCard = ({ label, value, change, trend, icon: Icon, accent, path, onClick, active }: any) => (
     <div
         onClick={onClick}
+        className={`flex-1 relative rounded-[14px] p-5 cursor-pointer transition-all dark:bg-slate-900
+            ${active 
+                ? 'bg-white shadow-xl dark:shadow-none' 
+                : 'bg-white border-slate-200/60 dark:border-slate-800/60 shadow-sm hover:shadow-md'
+            }`}
         style={{
-            background: 'white', borderRadius: '14px', padding: '20px 22px',
-            border: active ? `2px solid ${accent}` : '1px solid rgba(0,0,0,0.06)',
-            boxShadow: active ? `0 0 0 1px ${accent}20, 0 8px 24px ${accent}15` : '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-            flex: 1,
-            textDecoration: 'none',
-            transition: 'all 0.2s',
-            cursor: 'pointer',
-            position: 'relative',
+            border: active ? `2px solid ${accent}` : '1px solid var(--color-border)',
+            boxShadow: active ? `0 0 0 1px ${accent}20, 0 8px 24px ${accent}15` : undefined,
         }}
     >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 500, color: '#71717a' }}>{label}</span>
-            <div style={{
-                width: '34px', height: '34px', borderRadius: '10px',
-                background: accent + '18',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
+        <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: accent + '18' }}>
                 <Icon size={16} style={{ color: accent }} />
             </div>
         </div>
-        <p style={{
-            fontSize: '28px', fontWeight: 700, letterSpacing: '-0.03em',
-            color: '#18181b', margin: 0, lineHeight: 1.1,
-        }}>{value}</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-            <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: '3px',
-                fontSize: '11px', fontWeight: 600,
-                color: trend === 'up' ? '#16a34a' : '#dc2626',
-                background: trend === 'up' ? '#f0fdf4' : '#fef2f2',
-                padding: '2px 7px', borderRadius: '999px',
-            }}>
+        <p className="text-[28px] font-bold tracking-tight text-slate-900 dark:text-white m-0 leading-tight">
+            {value}
+        </p>
+        <div className="flex items-center gap-1.5 mt-2">
+            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${trend === 'up' ? 'text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400' : 'text-red-600 bg-red-50 dark:bg-red-500/10 dark:text-red-400'}`}>
                 {trend === 'up' ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                 {change}
             </span>
-            <span style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 400 }}>vs last period</span>
+            <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">vs last period</span>
         </div>
-        <Link to={path} style={{ position: 'absolute', top: 10, right: 10, opacity: 0.4 }}>
+        <Link to={path} className="absolute top-2.5 right-2.5 opacity-40 hover:opacity-100 transition-opacity text-slate-500 dark:text-slate-400">
             <ArrowUpRight size={14} />
         </Link>
     </div>
@@ -141,24 +127,20 @@ export default function Dashboard() {
     const totalOrders = pipelineData.reduce((s, d) => s + (d.value as number), 0);
 
     return (
-        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: "'Inter', system-ui" }}>
+        <div className="animate-fade-in flex flex-col gap-5 font-sans">
 
             {/* Page header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="flex items-center justify-between">
                 <div>
-                    <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#18181b', margin: 0 }}>
+                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white m-0">
                         Dashboard Overview
                     </h1>
-                    <p style={{ fontSize: '13px', color: '#71717a', marginTop: '3px' }}>
+                    <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1 m-0">
                         Welcome back! Here's what's happening today.
                     </p>
                 </div>
                 <Select value={period} onValueChange={setPeriod}>
-                    <SelectTrigger style={{
-                        height: '34px', fontSize: '13px', width: '140px',
-                        borderRadius: '9px', border: '1px solid #e4e4e7',
-                        fontFamily: "'Inter', system-ui",
-                    }}>
+                    <SelectTrigger className="w-36 h-9 rounded-lg border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[13px] text-slate-900 dark:text-white">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -170,7 +152,7 @@ export default function Dashboard() {
             </div>
 
             {/* KPI row */}
-            <div style={{ display: 'flex', gap: '14px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((s) => (
                     <StatCard
                         key={s.id}
@@ -182,30 +164,22 @@ export default function Dashboard() {
             </div>
 
             {/* Revenue chart */}
-            <div style={{
-                background: 'white', borderRadius: '16px', padding: '22px',
-                border: '1px solid rgba(0,0,0,0.06)',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/60 dark:border-slate-800 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
                     <div>
-                        <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#18181b', margin: 0 }}>
+                        <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white m-0">
                             {activeStat?.label} Trend
                         </h2>
-                        <p style={{ fontSize: '12px', color: '#71717a', marginTop: '3px' }}>Current View: {chartType.charAt(0).toUpperCase() + chartType.slice(1)}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 m-0">Current View: {chartType.charAt(0).toUpperCase() + chartType.slice(1)}</p>
                     </div>
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: '5px',
-                        background: activeStat?.trend === 'up' ? '#f0fdf4' : '#fef2f2', 
-                        borderRadius: '999px', padding: '4px 10px',
-                    }}>
-                        {activeStat?.trend === 'up' ? <TrendingUp size={11} style={{ color: '#16a34a' }} /> : <TrendingDown size={11} style={{ color: '#dc2626' }} />}
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: activeStat?.trend === 'up' ? '#16a34a' : '#dc2626' }}>
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${activeStat?.trend === 'up' ? 'bg-green-50 dark:bg-green-500/10' : 'bg-red-50 dark:bg-red-500/10'}`}>
+                        {activeStat?.trend === 'up' ? <TrendingUp size={11} className="text-green-600 dark:text-green-400" /> : <TrendingDown size={11} className="text-red-600 dark:text-red-400" />}
+                        <span className={`text-[11px] font-semibold ${activeStat?.trend === 'up' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             {activeStat?.change} vs last period
                         </span>
                     </div>
                 </div>
-                <div style={{ height: '240px' }}>
+                <div className="h-60 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
                             <defs>
@@ -214,16 +188,16 @@ export default function Dashboard() {
                                     <stop offset="100%" stopColor={activeStat?.accent || "#3b82f6"} stopOpacity={0} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--color-border)" opacity={0.5} />
                             <XAxis dataKey="date" fontSize={11} fontFamily="'Inter',system-ui" fontWeight={500}
-                                axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa' }} />
+                                axisLine={false} tickLine={false} tick={{ fill: '#94a3b8' }} />
                             <YAxis fontSize={11} fontFamily="'Inter',system-ui" fontWeight={500}
                                 axisLine={false} tickLine={false}
                                 tickFormatter={v => chartType === 'revenue' ? `₹${(v / 1000).toFixed(0)}k` : v}
-                                tick={{ fill: '#a1a1aa' }} />
+                                tick={{ fill: '#94a3b8' }} />
                             <Tooltip content={<CustomTooltip chartType={chartType} />} />
                             <Area type="monotone" dataKey="value"
-                stroke={activeStat?.accent || "#3b82f6"} strokeWidth={2} fill="url(#revenueGrad)"
+                                stroke={activeStat?.accent || "#3b82f6"} strokeWidth={2} fill="url(#revenueGrad)"
                                 dot={false} activeDot={{ r: 4, fill: activeStat?.accent || '#3b82f6', strokeWidth: 0 }} />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -231,51 +205,34 @@ export default function Dashboard() {
             </div>
 
             {/* Bottom grid: Recent Activity + Order Pipeline */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '14px' }}>
+            <div className="flex flex-col xl:flex-row gap-4">
 
                 {/* Recent Activity */}
-                <div style={{
-                    background: 'white', borderRadius: '16px', padding: '22px',
-                    border: '1px solid rgba(0,0,0,0.06)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                        <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#18181b', margin: 0 }}>Recent Activity</h2>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,0.2)', animation: 'pulse 2s infinite' }} />
+                <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white m-0">Recent Activity</h2>
+                        <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,0.2)] animate-pulse" />
                     </div>
 
                     {recentActivity.length === 0 ? (
-                        <div style={{ padding: '30px', textAlign: 'center', color: '#a1a1aa' }}>
-                            <ShoppingBag size={28} style={{ opacity: 0.3, marginBottom: '8px', display: 'block', margin: '0 auto 8px' }} />
-                            <p style={{ fontSize: '13px', fontWeight: 500 }}>No recent activity</p>
+                        <div className="p-8 text-center text-slate-400 dark:text-slate-500">
+                            <ShoppingBag size={28} className="opacity-30 mx-auto mb-2" />
+                            <p className="text-[13px] font-medium m-0">No recent activity</p>
                         </div>
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div className="flex flex-col">
                             {recentActivity.slice(0, 6).map((act, i) => (
-                                <div key={i} style={{
-                                    display: 'flex', alignItems: 'flex-start', gap: '12px',
-                                    padding: '10px 8px', borderRadius: '10px', cursor: 'pointer', transition: 'background 0.1s',
-                                }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = '#f9f9f9')}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                    <div style={{
-                                        width: '8px', height: '8px', borderRadius: '50%',
-                                        background: i === 0 ? '#10b981' : '#e4e4e7',
-                                        marginTop: '5px', flexShrink: 0,
-                                    }} />
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{
-                                            fontSize: '13px', fontWeight: 500, color: '#18181b',
-                                            margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                        }}>
+                                <div key={i} className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors group">
+                                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${i === 0 ? 'bg-green-500' : 'bg-slate-200 dark:bg-slate-700'}`} />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[13px] font-medium text-slate-900 dark:text-white m-0 truncate">
                                             {act.description}
                                         </p>
-                                        <p style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 400, marginTop: '2px' }}>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal mt-0.5 m-0">
                                             {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </p>
                                     </div>
-                                    <ArrowUpRight size={12} style={{ color: '#d4d4d8', flexShrink: 0, marginTop: '4px' }} />
+                                    <ArrowUpRight size={12} className="text-slate-300 dark:text-slate-600 shrink-0 mt-1" />
                                 </div>
                             ))}
                         </div>
@@ -283,13 +240,9 @@ export default function Dashboard() {
                 </div>
 
                 {/* Order Pipeline */}
-                <div style={{
-                    background: 'white', borderRadius: '16px', padding: '22px',
-                    border: '1px solid rgba(0,0,0,0.06)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                }}>
-                    <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#18181b', margin: '0 0 16px' }}>Order Pipeline</h2>
-                    <div style={{ height: '160px', position: 'relative' }}>
+                <div className="w-full xl:w-[300px] xl:shrink-0 bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/60 dark:border-slate-800 shadow-sm flex flex-col">
+                    <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white m-0 mb-4">Order Pipeline</h2>
+                    <div className="h-40 relative">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
@@ -297,89 +250,73 @@ export default function Dashboard() {
                                     innerRadius={50} outerRadius={72}
                                     paddingAngle={3} dataKey="value"
                                     startAngle={90} endAngle={-270}
+                                    stroke="none"
                                 >
                                     {pipelineData.length > 0
                                         ? pipelineData.map((item, i) => (
-                                            <Cell key={`cell-${i}`} fill={STATUS_COLORS[item.name] || '#e4e4e7'} strokeWidth={0} />
+                                            <Cell key={`cell-${i}`} fill={STATUS_COLORS[item.name] || '#e4e4e7'} />
                                         ))
-                                        : <Cell fill="#f4f4f5" strokeWidth={0} />
+                                        : <Cell fill="var(--color-border)" fillOpacity={0.5} />
                                     }
                                 </Pie>
                                 <Tooltip formatter={(value, name) => [value, name]} />
                             </PieChart>
                         </ResponsiveContainer>
-                        <div style={{
-                            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            flexDirection: 'column', pointerEvents: 'none',
-                        }}>
-                            <span style={{ fontSize: '22px', fontWeight: 700, color: '#18181b' }}>{totalOrders}</span>
-                            <span style={{ fontSize: '10px', color: '#a1a1aa', fontWeight: 500 }}>Total Orders</span>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-[22px] font-bold text-slate-900 dark:text-white leading-none">{totalOrders}</span>
+                            <span className="text-[10px] text-slate-500 font-medium mt-1">Total Orders</span>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
+                    <div className="flex flex-col gap-1.5 mt-3">
                         {pipelineData.map(item => (
-                            <div key={item.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                                    <div style={{
-                                        width: '8px', height: '8px', borderRadius: '50%',
-                                        background: STATUS_COLORS[item.name] || '#e4e4e7', flexShrink: 0,
-                                    }} />
-                                    <span style={{ fontSize: '12px', color: '#52525b', fontWeight: 500 }}>
+                            <div key={item.name} className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: STATUS_COLORS[item.name] || '#e4e4e7' }} />
+                                    <span className="text-[12px] text-slate-600 dark:text-slate-300 font-medium">
                                         {item.name.charAt(0) + item.name.slice(1).toLowerCase()}
                                     </span>
                                 </div>
-                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#18181b' }}>{item.value as number}</span>
+                                <span className="text-[12px] font-bold text-slate-900 dark:text-white">{item.value as number}</span>
                             </div>
                         ))}
                     </div>
                 </div>
+            </div>
 
-                {/* Latest Reviews */}
-                <div style={{
-                    background: 'white', borderRadius: '16px', padding: '22px',
-                    border: '1px solid rgba(0,0,0,0.06)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                    gridColumn: 'span 2'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                        <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#18181b', margin: 0 }}>Latest Customer Reviews</h2>
-                        <Link to="/reviews" style={{ fontSize: '12px', color: '#2563eb', textDecoration: 'none' }}>View All</Link>
+            {/* Latest Reviews */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/60 dark:border-slate-800 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white m-0">Latest Customer Reviews</h2>
+                    <Link to="/reviews" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View All</Link>
+                </div>
+
+                {!data?.recent_reviews || data.recent_reviews.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-[13px]">
+                        No reviews yet
                     </div>
-
-                    {!data?.recent_reviews || data.recent_reviews.length === 0 ? (
-                        <div style={{ padding: '30px', textAlign: 'center', color: '#a1a1aa' }}>
-                            <p style={{ fontSize: '13px' }}>No reviews yet</p>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
-                            {data.recent_reviews.map((rev) => (
-                                <div key={rev.id} style={{ 
-                                    padding: '14px', borderRadius: '12px', border: '1px solid #f4f4f5',
-                                    background: '#fafafa'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#18181b' }}>{rev.user_name}</span>
-                                        <div style={{ display: 'flex', gap: '2px' }}>
-                                            {[1, 2, 3, 4, 5].map(star => (
-                                                <div key={star} style={{ 
-                                                    width: '10px', height: '10px', borderRadius: '50%',
-                                                    background: star <= rev.rating ? '#f59e0b' : '#e4e4e7'
-                                                }} />
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <p style={{ fontSize: '12px', color: '#52525b', margin: '4px 0 8px', lineHeight: 1.5 }}>
-                                        "{rev.comment}"
-                                    </p>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-                                        <span style={{ fontSize: '10px', color: '#a1a1aa' }}>{rev.product_name || 'General Product'}</span>
-                                        <span style={{ fontSize: '10px', color: '#a1a1aa' }}>{new Date(rev.created_at).toLocaleDateString()}</span>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {data.recent_reviews.map((rev) => (
+                            <div key={rev.id} className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 flex flex-col">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[13px] font-semibold text-slate-900 dark:text-white">{rev.user_name}</span>
+                                    <div className="flex gap-0.5">
+                                        {[1, 2, 3, 4, 5].map(star => (
+                                            <div key={star} className={`w-2.5 h-2.5 rounded-full ${star <= rev.rating ? 'bg-amber-500' : 'bg-slate-200 dark:bg-slate-700'}`} />
+                                        ))}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 mb-2 leading-relaxed italic">
+                                    "{rev.comment}"
+                                </p>
+                                <div className="flex items-center justify-between mt-auto pt-2 text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                                    <span>{rev.product_name || 'General Product'}</span>
+                                    <span>{new Date(rev.created_at).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -387,27 +324,27 @@ export default function Dashboard() {
 
 function DashboardSkeleton() {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} className="animate-pulse">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="flex flex-col gap-5 animate-pulse">
+            <div className="flex justify-between items-center">
                 <div>
-                    <div style={{ height: '20px', width: '200px', background: '#e4e4e7', borderRadius: '6px', marginBottom: '8px' }} />
-                    <div style={{ height: '14px', width: '280px', background: '#f4f4f5', borderRadius: '6px' }} />
+                    <div className="h-5 w-48 bg-slate-200 dark:bg-slate-800 rounded-md mb-2" />
+                    <div className="h-3.5 w-64 bg-slate-100 dark:bg-slate-800/50 rounded-md" />
                 </div>
-                <div style={{ height: '34px', width: '140px', background: '#e4e4e7', borderRadius: '9px' }} />
+                <div className="h-9 w-36 bg-slate-200 dark:bg-slate-800 rounded-lg" />
             </div>
-            <div style={{ display: 'flex', gap: '14px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[1, 2, 3, 4].map(i => (
-                    <div key={i} style={{ flex: 1, background: 'white', borderRadius: '14px', padding: '20px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                        <div style={{ height: '12px', width: '80px', background: '#f4f4f5', borderRadius: '4px', marginBottom: '12px' }} />
-                        <div style={{ height: '28px', width: '100px', background: '#e4e4e7', borderRadius: '6px', marginBottom: '10px' }} />
-                        <div style={{ height: '20px', width: '60px', background: '#f4f4f5', borderRadius: '999px' }} />
+                    <div key={i} className="flex-1 bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/50 dark:border-slate-800/50">
+                        <div className="h-3 w-20 bg-slate-100 dark:bg-slate-800 rounded mb-3" />
+                        <div className="h-7 w-24 bg-slate-200 dark:bg-slate-700 rounded-md mb-2.5" />
+                        <div className="h-5 w-16 bg-slate-100 dark:bg-slate-800 rounded-full" />
                     </div>
                 ))}
             </div>
-            <div style={{ background: 'white', borderRadius: '16px', padding: '22px', height: '300px', border: '1px solid rgba(0,0,0,0.06)' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '14px' }}>
-                <div style={{ background: 'white', borderRadius: '16px', padding: '22px', height: '300px', border: '1px solid rgba(0,0,0,0.06)' }} />
-                <div style={{ background: 'white', borderRadius: '16px', padding: '22px', height: '300px', border: '1px solid rgba(0,0,0,0.06)' }} />
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 h-[300px] border border-slate-200/50 dark:border-slate-800/50" />
+            <div className="flex flex-col xl:flex-row gap-4">
+                <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl p-5 h-[300px] border border-slate-200/50 dark:border-slate-800/50" />
+                <div className="w-full xl:w-[300px] bg-white dark:bg-slate-900 rounded-2xl p-5 h-[300px] border border-slate-200/50 dark:border-slate-800/50" />
             </div>
         </div>
     );

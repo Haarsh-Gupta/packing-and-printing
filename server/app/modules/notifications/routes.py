@@ -14,15 +14,15 @@ from app.core.config import settings
 from app.core.sse import sse_manager
 from app.modules.auth.schemas import TokenData
 
-from .models import Notification, EmailLog
-from ..inquiry.models import InquiryGroup
-from .schemas import (
+from app.modules.notifications.models import Notification, EmailLog
+from app.modules.inquiry.models import InquiryGroup
+from app.modules.notifications.schemas import (
     NotificationBulkCreate,
     NotificationResponse,
     NotificationListResponse,
     UnreadCountResponse,
 )
-from .service import NotificationService
+from app.modules.notifications.service import NotificationService
 
 logger = logging.getLogger(__name__)
 

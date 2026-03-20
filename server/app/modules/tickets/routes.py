@@ -11,8 +11,8 @@ from app.modules.auth import get_current_user
 from app.modules.auth.schemas import TokenData
 from app.modules.notifications.service import NotificationService
 
-from .models import Ticket, TicketMessage
-from .schemas import (
+from app.modules.tickets.models import Ticket, TicketMessage
+from app.modules.tickets.schemas import (
     TicketCreate,
     TicketMessageCreate,
     TicketResponse,

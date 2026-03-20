@@ -13,7 +13,7 @@ router = APIRouter()
 @router.post("/", response_model=dict, status_code=201)
 async def upload_file(
     file: UploadFile = File(...),
-    purpose: Literal["profile", "product", "inquiry"] = Query(..., description="Type of upload: profile, product, or inquiry"),
+    purpose: Literal["profile", "product", "inquiry", "payment"] = Query(..., description="Type of upload: profile, product, inquiry, or payment"),
     current_user: UserOut = Depends(get_current_user)
 ):
     """

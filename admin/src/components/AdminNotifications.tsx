@@ -6,7 +6,8 @@ import api, { TOKEN_KEY } from "@/lib/api";
 interface Notification {
   id: number; title: string; message: string;
   is_read: boolean; created_at: string;
-  metadata_?: Record<string, any>; // maps to backend metadata
+  metadata_?: Record<string, any>; 
+  metadata?: Record<string, any>; 
 }
 
 export function AdminNotifications() {
@@ -29,7 +30,7 @@ export function AdminNotifications() {
 
     if (sourceRef.current) sourceRef.current.close(); // FIX: close previous before new
 
-    const source = new EventSource(`${import.meta.env.VITE_API_URL}/admin/notifications/stream?token=${token}`);
+    const source = new EventSource(`${import.meta.env.VITE_API_URL}/notifications/stream?token=${token}`);
     sourceRef.current = source;
 
     source.addEventListener("new_notification", (e) => {
@@ -59,17 +60,19 @@ export function AdminNotifications() {
     setOpen(false);
 
     // 2. Redirect based on metadata
-    if (n.metadata_) {
-        const type = n.metadata_.type;
+    const meta = n.metadata || n.metadata_;
+    if (meta) {
+        const type = meta.type || '';
         if (type === 'new_order' || type === 'payment_declared') {
             navigate('/orders');
         } else if (type === 'ticket_reply') {
             navigate('/tickets');
         } else if (type === 'email_bounce') {
             navigate('/users');
-        } else if (type === 'inquiry_status' || type === 'new_inquiry') {
-            if (n.metadata_.inquiry_id) {
-                navigate(`/inquiries/${n.metadata_.inquiry_id}`);
+        } else if (type.startsWith('inquiry_') || type === 'new_inquiry') {
+            const id = meta.inquiry_id || meta.id;
+            if (id) {
+                navigate(`/inquiries/${id}`);
             } else {
                 navigate('/inquiries');
             }

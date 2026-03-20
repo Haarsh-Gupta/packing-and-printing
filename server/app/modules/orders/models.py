@@ -15,6 +15,7 @@ class Order(Base):
     discount_amount = Column(Double, default=0.0)
     amount_paid = Column(Double, default=0.0) # Cache: Sum of related Transactions
     status = Column(String, default='WAITING_PAYMENT')
+    payment_gateway_order_id = Column(String, nullable=True, unique=True, index=True)
     admin_notes = Column(String, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

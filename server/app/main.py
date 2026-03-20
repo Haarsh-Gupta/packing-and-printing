@@ -57,27 +57,32 @@ logger = logging.getLogger("app.main")
 async def lifespan(app: FastAPI):
     setup_logging()
 
-    logger.info("--------- STARTUP CHECKS ---------")
-
+    # logger.info("--------- STARTUP CHECKS ---------")
+    print("--------- STARTUP CHECKS ---------")
     await check_db_connection()
     await check_redis_connection()
     await check_smtp_connection()
     
-    logger.info("--------- STARTUP COMPLETE ---------")
+    # logger.info("--------- STARTUP COMPLETE ---------")
+    print("--------- STARTUP COMPLETE ---------")
     
     yield
     
-    logger.info("--------- SHUTDOWN STARTED ---------")
+    # logger.info("--------- SHUTDOWN STARTED ---------")
 
     await cancel_all(timeout=3.0)
 
     try:
+        print("⏳ Closing Redis client...")
         await asyncio.wait_for(redis_client.aclose(), timeout=2.0)
+        print("✅ Redis client closed")
     except Exception as e:
         logger.warning("Redis close error: %s", e)
 
     try:
+        print("⏳ Disposing Database Engine...")
         await asyncio.wait_for(engine.dispose(), timeout=3.0)
+        print("✅ Database Engine disposed")
     except Exception as e:
         logger.warning("DB engine dispose error: %s", e)
     
@@ -85,11 +90,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-from fastapi.middleware.cors import CORSMiddleware
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_credentials=True, # Critical for setting the refresh_token cookie!
     allow_methods=["*"],
     allow_headers=["*"],

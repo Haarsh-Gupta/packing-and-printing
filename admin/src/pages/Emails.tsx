@@ -130,43 +130,37 @@ export default function Emails() {
     </body></html>`;
 
     return (
-        <div className="animate-fade-in" style={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: "'Inter', system-ui" }}>
+        <div className="animate-fade-in flex flex-col gap-5 font-sans h-[calc(100vh-[100px])]">
             
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="flex items-center justify-between">
                 <div>
-                    <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#18181b', margin: 0 }}>
+                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white m-0">
                         Email Center
                     </h1>
-                    <p style={{ fontSize: '13px', color: '#71717a', marginTop: '3px' }}>
+                    <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1 m-0">
                         Compose and send beautiful HTML emails.
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <div style={{ display: 'flex', background: '#f4f4f5', padding: '3px', borderRadius: '10px' }}>
+                <div className="flex gap-3">
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                         <button 
                             onClick={() => setMode("SINGLE")}
-                            style={{ 
-                                display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', 
-                                fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
-                                background: mode === "SINGLE" ? 'white' : 'transparent',
-                                color: mode === "SINGLE" ? '#18181b' : '#71717a',
-                                boxShadow: mode === "SINGLE" ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                transition: 'all 0.2s'
-                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer transition-all ${
+                                mode === "SINGLE" 
+                                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' 
+                                    : 'bg-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                            }`}
                         >
                             <User size={14} /> Single User
                         </button>
                         <button 
                             onClick={() => setMode("BULK")}
-                            style={{ 
-                                display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', 
-                                fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
-                                background: mode === "BULK" ? 'white' : 'transparent',
-                                color: mode === "BULK" ? '#18181b' : '#71717a',
-                                boxShadow: mode === "BULK" ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                transition: 'all 0.2s'
-                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer transition-all ${
+                                mode === "BULK" 
+                                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' 
+                                    : 'bg-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                            }`}
                         >
                             <Users size={14} /> Bulk
                         </button>
@@ -174,30 +168,23 @@ export default function Emails() {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '20px', flex: 1, minHeight: 0 }}>
+            <div className="grid grid-cols-[400px_1fr] gap-5 flex-1 min-h-0">
                 
                 {/* Editor Block */}
-                <div style={{ 
-                    background: 'white', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.06)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                    display: 'flex', flexDirection: 'column', overflow: 'hidden'
-                }}>
-                    <div style={{ padding: '16px 20px', borderBottom: '1px solid #f4f4f5', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Type size={16} style={{ color: '#a1a1aa' }} />
-                        <h2 style={{ fontSize: '14px', fontWeight: 600, color: '#18181b', margin: 0 }}>Composer</h2>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm flex flex-col overflow-hidden">
+                    <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center gap-2">
+                        <Type size={16} className="text-slate-400 dark:text-slate-500" />
+                        <h2 className="text-sm font-semibold text-slate-900 dark:text-white m-0">Composer</h2>
                     </div>
                     
-                    <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="p-5 overflow-y-auto flex flex-col gap-4">
                         
                         {/* Template Picker */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Email Template</label>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Email Template</label>
                             <select 
                                 value={templateId} onChange={e => setTemplateId(e.target.value as TemplateType)}
-                                style={{ 
-                                    width: '100%', height: '38px', borderRadius: '9px', border: '1px solid #e4e4e7',
-                                    padding: '0 10px', fontSize: '13px', outline: 'none', background: 'white'
-                                }}
+                                className="w-full h-9.5 rounded-lg border border-slate-200 dark:border-slate-800 px-2.5 text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
                             >
                                 <option value="custom">Announcement / Marketing</option>
                                 <option value="reminder">Payment Reminder (Mock)</option>
@@ -206,114 +193,105 @@ export default function Emails() {
                         </div>
 
                         {mode === "SINGLE" && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Select Recipient</label>
-                                <div style={{ position: 'relative' }}>
-                                    <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa', zIndex: 1 }} />
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Select Recipient</label>
+                                <div className="relative">
+                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" />
                                     <input 
                                         type="text" placeholder="Search customer..."
                                         value={userSearch} onChange={e => setUserSearch(e.target.value)}
-                                        style={{ 
-                                            width: '100%', height: '38px', borderRadius: '9px 9px 0 0', border: '1px solid #e4e4e7',
-                                            padding: '0 12px 0 34px', fontSize: '13px', outline: 'none',
-                                            borderBottom: 'none'
-                                        }}
+                                        className="w-full h-9.5 rounded-t-lg border-b-0 border border-slate-200 dark:border-slate-800 pl-8 pr-3 text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
                                     />
-                                    <div style={{ 
-                                        border: '1px solid #e4e4e7', borderTop: '1px solid #f4f4f5', maxHeight: '120px', 
-                                        overflowY: 'auto', borderRadius: '0 0 9px 9px', background: '#fff'
-                                    }}>
-                                        {fetchingUsers ? <div style={{ padding: '8px', fontSize: '11px', color: '#a1a1aa' }}>Loading...</div> : 
-                                         filteredUsers.length === 0 ? <div style={{ padding: '8px', fontSize: '11px', color: '#a1a1aa' }}>No customers</div> :
+                                    <div className="border border-slate-200 dark:border-slate-800 border-t-slate-100 dark:border-t-slate-700/50 max-h-[120px] overflow-y-auto rounded-b-lg bg-white dark:bg-slate-900">
+                                        {fetchingUsers ? <div className="p-2 text-[11px] text-slate-400">Loading...</div> : 
+                                         filteredUsers.length === 0 ? <div className="p-2 text-[11px] text-slate-400">No customers</div> :
                                          filteredUsers.map(u => (
                                             <div 
                                                 key={u.id}
                                                 onClick={() => { setToEmail(u.email); setUserSearch(u.name || u.email); }}
-                                                style={{ 
-                                                    padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                                                    background: toEmail === u.email ? '#eff6ff' : 'transparent'
-                                                }}
+                                                className={`p-1.5 px-3 text-xs cursor-pointer ${
+                                                    toEmail === u.email 
+                                                        ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-900 dark:text-blue-100' 
+                                                        : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-900 dark:text-white'
+                                                }`}
                                             >
-                                                <div style={{ fontWeight: 600 }}>{u.name || 'Anonymous'}</div>
-                                                <div style={{ fontSize: '10px', opacity: 0.6 }}>{u.email}</div>
+                                                <div className="font-semibold">{u.name || 'Anonymous'}</div>
+                                                <div className="text-[10px] opacity-60">{u.email}</div>
                                             </div>
                                          ))}
                                     </div>
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#71717a' }}>Selected: <span className="text-blue-600 font-medium">{toEmail || 'None'}</span></div>
+                                <div className="text-[11px] text-slate-500 mt-1">Selected: <span className="text-blue-600 dark:text-blue-400 font-medium">{toEmail || 'None'}</span></div>
                             </div>
                         )}
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Subject Line</label>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Subject Line</label>
                             <input 
                                 type="text" placeholder="Updates regarding your order"
                                 value={subject} onChange={e => setSubject(e.target.value)}
-                                style={{ width: '100%', height: '38px', borderRadius: '9px', border: '1px solid #e4e4e7', padding: '0 12px', fontSize: '13px', outline: 'none' }}
+                                className="w-full h-9.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
                             />
                         </div>
 
                         {templateId === "custom" && (
                             <>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Banner Heading</label>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Banner Heading</label>
                                     <input 
                                         type="text" placeholder="Exciting News!"
                                         value={heading} onChange={e => setHeading(e.target.value)}
-                                        style={{ width: '100%', height: '38px', borderRadius: '9px', border: '1px solid #e4e4e7', padding: '0 12px', fontSize: '13px', outline: 'none' }}
+                                        className="w-full h-9.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
                                     />
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Message Body</label>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Message Body</label>
                                     <textarea 
                                         placeholder="Write your message here..."
                                         value={message} onChange={e => setMessage(e.target.value)}
-                                        style={{ width: '100%', minHeight: '80px', borderRadius: '9px', border: '1px solid #e4e4e7', padding: '12px', fontSize: '13px', outline: 'none', resize: 'vertical' }}
+                                        className="w-full min-h-[80px] rounded-lg border border-slate-200 dark:border-slate-800 p-3 text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none resize-y focus:border-blue-500 transition-colors"
                                     />
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Banner Image URL</label>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Banner Image URL</label>
                                     <input 
                                         type="url" placeholder="https://..."
                                         value={imageUrl} onChange={e => setImageUrl(e.target.value)}
-                                        style={{ width: '100%', height: '38px', borderRadius: '9px', border: '1px solid #e4e4e7', padding: '0 12px', fontSize: '13px', outline: 'none' }}
+                                        className="w-full h-9.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
                                     />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Button Text</label>
+                                <div className="grid grid-cols-2 gap-2.5">
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Button Text</label>
                                         <input 
                                             type="text" value={actionLabel} onChange={e => setActionLabel(e.target.value)}
-                                            style={{ width: '100%', height: '38px', borderRadius: '9px', border: '1px solid #e4e4e7', padding: '0 12px', fontSize: '13px', outline: 'none' }}
+                                            className="w-full h-9.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
                                         />
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Button Link</label>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Button Link</label>
                                         <input 
                                             type="url" placeholder="https://..."
                                             value={actionUrl} onChange={e => setActionUrl(e.target.value)}
-                                            style={{ width: '100%', height: '38px', borderRadius: '9px', border: '1px solid #e4e4e7', padding: '0 12px', fontSize: '13px', outline: 'none' }}
+                                            className="w-full h-9.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 text-[13px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
                                         />
                                     </div>
                                 </div>
                             </>
                         )}
 
-                        <div style={{ marginTop: 'auto', paddingTop: '10px' }}>
-                            {success && <div style={{ padding: '10px', borderRadius: '8px', background: '#f0fdf4', color: '#16a34a', fontSize: '12px', marginBottom: '10px' }}>{success}</div>}
-                            {error && <div style={{ padding: '10px', borderRadius: '8px', background: '#fef2f2', color: '#dc2626', fontSize: '12px', marginBottom: '10px' }}>{error}</div>}
+                        <div className="mt-auto pt-2.5">
+                            {success && <div className="p-2.5 rounded-lg bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 text-xs mb-2.5">{success}</div>}
+                            {error && <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs mb-2.5">{error}</div>}
                             <button 
                                 onClick={handleSend}
                                 disabled={sending}
-                                style={{ 
-                                    width: '100%', height: '42px', borderRadius: '10px', background: '#18181b', color: 'white',
-                                    border: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', 
-                                    justifyContent: 'center', gap: '8px', cursor: sending ? 'not-allowed' : 'pointer',
-                                    opacity: sending ? 0.7 : 1
-                                }}
+                                className={`w-full h-10.5 rounded-lg bg-slate-900 dark:bg-blue-600 text-white border-none font-semibold flex items-center justify-center gap-2 transition-all ${
+                                    sending ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-slate-800 dark:hover:bg-blue-500'
+                                }`}
                             >
                                 {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                                 {mode === "BULK" ? "Broadcast Email" : "Send Email"}
@@ -323,26 +301,19 @@ export default function Emails() {
                 </div>
 
                 {/* Preview Block */}
-                <div style={{ 
-                    background: 'white', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.06)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                    display: 'flex', flexDirection: 'column', overflow: 'hidden'
-                }}>
-                    <div style={{ padding: '16px 20px', borderBottom: '1px solid #f4f4f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Eye size={16} style={{ color: '#a1a1aa' }} />
-                            <h2 style={{ fontSize: '14px', fontWeight: 600, color: '#18181b', margin: 0 }}>Live Preview</h2>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm flex flex-col overflow-hidden">
+                    <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Eye size={16} className="text-slate-400 dark:text-slate-500" />
+                            <h2 className="text-sm font-semibold text-slate-900 dark:text-white m-0">Live Preview</h2>
                         </div>
-                        {loadingPreview && <Loader2 size={14} className="animate-spin" style={{ color: '#a1a1aa' }} />}
+                        {loadingPreview && <Loader2 size={14} className="animate-spin text-slate-400" />}
                     </div>
-                    <div style={{ flex: 1, padding: '24px', background: '#f3f4f6', overflow: 'hidden' }}>
-                        <div style={{ 
-                            background: 'white', width: '100%', height: '100%', borderRadius: '12px', 
-                            border: '1px solid #e4e4e7', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.08)'
-                        }}>
+                    <div className="flex-1 p-6 bg-slate-100 dark:bg-slate-950/50 overflow-hidden flex items-center justify-center">
+                        <div className="bg-white w-full h-full max-w-[600px] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl">
                              <iframe 
                                 title="Email Preview"
-                                style={{ width: '100%', height: '100%', border: 'none' }}
+                                className="w-full h-full border-none"
                                 srcDoc={previewHtml || placeholderHtml}
                              />
                         </div>

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.modules.auth import get_current_admin_user
 from app.modules.users.models import User
-from .service import DashboardService, PeriodType
+from app.modules.admin_dashboard.service import DashboardService, PeriodType
 
 logger = logging.getLogger("app.modules.admin_dashboard")
 

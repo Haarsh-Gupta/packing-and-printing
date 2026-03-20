@@ -32,10 +32,7 @@ from app.modules.auth.schemas import TokenData
 from app.modules.orders.models import Order
 from app.modules.orders.schemas import (
     UserMilestoneSwitchRequest,
-    CreatePaymentSessionRequest,
-    VerifyPaymentRequest,
     PaymentDeclarationCreate,
-    PaymentSessionResponse,
     PaymentDeclarationResponse,
     OrderResponse,
     OrderListResponse,
@@ -142,44 +139,6 @@ async def switch_milestones(
     return await svc.get_order(order_id)
 
 
-# ── Online payment ────────────────────────────────────────────────────────────
-
-@router.post("/sessions", response_model=PaymentSessionResponse)
-async def create_payment_session(
-    payload: CreatePaymentSessionRequest,
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Create a Razorpay checkout session for a milestone."""
-    svc = PaymentService(db)
-    response = await svc.create_session(payload, current_user.id)
-    await db.commit()
-    return response
-
-
-@router.post("/verify", response_model=dict)
-async def verify_payment(
-    payload: VerifyPaymentRequest,
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Verify Razorpay payment after checkout completes."""
-    svc = PaymentService(db)
-    result = await svc.verify_payment(payload, current_user.id)
-    await db.commit()
-
-    _fire_sse(str(current_user.id), "payment_verified", {
-        "order_id": result["order_id"],
-        "amount": result["amount"],
-        "order_status": result["order_status"],
-    })
-    _fire_admin_sse("admin_payment_received", {
-        "order_id": result["order_id"],
-        "user_id": str(current_user.id),
-        "amount": result["amount"],
-    })
-
-    return result
 
 
 # ── UPI QR ────────────────────────────────────────────────────────────────────
@@ -249,16 +208,21 @@ async def submit_payment_declaration(
     """
     User declares they've paid via UPI or bank transfer.
     Creates a pending declaration for admin to review.
-    UTR is optional — SMS parser fills it automatically in background.
+    UTR is optional — screenshot is the primary proof.
     """
     svc = PaymentService(db)
-    declaration = await svc.submit_declaration(order_id, payload, current_user.id)
+    declaration = await svc.submit_declaration(
+        order_id=order_id,
+        milestone_id=payload.milestone_id,
+        user_id=current_user.id,
+        utr_number=payload.utr_number,
+        screenshot_url=payload.screenshot_url,
+    )
     await db.commit()
 
     _fire_admin_sse("admin_declaration_submitted", {
         "order_id": str(order_id),
         "declaration_id": str(declaration.id),
-        "amount": declaration.amount,
         "user_id": str(current_user.id),
     })
 
