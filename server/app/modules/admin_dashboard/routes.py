@@ -5,6 +5,8 @@ All endpoints are GET-only, admin-protected, and accept an optional
 `?period=today|week|month|quarter|year|all` query parameter.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,8 @@ from app.core.database import get_db
 from app.modules.auth import get_current_admin_user
 from app.modules.users.models import User
 from .service import DashboardService, PeriodType
+
+logger = logging.getLogger("app.modules.admin_dashboard")
 
 router = APIRouter()
 

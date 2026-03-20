@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,8 @@ from ..auth import get_current_user
 from ..auth.schemas import TokenData
 from app.modules.otps.services import get_otp_service
 from app.core.rate_limiter import RateLimiter
+
+logger = logging.getLogger("app.modules.users")
 
 router = APIRouter()
 

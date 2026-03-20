@@ -207,7 +207,7 @@ async def check_smtp_connection():
     Verifies connection by checking Brevo Account via REST API.
     """
     if not settings.brevo_api_key:
-        print("⚠️ Brevo (REST): API Key missing.")
+        logger.warning("Brevo (REST): API Key missing")
         return False
         
     try:
@@ -217,11 +217,11 @@ async def check_smtp_connection():
                 headers={"api-key": settings.brevo_api_key}
             )
             if response.status_code == 200:
-                print("✅ Brevo (REST): API Key Valid")
+                logger.info("Brevo (REST): API Key Valid")
                 return True
             else:
-                print(f"❌ Brevo (REST): API Key Invalid ({response.status_code})")
+                logger.error("Brevo (REST): API Key Invalid (%s)", response.status_code)
                 return False
     except Exception as e:
-        print(f"❌ Brevo (REST): Connection Failed - {e}")
+        logger.error("Brevo (REST): Connection Failed - %s", e)
         return False

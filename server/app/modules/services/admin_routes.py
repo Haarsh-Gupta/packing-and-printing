@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession 
@@ -11,6 +12,8 @@ from app.modules.services.schemas import (
     SubServiceCreate, SubServiceUpdate,
     ServiceResponse, SubServiceResponse 
 )
+
+logger = logging.getLogger("app.modules.services.admin")
 
 router = APIRouter()
 

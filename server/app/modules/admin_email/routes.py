@@ -5,6 +5,7 @@ Lets admins send custom emails (with optional file attachments)
 to individual users or all users.
 """
 
+import logging
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,8 @@ from app.core.email.templates.reminder import render_reminder_email
 from app.core.email.templates.invoice import render_invoice_email
 from app.core.email.templates.admin_notice import render_admin_notice_email
 from app.modules.notifications.models import EmailLog
+
+logger = logging.getLogger("app.modules.admin_email")
 
 router = APIRouter()
 email_service = get_email_service()
@@ -104,12 +107,12 @@ async def send_custom_email(
     form = await request.form()
     raw_files = form.getlist("files")
     files = [v for v in raw_files if isinstance(v, UploadFile) and v.filename]
-    print(f"📎 Files received: {len(files)} valid out of {len(raw_files)} raw entries")
+    logger.info("Files received: %d valid out of %d raw entries", len(files), len(raw_files))
     for f in files:
-        print(f"   → {f.filename} ({f.content_type}, size={f.size})")
+        logger.debug("  → %s (%s, size=%s)", f.filename, f.content_type, f.size)
 
     attachments = await _validate_files(files) if files else []
-    print(f"📎 Validated attachments: {len(attachments)}")
+    logger.info("Validated attachments: %d", len(attachments))
 
     if attachments:
         message_id = await email_service.send_email_with_attachments(

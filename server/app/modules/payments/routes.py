@@ -5,6 +5,8 @@ POST /payments/create-order  — create a gateway order for a specific milestone
 POST /payments/verify        — verify the payment and record the transaction
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -19,6 +21,8 @@ from app.modules.users.models import User
 from app.modules.orders.models import Order, Transaction
 
 from .schemas import CreatePaymentOrder, PaymentOrderResponse, VerifyPayment
+
+logger = logging.getLogger("app.modules.payments")
 
 router = APIRouter()
 

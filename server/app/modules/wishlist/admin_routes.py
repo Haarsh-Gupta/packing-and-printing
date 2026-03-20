@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -9,6 +11,8 @@ from app.modules.auth.auth import get_current_admin_user
 from app.modules.users.models import User
 from app.modules.wishlist.models import Wishlist
 from app.modules.wishlist.schemas import WishlistItemResponse
+
+logger = logging.getLogger("app.modules.wishlist.admin")
 
 router = APIRouter()
 

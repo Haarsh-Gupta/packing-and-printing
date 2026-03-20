@@ -1,3 +1,5 @@
+import logging
+
 from app.modules.reviews.schemas import ReviewResponse
 from fastapi import  APIRouter , Depends , HTTPException , status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +11,9 @@ from app.modules.reviews.models import Review
 from app.modules.reviews.schemas import ReviewCreate
 from app.modules.services.models import SubService
 from app.modules.products.models import SubProduct
+
+logger = logging.getLogger("app.modules.reviews")
+
 router = APIRouter()
 
 @router.post("", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
