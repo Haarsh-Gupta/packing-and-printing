@@ -449,7 +449,24 @@ export default function InquiryDetail() {
                                     {[...selected.quote_versions].sort((a,b) => b.version_number - a.version_number).map(vq => (
                                         <div key={vq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: vq.id === selected.active_quote_id ? '#eff6ff' : 'var(--secondary)', border: `1px solid ${vq.id === selected.active_quote_id ? '#2563eb30' : 'var(--border)'}`, borderRadius: '6px' }}>
                                             <div>
-                                                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--foreground)' }}>v{vq.version_number} {vq.id === selected.active_quote_id && <span style={{ color: '#2563eb', marginLeft: '4px' }}>(ACTIVE)</span>}</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--foreground)' }}>
+                                                    v{vq.version_number} {vq.id === selected.active_quote_id && (
+                                                        <>
+                                                            <span style={{ color: '#2563eb', marginLeft: '4px' }}>(ACTIVE)</span>
+                                                            {selected.quote_email_status && (
+                                                                <span style={{ 
+                                                                    marginLeft: '8px', 
+                                                                    color: selected.quote_email_status === 'bounced' ? '#ef4444' : '#16a34a',
+                                                                    fontSize: '10px',
+                                                                    fontWeight: 600
+                                                                }}>
+                                                                    • Email: {selected.quote_email_status}
+                                                                    {selected.quote_email_status === 'delivered' && ' ✓'}
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
                                                 <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--muted-foreground)', marginTop: '2px', fontFamily: "'DM Mono', monospace" }}>{new Date(vq.created_at).toLocaleDateString()}</div>
                                             </div>
                                             <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--foreground)' }}>₹{vq.total_price.toLocaleString()}</div>

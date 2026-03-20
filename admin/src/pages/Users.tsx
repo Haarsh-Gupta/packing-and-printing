@@ -174,7 +174,16 @@ export default function UsersPage() {
 
                                     {/* Contact */}
                                     <td style={{ padding: '14px 20px' }}>
-                                        <p style={{ fontSize: '13px', color: '#52525b', margin: 0 }}>{user.email}</p>
+                                        <p style={{ fontSize: '13px', color: '#52525b', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {user.email}
+                                            {(user as any).email_bounced && (
+                                                <span style={{ 
+                                                    fontSize: '9px', fontWeight: 800, color: '#ef4444', 
+                                                    background: '#fee2e2', padding: '1px 5px', borderRadius: '4px',
+                                                    textTransform: 'uppercase'
+                                                }}>Bounced</span>
+                                            )}
+                                        </p>
                                         <p style={{ fontSize: '11px', color: '#a1a1aa', margin: 0 }}>
                                             {(user as any).phone || '—'}
                                         </p>

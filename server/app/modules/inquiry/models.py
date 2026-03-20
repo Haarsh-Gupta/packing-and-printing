@@ -11,6 +11,7 @@ class InquiryGroup(Base):
     user_id         = Column(Uuid, ForeignKey("users.id"), nullable=False, index=True)
     status          = Column(String, default="DRAFT", nullable=False, index=True)  # was "PENDING"
     active_quote_id = Column(Uuid, ForeignKey("quote_versions.id"), nullable=True)  # NEW
+    quote_email_status = Column(String, nullable=True) # delivered, bounced, etc.
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

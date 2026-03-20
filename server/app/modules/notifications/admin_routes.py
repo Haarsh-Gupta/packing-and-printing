@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.modules.auth import get_current_admin_user
 from app.modules.users.models import User
 
-from .models import Notification
+from .models import Notification, EmailLog
 from .schemas import (
     NotificationCreate,
     NotificationResponse,
@@ -35,3 +35,21 @@ async def send_notification(
     await db.commit()
     await db.refresh(notif)
     return notif
+
+
+@router.get("/email-logs", status_code=status.HTTP_200_OK)
+async def get_email_logs(
+    skip: int = 0,
+    limit: int = 100,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """[ADMIN] Get the last 100 email events."""
+    stmt = (
+        select(EmailLog)
+        .order_by(EmailLog.sent_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()

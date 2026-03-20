@@ -12,17 +12,25 @@ export interface AuthUser {
     admin: boolean;
     avatar_url?: string;
     profile_picture?: string;
+    email_bounced?: boolean;
     created_at: string;
 }
 
 // ============ Dashboard ============
+export interface Metric {
+    total: number;
+    change: string;
+    trend: 'up' | 'down';
+}
+
 export interface DashboardOverview {
-    users: { total: number; new_in_period: number };
-    orders: { total: number; in_period: number; by_status: Record<string, number> };
-    revenue: { total_billed: number; total_collected: number; total_pending: number; collected_in_period: number };
-    inquiries: { total: number; pending: number; in_period: number };
+    users: Metric & { new_in_period: number; daily_trend: { date: string; count: number }[] };
+    orders: Metric & { in_period: number; by_status: Record<string, number>; daily_trend: { date: string; value: number; count: number }[] };
+    revenue: Metric & { total_billed: number; total_collected: number; total_pending: number; collected_in_period: number };
+    inquiries: Metric & { pending: number; in_period: number; daily_trend: { date: string; count: number }[] };
     products: { total: number; active: number };
     services: { total: number; active: number };
+    recent_reviews: Review[];
 }
 
 export interface RevenueData {
@@ -171,6 +179,7 @@ export interface InquiryGroup {
     updated_at: string;
     items: InquiryItem[];
     messages: InquiryMessage[];
+    quote_email_status?: string;
 }
 
 export interface InquiryGroupList {
@@ -257,6 +266,7 @@ export interface User {
     admin: boolean;
     avatar_url?: string;
     profile_picture?: string;
+    email_bounced?: boolean;
     created_at?: string;
 }
 
@@ -301,6 +311,8 @@ export interface Review {
     service_id?: number | null;
     rating: number;
     comment: string;
+    user_name?: string;
+    product_name?: string;
     is_verified: boolean;
     created_at: string;
     user?: { name: string; avatar_url?: string; profile_picture?: string };

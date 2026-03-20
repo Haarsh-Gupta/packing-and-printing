@@ -16,6 +16,7 @@ from app.modules.orders.models import Order, Transaction
 from app.modules.inquiry.models import InquiryGroup, InquiryItem, QuoteVersion
 from app.modules.products.models import SubProduct
 from app.modules.services.models import Service
+from app.modules.reviews.models import Review
 
 
 PeriodType = Literal["today", "week", "month", "quarter", "year", "all"]
@@ -223,7 +224,29 @@ class DashboardService:
             },
             "products": {"total": total_products, "active": active_products},
             "services": {"total": total_services, "active": active_services},
+            "recent_reviews": await self.get_recent_reviews(limit=5),
         }
+
+    # ------------------------------------------------------------------ #
+    #  7.  REVIEWS
+    # ------------------------------------------------------------------ #
+    async def get_recent_reviews(self, limit: int = 5) -> list:
+        """Fetches the latest customer reviews."""
+        result = await self.db.execute(
+            select(Review).order_by(desc(Review.created_at)).limit(limit)
+        )
+        reviews = result.scalars().all()
+        return [
+            {
+                "id": r.id,
+                "user_name": r.user.name if r.user else "Anonymous",
+                "rating": r.rating,
+                "comment": r.comment,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "product_name": r.product.name if r.product else (r.service.name if r.service else None),
+            }
+            for r in reviews
+        ]
 
     # ------------------------------------------------------------------ #
     #  2.  REVENUE & PAYMENTS

@@ -19,7 +19,9 @@ const navItems = [
     { label: "Pricing Calculator", icon: Calculator, path: "/calculator" },
     { label: "Customers", icon: Users, path: "/users" },
     { label: "Tickets", icon: LifeBuoy, path: "/tickets" },
-    { label: "Notifications & Email", icon: Bell, path: "/notifications" },
+    { label: "Notifications", icon: Bell, path: "/notifications" },
+    { label: "Email Center", icon: Mail, path: "/emails" },
+    { label: "Email Logs", icon: Star, path: "/email-logs" },
     { label: "Reviews", icon: Star, path: "/reviews" },
 ];
 

@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,8 +10,10 @@ from app.core.database import get_db
 from app.core.task_registry import fire
 from ..auth.auth import get_current_admin_user
 from ..users.models import User
-from .models import InquiryGroup, InquiryMessage, QuoteVersion
-from ..notifications.models import Notification
+from .models import InquiryGroup, InquiryItem, InquiryMessage, QuoteVersion
+from ..notifications.models import Notification, EmailLog
+from app.core.email.service import get_email_service
+from app.core.email.templates.quote import render_quote_email
 from .schemas import (
     AdminPricingCalculatorRequest,
     QuoteVersionCreate,
@@ -23,7 +26,9 @@ from .schemas import (
     InquiryMessageResponse
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+email_service = get_email_service()
 
 @router.post("/calculate-price", status_code=status.HTTP_200_OK)
 async def admin_calculate_custom_price(
@@ -160,11 +165,11 @@ async def send_quotation(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    [ADMIN] Send a quotation by creating a new QuoteVersion.
-    Supersedes any previous active quote.
+    [ADMIN] Send a quotation by creating a new QuoteVersion and emailing the user.
     """
     stmt = select(InquiryGroup).options(
-        selectinload(InquiryGroup.items),
+        selectinload(InquiryGroup.items).selectinload(InquiryItem.product),
+        selectinload(InquiryGroup.items).selectinload(InquiryItem.service),
         selectinload(InquiryGroup.messages),
         selectinload(InquiryGroup.quote_versions),
         selectinload(InquiryGroup.active_quote),
@@ -217,6 +222,7 @@ async def send_quotation(
     
     await db.commit()
     
+    # Persistent In-App Notification
     notif = Notification(
         user_id=group.user_id,
         title="Quotation Received",
@@ -226,6 +232,55 @@ async def send_quotation(
     db.add(notif)
     await db.commit()
 
+    # --- EMAIL DELIVERY ---
+    try:
+        user_stmt = select(User).where(User.id == group.user_id)
+        user_res = await db.execute(user_stmt)
+        target_user = user_res.scalar_one()
+
+        items_data = []
+        for item in group.items:
+            # Use property or direct access
+            p_name = item.product.name if item.product else (item.service.name if item.service else "Custom Item")
+            items_data.append({
+                "product_name": p_name,
+                "quantity": item.quantity,
+                "line_item_price": item.line_item_price or 0.0
+            })
+            
+        quote_html = render_quote_email(
+            inquiry_id=str(group.id),
+            total_price=float(new_quote.total_price),
+            valid_until=new_quote.valid_until.strftime("%d %b %Y"),
+            items=items_data,
+            admin_notes=new_quote.admin_notes,
+            user_name=target_user.name
+        )
+        
+        msg_id = await email_service.send_email(
+            to=target_user.email,
+            subject=f"Quotation for Inquiry #{str(group.id)[:8].upper()}",
+            body_html=quote_html
+        )
+        
+        if msg_id:
+            db.add(EmailLog(
+                recipient=target_user.email,
+                subject=f"Quote #{str(group.id)[:8].upper()}",
+                message_id=msg_id,
+                status="delivered",
+                inquiry_id=group.id,
+                metadata_={"type": "quote", "version": next_version}
+            ))
+            group.quote_email_status = "delivered"
+        else:
+            group.quote_email_status = "failed"
+            
+        await db.commit()
+    except Exception as e:
+        logger.error(f"Failed to send quote email for inquiry {group.id}: {e}")
+
+    # SSE Push
     from app.core.sse import sse_manager
     fire(
         sse_manager.publish(str(group.user_id), "inquiry_quoted", {
@@ -235,18 +290,17 @@ async def send_quotation(
         })
     )
     
-    # Re-fetch the fully loaded group with relationships after commit
+    # Re-fetch for response
     fetch_stmt = select(InquiryGroup).options(
-        selectinload(InquiryGroup.items),
+        selectinload(InquiryGroup.items).selectinload(InquiryItem.product),
+        selectinload(InquiryGroup.items).selectinload(InquiryItem.service),
         selectinload(InquiryGroup.messages),
         selectinload(InquiryGroup.quote_versions),
         selectinload(InquiryGroup.active_quote),
     ).where(InquiryGroup.id == group_id)
     
     refreshed_result = await db.execute(fetch_stmt)
-    refreshed_group = refreshed_result.scalar_one()
-    
-    return refreshed_group
+    return refreshed_result.scalar_one()
 
 
 @router.patch("/{group_id}/status", response_model=InquiryGroupResponse, status_code=status.HTTP_200_OK)

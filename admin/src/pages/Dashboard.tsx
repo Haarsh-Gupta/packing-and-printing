@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { DashboardOverview } from "@/types";
+import type { DashboardOverview, Review } from "@/types";
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell
@@ -38,13 +38,13 @@ const CustomTooltip = ({ active, payload, label, chartType }: any) => {
     }
     return null;
 };
-
-interface DashboardOverviewWithTrend extends DashboardOverview {
-    users: DashboardOverview['users'] & { daily_trend: { date: string; count: number }[]; change: string; trend: 'up' | 'down' };
-    orders: DashboardOverview['orders'] & { daily_trend: { date: string; value: number; count: number }[]; change: string; trend: 'up' | 'down' };
-    inquiries: DashboardOverview['inquiries'] & { daily_trend: { date: string; count: number }[]; change: string; trend: 'up' | 'down' };
-    revenue: DashboardOverview['revenue'] & { change: string; trend: 'up' | 'down' };
-}
+const formatValue = (val: number, type: string) => {
+    if (type !== 'revenue') return val.toLocaleString();
+    if (val === 0) return "₹0";
+    if (val < 1000) return `₹${val.toFixed(0)}`;
+    if (val < 100000) return `₹${(val / 1000).toFixed(1)}k`;
+    return `₹${(val / 100000).toFixed(1)}L`;
+};
 
 // Stat Card Component
 const StatCard = ({ label, value, change, trend, icon: Icon, accent, path, onClick, active }: any) => (
@@ -95,7 +95,7 @@ const StatCard = ({ label, value, change, trend, icon: Icon, accent, path, onCli
 );
 
 export default function Dashboard() {
-    const [data, setData] = useState<DashboardOverviewWithTrend | null>(null);
+    const [data, setData] = useState<DashboardOverview | null>(null);
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState("month");
@@ -104,7 +104,7 @@ export default function Dashboard() {
     useEffect(() => {
         setLoading(true);
         Promise.all([
-            api<DashboardOverviewWithTrend>(`/admin/dashboard/overview?period=${period}`),
+            api<DashboardOverview>(`/admin/dashboard/overview?period=${period}`),
             api<{ activities: any[] }>(`/admin/dashboard/recent-activity?limit=6`)
         ])
             .then(([overviewData, activityData]) => {
@@ -118,7 +118,7 @@ export default function Dashboard() {
     if (loading && !data) return <DashboardSkeleton />;
 
     const stats = data ? [
-        { id: 'revenue', label: "Total Revenue", value: `₹${(data.revenue.total_collected / 100000).toFixed(1)}L`, change: data.revenue.change, trend: data.revenue.trend, icon: IndianRupee, accent: "#10b981", path: "/orders" },
+        { id: 'revenue', label: "Total Revenue", value: formatValue(data.revenue.total_collected, 'revenue'), change: data.revenue.change, trend: data.revenue.trend, icon: IndianRupee, accent: "#10b981", path: "/orders" },
         { id: 'orders', label: "Total Orders", value: data.orders.total.toLocaleString(), change: data.orders.change, trend: data.orders.trend, icon: ShoppingCart, accent: "#3b82f6", path: "/orders" },
         { id: 'inquiries', label: "Inquiries", value: data.inquiries.total.toLocaleString(), change: data.inquiries.change, trend: data.inquiries.trend, icon: MessageSquare, accent: "#ef4444", path: "/inquiries" },
         { id: 'users', label: "New Users", value: data.users.total.toLocaleString(), change: data.users.change, trend: data.users.trend, icon: Users, accent: "#8b5cf6", path: "/users" },
@@ -196,10 +196,13 @@ export default function Dashboard() {
                     </div>
                     <div style={{
                         display: 'flex', alignItems: 'center', gap: '5px',
-                        background: '#f0fdf4', borderRadius: '999px', padding: '4px 10px',
+                        background: activeStat?.trend === 'up' ? '#f0fdf4' : '#fef2f2', 
+                        borderRadius: '999px', padding: '4px 10px',
                     }}>
-                        <TrendingUp size={11} style={{ color: '#16a34a' }} />
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#16a34a' }}>+12.5% vs last month</span>
+                        {activeStat?.trend === 'up' ? <TrendingUp size={11} style={{ color: '#16a34a' }} /> : <TrendingDown size={11} style={{ color: '#dc2626' }} />}
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: activeStat?.trend === 'up' ? '#16a34a' : '#dc2626' }}>
+                            {activeStat?.change} vs last period
+                        </span>
                     </div>
                 </div>
                 <div style={{ height: '240px' }}>
@@ -329,6 +332,53 @@ export default function Dashboard() {
                             </div>
                         ))}
                     </div>
+                </div>
+
+                {/* Latest Reviews */}
+                <div style={{
+                    background: 'white', borderRadius: '16px', padding: '22px',
+                    border: '1px solid rgba(0,0,0,0.06)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
+                    gridColumn: 'span 2'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#18181b', margin: 0 }}>Latest Customer Reviews</h2>
+                        <Link to="/reviews" style={{ fontSize: '12px', color: '#2563eb', textDecoration: 'none' }}>View All</Link>
+                    </div>
+
+                    {!data?.recent_reviews || data.recent_reviews.length === 0 ? (
+                        <div style={{ padding: '30px', textAlign: 'center', color: '#a1a1aa' }}>
+                            <p style={{ fontSize: '13px' }}>No reviews yet</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                            {data.recent_reviews.map((rev) => (
+                                <div key={rev.id} style={{ 
+                                    padding: '14px', borderRadius: '12px', border: '1px solid #f4f4f5',
+                                    background: '#fafafa'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#18181b' }}>{rev.user_name}</span>
+                                        <div style={{ display: 'flex', gap: '2px' }}>
+                                            {[1, 2, 3, 4, 5].map(star => (
+                                                <div key={star} style={{ 
+                                                    width: '10px', height: '10px', borderRadius: '50%',
+                                                    background: star <= rev.rating ? '#f59e0b' : '#e4e4e7'
+                                                }} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <p style={{ fontSize: '12px', color: '#52525b', margin: '4px 0 8px', lineHeight: 1.5 }}>
+                                        "{rev.comment}"
+                                    </p>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                                        <span style={{ fontSize: '10px', color: '#a1a1aa' }}>{rev.product_name || 'General Product'}</span>
+                                        <span style={{ fontSize: '10px', color: '#a1a1aa' }}>{new Date(rev.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

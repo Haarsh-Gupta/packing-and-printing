@@ -19,6 +19,7 @@ class User(Base):
     admin = Column(Boolean , nullable = False , default = False)
     created_at = Column(DateTime(timezone = True) , server_default=func.now())
     token_version = Column(Integer , nullable = False , default = 1)
+    email_bounced = Column(Boolean, nullable = False, default = False)
 
     inquiry_groups = relationship("InquiryGroup", back_populates="user")
     orders = relationship("Order", back_populates="user")

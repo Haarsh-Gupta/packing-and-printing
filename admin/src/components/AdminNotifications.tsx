@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import api, { TOKEN_KEY } from "@/lib/api";
 
 interface Notification {
   id: number; title: string; message: string;
   is_read: boolean; created_at: string;
+  metadata_?: Record<string, any>; // maps to backend metadata
 }
 
 export function AdminNotifications() {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount]     = useState(0);
   const [open, setOpen]                   = useState(false);
@@ -46,6 +49,36 @@ export function AdminNotifications() {
     setUnreadCount(0);
   };
 
+  const handleNotificationClick = async (n: Notification) => {
+    // 1. Mark as read optimistically if unread
+    if (!n.is_read) {
+      setNotifications(prev => prev.map(old => old.id === n.id ? { ...old, is_read: true } : old));
+      setUnreadCount(c => Math.max(0, c - 1));
+      api(`/admin/notifications/${n.id}/read`, { method: "PATCH" }).catch(console.error);
+    }
+    setOpen(false);
+
+    // 2. Redirect based on metadata
+    if (n.metadata_) {
+        const type = n.metadata_.type;
+        if (type === 'new_order' || type === 'payment_declared') {
+            navigate('/orders');
+        } else if (type === 'ticket_reply') {
+            navigate('/tickets');
+        } else if (type === 'email_bounce') {
+            navigate('/users');
+        } else if (type === 'inquiry_status' || type === 'new_inquiry') {
+            if (n.metadata_.inquiry_id) {
+                navigate(`/inquiries/${n.metadata_.inquiry_id}`);
+            } else {
+                navigate('/inquiries');
+            }
+        } else if (type === 'new_review') {
+            navigate('/');
+        }
+    }
+  };
+
   return (
     <div style={{ position: "relative" }}>
       <button onClick={() => setOpen(o => !o)} style={{ background: "none", border: "none", cursor: "pointer", position: "relative", padding: 8 }}>
@@ -68,7 +101,19 @@ export function AdminNotifications() {
             {notifications.length === 0
               ? <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>No notifications</div>
               : notifications.map(n => (
-                <div key={n.id} style={{ padding: "12px 16px", borderBottom: "1px solid var(--color-border-tertiary)", background: n.is_read ? "transparent" : "var(--color-background-info)" }}>
+                <div 
+                  key={n.id} 
+                  onClick={() => handleNotificationClick(n)}
+                  style={{ 
+                    padding: "12px 16px", 
+                    borderBottom: "1px solid var(--color-border-tertiary)", 
+                    background: n.is_read ? "transparent" : "var(--color-background-info)",
+                    cursor: "pointer",
+                    transition: "opacity 0.2s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                >
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{n.title}</div>
                   <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>{n.message}</div>
                   <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 4 }}>{new Date(n.created_at).toLocaleString()}</div>
