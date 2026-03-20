@@ -16,8 +16,11 @@
 #   talking to this client directly.
 # ===========================================================================
 
+import logging
 import redis.asyncio as redis
 from app.core.config import settings
+
+logger = logging.getLogger("app.core.redis")
 
 redis_client = redis.Redis(
     host=settings.redis_host,
@@ -31,10 +34,10 @@ redis_client = redis.Redis(
 async def check_redis_connection():
     try:
         await redis_client.ping()
-        print("✅ Redis: Connected")
+        logger.info("Redis: Connected")
         return True
     except Exception as e:
-        print(f"❌ Redis: Connection Failed - {e}")
+        logger.error("Redis: Connection Failed - %s", e)
         return False
         
 

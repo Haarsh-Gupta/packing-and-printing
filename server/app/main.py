@@ -1,10 +1,12 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import settings
+from app.core.logging_config import setup_logging
 from app.core.database import engine, check_db_connection
 from app.core.middleware import RateLimitMiddleware, UserActivityMiddleware
 from app.core.redis import check_redis_connection, redis_client
@@ -48,46 +50,42 @@ from app.modules.wishlist.routes import router as wishlist_router
 from app.modules.wishlist.admin_routes import router as admin_wishlist_router
 from app.modules.events.routes import router as events_router
 
+logger = logging.getLogger("app.main")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("\n--------- STARTUP CHECKS ---------")
+    setup_logging()
+
+    logger.info("--------- STARTUP CHECKS ---------")
 
     await check_db_connection()
     await check_redis_connection()
     await check_smtp_connection()
     
-    print("----------------------------------\n")
+    logger.info("--------- STARTUP COMPLETE ---------")
     
     yield
     
-    print("\n--------- SHUTDOWN STARTED ---------")
+    logger.info("--------- SHUTDOWN STARTED ---------")
 
     await cancel_all(timeout=3.0)
-
-    print("⏳ Shutting down SSE Manager...")
-    await sse_manager.shutdown()
-    print("✅ SSE Manager shutdown")
-
-    print("⏳ Shutting down WebSocket Manager...")
-    await ws_manager.shutdown()
-    print("✅ WebSocket Manager shutdown")
 
     try:
         print("⏳ Closing Redis client...")
         await asyncio.wait_for(redis_client.aclose(), timeout=2.0)
         print("✅ Redis client closed")
     except Exception as e:
-        print(f"⚠️  Redis close error: {e}")
+        logger.warning("Redis close error: %s", e)
 
     try:
         print("⏳ Disposing Database Engine...")
         await asyncio.wait_for(engine.dispose(), timeout=3.0)
         print("✅ Database Engine disposed")
     except Exception as e:
-        print(f"⚠️ DB Engine dispose error: {e}")
-
-    print("--------- SHUTDOWN COMPLETE ---------\n")
+        logger.warning("DB engine dispose error: %s", e)
+    
+    logger.info("--------- SHUTDOWN COMPLETE ---------")
 
 app = FastAPI(lifespan=lifespan)
 

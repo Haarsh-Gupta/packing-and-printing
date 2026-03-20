@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Request, status
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -5,6 +7,8 @@ from app.core.redis import redis_client
 from app.core.config import settings
 from jose import jwt, JWTError
 import asyncio
+
+logger = logging.getLogger("app.core.middleware")
 
 class RateLimitMiddleware:
     """

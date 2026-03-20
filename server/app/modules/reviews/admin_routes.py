@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from app.modules.reviews.schemas import ReviewResponse, ReviewListResponse
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,6 +11,8 @@ from app.modules.reviews.models import Review
 from app.modules.services.models import SubService
 from app.modules.products.models import SubProduct
 from app.core.database import get_db
+
+logger = logging.getLogger("app.modules.reviews.admin")
 
 router = APIRouter()
 

@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,6 +10,8 @@ from app.modules.users.models import User
 from app.core.database import get_db
 from app.modules.auth import get_current_admin_user
 from app.core.redis import redis_client
+
+logger = logging.getLogger("app.modules.users.admin")
 
 router = APIRouter()
 

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -8,6 +10,8 @@ from app.modules.auth.auth import get_current_user
 from app.modules.users.models import User
 from app.modules.wishlist.models import Wishlist
 from app.modules.wishlist.schemas import WishlistToggleRequest, WishlistSyncRequest, WishlistItemResponse
+
+logger = logging.getLogger("app.modules.wishlist")
 
 router = APIRouter()
 

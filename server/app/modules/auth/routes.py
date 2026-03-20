@@ -1,3 +1,5 @@
+import logging
+
 from app.modules.auth import get_current_user
 from fastapi import APIRouter , Depends, status, HTTPException
 from fastapi.requests import Request
@@ -13,6 +15,8 @@ from app.core.config import settings
 from app.core.oauth import oauth
 from authlib.integrations.base_client import OAuthError
 from app.core.rate_limiter import RateLimiter
+
+logger = logging.getLogger("app.modules.auth")
 
 REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes

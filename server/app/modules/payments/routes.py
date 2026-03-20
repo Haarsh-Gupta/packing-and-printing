@@ -23,6 +23,8 @@ from app.modules.orders.models import Order, Transaction
 
 from app.modules.payments.schemas import CreatePaymentOrder, PaymentOrderResponse, VerifyPayment
 
+logger = logging.getLogger("app.modules.payments")
+
 router = APIRouter()
 
 

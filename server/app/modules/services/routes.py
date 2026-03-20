@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession 
@@ -6,6 +7,8 @@ from app.core.database import get_db
 # Ensure auth and models are correctly imported
 from app.modules.services.models import Service, SubService
 from app.modules.services.schemas import ServiceResponse, SubServiceResponse 
+
+logger = logging.getLogger("app.modules.services")
 
 router = APIRouter()
 
