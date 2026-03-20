@@ -76,7 +76,7 @@ class QuoteVersionCreate(BaseModel):
 
 
 class QuoteVersionResponse(BaseModel):
-    id: UUID; inquiry_id: UUID; version: int; status: str
+    id: UUID; display_id: Optional[str] = None; inquiry_id: UUID; version: int; status: str
     total_price: float
     tax_amount: Optional[float] = 0.0
     shipping_amount: Optional[float] = 0.0
@@ -143,7 +143,7 @@ class InquiryItemResponse(InquiryItemBase):
     model_config = ConfigDict(from_attributes=True)
 
 class InquiryGroupResponse(BaseModel):
-    id: UUID; user_id: UUID; status: InquiryStatus
+    id: UUID; display_id: Optional[str] = None; user_id: UUID; status: InquiryStatus
     active_quote_id: Optional[UUID] = None; active_quote: Optional[QuoteVersionResponse] = None
     quote_email_status: Optional[str] = None
     quote_versions: List[QuoteVersionResponse] = []
@@ -152,7 +152,7 @@ class InquiryGroupResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class InquiryGroupListResponse(BaseModel):
-    id: UUID; user_id: UUID; status: InquiryStatus
+    id: UUID; display_id: Optional[str] = None; user_id: UUID; status: InquiryStatus
     active_quote_id: Optional[UUID] = None; total_price: Optional[float] = None
     quote_email_status: Optional[str] = None
     created_at: datetime; item_count: int = 0

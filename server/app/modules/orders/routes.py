@@ -293,29 +293,36 @@ async def get_invoice(
     items = []
     if inquiry:
         for itm in inquiry.items:
-            name = itm.sub_product.name if itm.sub_product else "Custom item"
+            # Determine the source entity (sub_product or sub_service) for HSN/GST
+            sp = itm.sub_product
+            ss = itm.sub_service
+            source = sp or ss  # whichever is populated
+
+            name = (sp.name if sp else ss.name if ss else "Custom item")
             qty = itm.quantity or 1
             total = float(itm.line_item_price or 0)
             options = itm.selected_options or {}
             variant = options.pop("variant_name", None) if isinstance(options, dict) else None
+
+            # Build specs string from remaining selected_options
+            specs_parts = []
+            if isinstance(options, dict):
+                for k, v in options.items():
+                    if v not in (None, "", False):
+                        specs_parts.append(f"{k}: {v}")
+            specs = " · ".join(specs_parts) if specs_parts else ""
+
             items.append({
                 "description": name,
                 "quantity": qty,
                 "unit_price": round(total / qty, 2) if qty > 0 else 0,
                 "total": total,
                 "variant": variant,
-                "options": options if options else None,
-            })
-
-    # Build milestones data
-    milestones_data = []
-    if order.milestones:
-        for ms in sorted(order.milestones, key=lambda m: m.order_index):
-            milestones_data.append({
-                "label": ms.label,
-                "percentage": float(ms.percentage),
-                "amount": float(ms.amount),
-                "status": ms.status,
+                "specs": specs,
+                "hsn_sac": getattr(source, "hsn_code", "") or "",
+                "cgst_rate": float(getattr(source, "cgst_rate", 0) or 0),
+                "sgst_rate": float(getattr(source, "sgst_rate", 0) or 0),
+                "igst_rate": float(getattr(source, "cgst_rate", 0) or 0) + float(getattr(source, "sgst_rate", 0) or 0),
             })
 
     # Logo path: configurable via env or placed in server/static/logo.png
@@ -328,16 +335,16 @@ async def get_invoice(
         generate_simple_invoice,
         filepath,
         {
-            "invoice_number": f"INV-{str(order_id)[:8].upper()}",
+            "invoice_number": f"INV-{order.order_number or str(order_id)[:8].upper()}",
             "invoice_date": order.created_at,
             "order_data": {
-                "order_id": str(order_id)[:8].upper(),
+                "order_id": order.order_number or str(order_id)[:8].upper(),
                 "status": order.status,
                 "order_date": order.created_at.strftime("%d %b %Y"),
                 "total_amount": float(order.total_amount or 0),
                 "tax_amount": float(order.tax_amount or 0),
                 "shipping_amount": float(order.shipping_amount or 0),
-                "discount_amount": float(order.discount_amount or 0),
+                "order_discount": float(order.discount_amount or 0),
                 "amount_paid": float(order.amount_paid or 0),
             },
             "company_info": {
@@ -355,9 +362,7 @@ async def get_invoice(
                 "address": "",
             },
             "items": items,
-            "milestones": milestones_data if milestones_data else None,
             "logo_path": logo_path,
-            "qr_code": None,
         }
     )
 

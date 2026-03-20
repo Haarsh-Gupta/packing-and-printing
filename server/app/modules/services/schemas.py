@@ -12,6 +12,9 @@ class SubServiceBase(BaseModel):
     description: Optional[str] = Field(None, description="Description")
     images: Optional[List[str]] = Field(None, description="List of image URLs")
     is_active: bool = Field(True, description="Is the service variant active")
+    hsn_code: Optional[str] = Field(None, description="HSN/SAC code")
+    cgst_rate: float = Field(0.0, description="CGST percentage")
+    sgst_rate: float = Field(0.0, description="SGST percentage")
 
     @model_validator(mode="after")
     def generate_slug(self):
@@ -48,6 +51,9 @@ class SubServiceUpdate(BaseModel):
     description: Optional[str] = None
     images: Optional[List[str]] = None
     is_active: Optional[bool] = None
+    hsn_code: Optional[str] = None
+    cgst_rate: Optional[float] = None
+    sgst_rate: Optional[float] = None
 
     model_config = ConfigDict(
         json_schema_extra={

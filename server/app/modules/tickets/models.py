@@ -5,12 +5,15 @@ Support ticket models — Ticket + threaded TicketMessage with read tracking.
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, func , Uuid , text
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from app.core.display_id import generate_nanoid
 
 
 class Ticket(Base):
     __tablename__ = "tickets"
 
     id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
+    display_id = Column(String, unique=True, nullable=False, index=True,
+                        default=lambda: generate_nanoid("TKT", 4))
     user_id = Column(Uuid, ForeignKey("users.id"), nullable=False, index=True)
     subject = Column(String(300), nullable=False)
     status = Column(String, default="OPEN", nullable=False)        # OPEN, IN_PROGRESS, RESOLVED, CLOSED

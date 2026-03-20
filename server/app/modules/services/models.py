@@ -32,6 +32,11 @@ class SubService(Base):
     images = Column(ARRAY(String), nullable=True)
     description = Column(String, nullable=True)
 
+    # Taxation
+    hsn_code  = Column(String, nullable=True)
+    cgst_rate = Column(Float, default=0.0)
+    sgst_rate = Column(Float, default=0.0)
+
     service = relationship("Service", back_populates="sub_services")
     reviews = relationship("Review", back_populates="service", cascade="all, delete-orphan", lazy="selectin")
 

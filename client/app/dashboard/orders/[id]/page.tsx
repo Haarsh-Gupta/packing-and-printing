@@ -10,6 +10,7 @@ import { useRazorpay } from "@/hooks/useRazorpay";
 import { useAuth } from "@/context/AuthContext";
 interface Transaction {
     id: string;
+    receipt_number?: string;
     amount: number;
     payment_mode: string;
     notes: string | null;
@@ -40,6 +41,7 @@ interface Declaration {
 
 interface Order {
     id: string;
+    order_number?: string;
     inquiry_id: string;
     status: string;
     total_amount: number;
@@ -282,7 +284,7 @@ export default function OrderDetailPage() {
         initiatePayment({
             orderId: order.id,
             balanceDue: milestone.amount,
-            productName: order.product_name || `Order #${order.id}`,
+            productName: order.product_name || `Order ${order.order_number || '#' + order.id.slice(0, 8)}`,
             userEmail,
             onSuccess: (data) => {
                 showAlert("Payment successful!", "success");
@@ -306,9 +308,9 @@ export default function OrderDetailPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
                     <div>
                         <h1 className="text-3xl font-black uppercase tracking-tighter">
-                            {order.product_name || `Order #${order.id}`}
+                            {order.product_name || `Order ${order.order_number || '#' + order.id.slice(0, 8)}`}
                         </h1>
-                        <p className="text-zinc-500 font-bold mt-1">Order #{order.id} · Placed {formatDate(order.created_at)}</p>
+                        <p className="text-zinc-500 font-bold mt-1">{order.order_number || `#${order.id.slice(0, 8)}`} · Placed {formatDate(order.created_at)}</p>
                     </div>
                     <span className={`px-4 py-2 text-sm font-black uppercase border-2 border-black ${order.status === "COMPLETED" || order.status === "PAID" ? "bg-[#4be794]" : order.status === "SHIPPED" ? "bg-[#90e8ff]" : order.status === "CANCELLED" ? "bg-zinc-200 text-zinc-500" : "bg-[#fdf567]"}`}>
                         {order.status.replace("_", " ")}
@@ -359,71 +361,75 @@ export default function OrderDetailPage() {
             {order.amount_paid === 0 && (
                 <div className="border-2 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl">
                     <h2 className="text-xl font-black uppercase tracking-tight mb-4">Payment Schedule</h2>
-                    {currentSplitType === "CUSTOM" ? (
-                        <div className="flex items-center gap-3 p-4 bg-[#fdf567]/30 border-2 border-black rounded-lg">
-                            <span className="px-3 py-1 bg-[#fdf567] border-2 border-black rounded-full text-xs font-black uppercase">Custom</span>
-                            <p className="text-sm font-medium text-zinc-700">This order has a custom payment schedule set by admin. Contact support to modify it.</p>
-                        </div>
-                    ) : (
-                        <>
-                            <p className="text-sm font-medium text-zinc-600 mb-4">You can change how you want to pay for this order before making your first payment.</p>
-                            <div className="flex flex-wrap gap-3">
-                                <Button
-                                    variant={currentSplitType === "FULL" ? "default" : "outline"}
-                                    className={`flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg ${currentSplitType === "FULL" ? "bg-[#fdf567] text-black hover:bg-[#ece459]" : "hover:bg-zinc-100"}`}
-                                    onClick={() => handleSwitchSplit("FULL")}
-                                    disabled={isSwitching || currentSplitType === "FULL"}
-                                >
-                                    Full Payment
-                                </Button>
-                                <Button
-                                    variant={currentSplitType === "HALF" ? "default" : "outline"}
-                                    className={`flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg ${currentSplitType === "HALF" ? "bg-[#fdf567] text-black hover:bg-[#ece459]" : "hover:bg-zinc-100"}`}
-                                    onClick={() => handleSwitchSplit("HALF")}
-                                    disabled={isSwitching || currentSplitType === "HALF"}
-                                >
-                                    Half & Half (50%)
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg hover:bg-zinc-100"
-                                    onClick={() => showAlert("Please contact support to request a custom payment schedule for this order.", "info")}
-                                    disabled={isSwitching}
-                                >
-                                    Custom Schedule
-                                </Button>
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
+                    <p className="text-sm font-medium text-zinc-600 mb-4">You can change how you want to pay for this order before making your first payment.</p>
+                    <div className="flex flex-wrap gap-3">
+                        <Button
+                            variant={currentSplitType === "FULL" ? "default" : "outline"}
+                            className={`flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg ${currentSplitType === "FULL" ? "bg-[#fdf567] text-black hover:bg-[#ece459]" : "hover:bg-zinc-100"}`}
+                            onClick={() => handleSwitchSplit("FULL")}
+                            disabled={isSwitching || currentSplitType === "FULL"}
+                        >
+                            Full Payment
+                        </Button>
+                        <Button
+                            variant={currentSplitType === "HALF" ? "default" : "outline"}
+                            className={`flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg ${currentSplitType === "HALF" ? "bg-[#fdf567] text-black hover:bg-[#ece459]" : "hover:bg-zinc-100"}`}
+                            onClick={() => handleSwitchSplit("HALF")}
+                            disabled={isSwitching || currentSplitType === "HALF"}
+                        >
+                            Half & Half (50%)
+                        </Button>
+                        {currentSplitType === "CUSTOM" ? (
+                            <Button
+                                variant="default"
+                                className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg bg-[#fdf567] text-black hover:bg-[#ece459]"
+                                disabled={true}
+                            >
+                                Custom Schedule
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg hover:bg-zinc-100"
+                                onClick={() => showAlert("Please contact support to request a custom payment schedule for this order.", "info")}
+                                disabled={isSwitching}
+                            >
+                                Custom Schedule
+                            </Button>
+                        )}
+                    </div>
+                </div >
+            )
+            }
 
             {/* Milestones */}
-            {order.milestones && order.milestones.length > 0 && (
-                <div className="border-2 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl">
-                    <h2 className="text-xl font-black uppercase tracking-tight mb-4">Payment Milestones</h2>
-                    <div className="space-y-4">
-                        {order.milestones.slice().sort((a, b) => a.order_index - b.order_index).map((milestone, idx) => (
-                            <div key={milestone.id} className={`border-2 border-black p-4 rounded-lg flex items-center justify-between ${milestone.status === 'PAID' ? 'bg-[#4be794]/20' : 'bg-zinc-50'}`}>
-                                <div>
-                                    <p className="font-bold text-lg">{idx + 1}. {milestone.label} <span className="text-xs text-zinc-500 font-bold ml-2">({milestone.percentage}%)</span></p>
-                                    <p className="text-sm font-medium mt-1">₹{milestone.amount.toLocaleString()}</p>
+            {
+                order.milestones && order.milestones.length > 0 && (
+                    <div className="border-2 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl">
+                        <h2 className="text-xl font-black uppercase tracking-tight mb-4">Payment Milestones</h2>
+                        <div className="space-y-4">
+                            {order.milestones.slice().sort((a, b) => a.order_index - b.order_index).map((milestone, idx) => (
+                                <div key={milestone.id} className={`border-2 border-black p-4 rounded-lg flex items-center justify-between ${milestone.status === 'PAID' ? 'bg-[#4be794]/20' : 'bg-zinc-50'}`}>
+                                    <div>
+                                        <p className="font-bold text-lg">{idx + 1}. {milestone.label} <span className="text-xs text-zinc-500 font-bold ml-2">({milestone.percentage}%)</span></p>
+                                        <p className="text-sm font-medium mt-1">₹{milestone.amount.toLocaleString()}</p>
+                                    </div>
+                                    <div>
+                                        {milestone.status === 'PAID' ? (
+                                            <div className="flex flex-col items-end">
+                                                <span className="px-3 py-1 bg-[#4be794] border-2 border-black rounded-full text-xs font-black uppercase">PAID</span>
+                                                {milestone.paid_at && <span className="text-xs font-bold text-zinc-500 mt-1">{formatDate(milestone.paid_at)}</span>}
+                                            </div>
+                                        ) : (
+                                            <span className="px-3 py-1 bg-zinc-200 border-2 border-black text-zinc-600 rounded-full text-xs font-black uppercase">PENDING</span>
+                                        )}
+                                    </div>
                                 </div>
-                                <div>
-                                    {milestone.status === 'PAID' ? (
-                                        <div className="flex flex-col items-end">
-                                            <span className="px-3 py-1 bg-[#4be794] border-2 border-black rounded-full text-xs font-black uppercase">PAID</span>
-                                            {milestone.paid_at && <span className="text-xs font-bold text-zinc-500 mt-1">{formatDate(milestone.paid_at)}</span>}
-                                        </div>
-                                    ) : (
-                                        <span className="px-3 py-1 bg-zinc-200 border-2 border-black text-zinc-600 rounded-full text-xs font-black uppercase">PENDING</span>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-4">
@@ -449,15 +455,15 @@ export default function OrderDetailPage() {
                 {showQrModal && qrData && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
                         <div className="bg-white border-4 border-black p-6 md:p-8 rounded-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] w-full max-w-md relative max-h-[90vh] overflow-y-auto">
-                            <button 
-                                onClick={() => { 
+                            <button
+                                onClick={() => {
                                     if ((screenshotFile || utrNumber) && !window.confirm("You have entered payment details but haven't submitted them. Are you sure you want to close this window? Your payment verification might be lost.")) {
                                         return;
                                     }
-                                    setShowQrModal(false); 
-                                    setScreenshotFile(null); 
-                                    setScreenshotPreview(null); 
-                                    setUtrNumber(""); 
+                                    setShowQrModal(false);
+                                    setScreenshotFile(null);
+                                    setScreenshotPreview(null);
+                                    setUtrNumber("");
                                 }}
                                 className="absolute top-4 right-4 h-8 w-8 bg-zinc-100 hover:bg-zinc-200 border-2 border-black rounded-full flex items-center justify-center transition-colors focus:outline-none"
                             >
@@ -504,7 +510,7 @@ export default function OrderDetailPage() {
                             {/* UTR Number (optional) */}
                             <div className="space-y-3">
                                 <label className="text-xs font-black uppercase tracking-widest text-zinc-500">UTR Number (optional)</label>
-                                <input 
+                                <input
                                     type="text"
                                     value={utrNumber}
                                     onChange={(e) => setUtrNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
@@ -512,18 +518,19 @@ export default function OrderDetailPage() {
                                     maxLength={22}
                                     className="w-full h-12 border-2 border-black rounded-lg px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#4be794] focus:border-transparent transition-all"
                                 />
-                            </div>
+                            </div >
+
                             <p className="text-xs text-zinc-400 mt-3 text-center">Upload screenshot or enter UTR — at least one is required</p>
 
-                            <Button 
+                            <Button
                                 onClick={handleSubmitUtr}
                                 disabled={isSubmittingUtr || (!screenshotFile && utrNumber.length < 6)}
                                 className="w-full h-12 mt-4 bg-[#4be794] hover:bg-[#3cd083] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all text-black font-black uppercase rounded-lg disabled:opacity-50"
                             >
                                 {isSubmittingUtr ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "Submit Payment Declaration"}
                             </Button>
-                        </div>
-                    </div>
+                        </div >
+                    </div >
                 )}
                 <Button
                     variant="outline"
@@ -552,82 +559,87 @@ export default function OrderDetailPage() {
                 >
                     <Download className="h-4 w-4 mr-2" /> Download Invoice
                 </Button>
-                {order.inquiry_id && (
-                    <Button asChild variant="outline" className="h-12 px-8 border-2 border-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full">
-                        <Link href={`/dashboard/inquiries`}>View Inquiry</Link>
-                    </Button>
-                )}
-            </div>
+                {
+                    order.inquiry_id && (
+                        <Button asChild variant="outline" className="h-12 px-8 border-2 border-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full">
+                            <Link href={`/dashboard/inquiries`}>View Inquiry</Link>
+                        </Button>
+                    )
+                }
+            </div >
 
             {/* Transaction History */}
-            {order.transactions && order.transactions.length > 0 && (
-                <div className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden">
-                    <div className="border-b-2 border-black p-4 bg-zinc-50">
-                        <h2 className="font-black uppercase tracking-tight">Transaction History</h2>
-                    </div>
-                    <div className="divide-y-2 divide-zinc-100">
-                        {order.transactions.map((txn) => (
-                            <div key={txn.id} className="p-5 flex items-center justify-between">
-                                <div>
-                                    <p className="font-black uppercase text-sm">{txn.payment_mode}</p>
-                                    <p className="text-zinc-500 text-sm font-medium">{txn.notes || formatDate(txn.created_at)}</p>
-                                    {txn.gateway_payment_id && (
-                                        <p className="text-[11px] font-mono text-zinc-400 mt-1">{txn.gateway_payment_id}</p>
-                                    )}
-                                </div>
-                                <p className="text-xl font-black text-green-700">+₹{txn.amount.toLocaleString()}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Payment Declarations */}
-            {order.declarations && order.declarations.length > 0 && (
-                <div className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden">
-                    <div className="border-b-2 border-black p-4 bg-zinc-50">
-                        <h2 className="font-black uppercase tracking-tight">Payment Declarations</h2>
-                    </div>
-                    <div className="divide-y-2 divide-zinc-100">
-                        {order.declarations.map((decl) => {
-                            const milestone = order.milestones.find(m => m.id === decl.milestone_id);
-                            return (
-                                <div key={decl.id} className="p-5">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className={`px-3 py-1 text-xs font-black uppercase border-2 border-black rounded-full ${
-                                                    decl.status === "APPROVED" ? "bg-[#4be794]" :
-                                                    decl.status === "REJECTED" ? "bg-red-200 text-red-800" :
-                                                    "bg-[#fdf567]"
-                                                }`}>
-                                                    {decl.status}
-                                                </span>
-                                                {milestone && <span className="text-sm font-medium text-zinc-500">{milestone.label}</span>}
-                                            </div>
-                                            {decl.utr_number && <p className="text-sm font-mono text-zinc-600 mt-1">UTR: {decl.utr_number}</p>}
-                                            <p className="text-xs text-zinc-400 mt-1">Submitted {formatDate(decl.created_at)}</p>
-                                            {decl.rejection_reason && (
-                                                <div className="mt-2 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                                                    <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-                                                    <p className="text-sm text-red-700">{decl.rejection_reason}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                        {decl.screenshot_url && (
-                                            <a href={decl.screenshot_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                                                <div className="w-16 h-16 border-2 border-black rounded-lg overflow-hidden hover:opacity-80 transition-opacity">
-                                                    <img src={decl.screenshot_url} alt="Payment screenshot" className="w-full h-full object-cover" />
-                                                </div>
-                                            </a>
+            {
+                order.transactions && order.transactions.length > 0 && (
+                    <div className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden">
+                        <div className="border-b-2 border-black p-4 bg-zinc-50">
+                            <h2 className="font-black uppercase tracking-tight">Transaction History</h2>
+                        </div>
+                        <div className="divide-y-2 divide-zinc-100">
+                            {order.transactions.map((txn) => (
+                                <div key={txn.id} className="p-5 flex items-center justify-between">
+                                    <div>
+                                        <p className="font-black uppercase text-sm">{txn.payment_mode} {txn.receipt_number && <span className="text-zinc-400 font-mono text-xs ml-2">{txn.receipt_number}</span>}</p>
+                                        <p className="text-zinc-500 text-sm font-medium">{txn.notes || formatDate(txn.created_at)}</p>
+                                        {txn.gateway_payment_id && (
+                                            <p className="text-[11px] font-mono text-zinc-400 mt-1">{txn.gateway_payment_id}</p>
                                         )}
                                     </div>
+                                    <p className="text-xl font-black text-green-700">+₹{txn.amount.toLocaleString()}</p>
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+
+            {/* Payment Declarations */}
+            {
+                order.declarations && order.declarations.length > 0 && (
+                    <div className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden">
+                        <div className="border-b-2 border-black p-4 bg-zinc-50">
+                            <h2 className="font-black uppercase tracking-tight">Payment Declarations</h2>
+                        </div>
+                        <div className="divide-y-2 divide-zinc-100">
+                            {order.declarations.map((decl) => {
+                                const milestone = order.milestones.find(m => m.id === decl.milestone_id);
+                                return (
+                                    <div key={decl.id} className="p-5">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className={`px-3 py-1 text-xs font-black uppercase border-2 border-black rounded-full ${decl.status === "APPROVED" ? "bg-[#4be794]" :
+                                                        decl.status === "REJECTED" ? "bg-red-200 text-red-800" :
+                                                            "bg-[#fdf567]"
+                                                        }`}>
+                                                        {decl.status}
+                                                    </span>
+                                                    {milestone && <span className="text-sm font-medium text-zinc-500">{milestone.label}</span>}
+                                                </div>
+                                                {decl.utr_number && <p className="text-sm font-mono text-zinc-600 mt-1">UTR: {decl.utr_number}</p>}
+                                                <p className="text-xs text-zinc-400 mt-1">Submitted {formatDate(decl.created_at)}</p>
+                                                {decl.rejection_reason && (
+                                                    <div className="mt-2 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                                        <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                                                        <p className="text-sm text-red-700">{decl.rejection_reason}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {decl.screenshot_url && (
+                                                <a href={decl.screenshot_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                                    <div className="w-16 h-16 border-2 border-black rounded-lg overflow-hidden hover:opacity-80 transition-opacity">
+                                                        <img src={decl.screenshot_url} alt="Payment screenshot" className="w-full h-full object-cover" />
+                                                    </div>
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 }

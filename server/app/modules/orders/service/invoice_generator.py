@@ -22,18 +22,29 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 logger = logging.getLogger(__name__)
 
-# ── Fonts (DejaVu supports the ₹ glyph; falls back to Helvetica) ──────────────
-_FD = "/usr/share/fonts/truetype/dejavu"
-try:
-    pdfmetrics.registerFont(TTFont("DV",    f"{_FD}/DejaVuSans.ttf"))
-    pdfmetrics.registerFont(TTFont("DV-B",  f"{_FD}/DejaVuSans-Bold.ttf"))
-    pdfmetrics.registerFont(TTFont("DV-I",  f"{_FD}/DejaVuSans-Oblique.ttf"))
-    pdfmetrics.registerFont(TTFont("DV-BI", f"{_FD}/DejaVuSans-BoldOblique.ttf"))
-    pdfmetrics.registerFontFamily("DV", normal="DV", bold="DV-B",
-                                  italic="DV-I", boldItalic="DV-BI")
-    NRM, BLD = "DV", "DV-B"
-except Exception:
-    NRM, BLD = "Helvetica", "Helvetica-Bold"
+# ── Fonts (cross-platform: bundled → Segoe UI → DejaVu → Helvetica) ───────────
+_FONT_SEARCH = [
+    # 1. Bundled in project
+    (os.path.join(os.path.dirname(__file__), "..", "..", "..", "static", "fonts"), "NotoSans"),
+    # 2. Windows – Segoe UI (modern look, has ₹ glyph)
+    ("C:/Windows/Fonts", "segoeui"),
+    # 3. Linux – DejaVu
+    ("/usr/share/fonts/truetype/dejavu", "DejaVuSans"),
+]
+
+NRM, BLD = "Helvetica", "Helvetica-Bold"  # fallback
+for _dir, _base in _FONT_SEARCH:
+    _r = os.path.join(_dir, f"{_base}.ttf")
+    _b = os.path.join(_dir, f"{_base}-Bold.ttf") if "segoe" not in _base else os.path.join(_dir, f"{_base}b.ttf")
+    if os.path.isfile(_r) and os.path.isfile(_b):
+        try:
+            pdfmetrics.registerFont(TTFont("InvR", _r))
+            pdfmetrics.registerFont(TTFont("InvB", _b))
+            pdfmetrics.registerFontFamily("InvR", normal="InvR", bold="InvB")
+            NRM, BLD = "InvR", "InvB"
+            break
+        except Exception:
+            continue
 
 # ── Palette ────────────────────────────────────────────────────────────────────
 NAVY     = colors.HexColor("#2c3e6b")
@@ -52,13 +63,10 @@ HP, RP, SP = 5, 5, 2   # header / regular / summary
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def _grand_total(items: List[Dict], order_data: Dict) -> float:
     """Compute invoice grand total from line items + shipping - order discount."""
-    tax_mult = lambda i: (
-        float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
-        * (1 - float(i.get("discount_pct", 0)) / 100)
-    )
-    subtotal = sum(tax_mult(i) for i in items)
+    line_total = lambda i: float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
+    subtotal = sum(line_total(i) for i in items)
     tax = sum(
-        tax_mult(i) * (
+        line_total(i) * (
             float(i.get("cgst_rate", 0)) +
             float(i.get("sgst_rate", 0)) +
             float(i.get("igst_rate", 0))
@@ -281,7 +289,7 @@ class TaxInvoiceGenerator:
         return [box]
 
     # ── S3: Items table ────────────────────────────────────────────────────────
-    # Cols: S.No | Description + Specs | HSN/SAC | Quantity | Rate | Disc% | Amount
+    # Cols: S.No | Description + Specs | HSN/SAC | Quantity | Rate | Amount
     def _items_table(self, items, U):
         elems = [Paragraph("Items", self.styles["SecHdr"])]
 
@@ -289,24 +297,22 @@ class TaxInvoiceGenerator:
         HSN  = 0.78*inch
         QTY  = 0.72*inch
         RATE = 0.80*inch
-        DISC = 0.44*inch
         AMT  = 1.05*inch          # shared with taxes table
-        DESC = U - NUM - HSN - QTY - RATE - DISC - AMT
-        cw   = [NUM, DESC, HSN, QTY, RATE, DISC, AMT]
+        DESC = U - NUM - HSN - QTY - RATE - AMT
+        cw   = [NUM, DESC, HSN, QTY, RATE, AMT]
 
         def _h(txt, al=TA_CENTER):
             return Paragraph(txt, ParagraphStyle("_ih", parent=self.styles["Normal"],
                 fontName=BLD, fontSize=7.5, textColor=WHITE, alignment=al, leading=10))
 
         data = [[_h("S.No"), _h("Description of Goods", TA_LEFT),
-                 _h("HSN/SAC"), _h("Quantity"), _h("Rate"), _h("Disc%"), _h("Amount")]]
+                 _h("HSN/SAC"), _h("Quantity"), _h("Rate"), _h("Amount")]]
 
         subtotal = 0.0
         for idx, item in enumerate(items, 1):
             qty  = float(item.get("quantity", 1))
             rate = float(item.get("unit_price", 0))
-            disc = float(item.get("discount_pct", 0))
-            net  = rate * qty * (1 - disc / 100)
+            net  = rate * qty
             subtotal += net
 
             desc = item.get("description", "Item")
@@ -325,20 +331,19 @@ class TaxInvoiceGenerator:
             else:
                 desc_cell = Paragraph(desc, self.styles["TC"])
 
-            qty_str = f"{qty:.2f}" + (f" {item['unit']}" if item.get("unit") else "")
+            qty_str = f"{qty:.0f}" + (f" {item['unit']}" if item.get("unit") else " Nos")
             data.append([
                 Paragraph(str(idx),         self.styles["TCC"]),
                 desc_cell,
                 Paragraph(str(item.get("hsn_sac", "")), self.styles["TCC"]),
                 Paragraph(qty_str,          self.styles["TCC"]),
-                Paragraph(f"₹{rate:,.2f}",  self.styles["TCR"]),
-                Paragraph(f"{disc:.0f}%",   self.styles["TCC"]),
-                Paragraph(f"₹{net:,.2f}",   self.styles["TBR"]),
+                Paragraph(f"\u20b9{rate:,.2f}",  self.styles["TCR"]),
+                Paragraph(f"\u20b9{net:,.2f}",   self.styles["TBR"]),
             ])
 
         n = len(data)   # rows so far (header + items)
 
-        # Summary rows below items: cols 0-5 span as label, col 6 = value
+        # Summary rows below items: cols 0-4 span as label, col 5 = value
         cgst_r = max((float(i.get("cgst_rate", 0)) for i in items), default=0)
         sgst_r = max((float(i.get("sgst_rate", 0)) for i in items), default=0)
         igst_r = max((float(i.get("igst_rate", 0)) for i in items), default=0)
@@ -349,16 +354,16 @@ class TaxInvoiceGenerator:
 
         def _sr(lbl, val, bold=False):
             ls = "TBR" if bold else "TCR"
-            return [Paragraph(lbl, self.styles[ls]), "", "", "", "", "",
+            return [Paragraph(lbl, self.styles[ls]), "", "", "", "",
                     Paragraph(val, self.styles[ls])]
 
-        data.append(_sr("Subtotal:", f"₹{subtotal:,.2f}"))
-        if cgst_r: data.append(_sr(f"CGST @ {cgst_r:.0f}%:", f"₹{cgst_a:,.2f}"))
-        if sgst_r: data.append(_sr(f"SGST @ {sgst_r:.0f}%:", f"₹{sgst_a:,.2f}"))
-        if igst_r: data.append(_sr(f"IGST @ {igst_r:.0f}%:", f"₹{igst_a:,.2f}"))
-        data.append(_sr("Total Amount Due:", f"₹{grand:,.2f}", bold=True))
+        data.append(_sr("Subtotal:", f"\u20b9{subtotal:,.2f}"))
+        if cgst_r: data.append(_sr(f"CGST @ {cgst_r:.0f}%:", f"\u20b9{cgst_a:,.2f}"))
+        if sgst_r: data.append(_sr(f"SGST @ {sgst_r:.0f}%:", f"\u20b9{sgst_a:,.2f}"))
+        if igst_r: data.append(_sr(f"IGST @ {igst_r:.0f}%:", f"\u20b9{igst_a:,.2f}"))
+        data.append(_sr("Total Amount Due:", f"\u20b9{grand:,.2f}", bold=True))
 
-        span_cmds = [("SPAN", (0, r), (5, r)) for r in range(n, len(data))]
+        span_cmds = [("SPAN", (0, r), (4, r)) for r in range(n, len(data))]
 
         t = Table(data, colWidths=cw, repeatRows=1)
         t.setStyle(TableStyle([
@@ -409,8 +414,7 @@ class TaxInvoiceGenerator:
         groups: Dict[str, dict] = {}
         for item in items:
             hsn = str(item.get("hsn_sac", "—"))
-            tv  = (float(item.get("unit_price", 0)) * float(item.get("quantity", 1))
-                   * (1 - float(item.get("discount_pct", 0)) / 100))
+            tv  = float(item.get("unit_price", 0)) * float(item.get("quantity", 1))
             if hsn not in groups:
                 groups[hsn] = {"tv": 0,
                                "cgst": float(item.get("cgst_rate", 0)),
@@ -459,11 +463,9 @@ class TaxInvoiceGenerator:
     # Three equal cells side-by-side: Grand Total | Amount Paid | Balance Due
     def _financial_summary(self, items, order_data, U):
         subtotal = sum(
-            float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
-            * (1 - float(i.get("discount_pct", 0)) / 100) for i in items)
+            float(i.get("unit_price", 0)) * float(i.get("quantity", 1)) for i in items)
         tax = sum(
             float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
-            * (1 - float(i.get("discount_pct", 0)) / 100)
             * (float(i.get("cgst_rate", 0)) + float(i.get("sgst_rate", 0))
                + float(i.get("igst_rate", 0))) / 100
             for i in items)

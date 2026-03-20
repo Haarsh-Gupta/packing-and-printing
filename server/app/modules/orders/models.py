@@ -1,11 +1,17 @@
-from sqlalchemy import ForeignKey, Column, String, DateTime, func, Double, Uuid, Integer, text, UniqueConstraint
+from sqlalchemy import ForeignKey, Column, String, DateTime, func, Double, Uuid, Integer, text, UniqueConstraint, Sequence, event
 from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
 
 from app.core.database import Base
+
+# PostgreSQL sequences for human-readable serial numbers
+order_number_seq  = Sequence("order_number_seq")
+receipt_number_seq = Sequence("receipt_number_seq")
 
 class Order(Base):
     __tablename__ = 'orders'
     id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
+    order_number = Column(String, unique=True, nullable=True, index=True)  # ORD-2026-0001
     inquiry_id = Column(Uuid, ForeignKey('inquiry_groups.id'), nullable=False)
     user_id = Column(Uuid, ForeignKey('users.id'), nullable=False)
     
@@ -53,11 +59,12 @@ class Transaction(Base):
     """Immutable ledger of actual, confirmed payments."""
     __tablename__ = 'transactions'
     id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
+    receipt_number = Column(String, unique=True, nullable=True, index=True)  # REC-2026-0001
     order_id = Column(Uuid, ForeignKey('orders.id', ondelete="RESTRICT"), nullable=False)
     milestone_id = Column(Uuid, ForeignKey('order_milestones.id', ondelete="RESTRICT"), nullable=False) 
     
-    amount = Column(Double, nullable=False) # Positive for payment, negative for refund
-    payment_mode = Column(String, nullable=False) # ONLINE, UPI_MANUAL, BANK_TRANSFER
+    amount = Column(Double, nullable=False)
+    payment_mode = Column(String, nullable=False)
     gateway_payment_id = Column(String, unique=True, nullable=True) # Null for manual UPI
     notes = Column(String, nullable=True)
     
@@ -88,3 +95,20 @@ class PaymentDeclaration(Base):
 
     order = relationship("Order", back_populates="declarations")
     milestone = relationship("OrderMilestone", back_populates="declarations")
+
+
+# ── Auto-populate sequence-based display IDs on insert ────────────────────────
+@event.listens_for(Order, "before_insert")
+def _set_order_number(mapper, connection, target):
+    if not target.order_number:
+        seq_val = connection.execute(order_number_seq)
+        year = datetime.now(timezone.utc).year
+        target.order_number = f"ORD-{year}-{seq_val:04d}"
+
+
+@event.listens_for(Transaction, "before_insert")
+def _set_receipt_number(mapper, connection, target):
+    if not target.receipt_number:
+        seq_val = connection.execute(receipt_number_seq)
+        year = datetime.now(timezone.utc).year
+        target.receipt_number = f"REC-{year}-{seq_val:04d}"
