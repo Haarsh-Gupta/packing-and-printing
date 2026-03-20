@@ -32,17 +32,13 @@ from app.modules.auth.schemas import TokenData
 from app.modules.orders.models import Order
 from app.modules.orders.schemas import (
     UserMilestoneSwitchRequest,
-    CreatePaymentSessionRequest,
-    VerifyPaymentRequest,
     PaymentDeclarationCreate,
-    PaymentSessionResponse,
     PaymentDeclarationResponse,
     OrderResponse,
     OrderListResponse,
     OrderStatus
 )
 from app.modules.orders.service.order import OrderService
-from app.modules.orders.service.payment import PaymentService
 from app.modules.orders.service.invoice_generator import generate_simple_invoice
 from app.modules.orders.service.qr_generator import generate_upi_qr
 
@@ -142,44 +138,6 @@ async def switch_milestones(
     return await svc.get_order(order_id)
 
 
-# ── Online payment ────────────────────────────────────────────────────────────
-
-@router.post("/sessions", response_model=PaymentSessionResponse)
-async def create_payment_session(
-    payload: CreatePaymentSessionRequest,
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Create a Razorpay checkout session for a milestone."""
-    svc = PaymentService(db)
-    response = await svc.create_session(payload, current_user.id)
-    await db.commit()
-    return response
-
-
-@router.post("/verify", response_model=dict)
-async def verify_payment(
-    payload: VerifyPaymentRequest,
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Verify Razorpay payment after checkout completes."""
-    svc = PaymentService(db)
-    result = await svc.verify_payment(payload, current_user.id)
-    await db.commit()
-
-    _fire_sse(str(current_user.id), "payment_verified", {
-        "order_id": result["order_id"],
-        "amount": result["amount"],
-        "order_status": result["order_status"],
-    })
-    _fire_admin_sse("admin_payment_received", {
-        "order_id": result["order_id"],
-        "user_id": str(current_user.id),
-        "amount": result["amount"],
-    })
-
-    return result
 
 
 # ── UPI QR ────────────────────────────────────────────────────────────────────

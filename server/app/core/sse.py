@@ -13,7 +13,6 @@
 #   await sse_manager.publish_to_admins("payment_received", {...})
 # ===========================================================================
 
-from sqlalchemy.sql.coercions import expect
 import asyncio
 import json
 import logging
@@ -119,10 +118,10 @@ class SSEManager:
 
                 if message and message["type"] == "message":
                     try:
-                        parsed = json.loads(message)
+                        parsed = json.loads(message["data"])
                         yield _format_sse(parsed["event"], parsed["data"])
                     except (json.JSONDecodeError, KeyError):
-                        yield _format_sse("raw", {"message": message["data"]})
+                        yield _format_sse("raw", {"message": str(message["data"])})
                 else:
                     now = time.monotonic()
                     if now - last_keepalive >= 25:

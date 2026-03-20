@@ -3,12 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
-from .schemas import UserCreate, UserOut, UserUpdate
-from .models import User
+from app.modules.users.schemas import UserCreate, UserOut, UserUpdate
+from app.modules.users.models import User
 from app.core.database import get_db
-from ..auth.auth import get_password_hash
-from ..auth import get_current_user
-from ..auth.schemas import TokenData
+from app.modules.auth.auth import get_password_hash
+from app.modules.auth import get_current_user
+from app.modules.auth.schemas import TokenData
 from app.modules.otps.services import get_otp_service
 from app.core.rate_limiter import RateLimiter
 

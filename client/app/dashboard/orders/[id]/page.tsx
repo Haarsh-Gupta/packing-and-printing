@@ -209,6 +209,22 @@ export default function OrderDetailPage() {
         }
     };
 
+    const handlePayOnline = async (milestone: any) => {
+        initiatePayment({
+            orderId: order.id,
+            balanceDue: milestone.amount,
+            productName: order.product_name || `Order #${order.id}`,
+            userEmail,
+            onSuccess: (data) => {
+                showAlert("Payment successful!", "success");
+                fetchOrder();
+            },
+            onError: (message) => {
+                showAlert(message, "error");
+            }
+        });
+    };
+
     return (
         <div className="space-y-8 max-w-4xl mx-auto">
             {/* Back */}
@@ -343,13 +359,22 @@ export default function OrderDetailPage() {
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-4">
                 {nextMilestone && (
-                    <Button
-                        className="h-12 px-8 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full disabled:opacity-70 disabled:cursor-not-allowed"
-                        disabled={isFetchingQr}
-                        onClick={() => handlePayNow(nextMilestone)}
-                    >
-                        {isFetchingQr ? <Loader2 className="h-5 w-5 animate-spin" /> : <><CreditCard className="h-4 w-4 mr-2" /> Pay {nextMilestone.label} (₹{nextMilestone.amount.toLocaleString()})</>}
-                    </Button>
+                    <>
+                        <Button
+                            className="h-12 px-8 bg-[#fdf567] hover:bg-[#ece459] text-black font-black uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full disabled:opacity-70 disabled:cursor-not-allowed"
+                            disabled={isProcessing}
+                            onClick={() => handlePayOnline(nextMilestone)}
+                        >
+                            {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <><CreditCard className="h-4 w-4 mr-2" /> Pay Online (₹{nextMilestone.amount.toLocaleString()})</>}
+                        </Button>
+                        <Button
+                            className="h-12 px-8 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full disabled:opacity-70 disabled:cursor-not-allowed"
+                            disabled={isFetchingQr}
+                            onClick={() => handlePayNow(nextMilestone)}
+                        >
+                            {isFetchingQr ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Receipt className="h-4 w-4 mr-2" /> Pay Offline</>}
+                        </Button>
+                    </>
                 )}
                 
                 {showQrModal && qrData && (

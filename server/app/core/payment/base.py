@@ -51,3 +51,16 @@ class PaymentProvider(ABC):
         Returns True if the signature is valid.
         """
         ...
+
+    @abstractmethod
+    def verify_webhook_signature(
+        self,
+        payload_body: str,
+        signature: str,
+        secret: str,
+    ) -> bool:
+        """
+        Verify an asynchronous webhook signature.
+        Returns True if the signature is valid.
+        """
+        ...

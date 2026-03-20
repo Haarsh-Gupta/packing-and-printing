@@ -22,9 +22,9 @@ import logging
 from typing import Optional, List
 from uuid import UUID
 
-from .base import BaseMessenger, MessengerResult
-from .email_messenger import EmailMessenger
-from .whatsapp_messenger import get_whatsapp_messenger
+from app.core.messaging.base import BaseMessenger, MessengerResult
+from app.core.messaging.email_messenger import EmailMessenger
+from app.core.messaging.whatsapp_messenger import get_whatsapp_messenger
 
 logger = logging.getLogger(__name__)
 

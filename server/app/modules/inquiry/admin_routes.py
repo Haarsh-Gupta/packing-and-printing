@@ -8,13 +8,13 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.task_registry import fire
-from ..auth.auth import get_current_admin_user
-from ..users.models import User
-from .models import InquiryGroup, InquiryItem, InquiryMessage, QuoteVersion
-from ..notifications.models import Notification, EmailLog
+from app.modules.auth.auth import get_current_admin_user
+from app.modules.users.models import User
+from app.modules.inquiry.models import InquiryGroup, InquiryItem, InquiryMessage, QuoteVersion
+from app.modules.notifications.models import Notification, EmailLog
 from app.core.email.service import get_email_service
 from app.core.email.templates.quote import render_quote_email
-from .schemas import (
+from app.modules.inquiry.schemas import (
     AdminPricingCalculatorRequest,
     QuoteVersionCreate,
     InquiryStatus,

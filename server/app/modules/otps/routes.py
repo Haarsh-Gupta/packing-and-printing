@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from .schemas import OtpSend, OtpVerify
-from .services import get_otp_service
+from app.modules.otps.schemas import OtpSend, OtpVerify
+from app.modules.otps.services import get_otp_service
 from app.core.rate_limiter import RateLimiter
 
 

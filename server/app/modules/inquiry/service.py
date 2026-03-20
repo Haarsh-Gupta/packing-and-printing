@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.modules.services.models import SubService
 from app.modules.products.models import SubProduct
-from .schemas import InquiryItemCreate
+from app.modules.inquiry.schemas import InquiryItemCreate
 
 
 async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSession) -> float:

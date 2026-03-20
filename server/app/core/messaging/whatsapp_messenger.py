@@ -12,7 +12,7 @@
 import urllib.parse
 import logging
 
-from .base import BaseMessenger, MessengerResult
+from app.core.messaging.base import BaseMessenger, MessengerResult
 
 logger = logging.getLogger(__name__)
 

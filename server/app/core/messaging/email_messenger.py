@@ -5,7 +5,7 @@
 import logging
 from typing import Optional, List, Tuple
 
-from .base import BaseMessenger, MessengerResult
+from app.core.messaging.base import BaseMessenger, MessengerResult
 from app.core.email.service import get_email_service
 
 logger = logging.getLogger(__name__)

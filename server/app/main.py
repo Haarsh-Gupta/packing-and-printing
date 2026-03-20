@@ -64,44 +64,36 @@ async def lifespan(app: FastAPI):
     print("\n--------- SHUTDOWN STARTED ---------")
 
     await cancel_all(timeout=3.0)
-    
-    async def _graceful_shutdown():
-        print("⏳ Shutting down SSE Manager...")
-        await sse_manager.shutdown()
-        print("✅ SSE Manager shutdown")
-        
-        print("⏳ Shutting down WebSocket Manager...")
-        await ws_manager.shutdown()
-        print("✅ WebSocket Manager shutdown")
-        
-        print("⏳ Closing Redis client...")
-        await redis_client.close()
-        print("✅ Redis client closed")
-        
-        print("⏳ Disposing Database Engine...")
-        await engine.dispose()
-        print("✅ Database Engine disposed")
+
+    print("⏳ Shutting down SSE Manager...")
+    await sse_manager.shutdown()
+    print("✅ SSE Manager shutdown")
+
+    print("⏳ Shutting down WebSocket Manager...")
+    await ws_manager.shutdown()
+    print("✅ WebSocket Manager shutdown")
 
     try:
+        print("⏳ Closing Redis client...")
         await asyncio.wait_for(redis_client.aclose(), timeout=2.0)
+        print("✅ Redis client closed")
     except Exception as e:
         print(f"⚠️  Redis close error: {e}")
-    
 
     try:
+        print("⏳ Disposing Database Engine...")
         await asyncio.wait_for(engine.dispose(), timeout=3.0)
+        print("✅ Database Engine disposed")
     except Exception as e:
         print(f"⚠️ DB Engine dispose error: {e}")
-    
+
     print("--------- SHUTDOWN COMPLETE ---------\n")
 
 app = FastAPI(lifespan=lifespan)
 
-from fastapi.middleware.cors import CORSMiddleware
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_credentials=True, # Critical for setting the refresh_token cookie!
     allow_methods=["*"],
     allow_headers=["*"],

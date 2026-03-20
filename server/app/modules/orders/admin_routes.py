@@ -23,8 +23,8 @@ from app.core.database import get_db
 from app.modules.auth.auth import get_current_admin_user
 from app.modules.users.models import User
 from app.core.messaging import get_dispatcher
-from .models import Order, PaymentDeclaration
-from .schemas import (
+from app.modules.orders.models import Order, PaymentDeclaration
+from app.modules.orders.schemas import (
     OrderStatus, DeclarationStatus,
     AdminMilestoneCreateRequest,
     AdminRecordPaymentRequest,
@@ -36,8 +36,8 @@ from .schemas import (
     OrderListResponse,
     AdminRefundRequest,
 )
-from .service.order import OrderService
-from .service.payment import PaymentService
+from app.modules.orders.service.order import OrderService
+from app.modules.orders.service.payment import PaymentService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

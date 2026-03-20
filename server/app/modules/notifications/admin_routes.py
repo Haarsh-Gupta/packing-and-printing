@@ -6,8 +6,8 @@ from app.core.database import get_db
 from app.modules.auth import get_current_admin_user
 from app.modules.users.models import User
 
-from .models import Notification, EmailLog
-from .schemas import (
+from app.modules.notifications.models import Notification, EmailLog
+from app.modules.notifications.schemas import (
     NotificationCreate,
     NotificationResponse,
 )

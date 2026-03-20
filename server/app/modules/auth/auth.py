@@ -1,13 +1,13 @@
 import asyncio
 from passlib.context import CryptContext
-from .schemas import TokenData
+from app.modules.auth.schemas import TokenData
 from jose import JWTError , jwt
 from datetime import datetime , timedelta , timezone
 from fastapi import HTTPException , Depends , status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from ..users.models import User
+from app.modules.users.models import User
 from app.core.database import get_db
 from app.core.config import settings
 import secrets

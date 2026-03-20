@@ -166,9 +166,10 @@ export default function CartPage() {
             });
 
             if (res.ok) {
-                showAlert("Inquiry submitted! Our studio will review it soon.", "success");
+                const data = await res.json();
+                showAlert("Inquiry saved as draft! Please review and submit it to our studio.", "success");
                 dispatch(clearInquiry());
-                router.push("/dashboard/inquiries");
+                router.push(`/dashboard/inquiries/${data.id}`);
             } else {
                 const err = await res.json();
                 const detail = typeof err.detail === "string"

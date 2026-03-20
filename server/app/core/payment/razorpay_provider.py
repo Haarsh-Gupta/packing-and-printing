@@ -5,7 +5,7 @@ Razorpay implementation of PaymentProvider.
 import razorpay
 from typing import Optional
 
-from .base import PaymentProvider, PaymentOrderResult
+from app.core.payment.base import PaymentProvider, PaymentOrderResult
 
 
 class RazorpayProvider(PaymentProvider):
@@ -55,6 +55,14 @@ class RazorpayProvider(PaymentProvider):
         }
         try:
             self._client.utility.verify_payment_signature(params)
+            return True
+        except razorpay.errors.SignatureVerificationError:
+            return False
+
+    # ── verify_webhook_signature ──────────────────────────────────
+    def verify_webhook_signature(self, payload_body: str, signature: str, secret: str) -> bool:
+        try:
+            self._client.utility.verify_webhook_signature(payload_body, signature, secret)
             return True
         except razorpay.errors.SignatureVerificationError:
             return False

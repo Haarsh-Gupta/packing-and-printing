@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.users.models import User
-from .models import Notification
+from app.modules.notifications.models import Notification
 import logging
 
 logger = logging.getLogger(__name__)

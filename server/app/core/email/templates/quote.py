@@ -2,7 +2,7 @@
 Quote / Quotation email template.
 """
 from typing import List, Dict, Any
-from .base import wrap_in_base
+from app.core.email.templates.base import wrap_in_base
 
 
 def render_quote_email(

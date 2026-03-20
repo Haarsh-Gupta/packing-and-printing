@@ -10,6 +10,6 @@
 #   await dispatcher.dispatch(user, "payment_received", context)
 # ===========================================================================
 
-from .dispatcher import NotificationDispatcher, get_dispatcher
+from app.core.messaging.dispatcher import NotificationDispatcher, get_dispatcher
 
 __all__ = ["NotificationDispatcher", "get_dispatcher"]

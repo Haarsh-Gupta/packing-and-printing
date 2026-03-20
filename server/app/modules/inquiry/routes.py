@@ -11,9 +11,9 @@ from app.modules.auth.schemas import TokenData
 from app.modules.orders.models import Order, OrderMilestone
 from app.modules.orders.schemas import OrderResponse
 from app.modules.orders.schemas import PaymentSplitType
-from .models import InquiryGroup, InquiryItem, InquiryMessage
-from .service import calculate_item_estimated_price
-from .schemas import (
+from app.modules.inquiry.models import InquiryGroup, InquiryItem, InquiryMessage
+from app.modules.inquiry.service import calculate_item_estimated_price
+from app.modules.inquiry.schemas import (
     InquiryGroupCreate,
     InquiryItemUpdate,
     InquiryItemCreate,
@@ -92,7 +92,7 @@ async def create_inquiry_group(
     # 1. Create the parent container
     new_group = InquiryGroup(
         user_id=current_user.id,
-        status='SUBMITTED'
+        status='DRAFT'
     )
     db.add(new_group)
     await db.flush()  # Flush to generate the new_group.id for the item
@@ -114,26 +114,12 @@ async def create_inquiry_group(
         )
         db.add(new_item)
     
-    # Create persistent notifications for admins
-    await NotificationService.notify_admins(
-        db,
-        title="New Inquiry",
-        message=f"A new inquiry with {len(inquiry_data.items)} items was submitted.",
-        metadata={"type": "new_inquiry", "id": str(new_group.id)}
-    )
+    await db.flush()  # Flush to generate the new_group.id for the item
 
     await db.commit()
 
-    # Notify all admins of new inquiry via SSE
-    from app.core.sse import sse_manager
-    fire(
-        sse_manager.publish_to_admins("new_inquiry", {
-            "inquiry_id": str(new_group.id),
-            "user_id": str(current_user.id),
-            "item_count": len(inquiry_data.items),
-            "message": "New inquiry submitted by a user"
-        })
-    )
+    # Fire SSE to admin (only if submitted - skipped here because we start as DRAFT)
+
     
     # 3. Fetch the fully loaded group to return
     stmt = select(InquiryGroup).options(
@@ -487,17 +473,29 @@ async def update_inquiry_status_user(
         )
     
     group.status = status_update.status.value
-    await db.commit()
+
+    # Notify admins if status became SUBMITTED, and fire SSE
+    if status_update.status == InquiryStatus.SUBMITTED:
+        await NotificationService.notify_admins(
+            db,
+            title="New Inquiry Submitted",
+            message=f"An inquiry with {len(group.items)} items was officially submitted.",
+            metadata={"type": "new_inquiry", "id": str(group.id)}
+        )
+        
+        # Admin SSE
+        from app.core.sse import sse_manager
+        fire(
+            sse_manager.publish_to_admins("new_inquiry", {
+                "inquiry_id": str(group.id),
+                "user_id": str(current_user.id),
+                "item_count": len(group.items),
+                "message": "New inquiry officially submitted by user"
+            })
+        )
     
-    # Fire SSE to admin
-    from app.core.sse import sse_manager
-    fire(
-        sse_manager.publish_to_admins("admin_inquiry_updated", {
-            "inquiry_id": str(group.id),
-            "status": group.status,
-            "message": f"User updated inquiry status to {group.status}"
-        })
-    )
+    await db.commit()
+
     
     # Re-fetch the fully loaded group with relationships after commit
     fetch_stmt = select(InquiryGroup).options(

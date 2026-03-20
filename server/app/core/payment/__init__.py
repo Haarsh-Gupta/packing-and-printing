@@ -6,8 +6,8 @@ Usage:
     provider = get_payment_provider()
 """
 
-from .base import PaymentProvider
-from .razorpay_provider import RazorpayProvider
+from app.core.payment.base import PaymentProvider
+from app.core.payment.razorpay_provider import RazorpayProvider
 from app.core.config import settings
 
 
@@ -17,7 +17,7 @@ def get_payment_provider() -> PaymentProvider:
     Switch providers by changing this function — no route/model changes needed.
     """
     if not settings.razorpay_key_id or settings.razorpay_key_id == "mock_key":
-        from .mock_provider import MockProvider
+        from app.core.payment.mock_provider import MockProvider
         return MockProvider()
 
     return RazorpayProvider(
