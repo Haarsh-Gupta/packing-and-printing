@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Notifications &amp; System Activity | Nocturne Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary-container": "#a2b5ff",
+              "tertiary-container": "#c84b00",
+              "surface-dim": "#0b1326",
+              "on-primary-fixed-variant": "#004395",
+              "error": "#ffb4ab",
+              "on-surface": "#dae2fd",
+              "outline": "#8d90a1",
+              "on-secondary": "#152b6d",
+              "on-error-container": "#ffdad6",
+              "surface-tint": "#adc6ff",
+              "surface-variant": "#2d3449",
+              "secondary": "#b6c4ff",
+              "on-primary-fixed": "#001a42",
+              "inverse-on-surface": "#283044",
+              "on-background": "#dae2fd",
+              "outline-variant": "#434655",
+              "inverse-primary": "#005ac2",
+              "surface": "#0b1326",
+              "surface-container-highest": "#2d3449",
+              "inverse-surface": "#dae2fd",
+              "surface-bright": "#31394d",
+              "primary-container": "#1f70e3",
+              "background": "#0b1326",
+              "error-container": "#93000a",
+              "on-primary": "#002e6a",
+              "tertiary": "#ffb597",
+              "surface-container-low": "#131b2e",
+              "on-tertiary-fixed-variant": "#7e2c00",
+              "tertiary-fixed": "#ffdbcd",
+              "on-tertiary-fixed": "#360f00",
+              "surface-container": "#171f33",
+              "tertiary-fixed-dim": "#ffb597",
+              "secondary-container": "#314587",
+              "on-surface-variant": "#c3c5d8",
+              "on-error": "#690005",
+              "on-secondary-fixed": "#00164f",
+              "on-tertiary": "#591d00",
+              "on-tertiary-container": "#fffaf9",
+              "primary": "#adc6ff",
+              "on-primary-container": "#fcfaff",
+              "secondary-fixed": "#dce1ff",
+              "primary-fixed-dim": "#adc6ff",
+              "surface-container-high": "#222a3d",
+              "surface-container-lowest": "#060e20",
+              "secondary-fixed-dim": "#b6c4ff",
+              "primary-fixed": "#d8e2ff",
+              "on-secondary-fixed-variant": "#2f4385"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      body {
+        background-color: #0b1326;
+        color: #dae2fd;
+        font-family: 'Inter', sans-serif;
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-card {
+        background: rgba(45, 52, 73, 0.6);
+        backdrop-filter: blur(20px);
+      }
+    </style>
+</head>
+<body class="bg-surface selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar Anchor -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#060e20] flex flex-col py-8 z-50">
+<div class="px-8 mb-10">
+<h1 class="text-xl font-bold tracking-tighter text-[#adc6ff]">Nocturne Admin</h1>
+<p class="font-['Inter'] tracking-tight text-xs text-[#c3c5d8] opacity-50 uppercase mt-1">Management Console</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center px-8 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200 font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center px-8 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200 font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="insights">insights</span>
+                Analytics
+            </a>
+<a class="flex items-center px-8 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200 font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="description">description</span>
+                Reports
+            </a>
+<a class="flex items-center px-8 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200 font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="group">group</span>
+                Team
+            </a>
+<a class="flex items-center px-8 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200 font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="settings">settings</span>
+                Settings
+            </a>
+</nav>
+<div class="mt-auto px-8 py-6 border-t border-[#434655]/15">
+<button class="w-full py-2.5 px-4 mb-6 rounded-xl bg-gradient-to-br from-primary to-primary-container text-on-primary font-semibold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform duration-200">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                New Project
+            </button>
+<div class="space-y-4">
+<a class="flex items-center text-[#c3c5d8] opacity-70 hover:text-[#dae2fd] text-sm font-['Inter'] tracking-tight" href="#">
+<span class="material-symbols-outlined mr-3 text-lg" data-icon="help">help</span>
+                    Support
+                </a>
+<a class="flex items-center text-[#c3c5d8] opacity-70 hover:text-[#dae2fd] text-sm font-['Inter'] tracking-tight" href="#">
+<span class="material-symbols-outlined mr-3 text-lg" data-icon="logout">logout</span>
+                    Log out
+                </a>
+</div>
+</div>
+</aside>
+<!-- TopNavBar Anchor -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 bg-[#0b1326]/60 backdrop-blur-xl border-b border-[#434655]/15 flex justify-between items-center px-10 z-40">
+<div class="flex items-center gap-8">
+<div class="flex items-center bg-surface-container-lowest px-4 py-1.5 rounded-full border border-outline-variant/10">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm text-on-surface-variant placeholder:text-outline w-64" placeholder="Search activity..." type="text"/>
+</div>
+<nav class="flex gap-6">
+<a class="font-['Inter'] text-sm font-medium text-on-surface-variant hover:text-[#dae2fd] transition-all duration-300" href="#">Overview</a>
+<a class="font-['Inter'] text-sm font-medium text-[#adc6ff] border-b-2 border-[#adc6ff] transition-all duration-300" href="#">System Status</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-[#c3c5d8] hover:text-[#dae2fd] relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-surface"></span>
+</button>
+<button class="p-2 text-[#c3c5d8] hover:text-[#dae2fd]">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden bg-surface-container-high border border-outline-variant/30">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Portrait of a young professional male user" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJmydtduh-6ecM-B2HvIt29HnW2jL1cC6yTgDi6hyssXU9ibMI9w8jka_pRZl4Tblj207YPtrGxiiEKCPYjYTFHOhkQrCQjyBeBU55jpe2OT1wlUiuO9Q22UOF-XDmaHBBDRFc_y1Su9CLcu1Z0iRrRFco_Ayp_nMte_X83JY4RnWNHVoprTbb9i6TmsmNdiNx4dCHVMU9yJanbETIQSxobtY6K_5jkHLSufsS_P45Y0qN323fegsjggBmfDUtOhVQDDhj87sJMmI"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 px-10 pb-12">
+<!-- Header & Editorial Summary -->
+<section class="mb-12">
+<div class="flex justify-between items-end mb-8">
+<div>
+<h2 class="text-4xl font-headline font-extrabold tracking-tighter text-on-surface mb-2">System Activity</h2>
+<p class="text-on-surface-variant font-medium tracking-wide opacity-80 uppercase text-xs">Real-time event logging &amp; network diagnostics</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 bg-surface-container-low text-primary text-sm font-semibold rounded-lg hover:bg-surface-container transition-colors">
+                        Mark all as read
+                    </button>
+<button class="px-4 py-2 bg-surface-container-low text-on-surface-variant text-sm font-semibold rounded-lg hover:bg-surface-container transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span>
+                        Filters
+                    </button>
+</div>
+</div>
+<!-- Bento Insight Grid -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Status Board Card (Asymmetric Span) -->
+<div class="col-span-8 bg-surface-container-low rounded-2xl p-8 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+<div class="relative z-10">
+<div class="flex justify-between items-center mb-10">
+<h3 class="text-lg font-bold text-on-surface">Service Status Board</h3>
+<span class="px-3 py-1 bg-green-500/10 text-green-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-full">All Systems Operational</span>
+</div>
+<div class="grid grid-cols-4 gap-4">
+<div class="p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5">
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1">API Cluster</p>
+<div class="flex items-center justify-between">
+<span class="text-xl font-headline font-bold text-on-surface">99.98%</span>
+<span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+</div>
+</div>
+<div class="p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5">
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1">Database</p>
+<div class="flex items-center justify-between">
+<span class="text-xl font-headline font-bold text-on-surface">12ms</span>
+<span class="w-2 h-2 rounded-full bg-green-400"></span>
+</div>
+</div>
+<div class="p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5">
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1">Compute</p>
+<div class="flex items-center justify-between">
+<span class="text-xl font-headline font-bold text-on-surface">42%</span>
+<span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+</div>
+</div>
+<div class="p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5">
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1">Storage</p>
+<div class="flex items-center justify-between">
+<span class="text-xl font-headline font-bold text-on-surface">1.2 TB</span>
+<span class="w-2 h-2 rounded-full bg-green-400"></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Unread Summary Card -->
+<div class="col-span-4 bg-gradient-to-br from-primary-container to-[#004395] rounded-2xl p-8 flex flex-col justify-between text-on-primary-container">
+<div>
+<span class="material-symbols-outlined text-4xl mb-4" data-icon="notifications_active" data-weight="fill">notifications_active</span>
+<h3 class="text-2xl font-bold tracking-tight leading-none">Unread<br/>Priorities</h3>
+</div>
+<div>
+<span class="text-5xl font-black font-headline">14</span>
+<p class="text-sm opacity-80 mt-1 font-medium italic">Events require manual review</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Activity Feed Section -->
+<section>
+<div class="flex items-center gap-4 mb-6">
+<h3 class="text-sm font-bold uppercase tracking-[0.2em] text-outline">Activity Feed</h3>
+<div class="h-[1px] flex-1 bg-outline-variant/20"></div>
+</div>
+<div class="space-y-4">
+<!-- Notification Item 1: Critical -->
+<div class="flex gap-6 p-6 rounded-2xl bg-surface-container-low hover:bg-surface-container transition-all group relative">
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-error rounded-r-full"></div>
+<div class="flex-shrink-0">
+<div class="w-12 h-12 rounded-xl bg-error-container/20 flex items-center justify-center text-error">
+<span class="material-symbols-outlined" data-icon="dangerous">dangerous</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h4 class="font-bold text-on-surface">Critical Security Breach Attempt Detected</h4>
+<span class="text-xs font-medium text-outline">2 mins ago</span>
+</div>
+<p class="text-sm text-on-surface-variant max-w-2xl mb-4 leading-relaxed">System identified a suspicious login attempt from IP <span class="text-error font-mono font-bold">192.168.1.105</span>. Automatic block protocol initiated for user admin_svc.</p>
+<div class="flex gap-2">
+<button class="px-4 py-1.5 bg-error text-on-error text-xs font-bold rounded-full">Investigate Trace</button>
+<button class="px-4 py-1.5 bg-surface-container-highest text-on-surface text-xs font-bold rounded-full">Dismiss</button>
+</div>
+</div>
+<div class="flex-shrink-0 flex items-center">
+<span class="w-2 h-2 rounded-full bg-error shadow-[0_0_10px_rgba(255,180,171,0.5)]"></span>
+</div>
+</div>
+<!-- Notification Item 2: System Update -->
+<div class="flex gap-6 p-6 rounded-2xl bg-surface-container border border-outline-variant/10 group relative">
+<div class="flex-shrink-0">
+<div class="w-12 h-12 rounded-xl bg-primary-container/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="system_update_alt">system_update_alt</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h4 class="font-bold text-on-surface">Nocturne OS v2.4 successfully deployed</h4>
+<span class="text-xs font-medium text-outline">1 hour ago</span>
+</div>
+<p class="text-sm text-on-surface-variant max-w-2xl leading-relaxed">New architecture optimization for query latency and enhanced glassmorphism rendering protocols are now active.</p>
+</div>
+<div class="flex-shrink-0 flex items-center">
+<button class="p-2 text-outline hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Notification Item 3: Team Activity -->
+<div class="flex gap-6 p-6 rounded-2xl bg-surface-container-low hover:bg-surface-container transition-all group relative">
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-primary rounded-r-full"></div>
+<div class="flex-shrink-0">
+<div class="w-12 h-12 rounded-xl bg-surface-container-highest overflow-hidden border border-outline-variant/20">
+<img alt="Team Member" class="w-full h-full object-cover" data-alt="Profile photo of a professional woman smiling" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzA6F2x8rLVaIOYhBGC0Jb2Y0zg0gG7-O7RJZkVTJ4Zdc3ybAi9Su_kinnReufHGJBkxIKYK1OZlXwoqKy7iTDkndOCKujQLaMjknZuKneBHpBsJUkQTeW5rJfeA0T_HwEq7wmG0Y4TU0krCtjQ3bTMrl_OlCA18W6g0i2xvMCYo1_aPmCaSOY0KiJKehd5BRG-iOx0VRByIQhhR88dFkqzvOmuvGJvM-3iwUf1TaT-oDuYxnWtc96SJ0Wjpr8lySfDy0tbwIAXH4"/>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h4 class="font-bold text-on-surface">Sarah Chen updated the "Project Orion" documentation</h4>
+<span class="text-xs font-medium text-outline">3 hours ago</span>
+</div>
+<p class="text-sm text-on-surface-variant max-w-2xl mb-4 leading-relaxed">Revised the server-side rendering logic for the dashboard components. 4 files changed, 128 additions, 12 deletions.</p>
+<div class="flex gap-2">
+<button class="px-4 py-1.5 border border-outline-variant/30 text-on-surface text-xs font-bold rounded-full hover:bg-surface-container-highest">Review Changes</button>
+</div>
+</div>
+<div class="flex-shrink-0 flex items-center">
+<span class="w-2 h-2 rounded-full bg-primary shadow-[0_0_10px_rgba(173,198,255,0.5)]"></span>
+</div>
+</div>
+<!-- Notification Item 4: Warning -->
+<div class="flex gap-6 p-6 rounded-2xl bg-surface-container-low hover:bg-surface-container transition-all group relative">
+<div class="flex-shrink-0">
+<div class="w-12 h-12 rounded-xl bg-tertiary-container/20 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined" data-icon="warning">warning</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h4 class="font-bold text-on-surface">Latency threshold exceeded in US-EAST-1</h4>
+<span class="text-xs font-medium text-outline">5 hours ago</span>
+</div>
+<p class="text-sm text-on-surface-variant max-w-2xl leading-relaxed">Response times hit <span class="text-tertiary font-bold">450ms</span>. Standard threshold is 150ms. Traffic rerouting initiated automatically.</p>
+</div>
+<div class="flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-outline hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" data-icon="archive">archive</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Load More Interaction -->
+<div class="mt-12 flex justify-center">
+<button class="group flex flex-col items-center gap-2">
+<span class="text-[10px] font-black uppercase tracking-[0.4em] text-outline group-hover:text-primary transition-colors">Load Older History</span>
+<span class="material-symbols-outlined text-outline group-hover:text-primary animate-bounce" data-icon="keyboard_double_arrow_down">keyboard_double_arrow_down</span>
+</button>
+</div>
+</section>
+</main>
+</body></html>

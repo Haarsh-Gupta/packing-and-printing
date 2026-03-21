@@ -3,36 +3,31 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { InquiryGroup } from "@/types";
 import {
-    MessageSquare, Send, User, Calendar, Package, Layers,
+    MessageSquare, Send, User, Calendar, Package, Layers, Mail, Phone,
     IndianRupee, FileText, Hash, Clock, CheckCircle2, XCircle, AlertCircle, Loader2, ArrowLeft, Calculator
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; dot: string; icon: typeof AlertCircle }> = {
-    DRAFT: { color: '#71717a', bg: '#f4f4f5', dot: '#71717a', icon: FileText },
-    SUBMITTED: { color: '#f59e0b', bg: '#fffbeb', dot: '#f59e0b', icon: Clock },
-    UNDER_REVIEW: { color: '#8b5cf6', bg: '#f5f3ff', dot: '#8b5cf6', icon: FileText },
-    NEGOTIATING: { color: '#0891b2', bg: '#ecfeff', dot: '#0891b2', icon: MessageSquare },
-    QUOTED: { color: '#2563eb', bg: '#eff6ff', dot: '#2563eb', icon: IndianRupee },
-    ACCEPTED: { color: '#16a34a', bg: '#f0fdf4', dot: '#16a34a', icon: CheckCircle2 },
-    REJECTED: { color: '#dc2626', bg: '#fef2f2', dot: '#dc2626', icon: XCircle },
-    CANCELLED: { color: '#737373', bg: '#f5f5f5', dot: '#737373', icon: XCircle },
-    EXPIRED: { color: '#a1a1aa', bg: '#f4f4f5', dot: '#a1a1aa', icon: Clock },
+    DRAFT: { color: 'text-slate-500 dark:text-[#c3c5d8]', bg: 'bg-slate-100 dark:bg-[#434655]/10', dot: 'bg-slate-400 dark:bg-[#c3c5d8]', icon: FileText },
+    SUBMITTED: { color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', dot: 'bg-amber-500 dark:bg-amber-400', icon: Clock },
+    UNDER_REVIEW: { color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', dot: 'bg-purple-500 dark:bg-purple-400', icon: FileText },
+    NEGOTIATING: { color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-500/10', dot: 'bg-cyan-500 dark:bg-cyan-400', icon: MessageSquare },
+    QUOTED: { color: 'text-blue-600 dark:text-[#adc6ff]', bg: 'bg-blue-50 dark:bg-[#adc6ff]/10', dot: 'bg-blue-500 dark:bg-[#adc6ff]', icon: IndianRupee },
+    ACCEPTED: { color: 'text-emerald-600 dark:text-[#34d399]', bg: 'bg-emerald-50 dark:bg-[#34d399]/10', dot: 'bg-emerald-500 dark:bg-[#34d399]', icon: CheckCircle2 },
+    REJECTED: { color: 'text-red-600 dark:text-[#ffb4ab]', bg: 'bg-red-50 dark:bg-[#ffb4ab]/10', dot: 'bg-red-500 dark:bg-[#ffb4ab]', icon: XCircle },
+    CANCELLED: { color: 'text-slate-500 dark:text-[#8d90a1]', bg: 'bg-slate-100 dark:bg-[#434655]/10', dot: 'bg-slate-400 dark:bg-[#8d90a1]', icon: XCircle },
+    EXPIRED: { color: 'text-slate-500 dark:text-[#8d90a1]', bg: 'bg-slate-100 dark:bg-[#2d3449]/30', dot: 'bg-slate-400 dark:bg-[#8d90a1]', icon: Clock },
 };
 
 const UserStatusIndicator = ({ isOnline }: { isOnline: boolean }) => {
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div style={{ 
-                width: '8px', height: '8px', borderRadius: '50%', 
-                background: isOnline ? '#22c55e' : '#a1a1aa',
-                boxShadow: isOnline ? '0 0 10px rgba(34, 197, 94, 0.4)' : 'none'
-            }} />
-            <span style={{ fontSize: '11px', fontWeight: 600, color: isOnline ? '#16a34a' : '#71717a' }}>
+        <div className="flex items-center gap-1.5 transition-colors">
+            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-[#34d399] shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-slate-300 dark:bg-[#c3c5d8]/40'}`} />
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${isOnline ? 'text-emerald-500 dark:text-[#34d399]' : 'text-slate-400 dark:text-[#c3c5d8]/60'}`}>
                 {isOnline ? 'Active Now' : 'Offline'}
             </span>
         </div>
@@ -40,24 +35,11 @@ const UserStatusIndicator = ({ isOnline }: { isOnline: boolean }) => {
 };
 
 const StatusPill = ({ status }: { status: string }) => {
-    const cfg = STATUS_CONFIG[status] || { color: '#737373', bg: '#f5f5f5', dot: '#737373', icon: AlertCircle };
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.CANCELLED;
     return (
-        <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '3px 10px',
-            background: cfg.bg,
-            borderRadius: '4px',
-            fontSize: '10px',
-            fontWeight: 700,
-            color: cfg.color,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            fontFamily: "'DM Mono', monospace",
-        }}>
-            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: cfg.dot, flexShrink: 0 }} />
-            {status}
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${cfg.bg} rounded border border-slate-200 dark:border-white/5 text-[10px] font-bold uppercase tracking-widest ${cfg.color} transition-colors`}>
+            <span className={`w-1 h-1 rounded-full ${cfg.dot}`} />
+            {status.replace(/_/g, ' ')}
         </span>
     );
 };
@@ -68,34 +50,25 @@ function shortId(uuid: string) {
 
 function InfoCard({ label, icon: Icon, value, sub }: { label: string; icon: typeof User; value: string; sub: string }) {
     return (
-        <div style={{
-            padding: '16px',
-            border: '1px solid var(--border)',
-            borderRadius: '6px',
-            background: 'var(--secondary)',
-        }}>
-            <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Icon size={10} /> {label}
+        <div className="p-4 bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl transition-colors shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-2 flex items-center gap-1.5">
+                <Icon size={12} className="text-blue-500 dark:text-[#adc6ff]" /> {label}
             </p>
-            <p style={{ fontSize: '16px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--foreground)' }}>{value}</p>
-            <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', fontWeight: 500, marginTop: '2px' }}>{sub}</p>
+            <p className="text-base font-bold text-slate-900 dark:text-[#dae2fd]">{value}</p>
+            <p className="text-[11px] text-slate-500 dark:text-[#c3c5d8]/70 font-medium mt-1">{sub}</p>
         </div>
     );
 }
 
 function ItemCalculator({ item, subProducts, subServices }: { item: any, subProducts: any[], subServices: any[] }) {
     const [open, setOpen] = useState(false);
-
-    // We need to initialize state from the db schema and the user's selected options.
     const [basePrice, setBasePrice] = useState<number>(0);
     const [options, setOptions] = useState<any[]>([]);
 
     useEffect(() => {
         if (!open) return;
-
         let initialBase = 0;
         let initOpts: any[] = [];
-
         if (item.subproduct_id) {
             const prod = subProducts.find(p => p.id === item.subproduct_id);
             if (prod) {
@@ -106,21 +79,9 @@ function ItemCalculator({ item, subProducts, subServices }: { item: any, subProd
                         if (userVal !== undefined) {
                             if (sec.type === "dropdown" || sec.type === "radio") {
                                 const matchedOpt = sec.options?.find((o: any) => String(o.value) === String(userVal));
-                                initOpts.push({
-                                    key: sec.key,
-                                    label: sec.label,
-                                    type: "mod",
-                                    userChoice: userVal,
-                                    val: matchedOpt ? parseFloat(matchedOpt.price_mod || "0") : 0
-                                });
+                                initOpts.push({ key: sec.key, label: sec.label, type: "mod", userChoice: userVal, val: matchedOpt ? parseFloat(matchedOpt.price_mod || "0") : 0 });
                             } else if (sec.type === "number_input") {
-                                initOpts.push({
-                                    key: sec.key,
-                                    label: sec.label,
-                                    type: "ppu",
-                                    userChoice: userVal, // qty
-                                    val: parseFloat(sec.price_per_unit || "0")
-                                });
+                                initOpts.push({ key: sec.key, label: sec.label, type: "ppu", userChoice: userVal, val: parseFloat(sec.price_per_unit || "0") });
                             }
                         }
                     });
@@ -132,7 +93,6 @@ function ItemCalculator({ item, subProducts, subServices }: { item: any, subProd
                 initialBase = serv.price_per_unit || 0;
             }
         }
-
         setBasePrice(initialBase);
         setOptions(initOpts);
     }, [open, item, subProducts, subServices]);
@@ -145,54 +105,45 @@ function ItemCalculator({ item, subProducts, subServices }: { item: any, subProd
 
     if (!open) {
         return (
-            <Button size="sm" variant="outline" onClick={() => setOpen(true)} className="mt-3 h-8 text-xs font-semibold text-[#136dec] border-[#136dec]/20 hover:bg-[#136dec]/10">
-                <Calculator size={14} className="mr-2" /> Open Pricing Sandbox
-            </Button>
+            <button onClick={() => setOpen(true)} className="mt-3 h-8 px-3 rounded text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-[#adc6ff] border border-blue-200 dark:border-[#adc6ff]/20 hover:bg-blue-50 dark:hover:bg-[#adc6ff]/10 flex items-center transition-colors">
+                <Calculator size={13} className="mr-1.5" /> Pricing Sandbox
+            </button>
         );
     }
 
     let unitTotal = basePrice;
     options.forEach(o => {
-        if (o.type === "mod") {
-            unitTotal += (o.val || 0);
-        } else if (o.type === "ppu") {
-            const qty = parseFloat(String(o.userChoice) || "0");
-            unitTotal += (qty * (o.val || 0));
-        }
+        if (o.type === "mod") unitTotal += (o.val || 0);
+        else if (o.type === "ppu") unitTotal += (parseFloat(String(o.userChoice) || "0") * (o.val || 0));
     });
     const finalTotal = unitTotal * (item.quantity || 1);
 
     return (
-        <div className="mt-4 p-4 rounded-xl border border-[#136dec]/30 bg-[#eff6ff]/30 shadow-inner">
-            <div className="flex items-center justify-between mb-3 border-b border-[#2563eb]/20 pb-2">
-                <p className="font-bold text-[#1e40af] flex items-center gap-2 text-sm"><Calculator size={14} /> Item Sandbox Calculator</p>
-                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-[#2563eb]" onClick={() => setOpen(false)}>Close</Button>
+        <div className="mt-4 p-4 rounded-xl border border-blue-200 dark:border-[#adc6ff]/20 bg-white dark:bg-[#131b2e] shadow-lg transition-colors">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-[#434655]/20 pb-3">
+                <p className="font-bold text-blue-600 dark:text-[#adc6ff] flex items-center gap-1.5 text-xs uppercase tracking-wider transition-colors"><Calculator size={14} /> Item Sandbox Mode</p>
+                <button className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#c3c5d8] hover:text-slate-600 dark:hover:text-[#dae2fd] transition-colors" onClick={() => setOpen(false)}>Close</button>
             </div>
-
-            <div className="space-y-3">
-                <div className="flex justify-between items-center bg-white p-2 rounded border border-slate-200">
-                    <span className="text-xs font-bold text-slate-700">Base Price (₹)</span>
-                    <Input type="number" className="w-24 h-7 text-xs text-right font-bold" value={basePrice} onChange={e => setBasePrice(parseFloat(e.target.value) || 0)} />
+            <div className="space-y-2">
+                <div className="flex justify-between items-center bg-slate-50 dark:bg-[#0b1326] px-3 py-2 rounded-lg border border-slate-100 dark:border-[#434655]/20 transition-colors">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-[#c3c5d8]">Base Price (₹)</span>
+                    <input type="number" className="w-20 h-6 bg-transparent text-slate-900 dark:text-[#dae2fd] text-xs text-right font-bold outline-none" value={basePrice} onChange={e => setBasePrice(parseFloat(e.target.value) || 0)} />
                 </div>
-
                 {options.map((opt, i) => (
-                    <div key={i} className="flex justify-between items-center bg-white p-2 rounded border border-slate-200">
+                    <div key={i} className="flex justify-between items-center bg-slate-50 dark:bg-[#0b1326] px-3 py-2 rounded-lg border border-slate-100 dark:border-[#434655]/20 transition-colors">
                         <div className="flex flex-col">
-                            <span className="text-xs font-bold text-slate-700">{opt.label}</span>
-                            <span className="text-[10px] text-slate-500 uppercase">{opt.userChoice}</span>
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-[#c3c5d8]">{opt.label}</span>
+                            <span className="text-[9px] text-blue-500 dark:text-[#adc6ff] uppercase tracking-wider mt-0.5">{opt.userChoice}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-slate-400 font-mono">{opt.type === "ppu" ? "₹/unit" : "+₹"}</span>
-                            <Input type="number" className="w-20 h-7 text-xs text-right font-bold" value={opt.val === 0 ? "" : opt.val} placeholder="0" onChange={e => updateOpt(i, parseFloat(e.target.value) || 0)} />
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-slate-300 dark:text-[#434655] font-bold font-mono uppercase">{opt.type === "ppu" ? "₹/unit" : "+₹"}</span>
+                            <input type="number" className="w-16 h-6 bg-transparent text-slate-900 dark:text-[#dae2fd] text-xs text-right font-bold outline-none border-b border-slate-200 dark:border-[#434655]/40 focus:border-blue-500 dark:focus:border-[#adc6ff] transition-colors" value={opt.val === 0 ? "" : opt.val} placeholder="0" onChange={e => updateOpt(i, parseFloat(e.target.value) || 0)} />
                         </div>
                     </div>
                 ))}
-
-                <div className="pt-2 flex justify-between items-center mt-2 border-t border-slate-200/50">
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase">Unit: ₹{unitTotal.toLocaleString()} × {item.quantity}</p>
-                    </div>
-                    <p className="text-xl font-black text-[#1e40af]">₹{finalTotal.toLocaleString()}</p>
+                <div className="pt-3 flex justify-between items-center mt-3 border-t border-slate-100 dark:border-[#434655]/20">
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-[#c3c5d8] uppercase tracking-wider">Unit: ₹{unitTotal.toLocaleString()} × {item.quantity || 1}</p>
+                    <p className="text-lg font-black text-blue-600 dark:text-[#adc6ff] transition-colors">₹{finalTotal.toLocaleString()}</p>
                 </div>
             </div>
         </div>
@@ -212,8 +163,6 @@ export default function InquiryDetail() {
     const [subServices, setSubServices] = useState<any[]>([]);
     const [userDetails, setUserDetails] = useState<any>(null);
     const [remoteTyping, setRemoteTyping] = useState(false);
-
-    // Typing indicator throttle
     const [isTyping, setIsTyping] = useState(false);
     const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const wsRef = React.useRef<WebSocket | null>(null);
@@ -225,27 +174,20 @@ export default function InquiryDetail() {
             api<InquiryGroup>(`/admin/inquiries/${id}`),
             api<any[]>("/admin/products/subproducts").catch(() => []),
             api<any[]>("/admin/services/subservices").catch(() => [])
-        ])
-            .then(([inquiry, prods, servs]) => {
-                setSelected(inquiry);
-                setSubProducts(prods);
-                setSubServices(servs);
-                // Fetch user details for online status from Redis-aware endpoint
-                api<any>(`/admin/users/${inquiry.user_id}`).then(setUserDetails).catch(console.warn);
-            })
-            .catch(console.error)
-            .finally(() => setDetailLoading(false));
+        ]).then(([inquiry, prods, servs]) => {
+            setSelected(inquiry);
+            setSubProducts(prods);
+            setSubServices(servs);
+            api<any>(`/admin/users/${inquiry.user_id}`).then(setUserDetails).catch(console.warn);
+        }).catch(console.error).finally(() => setDetailLoading(false));
     }, [id]);
 
     useEffect(() => {
         if (!id) return;
-
-        // Admin uses "admin_token" stored by the Vite admin app
         const activeToken = localStorage.getItem("admin_token") || "";
         const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
         const wsBase = apiBase.replace(/^http/, "ws");
         const wsUrl = `${wsBase}/inquiries/ws/${id}?token=${activeToken}`;
-
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
@@ -255,33 +197,23 @@ export default function InquiryDetail() {
                 if (data.type === "new_message") {
                     setSelected(prev => {
                         if (!prev) return prev;
-                        const exists = (prev.messages || []).some((m: any) =>
-                            m.id === data.message.id || String(m.id) === String(data.message.id)
-                        );
+                        const exists = (prev.messages || []).some((m: any) => String(m.id) === String(data.message.id));
                         if (exists) return prev;
                         return { ...prev, messages: [...(prev.messages || []), data.message] };
                     });
                     setRemoteTyping(false);
                 } else if (data.type === "typing") {
-                    // Show indicator only when the USER (non-admin) is typing
-                    if (!data.is_admin) {
-                        setRemoteTyping(data.is_typing);
-                    }
+                    if (!data.is_admin) setRemoteTyping(data.is_typing);
                 }
             } catch (e) {
                 console.error("WS Parse Error", e);
             }
         };
-
         ws.onerror = () => console.warn("WS error for inquiry", id);
-
-        return () => {
-            ws.close();
-            wsRef.current = null;
-        };
+        return () => { ws.close(); wsRef.current = null; };
     }, [id]);
 
-    const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
         setReply(e.target.value);
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             if (!isTyping) {
@@ -291,9 +223,7 @@ export default function InquiryDetail() {
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             typingTimeoutRef.current = setTimeout(() => {
                 setIsTyping(false);
-                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: "typing", is_typing: false }));
-                }
+                if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify({ type: "typing", is_typing: false }));
             }, 1500);
         }
     };
@@ -302,16 +232,9 @@ export default function InquiryDetail() {
         if (!selected) return;
         setSending(true);
         try {
-            const res = await api<InquiryGroup>(`/admin/inquiries/${selected.id}/status`, {
-                method: "PATCH",
-                body: JSON.stringify({ status: newStatus }),
-            });
+            const res = await api<InquiryGroup>(`/admin/inquiries/${selected.id}/status`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
             setSelected(res);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setSending(false);
-        }
+        } catch (e) { console.error(e); } finally { setSending(false); }
     };
 
     const sendQuote = async () => {
@@ -320,351 +243,354 @@ export default function InquiryDetail() {
         try {
             await api(`/admin/inquiries/${selected.id}/quote`, {
                 method: "PATCH",
-                body: JSON.stringify({
-                    total_price: parseFloat(quoteForm.amount),
-                    admin_notes: quoteForm.notes || null,
-                    valid_days: parseInt(quoteForm.validDays) || 7,
-                }),
+                body: JSON.stringify({ total_price: parseFloat(quoteForm.amount), admin_notes: quoteForm.notes || null, valid_days: parseInt(quoteForm.validDays) || 7 }),
             });
             setQuoteForm({ amount: "", notes: "", validDays: "7" });
             const data = await api<InquiryGroup>(`/admin/inquiries/${selected.id}`);
             setSelected(data);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setSending(false);
-        }
+        } catch (e) { console.error(e); } finally { setSending(false); }
     };
 
     const sendMessage = async () => {
         if (!selected || !reply.trim()) return;
-        const msgContent = reply.trim();
         setSending(true);
         try {
-            const res = await api<any>(`/admin/inquiries/${selected.id}/messages`, {
-                method: "POST",
-                body: JSON.stringify({ content: msgContent }),
-            });
-
-            // Optimistically append message locally so admin sees it immediately
+            const res = await api<any>(`/admin/inquiries/${selected.id}/messages`, { method: "POST", body: JSON.stringify({ content: reply.trim() }) });
             if (res && res.id) {
                 setSelected(prev => {
                     if (!prev) return prev;
-                    // Avoid duplicate if WS already delivered it
-                    const exists = (prev.messages || []).some((m: any) => m.id === res.id);
-                    if (exists) return prev;
-                    return {
-                        ...prev,
-                        messages: [...(prev.messages || []), res]
-                    };
+                    if ((prev.messages || []).some((m: any) => m.id === res.id)) return prev;
+                    return { ...prev, messages: [...(prev.messages || []), res] };
                 });
             }
-
             setReply("");
-            // Stop typing indicator
             if (wsRef.current?.readyState === WebSocket.OPEN) {
                 wsRef.current.send(JSON.stringify({ type: "typing", is_typing: false }));
                 setIsTyping(false);
                 if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setSending(false);
-        }
+        } catch (e) { console.error(e); } finally { setSending(false); }
     };
 
     if (detailLoading) {
         return (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Loader2 size={28} style={{ color: 'var(--muted-foreground)', animation: 'spin 0.8s linear infinite' }} />
+            <div className="flex-1 flex items-center justify-center bg-[#0b1326] min-h-screen">
+                <Loader2 size={28} className="text-[#adc6ff] animate-spin" />
             </div>
         );
     }
 
     if (!selected) {
         return (
-            <div style={{ padding: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                <MessageSquare size={40} style={{ color: 'var(--border)' }} />
-                <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted-foreground)' }}>Inquiry not found.</p>
-                <Button variant="outline" onClick={() => navigate('/inquiries')}>Go Back</Button>
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[#0b1326] min-h-screen">
+                <MessageSquare size={40} className="text-[#434655]" />
+                <p className="text-[13px] font-bold text-[#c3c5d8]">Inquiry not found or deleted.</p>
+                <button className="px-4 py-2 bg-[#131b2e] border border-[#434655]/20 rounded-lg text-xs font-bold text-[#adc6ff] tracking-widest uppercase hover:bg-[#171f33] transition-colors" onClick={() => navigate('/inquiries')}>Go Back</button>
             </div>
         );
     }
 
     return (
-        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontFamily: "'DM Sans', system-ui", height: "calc(100vh - 100px)" }}>
-
-            <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "8px" }}>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/inquiries')} style={{ color: "var(--muted-foreground)" }}>
-                    <ArrowLeft size={16} style={{ marginRight: "6px" }} /> Back
-                </Button>
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-6 flex-1 overflow-visible lg:overflow-hidden min-h-[800px] lg:min-h-0">
-
-                {/* Left pane: Details and items */}
-                <div className="flex flex-col flex-auto lg:overflow-y-auto bg-card border border-border rounded-lg">
-                    <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)', letterSpacing: '0.1em' }}>
-                                    #{shortId(selected.id)}
-                                </span>
-                                <UserStatusIndicator isOnline={userDetails?.is_online} />
-                            </div>
-                            <StatusPill status={selected.status} />
-                        </div>
-                        <h1 style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em' }}>Inquiry Details</h1>
-                        <p style={{ fontSize: '13px', color: "var(--muted-foreground)" }}>
-                            {selected.items.length} {selected.items.length === 1 ? 'item' : 'items'} · Created {new Date(selected.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </p>
+        <main className="min-h-screen p-8 lg:p-12 bg-[#f7f9fb] dark:bg-[#0b1326] text-[#191c1e] dark:text-[#dae2fd] antialiased overflow-y-auto custom-scrollbar transition-colors">
+            {/* Header Section */}
+            <header className="mb-10 flex justify-between items-end">
+                <div>
+                    <div className="flex items-center gap-3 mb-2">
+                        <span className="bg-[#2170e4]/10 text-[#0058be] dark:text-[#adc6ff] px-3 py-1 rounded text-xs font-bold tracking-wider uppercase font-headline">
+                            {selected.status.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-[#424754] dark:text-[#c3c5d8] text-sm font-medium">INQ-{selected.id.slice(0, 8)}</span>
                     </div>
-
-                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <InfoCard label="Customer" icon={User} value={`ID: ${shortId(selected.user_id)}`} sub={`User ${selected.user_id.slice(0, 12)}...`} />
-                            <InfoCard label="Submitted" icon={Calendar} value={new Date(selected.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} sub={new Date(selected.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} />
-                        </div>
-
-                        {selected.active_quote && (
-                            <div style={{ padding: '16px 20px', border: '1px solid #2563eb30', borderRadius: '8px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div>
-                                    <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#2563eb', fontFamily: "'DM Mono', monospace", marginBottom: '4px' }}>Quoted Price</p>
-                                    <p style={{ fontSize: '24px', fontWeight: 900, color: '#1e40af', letterSpacing: '-0.03em' }}>₹{selected.active_quote.total_price.toLocaleString()}</p>
-                                </div>
-                                {selected.active_quote.valid_until && (
-                                    <div style={{ textAlign: 'right' }}>
-                                        <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6b7280', fontFamily: "'DM Mono', monospace", marginBottom: '2px' }}>Valid Until</p>
-                                        <p style={{ fontSize: '12px', fontWeight: 700, color: '#374151', fontFamily: "'DM Mono', monospace" }}>{new Date(selected.active_quote.valid_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {selected.quote_versions && selected.quote_versions.length > 0 && (
-                            <div>
-                                <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginTop: '16px', marginBottom: '4px' }}>Quote History</p>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
-                                    {[...selected.quote_versions].sort((a,b) => b.version_number - a.version_number).map(vq => (
-                                        <div key={vq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: vq.id === selected.active_quote_id ? '#eff6ff' : 'var(--secondary)', border: `1px solid ${vq.id === selected.active_quote_id ? '#2563eb30' : 'var(--border)'}`, borderRadius: '6px' }}>
-                                            <div>
-                                                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--foreground)' }}>
-                                                    v{vq.version_number} {vq.id === selected.active_quote_id && (
-                                                        <>
-                                                            <span style={{ color: '#2563eb', marginLeft: '4px' }}>(ACTIVE)</span>
-                                                            {selected.quote_email_status && (
-                                                                <span style={{ 
-                                                                    marginLeft: '8px', 
-                                                                    color: selected.quote_email_status === 'bounced' ? '#ef4444' : '#16a34a',
-                                                                    fontSize: '10px',
-                                                                    fontWeight: 600
-                                                                }}>
-                                                                    • Email: {selected.quote_email_status}
-                                                                    {selected.quote_email_status === 'delivered' && ' ✓'}
-                                                                </span>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                                <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--muted-foreground)', marginTop: '2px', fontFamily: "'DM Mono', monospace" }}>{new Date(vq.created_at).toLocaleDateString()}</div>
-                                            </div>
-                                            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--foreground)' }}>₹{vq.total_price.toLocaleString()}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        <Separator />
-
-                        <div>
-                            <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '12px' }}>Cart Items ({selected.items.length})</p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {selected.items.map((item) => (
-                                    <div key={item.id} style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--card)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: item.service_id ? '#f0fdf4' : '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    {item.service_id ? <FileText size={14} style={{ color: '#16a34a' }} /> : <Package size={14} style={{ color: '#2563eb' }} />}
-                                                </div>
-                                                <div>
-                                                    <p style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '-0.02em' }}>{item.template_name || item.service_name || (item.template_id ? `Product #${item.template_id}` : `Service #${item.service_id}`)}</p>
-                                                    {item.variant_name && <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', fontWeight: 500 }}>Variant: {item.variant_name}</p>}
-                                                </div>
-                                            </div>
-                                            <span style={{ fontSize: '11px', fontWeight: 700, fontFamily: "'DM Mono', monospace", padding: '2px 8px', background: 'var(--secondary)', borderRadius: '4px' }}>QTY: {item.quantity}</span>
-                                        </div>
-                                        {item.selected_options && Object.keys(item.selected_options).length > 0 && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: item.notes ? '10px' : 0 }}>
-                                                {Object.entries(item.selected_options).map(([k, v]) => (
-                                                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-                                                        <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>{k.replace(/_/g, ' ')}</span>
-                                                        <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--foreground)' }}>{typeof v === 'boolean' ? (v ? 'YES' : 'NO') : String(v)}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {item.notes && <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontStyle: 'italic', marginTop: '4px' }}>"{item.notes}"</p>}
-                                        {item.line_item_price != null ? (
-                                            <p style={{ fontSize: '13px', fontWeight: 800, color: '#2563eb', marginTop: '8px', fontFamily: "'DM Mono', monospace" }}>₹{item.line_item_price.toLocaleString()}</p>
-                                        ) : (
-                                            <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} />
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {selected.active_quote?.admin_notes && (
-                            <>
-                                <Separator />
-                                <div style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--secondary)' }}>
-                                    <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '8px' }}>Admin Notes</p>
-                                    <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)', lineHeight: 1.6 }}>{selected.active_quote.admin_notes}</p>
-                                </div>
-                            </>
-                        )}
-
-                        <Separator />
-                        <div>
-                            <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '12px' }}>Actions</p>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                {selected.status !== 'REJECTED' && (
-                                    <Button size="sm" variant="outline" onClick={() => transitionStatus('REJECTED')} className="text-red-600 border-red-200 hover:bg-red-50">
-                                        <XCircle size={14} className="mr-2" /> Reject Inquiry
-                                    </Button>
-                                )}
-                                {selected.status === 'QUOTED' && (
-                                    <Button size="sm" variant="outline" onClick={() => transitionStatus('NEGOTIATING')} className="text-cyan-600 border-cyan-200 hover:bg-cyan-50">
-                                        <MessageSquare size={14} className="mr-2" /> Move to Negotiation
-                                    </Button>
-                                )}
-                                {(selected.status === 'REJECTED' || selected.status === 'CANCELLED') && (
-                                    <Button size="sm" variant="outline" onClick={() => transitionStatus('NEGOTIATING')}>
-                                        <Clock size={14} className="mr-2" /> Reopen
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-
-                        {(['SUBMITTED', 'UNDER_REVIEW', 'QUOTED', 'NEGOTIATING'] as string[]).includes(selected.status) && (
-                            <>
-                                <Separator />
-                                <div>
-                                    <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace", marginBottom: '12px' }}>{selected.status === 'QUOTED' ? 'Update Quotation' : 'Send Quotation'}</p>
-                                    <div style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--secondary)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: '12px' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)' }}>Total Amount (₹)</label>
-                                                <Input type="number" placeholder="5000" value={quoteForm.amount} onChange={e => setQuoteForm({ ...quoteForm, amount: e.target.value })} style={{ height: '40px', fontWeight: 800, fontSize: '16px' }} />
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)' }}>Valid Days</label>
-                                                <Input type="number" min="1" value={quoteForm.validDays} onChange={e => setQuoteForm({ ...quoteForm, validDays: e.target.value })} style={{ height: '40px', fontWeight: 700, fontSize: '14px' }} />
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-foreground)' }}>Notes for Customer</label>
-                                            <Textarea placeholder="Pricing breakdown, terms, delivery timeline..." value={quoteForm.notes} onChange={e => setQuoteForm({ ...quoteForm, notes: e.target.value })} style={{ minHeight: '80px', fontSize: '13px' }} />
-                                        </div>
-                                        <Button onClick={sendQuote} disabled={sending || !quoteForm.amount} style={{ width: '100%', height: '40px', fontWeight: 700, fontSize: '13px' }}>
-                                            {sending ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <><IndianRupee size={14} style={{ marginRight: '6px' }} /> Send Quotation</>}
-                                        </Button>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    <h2 className="text-3xl font-bold tracking-tight text-[#191c1e] dark:text-[#dae2fd] font-headline">
+                        {selected.items[0]?.template_name || selected.items[0]?.service_name || "Project Inquiry"}
+                    </h2>
                 </div>
+                <div className="flex gap-3">
+                    <button onClick={() => navigate('/inquiries')} className="flex items-center gap-2 px-4 py-2 bg-[#eceef0] dark:bg-slate-800 text-[#191c1e] dark:text-[#dae2fd] rounded-lg text-sm font-semibold hover:bg-[#e0e3e5] dark:hover:bg-slate-700 transition-all hover:-translate-y-px">
+                        <ArrowLeft size={18} /> Back
+                    </button>
+                    <button className="flex items-center gap-2 px-4 py-2 bg-[#eceef0] dark:bg-slate-800 text-[#191c1e] dark:text-[#dae2fd] rounded-lg text-sm font-semibold hover:bg-[#e0e3e5] dark:hover:bg-slate-700 transition-all hover:-translate-y-px">
+                        <FileText size={18} /> Print PDF
+                    </button>
+                </div>
+            </header>
 
-                <div className="w-full lg:w-[400px] shrink-0 flex flex-col bg-card border border-border rounded-lg overflow-hidden relative h-[600px] lg:h-full">
-                    <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)' }}>
-                        <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted-foreground)', fontFamily: "'DM Mono', monospace" }}>Messages</p>
-                    </div>
+            <div className="grid grid-cols-12 gap-10">
+                {/* Left Column (7/12) */}
+                <div className="col-span-12 lg:col-span-7 space-y-8">
+                    
+                    {/* User Information Card */}
+                    <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 shadow-sm border border-[#eceef0] dark:border-[#434655]/20 transition-colors">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#424754] dark:text-[#c3c5d8]">Customer Profile</h3>
+                            <User size={18} className="text-[#424754]/40 dark:text-[#c3c5d8]/40" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="flex flex-col">
+                                <span className="text-[0.65rem] uppercase font-bold text-[#424754]/60 dark:text-[#c3c5d8]/60 mb-1 tracking-wider">Name</span>
+                                <span className="text-base font-semibold text-[#191c1e] dark:text-[#dae2fd]">{userDetails?.name || 'Anonymous Client'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[0.65rem] uppercase font-bold text-[#424754]/60 dark:text-[#c3c5d8]/60 mb-1 tracking-wider">Email</span>
+                                <span className="text-base font-semibold text-[#191c1e] dark:text-[#dae2fd] truncate max-w-[200px]">{userDetails?.email || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[0.65rem] uppercase font-bold text-[#424754]/60 dark:text-[#c3c5d8]/60 mb-1 tracking-wider">Phone</span>
+                                <span className="text-base font-semibold text-[#191c1e] dark:text-[#dae2fd]">{userDetails?.phone || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </section>
 
-                    <div id="chat-messages-container" style={{ 
-                        flex: 1, 
-                        overflowY: "auto", 
-                        padding: "16px",
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px' 
-                    }}>
-                        {(!selected.messages || selected.messages.length === 0) ? (
-                            <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', textAlign: 'center', marginTop: "20px" }}>No messages yet.</p>
-                        ) : (
-                            selected.messages.map((m) => {
+                    {/* Items List Section */}
+                    <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 shadow-sm border border-[#eceef0] dark:border-[#434655]/20 transition-colors">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#424754] dark:text-[#c3c5d8]">Service Catalog Items</h3>
+                            <span className="text-xs font-bold text-[#0058be] dark:text-[#adc6ff] tracking-tight">{selected.items.length} ITEMS TOTAL</span>
+                        </div>
+                        <div className="space-y-6">
+                            {selected.items.map((item) => (
+                                <div key={item.id} className="flex items-center justify-between group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-[#f7f9fb] dark:bg-[#060e20] rounded-lg flex items-center justify-center border border-[#eceef0] dark:border-[#434655]/20 group-hover:border-[#0058be]/30 transition-colors">
+                                            {item.service_id ? <Layers size={20} className="text-[#0058be] dark:text-[#adc6ff]" /> : <Package size={20} className="text-[#0058be] dark:text-[#adc6ff]" />}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-[#191c1e] dark:text-[#dae2fd] text-sm">{item.template_name || item.service_name || "Custom Configuration"}</h4>
+                                            <p className="text-[11px] text-[#424754] dark:text-[#c3c5d8] font-medium opacity-70">{item.variant_name || "Standard Selection"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="block font-bold text-lg text-[#191c1e] dark:text-[#dae2fd]">
+                                            {item.line_item_price ? `₹${item.line_item_price.toLocaleString()}` : "Price TBD"}
+                                        </span>
+                                        <span className="text-[0.65rem] font-bold text-[#424754]/60 dark:text-[#c3c5d8]/60 uppercase tracking-wider">Qty: {item.quantity}</span>
+                                        {!item.line_item_price && (
+                                            <div className="mt-1">
+                                                <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* Quote History Section */}
+                    <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 shadow-sm border border-[#eceef0] dark:border-[#434655]/20 transition-colors">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#424754] dark:text-[#c3c5d8]">Quote History</h3>
+                            <div className="flex gap-2">
+                                <span className={`w-2 h-2 rounded-full ${selected.active_quote_id ? 'bg-[#2170e4]' : 'bg-[#e6e8ea] dark:bg-slate-700'}`}></span>
+                                <span className="w-2 h-2 rounded-full bg-[#e6e8ea] dark:bg-slate-700"></span>
+                            </div>
+                        </div>
+                        <div className="border-l-2 border-[#eceef0] dark:border-[#434655]/20 ml-4 space-y-12">
+                            {(selected.quote_versions?.length || 0) > 0 ? (
+                                [...(selected.quote_versions || [])].sort((a,b) => b.version_number - a.version_number).map((vq, idx) => (
+                                    <div key={vq.id} className={`relative pl-10 ${idx !== 0 ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                                        <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full ring-4 ring-white dark:ring-[#131b2e] transition-all ${idx === 0 ? 'bg-[#0058be] scale-110 shadow-[0_0_10px_rgba(0,88,190,0.3)]' : 'bg-[#d8dadc] dark:bg-slate-700'}`}></div>
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
+                                            <div>
+                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${idx === 0 ? 'text-[#0058be] dark:text-[#adc6ff]' : 'text-[#424754] dark:text-[#c3c5d8]'}`}>
+                                                    {idx === 0 ? 'Current Version' : `Archive - V.${vq.version_number}`}
+                                                </span>
+                                                <h4 className="text-xl font-bold text-[#191c1e] dark:text-[#dae2fd] mt-1">V.{String(vq.version_number).padStart(2, '0')} - {idx === 0 ? 'Final Revision' : 'Previous Proposal'}</h4>
+                                                {idx !== 0 && <p className="text-[11px] font-medium text-[#424754] dark:text-[#c3c5d8] mt-1">Status: Superseded</p>}
+                                            </div>
+                                            <div className="text-right mt-2 md:mt-0">
+                                                <span className="block text-2xl font-black text-[#191c1e] dark:text-[#dae2fd]">₹{vq.total_price.toLocaleString()}</span>
+                                                <span className="text-[10px] text-[#424754] dark:text-[#c3c5d8] font-bold uppercase tracking-wider opacity-60">Expires {vq.valid_until ? new Date(vq.valid_until).toLocaleDateString() : 'N/A'}</span>
+                                            </div>
+                                        </div>
+                                        {idx === 0 && (
+                                            <div className="bg-[#f7f9fb] dark:bg-[#060e20] rounded-lg p-6 border border-[#eceef0] dark:border-[#434655]/20">
+                                                <h5 className="text-[10px] font-bold uppercase tracking-widest text-[#424754] dark:text-[#c3c5d8] mb-4 opacity-70">Internal Proposal Summary</h5>
+                                                <p className="text-sm text-[#424754] dark:text-[#c3c5d8] leading-relaxed italic font-medium">"{vq.admin_notes || 'No notes provided with this quote version.'}"</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="pl-10 text-[13px] font-medium text-[#424754]/40 dark:text-[#c3c5d8]/40 italic py-4">
+                                    Strategic quotation pending. Use the workflow panel to emit initial pricing.
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
+                    {/* Chat/Messages Section */}
+                    <section className="bg-white dark:bg-[#131b2e] rounded-xl shadow-sm border border-slate-200 dark:border-[#434655]/20 flex flex-col h-[550px] overflow-hidden transition-colors">
+                        <div className="p-6 border-b border-slate-100 dark:border-[#434655]/20 flex items-center justify-between bg-white dark:bg-[#131b2e]">
+                            <div className="flex items-center gap-3">
+                                <MessageSquare size={18} className="text-blue-600 dark:text-[#adc6ff]" />
+                                <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-[#c3c5d8]">Communication Thread</h3>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-[#c3c5d8]/40 uppercase tracking-widest">
+                                {selected.messages?.length || 0} Packets logged
+                            </span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-[#0b1326]/50 shadow-inner custom-scrollbar transition-colors">
+                            {selected.messages?.map((m) => {
                                 const isAdmin = m.sender_id !== selected.user_id;
                                 return (
-                                    <div key={m.id} style={{ 
-                                        alignSelf: isAdmin ? 'flex-end' : 'flex-start', 
-                                        maxWidth: '85%',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: isAdmin ? 'flex-end' : 'flex-start'
-                                    }}>
-                                        <div style={{ 
-                                            padding: '8px 12px', 
-                                            borderRadius: '12px', 
-                                            borderTopRightRadius: isAdmin ? '2px' : '12px', 
-                                            borderTopLeftRadius: isAdmin ? '12px' : '2px', 
-                                            background: isAdmin ? 'var(--foreground)' : 'var(--secondary)', 
-                                            color: isAdmin ? 'var(--background)' : 'var(--foreground)', 
-                                            fontSize: '13px', 
-                                            fontWeight: 500, 
-                                            lineHeight: 1.4,
-                                            wordBreak: 'break-word'
-                                        }}>
-                                            {m.content}
+                                    <div key={m.id} className={`flex items-start gap-4 max-w-[85%] ${isAdmin ? 'ml-auto flex-row-reverse text-right' : ''}`}>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm ${isAdmin ? 'bg-blue-600 text-white ring-2 ring-blue-500/10' : 'bg-blue-100 dark:bg-[#d8e2ff] text-blue-900 dark:text-[#001a42] ring-2 ring-blue-100/20 dark:ring-[#d8e2ff]/20'}`}>
+                                            {isAdmin ? 'AD' : (userDetails?.name?.[0]?.toUpperCase() || 'CL')}
                                         </div>
-                                        <p style={{ 
-                                            fontSize: '8px', 
-                                            fontWeight: 700, 
-                                            color: 'var(--muted-foreground)', 
-                                            fontFamily: "'DM Mono', monospace", 
-                                            marginTop: '3px',
-                                            opacity: 0.7
-                                        }}>
-                                            {isAdmin ? 'Admin · ' : ''}{new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </p>
+                                        <div className={`p-4 rounded-2xl shadow-sm ${isAdmin ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 text-slate-900 dark:text-[#dae2fd] rounded-tl-none'}`}>
+                                            <p className="text-sm leading-relaxed font-medium">{m.content}</p>
+                                            <span className={`text-[9px] mt-2 block font-black uppercase tracking-widest ${isAdmin ? 'text-white/60' : 'text-slate-400 dark:text-[#c3c5d8]/40'}`}>
+                                                {isAdmin ? 'SYSTEM ADMIN' : (userDetails?.name?.toUpperCase() || 'CLIENT')} • {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
                                     </div>
                                 );
-                            })
-                        )}
-                        {remoteTyping && (
-                            <div style={{ alignSelf: 'flex-start', maxWidth: '85%' }}>
-                                <div style={{ padding: '6px 12px', borderRadius: '12px', background: 'var(--secondary)', color: 'var(--muted-foreground)', fontSize: '11px', fontWeight: 600, fontStyle: 'italic' }}>
-                                    User is typing...
+                            })}
+                            {remoteTyping && (
+                                <div className="flex items-start gap-4 max-w-[85%]">
+                                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-[#d8e2ff] flex items-center justify-center text-[10px] font-black text-blue-900 dark:text-[#001a42] shrink-0 ring-2 ring-blue-100/20 dark:ring-[#d8e2ff]/20">CL</div>
+                                    <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 p-3 rounded-xl rounded-tl-none flex items-center gap-2 shadow-sm">
+                                        <div className="flex gap-1">
+                                            <span className="w-1.5 h-1.5 bg-blue-600/40 rounded-full animate-bounce"></span>
+                                            <span className="w-1.5 h-1.5 bg-blue-600/40 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                            <span className="w-1.5 h-1.5 bg-blue-600/40 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-6 bg-white dark:bg-[#131b2e] border-t border-slate-100 dark:border-[#434655]/20 transition-colors">
+                            <div className="relative group">
+                                <textarea 
+                                    className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/20 rounded-xl p-4 pr-16 text-sm dark:text-[#dae2fd] focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24 resize-none transition-all placeholder:text-slate-400 dark:placeholder:text-[#c3c5d8]/30" 
+                                    placeholder="Draft a message to the client..."
+                                    value={reply}
+                                    onChange={handleTyping}
+                                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                                />
+                                <div className="absolute bottom-3 right-3 flex items-center gap-2 opacity-0 group-focus-within:opacity-100 transition-opacity">
+                                    <button disabled={sending || !reply.trim()} onClick={sendMessage} className="bg-blue-600 text-white p-2.5 rounded-lg hover:bg-blue-700 transition-all shadow-lg active:scale-95 disabled:opacity-50">
+                                        {sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                                    </button>
                                 </div>
                             </div>
-                        )}
-                    </div>
-
-                    {(['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'QUOTED', 'NEGOTIATING', 'ACCEPTED', 'REJECTED', 'CANCELLED'] as string[]).includes(selected.status) && (
-                        <div style={{ 
-                            padding: '16px', 
-                            borderTop: '1px solid var(--border)', 
-                            background: 'var(--secondary)',
-                            marginTop: 'auto'
-                        }}>
-                            <div style={{ display: 'flex', width: '100%', gap: '10px' }}>
-                                <Input 
-                                    placeholder="Type a message..." 
-                                    value={reply} 
-                                    onChange={handleTyping} 
-                                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()} 
-                                    style={{ flex: 1, height: '38px', fontSize: '13px', background: 'var(--card)' }} 
-                                />
-                                <Button size="icon" onClick={sendMessage} disabled={sending || !reply.trim()} style={{ height: '38px', width: '38px' }}>
-                                    <Send size={16} />
-                                </Button>
-                            </div>
                         </div>
-                    )}
+                    </section>
                 </div>
 
+                {/* Right Column (5/12) */}
+                <div className="col-span-12 lg:col-span-5 space-y-8">
+                    {/* Action Controls */}
+                    {/* Action Controls */}
+                    <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 shadow-sm border border-slate-200 dark:border-[#434655]/20 transition-colors">
+                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-[#c3c5d8] mb-8">Inquiry Workflow</h3>
+                        <div className="space-y-6">
+                            <div className="p-6 bg-slate-50 dark:bg-[#0b1326] border border-slate-100 dark:border-[#434655]/20 rounded-2xl relative overflow-hidden group transition-colors">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors"></div>
+                                <div className="flex items-center gap-3 mb-6 relative z-10">
+                                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                        <FileText size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-slate-900 dark:text-[#dae2fd] text-sm">{selected.active_quote ? "Revise Quotation" : "Emit Initial Quotation"}</h4>
+                                        <p className="text-[10px] text-slate-500 dark:text-[#c3c5d8] font-bold uppercase tracking-widest opacity-60">Strategic Proposal</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-5 relative z-10">
+                                    <div className="group/field">
+                                        <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2 group-focus-within/field:text-blue-600 dark:group-focus-within/field:text-[#adc6ff] transition-colors">Total Contract Value (INR)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300 dark:text-[#424754]/30 group-focus-within/field:text-blue-600/50 dark:group-focus-within/field:text-[#adc6ff]/50 transition-colors">₹</span>
+                                            <input 
+                                                className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl pl-9 pr-4 py-3.5 font-black text-lg focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-[#adc6ff] text-slate-900 dark:text-[#dae2fd] transition-all outline-none" 
+                                                type="number" 
+                                                value={quoteForm.amount}
+                                                onChange={e => setQuoteForm({ ...quoteForm, amount: e.target.value })}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">Validity Days</label>
+                                            <input 
+                                                className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl px-4 py-3 text-sm font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-[#adc6ff] text-slate-900 dark:text-[#dae2fd] transition-all outline-none" 
+                                                type="number" 
+                                                value={quoteForm.validDays}
+                                                onChange={e => setQuoteForm({ ...quoteForm, validDays: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="flex items-end">
+                                            <button 
+                                                onClick={sendQuote}
+                                                disabled={sending || !quoteForm.amount}
+                                                className="w-full h-[46px] bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                            >
+                                                {sending ? <Loader2 size={16} className="animate-spin" /> : (selected.active_quote ? "Re-Emit" : "Emit")}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">Proposal Narrative</label>
+                                        <Textarea 
+                                            placeholder="Outline the core logic for the client..." 
+                                            value={quoteForm.notes} 
+                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setQuoteForm({ ...quoteForm, notes: e.target.value })}
+                                            className="min-h-[100px] text-xs bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/20 focus:ring-2 focus:ring-blue-500 dark:text-[#dae2fd] p-4 font-medium leading-relaxed transition-all"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                {selected.status !== 'REJECTED' && (
+                                    <button onClick={() => transitionStatus('REJECTED')} className="py-3.5 px-4 bg-slate-50 dark:bg-red-950/20 border border-slate-200 dark:border-red-500/20 text-slate-900 dark:text-red-400 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 hover:border-red-300 dark:hover:border-red-500/40 hover:text-red-600 transition-all flex items-center justify-center gap-2 group">
+                                        <XCircle size={16} className="text-red-400/40 group-hover:text-red-600 transition-colors" /> Reject Lead
+                                    </button>
+                                )}
+                                {selected.status === 'QUOTED' && (
+                                    <button onClick={() => transitionStatus('NEGOTIATING')} className="py-3.5 px-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center gap-2">
+                                        <MessageSquare size={16} /> Negotiating
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </section>
+
+                     {/* Internal Notes */}
+                    <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 shadow-sm border border-slate-200 dark:border-[#434655]/20 transition-colors">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-[#c3c5d8]">Internal Intelligence</h3>
+                            <div className="bg-slate-100 dark:bg-[#eceef0]/10 p-1.5 rounded-lg">
+                                <FileText size={16} className="text-slate-400 dark:text-[#c3c5d8]/40" />
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-[#0b1326] border border-slate-100 dark:border-[#434655]/20 rounded-xl p-6 relative transition-colors">
+                            <div className="absolute top-4 left-4 w-1 h-8 bg-blue-600/20 dark:bg-[#0058be]/20 rounded-full"></div>
+                            <p className="text-xs text-slate-600 dark:text-[#c3c5d8] leading-relaxed pl-4 font-medium italic">
+                                {selected.admin_notes || "No internal strategic intelligence recorded for this inquiry. Recording preferences or negotiation leverage here is recommended."}
+                            </p>
+                        </div>
+                        <button className="mt-6 w-full py-3 border border-dashed border-slate-200 dark:border-[#434655]/40 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-[#adc6ff] hover:bg-blue-50 dark:hover:bg-[#0058be]/5 transition-all flex items-center justify-center gap-2">
+                            <Layers size={14} /> Update Strategic Note
+                        </button>
+                    </section>
+
+                    {/* Danger Zone */}
+                    {/* Danger Zone */}
+                    <div className="pt-4 border-t border-slate-200 dark:border-[#eceef0]/20 transition-colors">
+                         <div className="flex items-center justify-between opacity-40 hover:opacity-100 transition-opacity">
+                            <div>
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-[#ba1a1a]">Archive Protocol</h4>
+                                <p className="text-[9px] font-bold text-slate-500 dark:text-[#c3c5d8] uppercase tracking-wider mt-1">Irreversible sequence</p>
+                            </div>
+                            <button className="px-4 py-2 border border-red-600/20 dark:border-[#ba1a1a]/20 text-red-600 dark:text-[#ba1a1a] text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-red-600 dark:hover:bg-[#ba1a1a] hover:text-white transition-all">
+                                Purge Record
+                            </button>
+                         </div>
+                    </div>
+                </div>
             </div>
-        </div>
+        </main>
     );
 }

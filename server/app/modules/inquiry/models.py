@@ -15,6 +15,7 @@ class InquiryGroup(Base):
     status          = Column(String, default="DRAFT", nullable=False, index=True)
     active_quote_id = Column(Uuid, ForeignKey("quote_versions.id"), nullable=True)
     quote_email_status = Column(String, nullable=True)
+    admin_notes     = Column(Text, nullable=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -33,6 +34,14 @@ class InquiryGroup(Base):
         foreign_keys=[active_quote_id],
         post_update=True,
     )
+
+    @property
+    def user_name(self):
+        return self.user.name if self.user else None
+
+    @property
+    def user_email(self):
+        return self.user.email if self.user else None
 
 
 class InquiryItem(Base):

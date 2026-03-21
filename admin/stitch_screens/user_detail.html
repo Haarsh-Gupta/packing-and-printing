@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>User Detail - Nocturne Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary-container": "#a2b5ff",
+              "tertiary-container": "#c84b00",
+              "surface-dim": "#0b1326",
+              "on-primary-fixed-variant": "#004395",
+              "error": "#ffb4ab",
+              "on-surface": "#dae2fd",
+              "outline": "#8d90a1",
+              "on-secondary": "#152b6d",
+              "on-error-container": "#ffdad6",
+              "surface-tint": "#adc6ff",
+              "surface-variant": "#2d3449",
+              "secondary": "#b6c4ff",
+              "on-primary-fixed": "#001a42",
+              "inverse-on-surface": "#283044",
+              "on-background": "#dae2fd",
+              "outline-variant": "#434655",
+              "inverse-primary": "#005ac2",
+              "surface": "#0b1326",
+              "surface-container-highest": "#2d3449",
+              "inverse-surface": "#dae2fd",
+              "surface-bright": "#31394d",
+              "primary-container": "#1f70e3",
+              "background": "#0b1326",
+              "error-container": "#93000a",
+              "on-primary": "#002e6a",
+              "tertiary": "#ffb597",
+              "surface-container-low": "#131b2e",
+              "on-tertiary-fixed-variant": "#7e2c00",
+              "tertiary-fixed": "#ffdbcd",
+              "on-tertiary-fixed": "#360f00",
+              "surface-container": "#171f33",
+              "tertiary-fixed-dim": "#ffb597",
+              "secondary-container": "#314587",
+              "on-surface-variant": "#c3c5d8",
+              "on-error": "#690005",
+              "on-secondary-fixed": "#00164f",
+              "on-tertiary": "#591d00",
+              "on-tertiary-container": "#fffaf9",
+              "primary": "#adc6ff",
+              "on-primary-container": "#fcfaff",
+              "secondary-fixed": "#dce1ff",
+              "primary-fixed-dim": "#adc6ff",
+              "surface-container-high": "#222a3d",
+              "surface-container-lowest": "#060e20",
+              "secondary-fixed-dim": "#b6c4ff",
+              "primary-fixed": "#d8e2ff",
+              "on-secondary-fixed-variant": "#2f4385"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #0b1326; }
+      ::-webkit-scrollbar-thumb { background: #2d3449; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary/30">
+<!-- SideNavBar Anchor -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#060e20] flex flex-col py-8 z-50">
+<div class="px-8 mb-10">
+<h1 class="text-xl font-bold tracking-tighter text-[#adc6ff]">Nocturne Admin</h1>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant/50 mt-1 font-semibold">Management Console</p>
+</div>
+<nav class="flex-1 space-y-1 font-['Inter'] tracking-tight text-sm">
+<!-- Team Active based on User Detail context -->
+<a class="flex items-center gap-3 px-8 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-8 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">insights</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-8 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">description</span>
+<span>Reports</span>
+</a>
+<a class="flex items-center gap-3 px-8 py-3 text-[#adc6ff] font-semibold border-l-4 border-[#adc6ff] bg-[#171f33]" href="#">
+<span class="material-symbols-outlined text-[20px]">group</span>
+<span>Team</span>
+</a>
+<a class="flex items-center gap-3 px-8 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="px-8 mt-auto space-y-4">
+<button class="w-full py-2.5 bg-gradient-to-br from-primary to-primary-container text-on-primary-container rounded-xl font-semibold text-sm shadow-lg shadow-primary/10 active:scale-95 transition-transform">
+                New Project
+            </button>
+<div class="pt-6 border-t border-outline-variant/10 space-y-1">
+<a class="flex items-center gap-3 py-2 text-[#c3c5d8] opacity-70 hover:text-[#dae2fd] transition-colors text-sm" href="#">
+<span class="material-symbols-outlined text-[18px]">help</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 py-2 text-error/80 hover:text-error transition-colors text-sm" href="#">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+<span>Log out</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- TopNavBar Anchor -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-[#0b1326]/60 backdrop-blur-xl flex justify-between items-center px-10 border-b border-[#434655]/15 shadow-sm shadow-[#2f4385]/10 font-['Inter'] text-sm font-medium">
+<div class="flex items-center gap-8">
+<div class="relative group">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant/60 text-[18px]">search</span>
+<input class="bg-surface-container-lowest border-none rounded-full pl-10 pr-4 py-1.5 text-xs w-64 focus:ring-1 focus:ring-primary/30 transition-all" placeholder="Search parameters..." type="text"/>
+</div>
+<nav class="flex gap-6">
+<a class="text-[#c3c5d8] hover:text-[#dae2fd] transition-all duration-300" href="#">Overview</a>
+<a class="text-[#adc6ff] border-b-2 border-[#adc6ff] transition-all duration-300 pb-1" href="#">System Status</a>
+</nav>
+</div>
+<div class="flex items-center gap-5 text-[#adc6ff]">
+<button class="hover:text-[#dae2fd] transition-colors"><span class="material-symbols-outlined">notifications</span></button>
+<button class="hover:text-[#dae2fd] transition-colors"><span class="material-symbols-outlined">dark_mode</span></button>
+<div class="h-8 w-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant/30">
+<img alt="User profile" data-alt="User profile avatar placeholder" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJNZ2ebp8QbTe6OrsyHmzq5eLqBj0Y99Wv-bw7nweBclKJYFFfI_6sqnijzv8_lnsxsB1Aayo55bpQXWswmUT0lrYRgGnmgvwWS3_CMafK4-uF_N-FkIwZP9LeJ5xC5kOOgYsny64DBoL3W6NwH_55-jekQDBrQI7G36yCXWVelSSc0BV0Viq9AQpeqGfXXz7V0eH9TtvyqNdkATajxM0LrKSNwp2kHH1fEKRM-mgLo3q43fPtkrIpRhyzld0UbzX_y2JnrqpydxA"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-16 p-10 min-h-screen">
+<!-- Warning Banner for Bounced Emails -->
+<div class="mb-8 p-4 bg-error-container/20 border border-error/20 rounded-xl flex items-center gap-4 animate-pulse">
+<div class="bg-error/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-error">mail_lock</span>
+</div>
+<div class="flex-1">
+<p class="text-on-error-container text-sm font-semibold">Delivery Failure Detected</p>
+<p class="text-on-error-container/70 text-xs">Recent system notifications for this user have bounced. Email: julian.v@arkham.design</p>
+</div>
+<button class="px-4 py-1.5 bg-error/10 text-error hover:bg-error/20 rounded-lg text-xs font-bold transition-colors">
+                Verify Email
+            </button>
+</div>
+<!-- Hero Section: Profile Summary -->
+<div class="grid grid-cols-12 gap-8 mb-10">
+<!-- Left: Bio Card -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<div class="bg-surface-container-low rounded-2xl p-8 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-10 -mt-10 blur-3xl group-hover:bg-primary/10 transition-colors"></div>
+<div class="flex flex-col items-center text-center">
+<div class="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-primary to-surface-container-highest mb-4 shadow-2xl">
+<img alt="Julian Vance" class="w-full h-full rounded-full object-cover" data-alt="Portrait of a male user with glasses" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDoHaMFlLQKd0KNJ8EnWsntC03TJIMMluu7lIhdarmIB31dIUmtznk8iXYq-aAaClHRbZ7KELGAKbdQ3X1K5UpbP72JtKmRlZ9FshzqKmviE4AXHDXGRrLG1_MzBotyGOB79wcm-M4svQ32PWK0fuI74ExBRwguKIDtGDvfNYRBph1ovqA1cYbRfVUtwAX901E5ATl69XFGfKUmx5nnLJEfHKYxW81yR9oUyo-M3NIqnMFZBTAjTjFJ2jY7VLkQThEX-wxLctYTmQ4"/>
+</div>
+<h2 class="text-2xl font-bold text-on-surface tracking-tight">Julian Vance</h2>
+<p class="text-primary font-medium text-sm mb-6">Senior Architect @ Arkham Design</p>
+<div class="flex gap-2 w-full">
+<button class="flex-1 py-2.5 bg-surface-container-highest hover:bg-surface-bright text-on-surface text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">edit</span> Edit
+                            </button>
+<button class="flex-1 py-2.5 bg-error-container/30 hover:bg-error-container/50 text-error text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 border border-error/20">
+<span class="material-symbols-outlined text-[18px]">block</span> Block
+                            </button>
+</div>
+</div>
+<div class="mt-8 pt-8 border-t border-outline-variant/10 space-y-4">
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">Customer ID</span>
+<span class="text-on-surface font-mono">#ARC-9902-X</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">Member Since</span>
+<span class="text-on-surface">Oct 12, 2021</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">Location</span>
+<span class="text-on-surface">New York, USA</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant/10 rounded-2xl p-6">
+<h3 class="text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-4">Contact Details</h3>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">alternate_email</span>
+<span class="text-sm text-on-surface">julian.v@arkham.design</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">call</span>
+<span class="text-sm text-on-surface">+1 (555) 092-1182</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">language</span>
+<span class="text-sm text-on-surface">arkham.design/team/julian</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right: Activity Metrics Bento -->
+<div class="col-span-12 lg:col-span-8 grid grid-cols-2 md:grid-cols-3 gap-6">
+<!-- Stat 1 -->
+<div class="bg-surface-container p-6 rounded-2xl border border-outline-variant/5 hover:border-primary/20 transition-all flex flex-col justify-between">
+<span class="material-symbols-outlined text-primary text-[32px]">shopping_cart</span>
+<div>
+<p class="text-[32px] font-extrabold text-on-surface tracking-tighter">142</p>
+<p class="text-xs text-on-surface-variant font-medium">Total Orders</p>
+</div>
+</div>
+<!-- Stat 2 -->
+<div class="bg-surface-container p-6 rounded-2xl border border-outline-variant/5 hover:border-primary/20 transition-all flex flex-col justify-between">
+<span class="material-symbols-outlined text-tertiary text-[32px]">payments</span>
+<div>
+<p class="text-[32px] font-extrabold text-on-surface tracking-tighter">$12.4k</p>
+<p class="text-xs text-on-surface-variant font-medium">Lifetime Spend</p>
+</div>
+</div>
+<!-- Stat 3 -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/5 hover:border-primary/20 transition-all flex flex-col justify-between col-span-2 md:col-span-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+<span class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Active Now</span>
+</div>
+<div>
+<p class="text-[32px] font-extrabold text-on-surface tracking-tighter">8.9</p>
+<p class="text-xs text-on-surface-variant font-medium">Health Score</p>
+</div>
+</div>
+<!-- Long Stat: Engagement Chart Mockup -->
+<div class="col-span-2 md:col-span-3 bg-surface-container-low p-8 rounded-2xl relative overflow-hidden h-64">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="text-lg font-bold text-on-surface">Engagement Velocity</h3>
+<p class="text-xs text-on-surface-variant">Last 30 days of interaction</p>
+</div>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded">+24%</span>
+</div>
+</div>
+<!-- Abstract Visualization Area -->
+<div class="absolute bottom-0 left-0 w-full h-32 px-4 flex items-end justify-between gap-2 opacity-40">
+<div class="w-full bg-primary/20 h-12 rounded-t-sm"></div>
+<div class="w-full bg-primary/30 h-16 rounded-t-sm"></div>
+<div class="w-full bg-primary/20 h-8 rounded-t-sm"></div>
+<div class="w-full bg-primary/50 h-24 rounded-t-sm"></div>
+<div class="w-full bg-primary-container h-28 rounded-t-sm"></div>
+<div class="w-full bg-primary/40 h-14 rounded-t-sm"></div>
+<div class="w-full bg-primary/60 h-20 rounded-t-sm"></div>
+<div class="w-full bg-primary/30 h-10 rounded-t-sm"></div>
+<div class="w-full bg-primary/50 h-24 rounded-t-sm"></div>
+<div class="w-full bg-primary/20 h-12 rounded-t-sm"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Tabbed Content Section -->
+<section class="bg-surface-container-low rounded-3xl overflow-hidden min-h-[500px]">
+<!-- Tabs Header -->
+<div class="flex px-10 border-b border-outline-variant/10">
+<button class="py-6 px-4 text-primary font-bold text-sm border-b-2 border-primary transition-all">
+                    Inquiries
+                </button>
+<button class="py-6 px-4 text-on-surface-variant font-medium text-sm hover:text-on-surface transition-all">
+                    Orders
+                </button>
+<button class="py-6 px-4 text-on-surface-variant font-medium text-sm hover:text-on-surface transition-all">
+                    Activity history
+                </button>
+</div>
+<!-- Tab Pane: Inquiries (Default) -->
+<div class="p-10">
+<div class="space-y-6">
+<!-- Inquiry Item 1 -->
+<div class="bg-surface-container rounded-2xl p-6 border border-outline-variant/5 hover:surface-container-high transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-bright flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">support_agent</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">API Integration Timeout</h4>
+<p class="text-xs text-on-surface-variant">Ticket #T-8821 • Opened 2h ago</p>
+</div>
+</div>
+<span class="px-3 py-1 bg-tertiary-container/30 text-tertiary text-[10px] font-bold rounded-full uppercase tracking-tighter">Urgent</span>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed line-clamp-2">
+                            User is reporting consistent 504 errors when attempting to batch-upload 3D assets to the staging server. Logs indicate a potential misconfig in the load balancer...
+                        </p>
+<div class="mt-4 flex gap-4 pt-4 border-t border-outline-variant/5">
+<button class="text-xs font-bold text-primary flex items-center gap-1 hover:underline">View Conversation <span class="material-symbols-outlined text-[14px]">arrow_forward</span></button>
+<button class="text-xs font-bold text-on-surface-variant hover:text-on-surface">Assign Agent</button>
+</div>
+</div>
+<!-- Inquiry Item 2 -->
+<div class="bg-surface-container rounded-2xl p-6 border border-outline-variant/5 hover:surface-container-high transition-colors">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-bright flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Billing Cycle Change</h4>
+<p class="text-xs text-on-surface-variant">Ticket #T-8802 • Opened 1d ago</p>
+</div>
+</div>
+<span class="px-3 py-1 bg-secondary-container/40 text-secondary text-[10px] font-bold rounded-full uppercase tracking-tighter">In Progress</span>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed">
+                            Request to switch from monthly to annual billing for the "Pro Enterprise" tier. Needs manual pro-rated adjustment for the remaining 12 days...
+                        </p>
+</div>
+<!-- Empty State Placeholder / Bottom Action -->
+<div class="flex justify-center py-10">
+<button class="px-8 py-3 rounded-full border border-outline-variant/30 text-on-surface-variant text-sm font-semibold hover:bg-surface-container-highest transition-all">
+                            Load 24 Previous Inquiries
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer Branding / Credits -->
+<footer class="mt-20 py-10 border-t border-outline-variant/5 text-center">
+<p class="text-xs text-on-surface-variant/40 font-mono tracking-widest uppercase">System v4.0.2 // Arkham Architecture Engine</p>
+</footer>
+</main>
+<!-- FAB Suppression: Not rendered here as this is a detail/focused screen -->
+</body></html>

@@ -32,6 +32,14 @@ class Order(Base):
     milestones = relationship("OrderMilestone", back_populates="order", cascade="all, delete-orphan", order_by="OrderMilestone.order_index")
     transactions = relationship("Transaction", back_populates="order")
     declarations = relationship("PaymentDeclaration", back_populates="order")
+    
+    @property
+    def user_name(self):
+        return self.user.name if self.user else None
+        
+    @property
+    def user_email(self):
+        return self.user.email if self.user else None
 
 
 class OrderMilestone(Base):

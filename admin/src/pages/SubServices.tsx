@@ -34,7 +34,6 @@ export default function SubServices() {
     const fetchService = async () => {
         setLoading(true);
         try {
-            // Using the public endpoint which cleanly loads the parent Service + all its nested variants
             const data = await api<Service>(`/services/${slug}`);
             setService(data);
         } catch (error) {
@@ -138,7 +137,7 @@ export default function SubServices() {
     };
 
     if (loading) {
-        return <div className="p-12 text-center text-slate-500 font-medium font-['Inter',sans-serif] animate-pulse">Loading service configurations...</div>;
+        return <div className="p-12 text-center text-[#c3c5d8] font-bold tracking-widest text-[10px] uppercase font-['Inter'] animate-pulse"><Loader2 className="animate-spin inline mr-2" size={16} /> Retrieving variants...</div>;
     }
 
     if (!service) return null;
@@ -147,36 +146,37 @@ export default function SubServices() {
     const activeVariants = variants.filter(v => v.is_active).length;
 
     return (
-        <div className="max-w-7xl mx-auto w-full animate-fade-in font-['Inter',sans-serif] pb-24">
+        <div className="flex flex-col h-full font-['Inter'] bg-[#0b1326] text-[#dae2fd] px-2 pb-24">
 
-            {/* Breadcrumbs */}
-            <div className="flex items-center gap-2 mb-6 text-sm font-medium">
-                <button onClick={() => navigate('/services')} className="text-slate-500 hover:text-[#136dec] transition-colors">Services Directory</button>
-                <ChevronRight size={14} className="text-slate-400" />
-                <span className="text-slate-900 dark:text-white font-bold tracking-tight">{service.name}</span>
-            </div>
-
-            {/* Page Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8 bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-5">
-                    <button onClick={() => navigate('/services')} className="p-3 bg-slate-50 hover:bg-[#136dec]/10 dark:bg-slate-800 rounded-xl transition-all text-slate-500 dark:text-slate-400 hover:text-[#136dec] border border-slate-200 dark:border-slate-700">
-                        <ArrowLeft size={24} />
-                    </button>
-                    <div>
-                        <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase">{service.name} Variants</h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1.5 font-medium flex items-center gap-2">
-                            <span className="bg-[#136dec]/10 text-[#136dec] px-2 py-0.5 rounded-md font-bold text-xs">ID: {service.id}</span>
-                            Manage all localized sub-services connected to this parent category.
-                        </p>
+            {/* Breadcrumbs & Header */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
+                <div>
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-[#adc6ff] mb-2 tracking-widest uppercase">
+                        <button onClick={() => navigate('/services')} className="hover:text-white transition-colors">Services Directory</button>
+                        <ChevronRight size={10} className="text-[#434655]" />
+                        <span className="text-[#c3c5d8]/60">{service.name}</span>
+                        <ChevronRight size={10} className="text-[#434655]" />
+                        <span className="text-[#c3c5d8]/60">Variants</span>
+                    </nav>
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => navigate('/services')} className="p-2 -ml-2 hover:bg-[#131b2e] rounded-lg transition-colors text-[#c3c5d8] hover:text-[#adc6ff]">
+                            <ArrowLeft size={20} />
+                        </button>
+                        <h1 className="text-3xl font-extrabold tracking-tight text-[#dae2fd] m-0">
+                            {service.name}
+                        </h1>
+                        <span className="bg-[#131b2e] border border-[#434655]/30 text-[#adc6ff] text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-sm mt-1">
+                            ID: {service.id}
+                        </span>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    <div className="text-right hidden sm:block">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{variants.length} Built Variants</p>
-                        <p className="text-xs text-slate-500 font-medium mt-0.5">{activeVariants} currently active online</p>
+                    <div className="text-right hidden sm:block mr-2">
+                        <p className="text-[11px] font-extrabold text-[#dae2fd] uppercase tracking-widest">{variants.length} Built Variants</p>
+                        <p className="text-[10px] text-[#34d399] font-bold mt-0.5">{activeVariants} Live Sync</p>
                     </div>
-                    <button onClick={handleCreateNew} className="flex items-center justify-center gap-2 bg-[#136dec] hover:bg-[#136dec]/90 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-[#136dec]/20 active:scale-95 shrink-0">
-                        <PlusCircle size={20} />
+                    <button onClick={handleCreateNew} className="h-10 px-5 bg-[#adc6ff] hover:bg-white text-[#001a42] font-extrabold text-[11px] uppercase tracking-widest rounded-lg flex items-center gap-2 transition-colors shadow-[0_4px_12px_rgba(173,198,255,0.2)]">
+                        <PlusCircle size={16} />
                         <span>Launch Variant</span>
                     </button>
                 </div>
@@ -185,14 +185,14 @@ export default function SubServices() {
             {/* Management Grid Matrix */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {variants.map((sub, i) => (
-                    <div key={sub.id} className="group flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-black/50 transition-all duration-300">
+                    <div key={sub.id} className="group flex flex-col bg-[#131b2e] rounded-2xl border border-[#434655]/20 overflow-hidden hover:border-[#adc6ff]/50 transition-all duration-300">
                         {/* Upper Info Box */}
                         <div className="p-6 pb-5 flex-1 relative z-10">
-                            <div className="absolute top-4 right-4 flex gap-1 bg-white/90 backdrop-blur-sm p-1 rounded-lg border border-slate-100 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => handleEdit(sub)} className="p-1.5 text-slate-400 hover:text-[#136dec] hover:bg-[#136dec]/10 rounded-md transition-all">
+                            <div className="absolute top-4 right-4 flex gap-1 bg-[#131b2e]/90 backdrop-blur-sm p-1 rounded-lg border border-[#434655]/40 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => handleEdit(sub)} className="p-1.5 text-[#c3c5d8] hover:text-[#adc6ff] hover:bg-[#1f70e3]/20 rounded-md transition-all">
                                     <Edit2 size={16} />
                                 </button>
-                                <button onClick={() => handleDelete(sub.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all">
+                                <button onClick={() => handleDelete(sub.id)} className="p-1.5 text-[#c3c5d8] hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10 rounded-md transition-all">
                                     <Trash2 size={16} />
                                 </button>
                             </div>
@@ -200,30 +200,30 @@ export default function SubServices() {
                             <div className="flex gap-4">
                                 <div className="shrink-0">
                                     {sub.images && sub.images.length > 0 ? (
-                                        <div className="size-16 rounded-xl bg-cover bg-center border border-slate-200 shadow-inner" style={{ backgroundImage: `url('${sub.images[0]}')` }} />
+                                        <div className="size-16 rounded-xl bg-cover bg-center border border-[#434655]/30 shadow-inner" style={{ backgroundImage: `url('${sub.images[0]}')` }} />
                                     ) : (
-                                        <div className="size-16 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400">
+                                        <div className="size-16 rounded-xl bg-[#0b1326] border border-[#434655]/30 flex items-center justify-center text-[#434655]">
                                             <Package size={28} strokeWidth={1.5} />
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex-1 min-w-0 pr-12">
-                                    <h3 className="font-bold text-slate-900 dark:text-white truncate text-lg">{sub.name}</h3>
-                                    <p className="text-xs text-slate-500 font-mono mt-0.5 truncate bg-slate-50 dark:bg-slate-800/50 inline-block px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">{sub.slug}</p>
+                                    <h3 className="font-extrabold text-[#dae2fd] truncate text-lg">{sub.name}</h3>
+                                    <p className="text-[10px] text-[#adc6ff] font-mono font-bold mt-1 truncate bg-[#adc6ff]/10 inline-block px-1.5 py-0.5 rounded border border-[#adc6ff]/20">{sub.slug}</p>
                                 </div>
                             </div>
 
-                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-4 line-clamp-2 min-h-[40px] leading-relaxed">
-                                {sub.description || <span className="italic text-slate-400">No descriptive brief provided.</span>}
+                            <p className="text-xs text-[#c3c5d8]/70 mt-4 line-clamp-2 min-h-[40px] leading-relaxed">
+                                {sub.description || <span className="italic text-[#434655]">No descriptive brief provided.</span>}
                             </p>
                         </div>
 
                         {/* Status/Metrics Footer */}
-                        <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-4 px-6 flex items-center justify-between mt-auto">
+                        <div className="border-t border-[#434655]/20 bg-[#0b1326] p-4 px-6 flex items-center justify-between mt-auto">
                             <div className="flex items-center gap-3 text-sm">
-                                <div className="font-black text-slate-900 dark:text-white">₹{sub.price_per_unit.toLocaleString()} <span className="text-xs font-semibold text-slate-500">/unit</span></div>
+                                <div className="font-black text-[#fcd34d] font-mono">₹{sub.price_per_unit.toLocaleString()} <span className="text-[10px] font-bold text-[#c3c5d8] uppercase tracking-widest font-sans">/unit</span></div>
                             </div>
-                            <div className={`px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full ${sub.is_active ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-200 text-slate-500 border-slate-300'} border`}>
+                            <div className={`px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest rounded-sm border ${sub.is_active ? 'bg-[#34d399]/10 text-[#34d399] border-[#34d399]/20' : 'bg-[#434655]/10 text-[#8d90a1] border-[#434655]/20'}`}>
                                 {sub.is_active ? 'Live Sync' : 'Offline'}
                             </div>
                         </div>
@@ -231,147 +231,139 @@ export default function SubServices() {
                 ))}
 
                 {variants.length === 0 && (
-                    <div className="col-span-full py-20 bg-slate-50/50 dark:bg-slate-900/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center px-4">
-                        <div className="size-16 bg-[#136dec]/10 text-[#136dec] rounded-2xl flex items-center justify-center mb-4">
+                    <div className="col-span-full py-20 bg-[#131b2e] rounded-2xl border border-dashed border-[#434655]/40 flex flex-col items-center justify-center text-center px-4">
+                        <div className="size-16 bg-[#0b1326] border border-[#434655]/30 text-[#434655] rounded-2xl flex items-center justify-center mb-4">
                             <Package size={32} />
                         </div>
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Empty Variant Matrix</h3>
-                        <p className="text-slate-500 mt-2 max-w-sm">There are no specific sub-service configurations constructed inside the <strong className="text-slate-700 dark:text-slate-300">{service.name}</strong> namespace yet.</p>
-                        <button onClick={handleCreateNew} className="mt-6 font-bold text-[#136dec] hover:text-[#136dec]/80 flex items-center gap-2">
-                            Launch First Variant <ChevronRight size={16} />
+                        <h3 className="text-sm font-bold tracking-widest uppercase text-[#c3c5d8]">Empty Variant Matrix</h3>
+                        <p className="text-xs text-[#8d90a1] mt-2 max-w-sm">There are no specific sub-service configurations constructed inside the <strong className="text-[#adc6ff]">{service.name}</strong> namespace yet.</p>
+                        <button onClick={handleCreateNew} className="mt-6 text-[11px] font-bold tracking-widest uppercase text-[#adc6ff] hover:text-[#dae2fd] flex items-center gap-2 transition-colors">
+                            Launch First Variant <ChevronRight size={14} />
                         </button>
                     </div>
                 )}
             </div>
 
-            {/* ── SubService Dialog (Massive Form Layout) ── */}
+            {/* Modal */}
             <Dialog open={showForm} onOpenChange={setShowForm}>
-                <DialogContent showCloseButton={false} className="sm:max-w-[85vw] w-[95vw] h-[90vh] p-0 bg-transparent border-none shadow-none outline-none overflow-hidden font-['Inter',sans-serif]">
-                    <div className="flex flex-col w-full h-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden relative">
-
-                        {/* Header Pinned */}
-                        <div className="px-6 md:px-8 py-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between z-20 gap-4">
-                            <div className="flex-1 pr-4">
-                                <DialogTitle className="text-2xl font-black">{editingSubService ? "Edit Sub-Service" : "Launch Sub-Service Variant"}</DialogTitle>
-                                <DialogDescription className="text-sm mt-1.5 font-medium text-slate-500">
-                                    Creates a specialized execution variant of <strong className="text-slate-700 dark:text-slate-300">{service.name}</strong>, detailing specific pricing mechanics and imagery.
-                                </DialogDescription>
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0">
-                                <Button variant="outline" onClick={() => setShowForm(false)} className="h-11 font-bold">Discard Changes</Button>
-                                <Button className="h-11 px-8 font-bold bg-[#136dec] hover:bg-[#136dec]/90 text-white shadow-lg shadow-[#136dec]/20" onClick={handleSave} disabled={saving || !formState.name.trim() || !formState.price_per_unit}>
-                                    {saving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />}
-                                    {editingSubService ? "Synchronize Updates" : "Deploy Live Now"}
-                                </Button>
-                            </div>
+                <DialogContent showCloseButton={false} className="sm:max-w-[1200px] w-[95vw] h-[90vh] p-0 bg-[#0b1326] border border-[#434655]/30 shadow-2xl overflow-hidden font-['Inter'] flex flex-col">
+                    
+                    {/* Header Pinned */}
+                    <div className="px-8 py-5 border-b border-[#434655]/20 bg-[#131b2e] shrink-0 flex items-center justify-between z-20">
+                        <div>
+                            <DialogTitle className="text-xl font-extrabold text-[#dae2fd]">{editingSubService ? "Reconfigure Variant" : "Launch Sub-Service Variant"}</DialogTitle>
+                            <DialogDescription className="text-xs mt-1 text-[#c3c5d8]">
+                                Instance branch of <strong className="text-[#adc6ff]">{service.name}</strong> detailing pricing mechanics and imagery.
+                            </DialogDescription>
                         </div>
+                        <div className="flex items-center gap-3">
+                            <Button variant="outline" onClick={() => setShowForm(false)} className="h-10 font-bold border-[#434655] hover:bg-[#434655]/20 text-xs uppercase tracking-widest text-[#c3c5d8]">Abort</Button>
+                            <Button className="h-10 px-6 font-bold text-xs uppercase tracking-widest bg-[#adc6ff] hover:bg-white text-[#001a42]" onClick={handleSave} disabled={saving || !formState.name.trim() || !formState.price_per_unit}>
+                                {saving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
+                                {editingSubService ? "Synchronize" : "Deploy Live"}
+                            </Button>
+                        </div>
+                    </div>
 
-                        {/* Scrollable Editor */}
-                        <div className="flex-1 overflow-y-auto w-full p-4 md:p-8 bg-slate-50 dark:bg-slate-900/50">
-                            <div className="flex flex-col gap-8 w-full max-w-5xl mx-auto pb-16">
+                    {/* Scrollable Editor */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-[#0b1326]">
+                        <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-12">
+                            
+                            {/* CORE SETTINGS BLOCK */}
+                            <div className="bg-[#131b2e] border border-[#434655]/20 rounded-2xl p-6 relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-[#1f70e3]"></div>
+                                
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="bg-[#1f70e3]/10 p-2 rounded-lg"><Package size={20} className="text-[#adc6ff]" /></div>
+                                    <h3 className="text-sm font-bold tracking-widest uppercase text-[#dae2fd]">Core Architecture</h3>
+                                </div>
 
-                                {/* CORE SETTINGS BLOCK */}
-                                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-8 space-y-8 relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-1.5 h-full bg-[#136dec]"></div>
-
-                                    <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-                                        <div className="size-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-[#136dec]">
-                                            <Package strokeWidth={2.5} size={20} />
-                                        </div>
-                                        <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Essential Architecture</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-[#c3c5d8] uppercase tracking-widest flex justify-between">
+                                            <span>Variant Master Title <span className="text-[#ffb4ab] ml-0.5">*</span></span>
+                                        </label>
+                                        <Input className="h-10 bg-[#0b1326] border-[#434655]/40 text-[#dae2fd] focus:border-[#adc6ff] text-sm font-bold placeholder:text-[#434655]" value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} placeholder="e.g. Standard Softcover Binding" />
                                     </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                        <div className="space-y-2.5">
-                                            <label className="text-sm font-black text-slate-700 dark:text-slate-300">Variant Master Title <span className="text-red-500">*</span></label>
-                                            <Input className="h-12 text-base shadow-inner bg-slate-50 focus:bg-white transition-colors" value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} placeholder="e.g. Standard Softcover Binding" />
-                                            <p className="text-xs text-slate-500 font-medium flex gap-1.5 items-start">
-                                                <Info size={14} className="shrink-0 text-[#136dec] mt-0.5" />
-                                                The absolute identifier title globally shown to the buyer.
-                                            </p>
-                                        </div>
-
-                                        <div className="space-y-2.5">
-                                            <label className="text-sm font-black text-slate-700 dark:text-slate-300 flex justify-between">
-                                                <span>System Path (Slug)</span>
-                                                <span className="text-[10px] uppercase font-bold tracking-wider bg-slate-100 text-slate-500 px-2 py-0.5 rounded">Optional</span>
-                                            </label>
-                                            <Input className="h-12 text-base font-mono shadow-inner bg-slate-50 focus:bg-white transition-colors" value={formState.slug} onChange={e => setFormState({ ...formState, slug: e.target.value })} placeholder="standard-softcover-binding" />
-                                            <p className="text-xs text-slate-500 font-medium flex gap-1.5 items-start">
-                                                <Info size={14} className="shrink-0 mt-0.5" />
-                                                Overrules standard URL generation. Useful for SEO links.
-                                            </p>
-                                        </div>
-
-                                        <div className="space-y-2.5">
-                                            <label className="text-sm font-black text-slate-700 dark:text-slate-300">Price Per Unit (₹) <span className="text-red-500">*</span></label>
-                                            <Input type="number" step="0.01" className="h-12 text-lg font-bold shadow-inner bg-slate-50 focus:bg-white transition-colors" value={formState.price_per_unit} onChange={e => setFormState({ ...formState, price_per_unit: parseFloat(e.target.value) })} placeholder="150" />
-                                        </div>
-
-                                        <div className="space-y-2.5">
-                                            <label className="text-sm font-black text-slate-700 dark:text-slate-300">Minimum Order Quantity (MOQ)</label>
-                                            <Input type="number" className="h-12 text-base shadow-inner bg-slate-50 focus:bg-white transition-colors" value={formState.minimum_quantity} onChange={e => setFormState({ ...formState, minimum_quantity: parseInt(e.target.value) })} placeholder="100" />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2.5 pt-2">
-                                        <label className="text-sm font-black text-slate-700 dark:text-slate-300">Detailed Specification Paragraph</label>
-                                        <Textarea className="min-h-[120px] text-base resize-y shadow-inner bg-slate-50 focus:bg-white transition-colors p-4" value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="Elaborate on the specific physical tolerances, material capabilities, and turnaround estimates for this precise service variant..." />
-                                    </div>
-
-                                    <div className="flex items-center justify-between border-2 border-slate-100 dark:border-slate-800 p-5 rounded-xl bg-slate-50/50 dark:bg-slate-800/20">
-                                        <div>
-                                            <p className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">Public Cloud Status {formState.is_active && <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span></span>}</p>
-                                            <p className="text-sm font-medium text-slate-500 mt-0.5">Disabling will immediately yank this variant from all checkout quoting engines globally.</p>
-                                        </div>
-                                        <Switch checked={formState.is_active} onCheckedChange={c => setFormState({ ...formState, is_active: c })} className="data-[state=checked]:bg-green-500 scale-110" />
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-[#c3c5d8] uppercase tracking-widest flex justify-between">
+                                            <span>System Path (Slug)</span>
+                                            <span className="text-[9px] bg-[#434655]/30 text-[#8d90a1] px-1.5 py-0.5 rounded">OPT</span>
+                                        </label>
+                                        <Input className="h-10 text-sm font-mono bg-[#0b1326] border-[#434655]/40 text-[#adc6ff] focus:border-[#adc6ff] placeholder:text-[#434655]" value={formState.slug} onChange={e => setFormState({ ...formState, slug: e.target.value })} placeholder="standard-softcover" />
                                     </div>
                                 </div>
 
-                                {/* MEDIA CDN BLOCK */}
-                                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-8 space-y-8 relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-400"></div>
+                                <div className="h-px bg-[#434655]/20 mb-6" />
 
-                                    <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-                                        <div className="flex items-center gap-3">
-                                            <div className="size-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-amber-500">
-                                                <UploadCloud strokeWidth={2.5} size={20} />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Media Matrix</h3>
-                                                <p className="text-xs font-semibold text-slate-500 mt-1">{formState.images.length} resources loaded</p>
-                                            </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-[#c3c5d8] uppercase tracking-widest">
+                                            Price Per Unit (₹) <span className="text-[#ffb4ab]">*</span>
+                                        </label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-2.5 text-[#434655] font-bold text-sm">₹</span>
+                                            <Input type="number" step="0.01" className="h-10 pl-8 font-black text-[#fcd34d] bg-[#0b1326] border-[#434655]/40 focus:border-[#adc6ff]" value={formState.price_per_unit} onChange={e => setFormState({ ...formState, price_per_unit: parseFloat(e.target.value) })} placeholder="150.00" />
                                         </div>
                                     </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-[#c3c5d8] uppercase tracking-widest">MOQ Gate</label>
+                                        <Input type="number" className="h-10 text-sm font-mono bg-[#0b1326] border-[#434655]/40 text-[#adc6ff]" value={formState.minimum_quantity} onChange={e => setFormState({ ...formState, minimum_quantity: parseInt(e.target.value) })} placeholder="100" />
+                                    </div>
+                                </div>
 
-                                    <div className="space-y-4">
-                                        <div className="flex gap-2">
-                                            <Input className="h-11 shadow-inner bg-slate-50 focus:bg-white transition-colors flex-1" placeholder="Paste secure image URL (https://...)" value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImage() } }} />
-                                            <Button type="button" onClick={addImage} className="h-11 px-6 font-bold bg-slate-900 text-white hover:bg-slate-800 shadow-md">Ingest Source</Button>
-                                        </div>
+                                <div className="space-y-2 mb-6">
+                                    <label className="text-[10px] font-bold text-[#c3c5d8] uppercase tracking-widest">Detailed Specification Paragraph</label>
+                                    <Textarea className="h-24 text-sm bg-[#0b1326] border-[#434655]/40 text-[#dae2fd] focus:border-[#adc6ff] placeholder:text-[#434655]" value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="Elaborate on the specific physical tolerances, material capabilities..." />
+                                </div>
 
-                                        {formState.images.length > 0 ? (
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-                                                {formState.images.map((img, idx) => (
-                                                    <div key={idx} className="group relative aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm hover:border-[#136dec] transition-colors">
-                                                        <img src={img} alt="" className="w-full h-full object-cover" />
-                                                        <div className="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                                                            <Button type="button" variant="destructive" size="sm" onClick={() => removeImage(idx)} className="h-8 font-bold shadow-xl">
-                                                                <Trash2 size={14} className="mr-1.5" /> Wipe
-                                                            </Button>
-                                                        </div>
+                                <div className="flex items-center justify-between border border-[#434655]/30 bg-[#0b1326] p-4 rounded-xl">
+                                    <div>
+                                        <p className="font-bold text-[#dae2fd] text-sm tracking-tight mb-0.5 flex items-center gap-2">Public Cloud Status {formState.is_active && <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#34d399] opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-[#34d399]"></span></span>}</p>
+                                        <p className="text-[11px] text-[#c3c5d8]">Enable client rendering globally.</p>
+                                    </div>
+                                    <Switch checked={formState.is_active} onCheckedChange={c => setFormState({ ...formState, is_active: c })} className="data-[state=checked]:bg-[#34d399]" />
+                                </div>
+                            </div>
+
+                            {/* MEDIA CDN BLOCK */}
+                            <div className="bg-[#131b2e] border border-[#434655]/20 rounded-2xl p-6 relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-[#f59e0b]"></div>
+
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="bg-[#f59e0b]/10 p-2 rounded-lg"><UploadCloud size={20} className="text-[#fcd34d]" /></div>
+                                    <div>
+                                        <h3 className="text-sm font-bold tracking-widest uppercase text-[#dae2fd]">Media Matrix</h3>
+                                        <p className="text-[10px] font-bold text-[#c3c5d8] mt-1 uppercase tracking-widest">{formState.images.length} resources loaded</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex gap-2">
+                                        <Input className="h-10 text-sm font-mono bg-[#0b1326] border-[#434655]/40 text-[#8d90a1] focus:border-[#adc6ff] placeholder:text-[#434655]" placeholder="Paste secure image URL (https://...)" value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImage() } }} />
+                                        <Button type="button" onClick={addImage} className="h-10 px-6 font-bold text-[10px] uppercase tracking-widest bg-[#434655]/30 text-[#c3c5d8] hover:bg-[#434655]/50 hover:text-white border border-[#434655]/50">Ingest</Button>
+                                    </div>
+
+                                    {formState.images.length > 0 ? (
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                                            {formState.images.map((img, idx) => (
+                                                <div key={idx} className="group relative aspect-square rounded-xl bg-[#0b1326] border border-[#434655]/30 overflow-hidden shadow-sm hover:border-[#adc6ff]/50 transition-colors">
+                                                    <img src={img} alt="" className="w-full h-full object-cover" />
+                                                    <div className="absolute inset-0 bg-[#060e20]/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                                                        <Button type="button" variant="ghost" size="sm" onClick={() => removeImage(idx)} className="h-8 text-[10px] font-bold uppercase tracking-widest text-[#ffb4ab] hover:bg-[#ffb4ab]/20 hover:text-[#ffb4ab] border border-[#ffb4ab]/30">
+                                                            <Trash2 size={12} className="mr-1.5" /> Wipe
+                                                        </Button>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-900/50 flex flex-col items-center justify-center text-slate-400 mt-6">
-                                                <UploadCloud size={40} className="mb-3 opacity-50" />
-                                                <p className="font-semibold text-sm">No media resources attached</p>
-                                            </div>
-                                        )}
-                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="py-12 border border-dashed border-[#434655]/50 rounded-xl bg-[#0b1326] flex flex-col items-center justify-center text-[#434655] mt-6">
+                                            <UploadCloud size={32} className="mb-3" />
+                                            <p className="font-bold text-[10px] uppercase tracking-widest">No media resources attached</p>
+                                        </div>
+                                    )}
                                 </div>
-
                             </div>
                         </div>
                     </div>

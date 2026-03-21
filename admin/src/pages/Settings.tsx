@@ -13,17 +13,17 @@ const SETTING_TABS = [
 const ToggleRow = ({ label, description, defaultOn = false }: { label: string; description?: string; defaultOn?: boolean }) => {
     const [on, setOn] = useState(defaultOn);
     return (
-        <div className="flex items-center justify-between py-3.5 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between py-4 border-b border-[#434655]/20">
             <div>
-                <p className="text-[13px] font-semibold text-slate-900 dark:text-white m-0">{label}</p>
-                {description && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 m-0">{description}</p>}
+                <p className="text-[13px] font-extrabold text-[#dae2fd] m-0">{label}</p>
+                {description && <p className="text-[11px] text-[#c3c5d8]/70 mt-0.5 m-0 font-medium">{description}</p>}
             </div>
             <button
                 onClick={() => setOn(v => !v)}
-                className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${on ? 'bg-blue-500' : 'bg-slate-200 dark:bg-slate-700'}`}
+                className={`relative w-10 h-[22px] rounded-full shrink-0 transition-colors ${on ? 'bg-[#34d399]' : 'bg-[#0b1326] border border-[#434655]/40'}`}
             >
                 <div 
-                    className={`absolute top-[3px] w-[18px] h-[18px] rounded-full bg-white shadow-sm transition-all duration-200 ${on ? 'left-[23px]' : 'left-[3px]'}`} 
+                    className={`absolute top-[2px] w-[16px] h-[16px] rounded-full bg-white shadow-sm transition-all duration-200 ${on ? 'left-[20px]' : 'left-[2px] bg-[#434655]'}`} 
                 />
             </button>
         </div>
@@ -31,16 +31,16 @@ const ToggleRow = ({ label, description, defaultOn = false }: { label: string; d
 };
 
 const Field = ({ label, defaultValue = "", type = "text", disabled = false }: { label: string; defaultValue?: string; type?: string; disabled?: boolean }) => (
-    <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 tracking-tight">
+    <div className="flex flex-col gap-2">
+        <label className="text-[10px] font-bold uppercase tracking-widest text-[#c3c5d8]">
             {label}
         </label>
         <input
             type={type} defaultValue={defaultValue} disabled={disabled}
-            className={`h-9 px-3 border rounded-lg text-[13px] font-sans outline-none w-full box-border transition-colors
+            className={`h-10 px-3 border rounded-lg text-sm font-bold outline-none w-full box-border transition-colors
                 ${disabled 
-                    ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500' 
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-blue-500 dark:focus:border-blue-500'
+                    ? 'border-[#434655]/20 bg-[#060e20]/50 text-[#8d90a1]' 
+                    : 'border-[#434655]/40 bg-[#0b1326] text-[#dae2fd] focus:border-[#adc6ff]'
                 }`}
         />
     </div>
@@ -81,30 +81,35 @@ export default function Settings() {
     };
 
     return (
-        <div className="animate-fade-in flex flex-col gap-5 font-sans h-full">
+        <div className="flex flex-col h-full font-['Inter'] bg-[#0b1326] text-[#dae2fd] px-2 pb-12">
 
             {/* Header */}
-            <div>
-                <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white m-0">Settings</h1>
-                <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1">Manage your workspace preferences</p>
+            <div className="mb-8">
+                <nav className="flex items-center gap-2 text-[10px] font-bold text-[#adc6ff] mb-2 tracking-widest uppercase">
+                    <span>System</span>
+                    <span>/</span>
+                    <span className="text-[#c3c5d8]/60">Configuration</span>
+                </nav>
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#dae2fd] m-0">Global Parameters</h1>
+                <p className="text-xs text-[#c3c5d8] mt-1 m-0">Manage workspace variables and system behaviors</p>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-5 items-start">
+            <div className="flex flex-col md:flex-row gap-6 items-start">
 
                 {/* Left nav */}
-                <div className="w-full md:w-[200px] shrink-0 bg-white dark:bg-slate-900 rounded-xl p-2 border border-black/5 dark:border-slate-800 shadow-sm">
+                <div className="w-full md:w-[240px] shrink-0 bg-[#131b2e] rounded-2xl p-3 border border-[#434655]/20 shadow-sm">
                     {SETTING_TABS.map(tab => {
                         const Icon = tab.icon;
                         const active = activeTab === tab.id;
                         return (
                             <button key={tab.id} onClick={() => setActiveTab(tab.id)} 
-                                className={`flex items-center gap-2.5 w-full p-2.5 rounded-lg text-[13px] font-sans text-left transition-all ${
+                                className={`flex items-center gap-3 w-full p-3 rounded-xl text-[11px] uppercase tracking-widest transition-all ${
                                     active 
-                                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold' 
-                                        : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                                        ? 'bg-[#1f70e3]/10 text-[#adc6ff] font-extrabold border border-[#1f70e3]/20' 
+                                        : 'bg-transparent text-[#8d90a1] font-bold hover:bg-[#171f33] hover:text-[#c3c5d8] border border-transparent'
                                 }`}
                             >
-                                <Icon size={14} className={active ? 'text-blue-500' : 'text-slate-400'} />
+                                <Icon size={16} className={active ? 'text-[#1f70e3]' : 'text-[#434655]'} />
                                 {tab.label}
                             </button>
                         );
@@ -112,154 +117,158 @@ export default function Settings() {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 w-full bg-white dark:bg-slate-900 rounded-xl p-6 md:p-7 border border-black/5 dark:border-slate-800 shadow-sm">
+                <div className="flex-1 w-full bg-[#131b2e] rounded-2xl border border-[#434655]/20 shadow-sm flex flex-col min-h-[500px]">
 
-                    {activeTab === "general" && (
-                        <div>
-                            <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">Store Information</h2>
-                            <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-6">Update your store's basic details and contact information.</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
-                                <Field label="Platform Name" defaultValue="Navart Packing & Printing" />
-                                <Field label="Support Email" defaultValue="support@navart.in" />
-                                <Field label="Tax Rate (%)" defaultValue="18" type="number" />
-                                <Field label="Currency" defaultValue="INR (₹)" disabled />
-                                <Field label="Contact Phone" defaultValue="+91 98765 43210" />
-                                <Field label="Business Location" defaultValue="Mumbai, India" />
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === "account" && (
-                        <div>
-                            <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">Account Details</h2>
-                            <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-6">Manage your admin profile information.</p>
-                            <div className="flex flex-col gap-4 max-w-md">
-                                <Field label="Full Name" defaultValue="Admin User" />
-                                <Field label="Email Address" defaultValue="admin@navart.com" />
-                                <Field label="Role" defaultValue="Super Administrator" disabled />
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === "appearance" && (
-                        <div>
-                            <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">Appearance</h2>
-                            <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-6">Customize the look and feel of your workspace.</p>
-
-                            {/* Theme selector */}
-                            <div className="mb-7">
-                                <p className="text-[13px] font-semibold text-slate-900 dark:text-white mb-3">Theme</p>
-                                <div className="flex flex-wrap gap-2.5">
-                                    {[
-                                        { id: 'light', label: 'Light', icon: Sun },
-                                        { id: 'dark', label: 'Dark', icon: Moon },
-                                        { id: 'system', label: 'System', icon: Monitor },
-                                    ].map(t => {
-                                        const Icon = t.icon;
-                                        const active = themeMode === t.id;
-                                        return (
-                                            <button key={t.id} onClick={() => applyTheme(t.id)} 
-                                                className={`flex flex-col items-center gap-2 p-4 px-6 rounded-xl border-2 transition-all font-sans ${
-                                                    active 
-                                                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                                                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
-                                                }`}
-                                            >
-                                                <Icon size={20} className={active ? 'text-blue-500' : 'text-slate-500 dark:text-slate-400'} />
-                                                <span className={`text-xs font-semibold ${active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                                                    {t.label}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <p className="text-xs text-slate-400 dark:text-slate-500 mt-2.5">
-                                    Dark mode uses deeply dark tones for comfortable nighttime use.
-                                </p>
-                            </div>
-
-                            {/* Color accent */}
-                            <div className="mb-7">
-                                <p className="text-[13px] font-semibold text-slate-900 dark:text-white mb-2.5">Color Accent</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Select the primary color for interactive elements.</p>
-                                <div className="flex gap-2.5">
-                                    {['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#18181b'].map(color => (
-                                        <button key={color} 
-                                            className="w-8 h-8 rounded-full border-[3px] border-white dark:border-slate-900 cursor-pointer shadow-[0_0_0_2px_rgba(0,0,0,0.1)] dark:shadow-[0_0_0_2px_rgba(255,255,255,0.1)]"
-                                            style={{ background: color }} 
-                                            title={color} 
-                                        />
-                                    ))}
+                    <div className="p-8 flex-1">
+                        {activeTab === "general" && (
+                            <div className="animate-fade-in">
+                                <h2 className="text-lg font-extrabold text-[#dae2fd] mb-1">Store Information</h2>
+                                <p className="text-xs text-[#c3c5d8] mb-8">Update your entity's basic details and contact vectors.</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+                                    <Field label="Platform Name" defaultValue="Navart Packing & Printing" />
+                                    <Field label="Support Vector (Email)" defaultValue="support@navart.in" />
+                                    <Field label="Tax Rate (%)" defaultValue="18" type="number" />
+                                    <Field label="Baseline Currency" defaultValue="INR (₹)" disabled />
+                                    <Field label="Contact Comm" defaultValue="+91 98765 43210" />
+                                    <Field label="Physical Location" defaultValue="Mumbai, India" />
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {activeTab === "notifications" && (
-                        <div>
-                            <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">Notifications</h2>
-                            <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-6">Configure email and in-app alert behavior.</p>
-                            <ToggleRow label="New Order Alerts" description="Get notified when a new order is placed" defaultOn={true} />
-                            <ToggleRow label="Low Inventory Warnings" description="Alert when product stock falls below threshold" defaultOn={true} />
-                            <ToggleRow label="Customer Inquiry Notifications" description="Get alerts for new inquiries" defaultOn={true} />
-                            <ToggleRow label="Support Ticket Updates" description="Notify on new messages in tickets" defaultOn={false} />
-                            <ToggleRow label="Weekly Summary Report" description="Receive weekly performance digest via email" defaultOn={false} />
-                        </div>
-                    )}
+                        {activeTab === "account" && (
+                            <div className="animate-fade-in">
+                                <h2 className="text-lg font-extrabold text-[#dae2fd] mb-1">Account Vectors</h2>
+                                <p className="text-xs text-[#c3c5d8] mb-8">Manage personal profile parameters.</p>
+                                <div className="flex flex-col gap-6 max-w-md">
+                                    <Field label="Master Identity" defaultValue="Admin User" />
+                                    <Field label="Communication Key" defaultValue="admin@navart.com" />
+                                    <Field label="Hierarchy Level" defaultValue="Super Administrator" disabled />
+                                </div>
+                            </div>
+                        )}
 
-                    {activeTab === "security" && (
-                        <div>
-                            <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">Security</h2>
-                            <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-6">Update your password and authentication settings.</p>
-                            <div className="flex flex-col gap-4 max-w-md">
-                                <Field label="Current Password" type="password" />
-                                <Field label="New Password" type="password" />
-                                <Field label="Confirm New Password" type="password" />
-                            </div>
-                            <div className="mt-7 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 max-w-md">
-                                <p className="text-[13px] font-semibold text-slate-900 dark:text-white mb-1">Two-Factor Authentication</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Add an extra layer of security to your account</p>
-                                <button className="h-9 px-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-xs font-semibold font-sans hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors">
-                                    Enable 2FA
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                        {activeTab === "appearance" && (
+                            <div className="animate-fade-in">
+                                <h2 className="text-lg font-extrabold text-[#dae2fd] mb-1">Interface Aesthetics</h2>
+                                <p className="text-xs text-[#c3c5d8] mb-8">Customize visual parameters for this terminal.</p>
 
-                    {activeTab === "payments" && (
-                        <div>
-                            <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">Payment Gateway</h2>
-                            <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-6">Configure Razorpay integration and payment settings.</p>
-                            <div className="flex flex-col gap-4 max-w-md">
-                                <Field label="Razorpay Key ID" defaultValue="rzp_test_xxxxxx" type="password" />
-                                <Field label="Razorpay Secret" defaultValue="•••••••••••••••••" type="password" />
-                                <Field label="Webhook Secret" defaultValue="whsec_xxxxxx" type="password" />
-                            </div>
-                            <div className="mt-5 p-3.5 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-700/50 max-w-md">
-                                <p className="text-xs text-amber-800 dark:text-amber-400 m-0">
-                                    ⚠️ These credentials are stored securely. Never share your secret keys.
-                                </p>
-                            </div>
-                        </div>
-                    )}
+                                {/* Theme selector */}
+                                <div className="mb-10">
+                                    <p className="text-[10px] uppercase font-bold tracking-widest text-[#c3c5d8] mb-4">Luminance Mode</p>
+                                    <div className="flex flex-wrap gap-4">
+                                        {[
+                                            { id: 'light', label: 'Light', icon: Sun },
+                                            { id: 'dark', label: 'Dark', icon: Moon },
+                                            { id: 'system', label: 'System', icon: Monitor },
+                                        ].map(t => {
+                                            const Icon = t.icon;
+                                            const active = themeMode === t.id;
+                                            return (
+                                                <button key={t.id} onClick={() => applyTheme(t.id)} 
+                                                    className={`flex flex-col items-center gap-3 p-5 rounded-xl border-2 transition-all ${
+                                                        active 
+                                                            ? 'border-[#1f70e3] bg-[#1f70e3]/10' 
+                                                            : 'border-[#434655]/40 bg-[#0b1326] hover:border-[#adc6ff]/50'
+                                                    }`}
+                                                >
+                                                    <Icon size={24} className={active ? 'text-[#adc6ff]' : 'text-[#434655]'} />
+                                                    <span className={`text-[10px] uppercase tracking-widest font-bold ${active ? 'text-[#adc6ff]' : 'text-[#8d90a1]'}`}>
+                                                        {t.label}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
 
-                    {/* Save button */}
-                    <div className="flex justify-end mt-7 pt-5 border-t border-slate-100 dark:border-slate-800">
+                                {/* Color accent */}
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold tracking-widest text-[#c3c5d8] mb-4">Primary Hue</p>
+                                    <div className="flex gap-3">
+                                        {['#1f70e3', '#34d399', '#8b5cf6', '#f59e0b', '#ffb4ab'].map(color => (
+                                            <button key={color} 
+                                                className="w-10 h-10 rounded-full cursor-pointer hover:scale-110 transition-transform"
+                                                style={{ background: color, boxShadow: `0 0 0 2px #131b2e, 0 0 0 4px ${color}40` }} 
+                                                title={color} 
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === "notifications" && (
+                            <div className="animate-fade-in">
+                                <h2 className="text-lg font-extrabold text-[#dae2fd] mb-1">Alerter Protocol</h2>
+                                <p className="text-xs text-[#c3c5d8] mb-8">Configure system push parameters.</p>
+                                <div className="max-w-2xl bg-[#0b1326] rounded-2xl border border-[#434655]/30 p-2">
+                                    <div className="px-4"><ToggleRow label="New Order Triggers" description="Ping upon structural order creation" defaultOn={true} /></div>
+                                    <div className="px-4"><ToggleRow label="Inventory Depletion" description="Alert when stock hits critical threshold" defaultOn={true} /></div>
+                                    <div className="px-4"><ToggleRow label="Inbound Queries" description="Notify for external contact submissions" defaultOn={true} /></div>
+                                    <div className="px-4"><ToggleRow label="Support Threads" description="Updates on active resolution channels" defaultOn={false} /></div>
+                                    <div className="px-4 border-b-0"><ToggleRow label="Digest Rollup" description="Compile weekly analytical payload" defaultOn={false} /></div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === "security" && (
+                            <div className="animate-fade-in">
+                                <h2 className="text-lg font-extrabold text-[#dae2fd] mb-1">Security Systems</h2>
+                                <p className="text-xs text-[#c3c5d8] mb-8">Manage cryptographic keys and auth barriers.</p>
+                                <div className="flex flex-col gap-6 max-w-md">
+                                    <Field label="Current Hashword" type="password" />
+                                    <Field label="New Hashword" type="password" />
+                                    <Field label="Verify Hashword" type="password" />
+                                </div>
+                                <div className="mt-8 p-6 bg-[#0b1326] rounded-2xl border border-[#434655]/30 max-w-md">
+                                    <div className="w-10 h-10 bg-[#1f70e3]/10 text-[#1f70e3] rounded-xl flex items-center justify-center mb-4"><Shield size={20} /></div>
+                                    <p className="text-sm font-extrabold text-[#dae2fd] mb-1">Multi-Factor Lock</p>
+                                    <p className="text-[11px] text-[#8d90a1] mb-5">Enforce high-security TOTP validation upon login.</p>
+                                    <button className="h-10 px-6 bg-[#adc6ff] hover:bg-white text-[#001a42] rounded-lg text-[11px] font-extrabold uppercase tracking-widest transition-colors w-full">
+                                        Initialize 2FA
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === "payments" && (
+                            <div className="animate-fade-in">
+                                <h2 className="text-lg font-extrabold text-[#dae2fd] mb-1">Transaction Node</h2>
+                                <p className="text-xs text-[#c3c5d8] mb-8">Link external economic processors.</p>
+                                <div className="flex flex-col gap-6 max-w-md">
+                                    <Field label="Processor Public Key" defaultValue="rzp_test_xxxxxx" type="password" />
+                                    <Field label="Processor Private Key" defaultValue="•••••••••••••••••" type="password" />
+                                    <Field label="Webhook Crypto Secret" defaultValue="whsec_xxxxxx" type="password" />
+                                </div>
+                                <div className="mt-8 p-4 bg-[#f59e0b]/10 rounded-xl border border-[#f59e0b]/20 max-w-md flex items-start gap-4">
+                                    <Shield size={20} className="text-[#fcd34d] shrink-0 mt-0.5" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#fcd34d] leading-relaxed">
+                                        Warning: These variables define economic flow. Treat them with absolute confidentiality.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                    </div>
+
+                    {/* Save button footer */}
+                    <div className="p-6 bg-[#060e20]/50 border-t border-[#434655]/20 flex justify-end shrink-0">
                         <button
                             onClick={handleSave} disabled={saving}
-                            className={`h-9 px-5 rounded-lg flex items-center gap-2 text-[13px] font-semibold font-sans transition-all
+                            className={`h-11 px-8 rounded-xl flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-widest transition-all
                                 ${saving 
-                                    ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed' 
-                                    : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100'
+                                    ? 'bg-[#434655]/30 text-[#8d90a1] cursor-not-allowed' 
+                                    : 'bg-[#adc6ff] hover:bg-white text-[#001a42] shadow-[0_4px_12px_rgba(173,198,255,0.2)]'
                                 }`}
                         >
                             {saving
-                                ? <Loader2 size={14} className="animate-spin" />
-                                : <Save size={14} />
+                                ? <Loader2 size={16} className="animate-spin" />
+                                : <Save size={16} />
                             }
-                            {saving ? 'Saving…' : 'Save Changes'}
+                            {saving ? 'Committing...' : 'Commit Configuration'}
                         </button>
                     </div>
+
                 </div>
             </div>
         </div>

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nocturne Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary-container": "#a2b5ff",
+              "tertiary-container": "#c84b00",
+              "surface-dim": "#0b1326",
+              "on-primary-fixed-variant": "#004395",
+              "error": "#ffb4ab",
+              "on-surface": "#dae2fd",
+              "outline": "#8d90a1",
+              "on-secondary": "#152b6d",
+              "on-error-container": "#ffdad6",
+              "surface-tint": "#adc6ff",
+              "surface-variant": "#2d3449",
+              "secondary": "#b6c4ff",
+              "on-primary-fixed": "#001a42",
+              "inverse-on-surface": "#283044",
+              "on-background": "#dae2fd",
+              "outline-variant": "#434655",
+              "inverse-primary": "#005ac2",
+              "surface": "#0b1326",
+              "surface-container-highest": "#2d3449",
+              "inverse-surface": "#dae2fd",
+              "surface-bright": "#31394d",
+              "primary-container": "#1f70e3",
+              "background": "#0b1326",
+              "error-container": "#93000a",
+              "on-primary": "#002e6a",
+              "tertiary": "#ffb597",
+              "surface-container-low": "#131b2e",
+              "on-tertiary-fixed-variant": "#7e2c00",
+              "tertiary-fixed": "#ffdbcd",
+              "on-tertiary-fixed": "#360f00",
+              "surface-container": "#171f33",
+              "tertiary-fixed-dim": "#ffb597",
+              "secondary-container": "#314587",
+              "on-surface-variant": "#c3c5d8",
+              "on-error": "#690005",
+              "on-secondary-fixed": "#00164f",
+              "on-tertiary": "#591d00",
+              "on-tertiary-container": "#fffaf9",
+              "primary": "#adc6ff",
+              "on-primary-container": "#fcfaff",
+              "secondary-fixed": "#dce1ff",
+              "primary-fixed-dim": "#adc6ff",
+              "surface-container-high": "#222a3d",
+              "surface-container-lowest": "#060e20",
+              "secondary-fixed-dim": "#b6c4ff",
+              "primary-fixed": "#d8e2ff",
+              "on-secondary-fixed-variant": "#2f4385"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #0b1326; color: #dae2fd; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-panel { background: rgba(45, 52, 73, 0.6); backdrop-filter: blur(20px); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary/30">
+<!-- SideNavBar (Shared Component) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#060e20] flex flex-col py-8 z-50">
+<div class="px-6 mb-10">
+<h1 class="text-xl font-bold tracking-tighter text-[#adc6ff]">Nocturne Admin</h1>
+<p class="text-xs text-on-surface-variant/60 font-medium mt-1">Management Console</p>
+</div>
+<nav class="flex-1 px-4 space-y-2 font-['Inter'] tracking-tight text-sm">
+<!-- Active: Dashboard -->
+<a class="flex items-center gap-3 px-4 py-3 text-[#adc6ff] font-semibold border-l-4 border-[#adc6ff] bg-[#171f33] transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span>Reports</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span>Team</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="px-4 mt-auto space-y-2 border-t border-outline-variant/10 pt-6">
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-on-primary-container font-semibold py-2.5 rounded-xl text-sm mb-4 active:scale-95 transition-transform">
+                New Project
+            </button>
+<a class="flex items-center gap-3 px-4 py-2 text-[#c3c5d8] opacity-70 hover:text-[#dae2fd] text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-[#c3c5d8] opacity-70 hover:text-[#dae2fd] text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span>Log out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen">
+<!-- TopNavBar (Shared Component) -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-[#0b1326]/60 backdrop-blur-xl border-b border-[#434655]/15 flex justify-between items-center px-10">
+<div class="flex items-center gap-8">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm" data-icon="search">search</span>
+<input class="bg-surface-container-lowest border-none rounded-full pl-10 pr-4 py-1.5 text-xs w-64 focus:ring-2 focus:ring-primary/30 transition-all text-on-surface" placeholder="Search system..." type="text"/>
+</div>
+<nav class="flex gap-6 font-['Inter'] text-sm font-medium">
+<a class="text-[#adc6ff] border-b-2 border-[#adc6ff] py-5" href="#">Overview</a>
+<a class="text-[#c3c5d8] hover:text-[#dae2fd] py-5 transition-all duration-300" href="#">System Status</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-outline-variant/30">
+<img class="w-full h-full object-cover" data-alt="User profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8CkcXos1DzOLi1qva2yASZsl1WNhMDzS7kcsm8e9yUgij9LPexLDUxBfQXTXfAb9AVXpvYllck1X99ZSD0MSNo6v5-oBL7gXf0nzIyXfrEmqZAOEUHTasQU_tlSvL2xPXc4rLa_AV-9Gy96LDaPd9PqnB8xCSWaaw7Ti8ZwXQMJhJ2duzGTaYTdoa20sjIQKJiiN48e4CyzbUHmNdZs5bRLFIuIg58VbXd3J9kTtV6Q-5V9Na7Q3q_SQZpFjNv7zF4ILFEd0mBAY"/>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="pt-24 px-10 pb-12 space-y-10 max-w-7xl mx-auto">
+<!-- Hero Stats: Bento Grid Style -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5 group hover:bg-surface-container transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-xs font-bold tracking-widest text-on-surface-variant uppercase">Total Inquiries</span>
+<span class="material-symbols-outlined text-primary text-xl" data-icon="mail" data-weight="fill" style="font-variation-settings: 'FILL' 1;">mail</span>
+</div>
+<h2 class="text-3xl font-bold text-on-surface tracking-tight">1,284</h2>
+<p class="text-[10px] text-primary mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="trending_up">trending_up</span>
+                        12.5% from last month
+                    </p>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5 group hover:bg-surface-container transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-xs font-bold tracking-widest text-on-surface-variant uppercase">Total Orders</span>
+<span class="material-symbols-outlined text-secondary text-xl" data-icon="shopping_cart" data-weight="fill" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
+</div>
+<h2 class="text-3xl font-bold text-on-surface tracking-tight">856</h2>
+<p class="text-[10px] text-on-surface-variant mt-2 flex items-center gap-1 opacity-60">
+<span class="material-symbols-outlined text-[12px]" data-icon="horizontal_rule">horizontal_rule</span>
+                        Steady volume
+                    </p>
+</div>
+<div class="bg-surface-container p-6 rounded-xl border border-primary/20 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-primary/10 transition-colors"></div>
+<div class="flex justify-between items-start mb-4">
+<span class="text-xs font-bold tracking-widest text-primary uppercase">Total Revenue</span>
+<span class="material-symbols-outlined text-primary text-xl" data-icon="payments" data-weight="fill" style="font-variation-settings: 'FILL' 1;">payments</span>
+</div>
+<h2 class="text-3xl font-bold text-on-surface tracking-tight">$42,910</h2>
+<p class="text-[10px] text-primary mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="trending_up">trending_up</span>
+                        8.2% growth
+                    </p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/5 group hover:bg-surface-container transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-xs font-bold tracking-widest text-on-surface-variant uppercase">Pending Payments</span>
+<span class="material-symbols-outlined text-tertiary text-xl" data-icon="pending_actions" data-weight="fill" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
+</div>
+<h2 class="text-3xl font-bold text-on-surface tracking-tight">14</h2>
+<p class="text-[10px] text-tertiary mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="warning">warning</span>
+                        Needs review
+                    </p>
+</div>
+</section>
+<!-- Main Layout: Asymmetric Sections -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
+<!-- Large Section: Tables (Inquiries & Orders) -->
+<div class="lg:col-span-2 space-y-12">
+<!-- Recent Inquiries Section -->
+<section>
+<div class="flex justify-between items-end mb-6">
+<div>
+<h3 class="text-xl font-bold text-on-surface">Recent Inquiries</h3>
+<p class="text-xs text-on-surface-variant mt-1">Client communications from the last 24 hours</p>
+</div>
+<button class="text-xs font-semibold text-primary hover:underline underline-offset-4">View All</button>
+</div>
+<div class="bg-surface-container-low rounded-xl overflow-hidden">
+<table class="w-full text-left text-sm">
+<thead>
+<tr class="text-on-surface-variant text-[10px] uppercase tracking-widest border-b border-outline-variant/10">
+<th class="px-6 py-4 font-semibold">Client</th>
+<th class="px-6 py-4 font-semibold">Subject</th>
+<th class="px-6 py-4 font-semibold">Status</th>
+<th class="px-6 py-4 font-semibold text-right">Time</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-5 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-[10px] font-bold text-on-secondary-container">AE</div>
+<span class="font-medium">Aria Elara</span>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">Bulk sourcing for Q4...</td>
+<td class="px-6 py-5">
+<span class="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-bold">NEW</span>
+</td>
+<td class="px-6 py-5 text-right text-on-surface-variant text-xs">2m ago</td>
+</tr>
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-5 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-[10px] font-bold text-on-surface">KV</div>
+<span class="font-medium">Kaelen Vance</span>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">Custom fabrication request</td>
+<td class="px-6 py-5">
+<span class="px-2 py-1 rounded bg-outline-variant/20 text-on-surface-variant text-[10px] font-bold">READ</span>
+</td>
+<td class="px-6 py-5 text-right text-on-surface-variant text-xs">45m ago</td>
+</tr>
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-5 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-[10px] font-bold text-primary">MS</div>
+<span class="font-medium">Mira Sol</span>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">Logistics inquiry (Global)</td>
+<td class="px-6 py-5">
+<span class="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-bold">NEW</span>
+</td>
+<td class="px-6 py-5 text-right text-on-surface-variant text-xs">1h ago</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Recent Orders Section -->
+<section>
+<div class="flex justify-between items-end mb-6">
+<div>
+<h3 class="text-xl font-bold text-on-surface">Recent Orders</h3>
+<p class="text-xs text-on-surface-variant mt-1">Fulfillment status of priority shipments</p>
+</div>
+<button class="text-xs font-semibold text-primary hover:underline underline-offset-4">Shipments Map</button>
+</div>
+<div class="bg-surface-container-low rounded-xl overflow-hidden">
+<table class="w-full text-left text-sm">
+<thead>
+<tr class="text-on-surface-variant text-[10px] uppercase tracking-widest border-b border-outline-variant/10">
+<th class="px-6 py-4 font-semibold">Order ID</th>
+<th class="px-6 py-4 font-semibold">Product</th>
+<th class="px-6 py-4 font-semibold">Revenue</th>
+<th class="px-6 py-4 font-semibold text-right">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-5 font-mono text-xs text-primary">#NC-9021</td>
+<td class="px-6 py-5 text-on-surface">Cobalt Industrial Frames</td>
+<td class="px-6 py-5 font-semibold">$3,420</td>
+<td class="px-6 py-5 text-right">
+<span class="flex items-center justify-end gap-1.5 text-xs text-on-surface">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                                                Processing
+                                            </span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-5 font-mono text-xs text-primary">#NC-8994</td>
+<td class="px-6 py-5 text-on-surface">Slate Exterior Monoliths</td>
+<td class="px-6 py-5 font-semibold">$12,100</td>
+<td class="px-6 py-5 text-right">
+<span class="flex items-center justify-end gap-1.5 text-xs text-on-surface">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                                Shipped
+                                            </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+<!-- Right Sidebar: Pending Review Queue -->
+<aside class="space-y-8">
+<div class="bg-surface-container rounded-xl p-8 border border-outline-variant/10">
+<div class="flex items-center gap-2 mb-8">
+<span class="material-symbols-outlined text-tertiary" data-icon="inventory_2">inventory_2</span>
+<h3 class="text-lg font-bold text-on-surface">Pending Review</h3>
+</div>
+<div class="space-y-6">
+<!-- Review Item -->
+<div class="group cursor-pointer">
+<div class="flex justify-between items-start mb-2">
+<p class="text-[10px] font-bold text-tertiary uppercase tracking-tighter">Payment Declaration</p>
+<p class="text-[10px] text-on-surface-variant">12m ago</p>
+</div>
+<h4 class="text-sm font-semibold group-hover:text-primary transition-colors">Transaction ID: TX-7729</h4>
+<div class="mt-3 bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/5">
+<div class="flex justify-between text-xs mb-1">
+<span class="text-on-surface-variant">Amount</span>
+<span class="text-on-surface font-bold">$1,450.00</span>
+</div>
+<div class="flex justify-between text-xs">
+<span class="text-on-surface-variant">Source</span>
+<span class="text-on-surface">Crypto Wallet (ETH)</span>
+</div>
+</div>
+<div class="mt-4 flex gap-2">
+<button class="flex-1 py-1.5 bg-surface-container-high text-[10px] font-bold rounded-lg border border-outline-variant/20 hover:border-primary/50 transition-all uppercase">Decline</button>
+<button class="flex-1 py-1.5 bg-primary text-on-primary text-[10px] font-bold rounded-lg hover:bg-primary-container transition-all uppercase">Approve</button>
+</div>
+</div>
+<!-- Spacer -->
+<div class="h-px bg-outline-variant/10"></div>
+<!-- Review Item -->
+<div class="group cursor-pointer">
+<div class="flex justify-between items-start mb-2">
+<p class="text-[10px] font-bold text-secondary uppercase tracking-tighter">Supplier Update</p>
+<p class="text-[10px] text-on-surface-variant">1h ago</p>
+</div>
+<h4 class="text-sm font-semibold group-hover:text-primary transition-colors">Global Logistics Hub</h4>
+<p class="text-xs text-on-surface-variant mt-2 leading-relaxed">System flags potential delay in Route 4B due to maritime congestion.</p>
+<button class="mt-4 w-full py-2 bg-surface-container-high/50 text-[10px] font-bold rounded-lg hover:bg-surface-container-high transition-all uppercase">Acknowledge</button>
+</div>
+</div>
+</div>
+<!-- System Health Visual -->
+<div class="bg-gradient-to-br from-surface-container-low to-surface-container p-8 rounded-xl border border-outline-variant/5">
+<h4 class="text-xs font-bold text-on-surface-variant mb-6 uppercase tracking-widest">Network Throughput</h4>
+<div class="h-24 flex items-end gap-1.5 px-2">
+<div class="flex-1 bg-primary/20 h-[40%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/30 h-[60%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/40 h-[45%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/50 h-[80%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/30 h-[55%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/60 h-[90%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/40 h-[70%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary h-full rounded-t-sm"></div>
+</div>
+<div class="mt-4 flex justify-between items-center">
+<p class="text-[10px] font-bold text-primary">OPERATIONAL</p>
+<p class="text-[10px] text-on-surface-variant">99.9% Uptime</p>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</main>
+<!-- Floating UI Decoration / Glassmorphism Elements -->
+<div class="fixed bottom-8 right-8 w-12 h-12 bg-primary/20 backdrop-blur-xl rounded-full border border-primary/30 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform active:scale-95 z-50">
+<span class="material-symbols-outlined text-primary" data-icon="chat_bubble">chat_bubble</span>
+</div>
+</body></html>

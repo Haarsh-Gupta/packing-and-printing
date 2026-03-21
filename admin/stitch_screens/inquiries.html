@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inquiries Management | Nocturne Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for the architectural feel */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #060e20; }
+        ::-webkit-scrollbar-thumb { background: #31394d; border-radius: 10px; }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary-container": "#a2b5ff",
+              "tertiary-container": "#c84b00",
+              "surface-dim": "#0b1326",
+              "on-primary-fixed-variant": "#004395",
+              "error": "#ffb4ab",
+              "on-surface": "#dae2fd",
+              "outline": "#8d90a1",
+              "on-secondary": "#152b6d",
+              "on-error-container": "#ffdad6",
+              "surface-tint": "#adc6ff",
+              "surface-variant": "#2d3449",
+              "secondary": "#b6c4ff",
+              "on-primary-fixed": "#001a42",
+              "inverse-on-surface": "#283044",
+              "on-background": "#dae2fd",
+              "outline-variant": "#434655",
+              "inverse-primary": "#005ac2",
+              "surface": "#0b1326",
+              "surface-container-highest": "#2d3449",
+              "inverse-surface": "#dae2fd",
+              "surface-bright": "#31394d",
+              "primary-container": "#1f70e3",
+              "background": "#0b1326",
+              "error-container": "#93000a",
+              "on-primary": "#002e6a",
+              "tertiary": "#ffb597",
+              "surface-container-low": "#131b2e",
+              "on-tertiary-fixed-variant": "#7e2c00",
+              "tertiary-fixed": "#ffdbcd",
+              "on-tertiary-fixed": "#360f00",
+              "surface-container": "#171f33",
+              "tertiary-fixed-dim": "#ffb597",
+              "secondary-container": "#314587",
+              "on-surface-variant": "#c3c5d8",
+              "on-error": "#690005",
+              "on-secondary-fixed": "#00164f",
+              "on-tertiary": "#591d00",
+              "on-tertiary-container": "#fffaf9",
+              "primary": "#adc6ff",
+              "on-primary-container": "#fcfaff",
+              "secondary-fixed": "#dce1ff",
+              "primary-fixed-dim": "#adc6ff",
+              "surface-container-high": "#222a3d",
+              "surface-container-lowest": "#060e20",
+              "secondary-fixed-dim": "#b6c4ff",
+              "primary-fixed": "#d8e2ff",
+              "on-secondary-fixed-variant": "#2f4385"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary-container/30">
+<!-- SideNavBar (Execution from JSON) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#060e20] flex flex-col py-8 z-50">
+<div class="px-6 mb-10">
+<h1 class="text-xl font-bold tracking-tighter text-[#adc6ff]">Nocturne Admin</h1>
+<p class="text-xs text-on-surface-variant/60 font-medium uppercase tracking-widest mt-1">Management Console</p>
+</div>
+<nav class="flex-1 space-y-1 px-4">
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-['Inter'] tracking-tight transition-colors duration-200 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd]" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-['Inter'] tracking-tight transition-colors duration-200 text-[#adc6ff] font-semibold border-l-4 border-[#adc6ff] bg-[#171f33]" href="#">
+<span class="material-symbols-outlined text-[20px]">insights</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-['Inter'] tracking-tight transition-colors duration-200 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd]" href="#">
+<span class="material-symbols-outlined text-[20px]">description</span>
+<span>Reports</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-['Inter'] tracking-tight transition-colors duration-200 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd]" href="#">
+<span class="material-symbols-outlined text-[20px]">group</span>
+<span>Team</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-['Inter'] tracking-tight transition-colors duration-200 text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd]" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-4 space-y-1 pt-6 border-t border-outline-variant/10">
+<button class="w-full flex items-center justify-center gap-2 mb-6 py-2.5 rounded-xl bg-gradient-to-br from-primary to-primary-container text-on-primary-container font-semibold text-sm shadow-lg shadow-primary-container/20 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm">add</span>
+<span>New Project</span>
+</button>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-['Inter'] tracking-tight text-[#c3c5d8] opacity-70 hover:text-[#dae2fd]" href="#">
+<span class="material-symbols-outlined text-[20px]">help</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-sm font-['Inter'] tracking-tight text-[#c3c5d8] opacity-70 hover:text-[#dae2fd]" href="#">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+<span>Log out</span>
+</a>
+</div>
+</aside>
+<!-- TopNavBar (Execution from JSON) -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-[#0b1326]/60 backdrop-blur-xl border-b border-[#434655]/15 flex justify-between items-center px-10">
+<div class="flex items-center gap-8">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+<input class="bg-surface-container-lowest border-none rounded-full pl-10 pr-4 py-1.5 text-sm w-64 focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-on-surface-variant/40" placeholder="Search inquiries..." type="text"/>
+</div>
+<nav class="flex gap-6">
+<a class="text-sm font-medium text-[#c3c5d8] hover:text-[#dae2fd] transition-all duration-300" href="#">Overview</a>
+<a class="text-sm font-medium text-[#adc6ff] border-b-2 border-[#adc6ff] transition-all duration-300" href="#">System Status</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-[#c3c5d8] hover:text-[#dae2fd] transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-[#c3c5d8] hover:text-[#dae2fd] transition-colors">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="User profile avatar portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbkmbZVotSC8kGeDZ6oW8r1bC5_eYpVnSKOibM-QmzP9hUaVowQ28cJHFNdZvnxCmv8GeoSt32a2jCqWDOjy7qx-hC3biHUXhYq1g6j8z8hyQ-SqA2uXvF4JXv9Qb1LoqODuKJequ8nXQbcR9JVxvDQEnvw9DMTgM4JvpXyHBi_nzg4l1l6xu9XwDjNWTURwnqU2QWBe0JGuFOkaawM2RVr5P_gWhltX8pKbFTsZribIK2sCxrYC_ba9e-CBI_Cmkjk7d4Nk2wEkY"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 px-10 pb-12 min-h-screen">
+<!-- Header & Stats -->
+<div class="flex justify-between items-end mb-10">
+<div>
+<h2 class="text-[3.5rem] font-extrabold tracking-tighter leading-none mb-2 text-on-surface">Inquiries</h2>
+<p class="text-on-surface-variant font-medium tracking-wide">Manage incoming requests and system tickets.</p>
+</div>
+<div class="flex gap-4">
+<div class="bg-surface-container-low p-4 px-6 rounded-xl border border-outline-variant/10">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant mb-1">Open Tickets</p>
+<p class="text-2xl font-bold text-primary">1,284</p>
+</div>
+<div class="bg-surface-container-low p-4 px-6 rounded-xl border border-outline-variant/10">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant mb-1">Avg Response</p>
+<p class="text-2xl font-bold text-secondary">2.4h</p>
+</div>
+</div>
+</div>
+<!-- Filters Section (Architectural Layering) -->
+<section class="bg-surface-container-low rounded-xl p-6 mb-8 flex flex-wrap items-center gap-6">
+<div class="flex-1 min-w-[300px] relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50">search</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-lg py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 transition-all text-on-surface" placeholder="Search by Email or Inquiry ID..." type="text"/>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Date Range</span>
+<div class="flex items-center bg-surface-container-lowest rounded-lg px-4 py-2 gap-4 border border-outline-variant/5">
+<input class="bg-transparent border-none text-xs text-on-surface focus:ring-0 p-0" type="date"/>
+<span class="text-on-surface-variant/30">—</span>
+<input class="bg-transparent border-none text-xs text-on-surface focus:ring-0 p-0" type="date"/>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="bg-surface-container-highest/50 hover:bg-surface-container-highest text-on-surface text-sm px-4 py-2.5 rounded-lg flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-lg">filter_list</span>
+<span>More Filters</span>
+</button>
+<button class="bg-surface-container-highest/50 hover:bg-surface-container-highest text-on-surface text-sm px-4 py-2.5 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-lg">download</span>
+</button>
+</div>
+</section>
+<!-- Table Section (The No-Line Rule) -->
+<section class="bg-surface-container rounded-2xl overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-high/50">
+<th class="px-8 py-5 text-[10px] uppercase tracking-[0.15em] font-bold text-on-surface-variant">Inquiry ID</th>
+<th class="px-8 py-5 text-[10px] uppercase tracking-[0.15em] font-bold text-on-surface-variant">User Email</th>
+<th class="px-8 py-5 text-[10px] uppercase tracking-[0.15em] font-bold text-on-surface-variant">Items Count</th>
+<th class="px-8 py-5 text-[10px] uppercase tracking-[0.15em] font-bold text-on-surface-variant">Status</th>
+<th class="px-8 py-5 text-[10px] uppercase tracking-[0.15em] font-bold text-on-surface-variant text-right">Created Date</th>
+<th class="px-8 py-5"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="px-8 py-6">
+<span class="font-mono text-xs text-primary font-bold">#INC-8829-X</span>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container/30 flex items-center justify-center text-secondary text-xs font-bold">JD</div>
+<span class="text-sm font-medium text-on-surface">jordan.dakota@techsphere.io</span>
+</div>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant">12 items</td>
+<td class="px-8 py-6">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">Active</span>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant text-right">Oct 24, 2023</td>
+<td class="px-8 py-6 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="px-8 py-6">
+<span class="font-mono text-xs text-primary font-bold">#INC-7741-B</span>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-tertiary-container/20 flex items-center justify-center text-tertiary text-xs font-bold">MS</div>
+<span class="text-sm font-medium text-on-surface">m.smith@nexus-core.com</span>
+</div>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant">04 items</td>
+<td class="px-8 py-6">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-on-surface-variant/10 text-on-surface-variant border border-on-surface-variant/20">Pending</span>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant text-right">Oct 23, 2023</td>
+<td class="px-8 py-6 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="px-8 py-6">
+<span class="font-mono text-xs text-primary font-bold">#INC-1209-Z</span>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary text-xs font-bold">AL</div>
+<span class="text-sm font-medium text-on-surface">a.linden@void.design</span>
+</div>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant">28 items</td>
+<td class="px-8 py-6">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-error/10 text-error border border-error/20">Critical</span>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant text-right">Oct 22, 2023</td>
+<td class="px-8 py-6 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="px-8 py-6">
+<span class="font-mono text-xs text-primary font-bold">#INC-3382-L</span>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-xs font-bold">EK</div>
+<span class="text-sm font-medium text-on-surface">elena.k@starlight.io</span>
+</div>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant">01 item</td>
+<td class="px-8 py-6">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">Active</span>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant text-right">Oct 21, 2023</td>
+<td class="px-8 py-6 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="px-8 py-6">
+<span class="font-mono text-xs text-primary font-bold">#INC-9910-K</span>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-outline-variant/30 flex items-center justify-center text-on-surface-variant text-xs font-bold">TW</div>
+<span class="text-sm font-medium text-on-surface">thomas.w@horizon.com</span>
+</div>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant">07 items</td>
+<td class="px-8 py-6">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-surface-variant text-on-surface-variant">Archived</span>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant text-right">Oct 20, 2023</td>
+<td class="px-8 py-6 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination (The Architectural Bottom-Bar) -->
+<div class="bg-surface-container-low px-8 py-6 flex items-center justify-between">
+<p class="text-xs text-on-surface-variant font-medium">
+                    Showing <span class="text-on-surface">1-5</span> of <span class="text-on-surface">1,284</span> entries
+                </p>
+<div class="flex items-center gap-2">
+<button class="w-8 h-8 flex items-center justify-center rounded bg-surface-container-highest/30 text-on-surface-variant cursor-not-allowed">
+<span class="material-symbols-outlined text-lg">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary font-bold text-xs">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-surface-container-highest/30 text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors text-xs">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-surface-container-highest/30 text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors text-xs">3</button>
+<span class="text-on-surface-variant/40 px-1">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-surface-container-highest/30 text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors text-xs">12</button>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-surface-container-highest/30 text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Contextual Help / Bento Insight -->
+<div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="col-span-2 bg-gradient-to-br from-surface-container-low to-surface-container border border-outline-variant/10 p-8 rounded-2xl relative overflow-hidden group">
+<div class="relative z-10">
+<h3 class="text-xl font-bold text-on-surface mb-3">AI Trend Analysis</h3>
+<p class="text-on-surface-variant text-sm max-w-md leading-relaxed">System inquiry volume is up by 14% this week. Most common topic: "API Authentication Latency". Recommended to scale Node-3 cluster.</p>
+<button class="mt-6 text-primary text-sm font-bold flex items-center gap-2 group-hover:gap-4 transition-all">
+                        View Detailed Insights
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<!-- Abstract Decorative Element -->
+<div class="absolute -right-10 -bottom-10 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors"></div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant/10 p-8 rounded-2xl">
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant">System Health</h3>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs text-on-surface-variant">Latency</span>
+<span class="text-xs font-mono text-primary">24ms</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[85%]"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs text-on-surface-variant">Traffic</span>
+<span class="text-xs font-mono text-secondary">High</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[62%]"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

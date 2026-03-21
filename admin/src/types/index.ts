@@ -180,6 +180,7 @@ export interface InquiryGroup {
     items: InquiryItem[];
     messages: InquiryMessage[];
     quote_email_status?: string;
+    admin_notes?: string;
 }
 
 export interface InquiryGroupList {

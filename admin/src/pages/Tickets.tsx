@@ -1,25 +1,21 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Ticket, TicketMessage } from "@/types";
-import { Send, Search, Loader2, ChevronDown, MoreHorizontal, CheckCircle } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Send, Search, Loader2, ChevronDown, MoreHorizontal, CheckCircle, Ticket as TicketIcon, Clock, AlertCircle } from "lucide-react";
 
-const PRIORITY_CONFIG: Record<string, { color: string; bg: string }> = {
-    LOW: { color: '#16a34a', bg: '#f0fdf4' },
-    MEDIUM: { color: '#2563eb', bg: '#eff6ff' },
-    HIGH: { color: '#d97706', bg: '#fffbeb' },
-    URGENT: { color: '#dc2626', bg: '#fef2f2' },
+const PRIORITY_CONFIG: Record<string, { color: string; bg: string; border: string }> = {
+    LOW: { color: '#34d399', bg: '#34d399/10', border: '#34d399/20' },
+    MEDIUM: { color: '#adc6ff', bg: '#1f70e3/10', border: '#1f70e3/20' },
+    HIGH: { color: '#fcd34d', bg: '#f59e0b/10', border: '#f59e0b/20' },
+    URGENT: { color: '#ffb4ab', bg: '#ffb4ab/10', border: '#ffb4ab/20' },
 };
 
 const PriorityBadge = ({ priority }: { priority: string }) => {
     const cfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.LOW;
     return (
-        <span style={{
-            display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
-            borderRadius: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
-            letterSpacing: '0.04em', color: cfg.color, background: cfg.bg,
-            fontFamily: "'Inter', system-ui",
-        }}>
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border"
+            style={{ color: cfg.color, backgroundColor: `rgba(${cfg.bg})`, borderColor: `rgba(${cfg.border})` }}
+        >
             {priority}
         </span>
     );
@@ -86,108 +82,101 @@ export default function Tickets() {
     );
 
     return (
-        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '0', fontFamily: "'Inter', system-ui", height: '100%' }}>
+        <div className="flex flex-col h-full font-['Inter'] bg-[#0b1326] text-[#dae2fd] px-2 pb-12 animate-fade-in">
 
             {/* Top bar */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
                 <div>
-                    <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#18181b', margin: 0 }}>
-                        Support Tickets
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-[#adc6ff] mb-2 tracking-widest uppercase">
+                        <span>Management</span>
+                        <span>/</span>
+                        <span className="text-[#c3c5d8]/60">Support Desk</span>
+                    </nav>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-[#dae2fd] m-0">
+                        Resolution Center
                     </h1>
-                    <p style={{ fontSize: '13px', color: '#71717a', marginTop: '3px' }}>{tickets.length} tickets total</p>
+                    <p className="text-xs text-[#c3c5d8] mt-1 m-0">{tickets.length} total threads active</p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div className="flex flex-wrap gap-3 items-center shrink-0">
                     <select
                         value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                        style={{
-                            height: '34px', padding: '0 10px', border: '1px solid #e4e4e7', borderRadius: '9px',
-                            fontSize: '12.5px', color: '#52525b', background: 'white',
-                            fontFamily: "'Inter', system-ui", cursor: 'pointer', outline: 'none',
-                        }}
+                        className="h-10 px-3 border border-[#434655]/40 rounded-lg text-xs font-bold text-[#dae2fd] bg-[#131b2e] focus:border-[#adc6ff] outline-none transition-colors appearance-none min-w-[140px]"
                     >
                         {['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map(s => (
-                            <option key={s} value={s}>{s === 'ALL' ? 'Status: All' : s.replace('_', ' ')}</option>
+                            <option key={s} value={s}>{s === 'ALL' ? 'State: Any' : s.replace('_', ' ')}</option>
                         ))}
                     </select>
                     <select
                         value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
-                        style={{
-                            height: '34px', padding: '0 10px', border: '1px solid #e4e4e7', borderRadius: '9px',
-                            fontSize: '12.5px', color: '#52525b', background: 'white',
-                            fontFamily: "'Inter', system-ui", cursor: 'pointer', outline: 'none',
-                        }}
+                        className="h-10 px-3 border border-[#434655]/40 rounded-lg text-xs font-bold text-[#dae2fd] bg-[#131b2e] focus:border-[#adc6ff] outline-none transition-colors appearance-none min-w-[140px]"
                     >
                         {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'].map(p => (
-                            <option key={p} value={p}>{p === 'ALL' ? 'Priority: All' : p}</option>
+                            <option key={p} value={p}>{p === 'ALL' ? 'Level: Any' : p}</option>
                         ))}
                     </select>
-                    <button style={{
-                        height: '34px', padding: '0 14px',
-                        background: '#18181b', color: 'white', border: 'none', borderRadius: '9px',
-                        fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                        fontFamily: "'Inter', system-ui",
-                    }}>
-                        + New Ticket
+                    <button className="h-10 px-6 bg-[#adc6ff] hover:bg-white text-[#001a42] border-none rounded-lg text-[10px] uppercase tracking-widest font-extrabold transition-all shadow-[0_4px_12px_rgba(173,198,255,0.2)] ml-auto sm:ml-0">
+                        Initialize Thread
                     </button>
                 </div>
             </div>
 
             {/* Split view */}
-            <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-[500px] md:min-h-0 md:h-[calc(100vh-180px)]">
+            <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-[600px] h-[calc(100vh-200px)]">
 
                 {/* Left: Ticket list */}
-                <div className="w-full md:w-[320px] flex-shrink-0 bg-white rounded-2xl border border-black/5 shadow-sm flex flex-col overflow-hidden" style={{ minHeight: '300px' }}>
-                    <div style={{ padding: '14px 14px 0' }}>
-                        <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#18181b', margin: '0 0 12px' }}>Support Tickets</h2>
+                <div className="w-full md:w-[350px] shrink-0 bg-[#131b2e] rounded-2xl border border-[#434655]/20 shadow-sm flex flex-col overflow-hidden">
+                    <div className="p-5 border-b border-[#434655]/20 bg-[#060e20]/50">
+                        <div className="flex items-center gap-2 mb-4">
+                            <TicketIcon size={16} className="text-[#adc6ff]" />
+                            <h2 className="text-[11px] font-extrabold text-[#dae2fd] uppercase tracking-widest m-0">Active Threads</h2>
+                        </div>
                         {/* Search */}
-                        <div style={{ position: 'relative', marginBottom: '12px' }}>
-                            <Search size={12} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa' }} />
+                        <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#434655]" />
                             <input
-                                type="text" placeholder="Search tickets..."
+                                type="text" placeholder="Query thread vector..."
                                 value={search} onChange={e => setSearch(e.target.value)}
-                                style={{
-                                    width: '100%', height: '34px', paddingLeft: '28px', paddingRight: '10px',
-                                    border: '1px solid #e4e4e7', borderRadius: '8px', fontSize: '12.5px',
-                                    color: '#18181b', background: '#f9f9f9', fontFamily: "'Inter', system-ui",
-                                    outline: 'none', boxSizing: 'border-box',
-                                }}
+                                className="w-full h-10 pl-9 pr-3 rounded-lg border border-[#434655]/40 text-xs font-mono text-[#adc6ff] bg-[#0b1326] outline-none focus:border-[#adc6ff] transition-colors placeholder:text-[#434655]"
                             />
                         </div>
                     </div>
 
                     {/* List */}
-                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
                         {loading ? (
-                            <div style={{ padding: '40px', textAlign: 'center' }}>
-                                <Loader2 size={20} style={{ animation: 'spin 0.8s linear infinite', color: '#3b82f6', margin: '0 auto' }} />
+                            <div className="p-12 flex flex-col items-center justify-center text-[#c3c5d8] gap-3">
+                                <Loader2 size={24} className="animate-spin text-[#adc6ff]" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest m-0">Fetching Data...</p>
+                            </div>
+                        ) : filtered.length === 0 ? (
+                            <div className="p-12 flex flex-col items-center justify-center text-[#434655]">
+                                <AlertCircle size={32} className="mb-3 opacity-50" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest m-0">Zero Threads Found</p>
                             </div>
                         ) : filtered.map(ticket => (
                             <div key={ticket.id}
                                 onClick={() => selectTicket(ticket)}
-                                style={{
-                                    padding: '12px 14px', borderBottom: '1px solid #f4f4f5', cursor: 'pointer',
-                                    background: selected?.id === ticket.id ? '#eff6ff' : 'transparent',
-                                    borderLeft: selected?.id === ticket.id ? '3px solid #3b82f6' : '3px solid transparent',
-                                    transition: 'all 0.1s',
-                                }}
-                                onMouseEnter={e => { if (selected?.id !== ticket.id) e.currentTarget.style.background = '#f9f9f9'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = selected?.id === ticket.id ? '#eff6ff' : 'transparent'; }}
+                                className={`p-4 border-b border-[#434655]/10 cursor-pointer transition-all ${
+                                    selected?.id === ticket.id 
+                                        ? 'bg-[#1f70e3]/10 border-l-2 border-l-[#1f70e3]' 
+                                        : 'bg-transparent border-l-2 border-l-transparent hover:bg-[#171f33]/80'
+                                }`}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#3b82f6' }}>#{ticket.id}</span>
-                                    <MoreHorizontal size={13} style={{ color: '#d4d4d8' }} />
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[10px] font-mono tracking-widest text-[#adc6ff]">#{ticket.id}</span>
+                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${ticket.status === 'RESOLVED' ? 'text-[#34d399]' : 'text-[#8d90a1]'}`}>
+                                        {ticket.status}
+                                    </span>
                                 </div>
-                                <p style={{
-                                    fontSize: '13px', fontWeight: 600, color: '#18181b',
-                                    margin: '0 0 3px', lineHeight: 1.3,
-                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                }}>
+                                <p className="text-sm font-bold text-[#dae2fd] m-0 mb-1 leading-snug line-clamp-2">
                                     {ticket.subject || 'Support Request'}
                                 </p>
-                                <p style={{ fontSize: '11px', color: '#71717a', margin: '0 0 8px' }}>
-                                    {(ticket as any).user_name || 'Customer'}
-                                </p>
-                                <PriorityBadge priority={ticket.priority || 'LOW'} />
+                                <div className="flex items-center justify-between mt-3">
+                                    <p className="text-[11px] text-[#c3c5d8] m-0 font-medium">
+                                        {(ticket as any).user_name || 'Customer Identity Name'}
+                                    </p>
+                                    <PriorityBadge priority={ticket.priority || 'LOW'} />
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -195,67 +184,55 @@ export default function Tickets() {
 
                 {/* Right: Chat thread */}
                 {selected ? (
-                    <div className="flex-1 bg-white rounded-2xl border border-black/5 shadow-sm flex flex-col overflow-hidden" style={{ minHeight: '400px' }}>
+                    <div className="flex-1 bg-[#131b2e] rounded-2xl border border-[#434655]/20 shadow-sm flex flex-col overflow-hidden relative">
                         {/* Chat header */}
-                        <div style={{
-                            padding: '16px 20px', borderBottom: '1px solid #f4f4f5',
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        }}>
+                        <div className="p-5 border-b border-[#434655]/20 bg-[#060e20]/50 flex items-center justify-between shrink-0">
                             <div>
-                                <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#18181b', margin: 0 }}>
+                                <h2 className="text-lg font-extrabold text-[#dae2fd] m-0">
                                     {selected.subject || 'Support Request'}
                                 </h2>
-                                <p style={{ fontSize: '12px', color: '#71717a', margin: '3px 0 0' }}>
-                                    #{selected.id} &bull; {(selected as any).user_name || 'Customer'} &bull; Created {new Date(selected.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                <p className="text-xs text-[#8d90a1] font-mono mt-1 m-0 flex items-center gap-2">
+                                    <span className="text-[#adc6ff]">#{selected.id}</span>
+                                    <span className="text-[#434655]">•</span>
+                                    {(selected as any).user_name || 'Customer'}
+                                    <span className="text-[#434655]">•</span>
+                                    Init: {new Date(selected.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                 </p>
                             </div>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div className="flex gap-3 items-center">
                                 {selected.status !== 'RESOLVED' && (
                                     <button
                                         onClick={markResolved}
-                                        style={{
-                                            height: '34px', padding: '0 14px',
-                                            background: '#f4f4f5', color: '#52525b', border: 'none', borderRadius: '9px',
-                                            fontSize: '12.5px', fontWeight: 600, cursor: 'pointer',
-                                            display: 'flex', alignItems: 'center', gap: '6px',
-                                            fontFamily: "'Inter', system-ui",
-                                        }}
+                                        className="h-9 px-4 bg-[#34d399]/10 text-[#34d399] border hover:border-[#34d399] border-[#34d399]/30 rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer flex items-center gap-2 transition-all hover:bg-[#34d399]/20"
                                     >
-                                        <CheckCircle size={13} /> Mark Resolved
-                                        <ChevronDown size={12} />
+                                        <CheckCircle size={14} /> Mark Sealed
                                     </button>
                                 )}
                                 {selected.status === 'RESOLVED' && (
-                                    <span style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 10px',
-                                        background: '#f0fdf4', color: '#16a34a', borderRadius: '9px', fontSize: '12px', fontWeight: 600,
-                                    }}>
-                                        <CheckCircle size={12} /> Resolved
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#34d399]/10 text-[#34d399] border border-[#34d399]/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">
+                                        <CheckCircle size={14} /> Sealed
                                     </span>
                                 )}
                             </div>
                         </div>
 
                         {/* Messages */}
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 flex flex-col gap-6 bg-[#0b1326]">
                             {/* First message (customer request) */}
                             {selected.description && (
-                                <div style={{
-                                    padding: '14px 16px', background: '#f9f9f9', borderRadius: '12px',
-                                    border: '1px solid #f0f0f0',
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                        <p style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
-                                            INCIDENT REPORT
+                                <div className="p-5 bg-[#171f33] rounded-2xl border border-[#434655]/30">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <p className="text-[10px] font-bold text-[#fcd34d] uppercase tracking-[0.2em] m-0">
+                                            Incident Vector
                                         </p>
                                     </div>
-                                    <p style={{ fontSize: '13px', color: '#3f3f46', lineHeight: 1.6, margin: 0 }}>
-                                        "{selected.description}"
+                                    <p className="text-sm text-[#dae2fd] leading-relaxed m-0 font-medium">
+                                        {selected.description}
                                     </p>
                                     {(selected as any).order_id && (
-                                        <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
-                                            <span style={{ fontSize: '11px', background: '#f4f4f5', padding: '3px 8px', borderRadius: '6px', color: '#52525b', fontWeight: 500 }}>
-                                                PO-{(selected as any).order_id}
+                                        <div className="mt-4 flex gap-2">
+                                            <span className="text-[10px] font-mono tracking-widest bg-[#0b1326] px-2 py-1 rounded border border-[#434655]/40 text-[#adc6ff]">
+                                                REF_PO_{(selected as any).order_id}
                                             </span>
                                         </div>
                                     )}
@@ -266,15 +243,15 @@ export default function Tickets() {
                             {msgs.map((msg, i) => {
                                 const isAdmin = (msg as any).sender_type === 'admin' || (msg as any).is_admin;
                                 return (
-                                    <div key={i} style={{ display: 'flex', justifyContent: isAdmin ? 'flex-end' : 'flex-start' }}>
-                                        <div style={{
-                                            maxWidth: '70%', padding: '12px 14px', borderRadius: '14px',
-                                            background: isAdmin ? '#3b82f6' : '#f4f4f5',
-                                            color: isAdmin ? 'white' : '#18181b',
-                                        }}>
-                                            <p style={{ fontSize: '13px', lineHeight: 1.5, margin: 0 }}>{msg.message}</p>
-                                            <p style={{ fontSize: '10px', opacity: 0.6, marginTop: '6px', margin: '6px 0 0' }}>
-                                                {isAdmin ? 'Admin' : (selected as any).user_name} &bull; {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    <div key={i} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[75%] p-4 rounded-2xl ${
+                                            isAdmin 
+                                                ? 'bg-[#1f70e3] text-white rounded-tr-sm' 
+                                                : 'bg-[#171f33] border border-[#434655]/30 text-[#dae2fd] rounded-tl-sm'
+                                        }`}>
+                                            <p className="text-[13px] leading-relaxed m-0 font-medium whitespace-pre-wrap">{msg.message}</p>
+                                            <p className={`text-[9px] font-mono tracking-wider mt-2 m-0 ${isAdmin ? 'text-white/60' : 'text-[#8d90a1]'}`}>
+                                                {isAdmin ? 'SYS_ADMIN' : 'USER_NODE'} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </p>
                                         </div>
                                     </div>
@@ -282,50 +259,50 @@ export default function Tickets() {
                             })}
 
                             {msgs.length === 0 && !selected.description && (
-                                <div style={{ textAlign: 'center', padding: '40px', color: '#a1a1aa' }}>
-                                    <p style={{ fontSize: '13px', fontWeight: 500 }}>No messages yet</p>
+                                <div className="flex flex-col items-center justify-center p-12 text-[#434655]">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest">No data fragments</p>
                                 </div>
                             )}
                         </div>
 
                         {/* Reply input */}
-                        <div style={{ padding: '14px 20px', borderTop: '1px solid #f4f4f5', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                            <input
-                                type="text"
-                                placeholder={`Type a message to ${(selected as any).user_name || 'customer'}…`}
+                        <div className="p-5 border-t border-[#434655]/20 bg-[#060e20]/50 flex gap-3 items-end shrink-0">
+                            <textarea
+                                placeholder={`Compile response payload for ${(selected as any).user_name || 'node'}...`}
                                 value={reply}
                                 onChange={e => setReply(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendReply()}
-                                style={{
-                                    flex: 1, height: '40px', padding: '0 14px',
-                                    border: '1px solid #e4e4e7', borderRadius: '10px', fontSize: '13px',
-                                    color: '#18181b', background: '#f9f9f9', fontFamily: "'Inter', system-ui",
-                                    outline: 'none',
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        sendReply();
+                                    }
                                 }}
+                                className="flex-1 min-h-[48px] max-h-[120px] p-3 rounded-xl border border-[#434655]/40 text-[13px] text-[#dae2fd] bg-[#0b1326] outline-none focus:border-[#adc6ff] transition-colors resize-y custom-scrollbar placeholder:text-[#434655]"
                             />
                             <button
                                 onClick={sendReply}
                                 disabled={sending || !reply.trim()}
-                                style={{
-                                    width: '40px', height: '40px', borderRadius: '10px',
-                                    background: reply.trim() ? '#3b82f6' : '#e4e4e7',
-                                    border: 'none', cursor: reply.trim() ? 'pointer' : 'default',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    transition: 'background 0.12s',
-                                }}>
+                                className={`w-12 h-12 rounded-xl border-none flex items-center justify-center transition-all ${
+                                    reply.trim() 
+                                        ? 'bg-[#adc6ff] hover:bg-white text-[#001a42] cursor-pointer shadow-[0_4px_12px_rgba(173,198,255,0.2)]' 
+                                        : 'bg-[#131b2e] border border-[#434655]/40 text-[#434655] cursor-default'
+                                }`}
+                            >
                                 {sending
-                                    ? <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite', color: 'white' }} />
-                                    : <Send size={15} style={{ color: reply.trim() ? 'white' : '#a1a1aa' }} />
+                                    ? <Loader2 size={18} className="animate-spin text-[#001a42]" />
+                                    : <Send size={18} className={reply.trim() ? "translate-x-0.5" : ""} />
                                 }
                             </button>
                         </div>
                     </div>
                 ) : (
-                    <div className="flex-1 bg-white rounded-2xl border border-black/5 shadow-sm flex flex-col items-center justify-center text-zinc-300 gap-2.5" style={{ minHeight: '400px' }}>
-                        <div style={{ fontSize: '32px' }}>💬</div>
-                        <div style={{ textAlign: 'center' }}>
-                            <p style={{ fontSize: '14px', fontWeight: 600, color: '#71717a', margin: 0 }}>Select a ticket</p>
-                            <p style={{ fontSize: '13px', color: '#a1a1aa', margin: '4px 0 0' }}>Choose a ticket from the list to view the conversation</p>
+                    <div className="flex-1 bg-[#131b2e] rounded-2xl border border-[#434655]/20 shadow-sm flex flex-col items-center justify-center text-[#434655] gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-[#0b1326] border border-[#434655]/20 flex items-center justify-center">
+                            <TicketIcon size={24} className="text-[#434655]" />
+                        </div>
+                        <div className="text-center">
+                            <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#8d90a1] m-0 mb-1.5">No Thread Selected</p>
+                            <p className="text-[10px] font-medium text-[#434655] m-0">Select a vector from the queue to process data</p>
                         </div>
                     </div>
                 )}

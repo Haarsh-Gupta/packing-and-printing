@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Reviews Management | Nocturne Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary-container": "#a2b5ff",
+              "tertiary-container": "#c84b00",
+              "surface-dim": "#0b1326",
+              "on-primary-fixed-variant": "#004395",
+              "error": "#ffb4ab",
+              "on-surface": "#dae2fd",
+              "outline": "#8d90a1",
+              "on-secondary": "#152b6d",
+              "on-error-container": "#ffdad6",
+              "surface-tint": "#adc6ff",
+              "surface-variant": "#2d3449",
+              "secondary": "#b6c4ff",
+              "on-primary-fixed": "#001a42",
+              "inverse-on-surface": "#283044",
+              "on-background": "#dae2fd",
+              "outline-variant": "#434655",
+              "inverse-primary": "#005ac2",
+              "surface": "#0b1326",
+              "surface-container-highest": "#2d3449",
+              "inverse-surface": "#dae2fd",
+              "surface-bright": "#31394d",
+              "primary-container": "#1f70e3",
+              "background": "#0b1326",
+              "error-container": "#93000a",
+              "on-primary": "#002e6a",
+              "tertiary": "#ffb597",
+              "surface-container-low": "#131b2e",
+              "on-tertiary-fixed-variant": "#7e2c00",
+              "tertiary-fixed": "#ffdbcd",
+              "on-tertiary-fixed": "#360f00",
+              "surface-container": "#171f33",
+              "tertiary-fixed-dim": "#ffb597",
+              "secondary-container": "#314587",
+              "on-surface-variant": "#c3c5d8",
+              "on-error": "#690005",
+              "on-secondary-fixed": "#00164f",
+              "on-tertiary": "#591d00",
+              "on-tertiary-container": "#fffaf9",
+              "primary": "#adc6ff",
+              "on-primary-container": "#fcfaff",
+              "secondary-fixed": "#dce1ff",
+              "primary-fixed-dim": "#adc6ff",
+              "surface-container-high": "#222a3d",
+              "surface-container-lowest": "#060e20",
+              "secondary-fixed-dim": "#b6c4ff",
+              "primary-fixed": "#d8e2ff",
+              "on-secondary-fixed-variant": "#2f4385"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0b1326; }
+        ::-webkit-scrollbar-thumb { background: #2d3449; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar Anchor -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#060e20] flex flex-col py-8 z-50">
+<div class="px-8 mb-10">
+<h1 class="text-xl font-bold tracking-tighter text-[#adc6ff]">Nocturne Admin</h1>
+<p class="text-[10px] uppercase tracking-widest text-[#c3c5d8] opacity-50 mt-1">Management Console</p>
+</div>
+<nav class="flex-1 space-y-1 px-4">
+<a class="flex items-center px-4 py-3 rounded-lg text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200 font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center px-4 py-3 rounded-lg text-[#adc6ff] font-semibold border-l-4 border-[#adc6ff] bg-[#171f33] font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined mr-3">insights</span>
+                Analytics
+            </a>
+<a class="flex items-center px-4 py-3 rounded-lg text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200 font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined mr-3">description</span>
+                Reports
+            </a>
+<a class="flex items-center px-4 py-3 rounded-lg text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200 font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined mr-3">group</span>
+                Team
+            </a>
+<a class="flex items-center px-4 py-3 rounded-lg text-[#c3c5d8] opacity-70 hover:bg-[#171f33] hover:text-[#dae2fd] transition-colors duration-200 font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined mr-3">settings</span>
+                Settings
+            </a>
+</nav>
+<div class="mt-auto px-4 space-y-1 border-t border-[#434655]/15 pt-6">
+<a class="flex items-center px-4 py-3 rounded-lg text-[#c3c5d8] opacity-70 hover:bg-[#171f33] transition-colors duration-200 text-sm" href="#">
+<span class="material-symbols-outlined mr-3">help</span>
+                Support
+            </a>
+<div class="flex items-center px-4 py-6 mt-4 bg-[#131b2e] rounded-xl">
+<img class="w-10 h-10 rounded-full object-cover mr-3 border border-outline-variant/30" data-alt="User profile photo avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBaJ1EpiYBxlYgKtnXfThdQVxM7PNG50r3LlQp_WoJsuKfJlF1GF5vILyyBbs29ZU9MsVCNEPeFFlRA0N3V5atEGXrRCFZBs4CC0f2OcWvy9z0CZ05MV1jWjxcVzeOv6eS2vc4yBOxeDWIy_f0KrgKRLWbBHwPdQmOGwgFPmP_wCdHxuLZfXZOVnxFh9hopLBqtabPLdqRtClmenCf8XlclhGFL5hfuBNN3OrtOxLn7cGXuqw02siS0zFiWbb1N7tZUZHGTqcgl3g"/>
+<div class="overflow-hidden">
+<p class="text-sm font-semibold truncate">Alex Thorne</p>
+<p class="text-xs text-on-surface-variant truncate">Lead Moderator</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar Anchor -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-[#0b1326]/60 backdrop-blur-xl border-b border-[#434655]/15 flex justify-between items-center px-10">
+<div class="flex items-center gap-8">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="bg-surface-container-lowest border-none rounded-full py-2 pl-10 pr-4 text-sm w-64 focus:ring-1 focus:ring-primary/30 transition-all" placeholder="Search reviews..." type="text"/>
+</div>
+<nav class="flex gap-6 font-['Inter'] text-sm font-medium">
+<a class="text-[#c3c5d8] hover:text-[#dae2fd] transition-all duration-300" href="#">Overview</a>
+<a class="text-[#adc6ff] border-b-2 border-[#adc6ff] transition-all duration-300" href="#">Reviews &amp; Sentiment</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 pb-12 px-10 min-h-screen">
+<!-- Header Section -->
+<div class="mb-10 flex justify-between items-end">
+<div>
+<h2 class="text-4xl font-extrabold tracking-tight text-on-surface mb-2">User Sentiment</h2>
+<p class="text-on-surface-variant max-w-xl">Deep architectural analysis of recent customer feedback and star distribution across the platform.</p>
+</div>
+<button class="bg-gradient-to-br from-primary to-primary-container text-on-primary-container px-6 py-3 rounded-xl font-semibold shadow-lg shadow-primary-container/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all">
+<span class="material-symbols-outlined text-lg">download</span>
+                Export Report
+            </button>
+</div>
+<!-- Bento Grid Statistics -->
+<div class="grid grid-cols-12 gap-6 mb-12">
+<!-- Overall Rating Card -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-low p-8 rounded-3xl flex flex-col justify-between">
+<div>
+<p class="text-on-surface-variant text-sm font-medium uppercase tracking-widest mb-6">Aggregate Score</p>
+<div class="flex items-baseline gap-2 mb-2">
+<span class="text-7xl font-black text-primary">4.8</span>
+<span class="text-on-surface-variant text-xl">/ 5.0</span>
+</div>
+<div class="flex gap-1 text-primary mb-4">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined">star_half</span>
+</div>
+</div>
+<p class="text-sm text-on-surface-variant italic">Based on 12,482 verified responses this month.</p>
+</div>
+<!-- Sentiment Breakdown -->
+<div class="col-span-12 lg:col-span-5 bg-surface-container p-8 rounded-3xl">
+<p class="text-on-surface-variant text-sm font-medium uppercase tracking-widest mb-8">Sentiment Distribution</p>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between text-sm">
+<span class="font-medium">Positive</span>
+<span class="text-primary">82%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[82%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-sm">
+<span class="font-medium">Neutral</span>
+<span class="text-on-surface-variant">12%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="h-full bg-on-surface-variant w-[12%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-sm">
+<span class="font-medium">Critical</span>
+<span class="text-error">6%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="h-full bg-error w-[6%]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Action Card -->
+<div class="col-span-12 lg:col-span-3 bg-surface-bright/20 backdrop-blur-md p-8 rounded-3xl border border-outline-variant/10 flex flex-col justify-center items-center text-center">
+<div class="w-16 h-16 rounded-full bg-primary-container/20 flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-primary text-3xl">verified</span>
+</div>
+<h4 class="text-lg font-bold mb-2">Quality Assurance</h4>
+<p class="text-sm text-on-surface-variant mb-6">48 reviews are pending your manual verification today.</p>
+<button class="w-full py-3 bg-surface-container-highest text-primary font-semibold rounded-xl hover:bg-surface-bright transition-colors">Review Pending</button>
+</div>
+</div>
+<!-- Review Table Section -->
+<div class="bg-surface-container-low rounded-[2rem] overflow-hidden">
+<div class="p-8 flex justify-between items-center bg-surface-container-low/50">
+<h3 class="text-xl font-bold">Recent Feedback</h3>
+<div class="flex gap-4">
+<select class="bg-surface-container-lowest border-none rounded-xl text-sm px-4 py-2 focus:ring-primary/30">
+<option>All Ratings</option>
+<option>5 Stars</option>
+<option>1-2 Stars</option>
+</select>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container rounded-xl text-sm font-medium hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                        Filters
+                    </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full border-collapse">
+<thead>
+<tr class="text-left text-xs uppercase tracking-[0.15rem] text-on-surface-variant/60 border-b border-outline-variant/5">
+<th class="px-8 py-6 font-medium">User</th>
+<th class="px-8 py-6 font-medium">Review Content</th>
+<th class="px-8 py-6 font-medium text-center">Rating</th>
+<th class="px-8 py-6 font-medium">Date</th>
+<th class="px-8 py-6 font-medium text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<!-- Table Row 1 -->
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gradient-to-br from-tertiary/20 to-tertiary-container/20 flex items-center justify-center font-bold text-tertiary">JD</div>
+<div>
+<p class="text-sm font-bold">Julianne Devis</p>
+<p class="text-xs text-on-surface-variant">Verified Buyer</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6 max-w-md">
+<p class="text-sm leading-relaxed line-clamp-2">"The performance of the Nocturne interface is unparalleled. I've never seen such fluid transitions in an admin panel before. Highly recommended for data-heavy tasks."</p>
+</td>
+<td class="px-8 py-6">
+<div class="flex justify-center gap-0.5 text-primary">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant">Oct 24, 2023</td>
+<td class="px-8 py-6">
+<div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-highest/40 rounded-lg">
+<span class="material-symbols-outlined text-sm">reply</span>
+</button>
+<button class="px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg hover:bg-primary hover:text-on-primary transition-all">Approve</button>
+<button class="px-4 py-2 bg-error/10 text-error text-xs font-bold rounded-lg hover:bg-error hover:text-on-error transition-all">Reject</button>
+</div>
+</td>
+</tr>
+<!-- Table Row 2 -->
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="Reviewer profile headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuFfLnhHCODsDn-_gMoIAWjc2BiYbY9z43nI1zNeU_x4ALcmaZ8hanzlQCQ0qHnHQiIwxCH_LmCY144WE2IHLKHbvIL_m6SrNrMlkBpNJiwKkAwCb5wmeRaOvMWWfDTyawjvvY_rSZrbtrSnH_f9RbTadbkVA2-Vm29Cdud57K0tOk5SLV5buSF4ZqPchl-F8J1jRNs9X3a3QLProcVnZiRLs2daQEBGWtk0TMB15AJCj986bqM8SVTMYOgwVRmTKv5ngbWKwxL-o"/>
+<div>
+<p class="text-sm font-bold">Marcus Chen</p>
+<p class="text-xs text-on-surface-variant">Enterprise User</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6 max-w-md">
+<p class="text-sm leading-relaxed line-clamp-2">"Initial setup was a bit confusing, but the support team helped me out within minutes. The tool is robust once you get the hang of it."</p>
+</td>
+<td class="px-8 py-6">
+<div class="flex justify-center gap-0.5 text-primary">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]">star</span>
+</div>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant">Oct 23, 2023</td>
+<td class="px-8 py-6">
+<div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-highest/40 rounded-lg">
+<span class="material-symbols-outlined text-sm">reply</span>
+</button>
+<button class="px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg hover:bg-primary hover:text-on-primary transition-all">Approve</button>
+<button class="px-4 py-2 bg-error/10 text-error text-xs font-bold rounded-lg hover:bg-error hover:text-on-error transition-all">Reject</button>
+</div>
+</td>
+</tr>
+<!-- Table Row 3 -->
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gradient-to-br from-secondary/20 to-secondary-container/20 flex items-center justify-center font-bold text-secondary">SL</div>
+<div>
+<p class="text-sm font-bold">Sarah Lansing</p>
+<p class="text-xs text-on-surface-variant">Standard User</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6 max-w-md">
+<p class="text-sm leading-relaxed line-clamp-2">"The dark mode is beautiful but sometimes the high contrast is a bit much at night. Would love a softer midnight theme."</p>
+</td>
+<td class="px-8 py-6">
+<div class="flex justify-center gap-0.5 text-primary">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]">star</span>
+<span class="material-symbols-outlined text-[18px]">star</span>
+</div>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant">Oct 21, 2023</td>
+<td class="px-8 py-6">
+<div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-highest/40 rounded-lg">
+<span class="material-symbols-outlined text-sm">reply</span>
+</button>
+<button class="px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg hover:bg-primary hover:text-on-primary transition-all">Approve</button>
+<button class="px-4 py-2 bg-error/10 text-error text-xs font-bold rounded-lg hover:bg-error hover:text-on-error transition-all">Reject</button>
+</div>
+</td>
+</tr>
+<!-- Table Row 4 -->
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="Modern woman profile photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNZYT2-ATWUbtBZOlOaTuxc2-B-QG8NOChadXXchEYQAREr_eJkb4CSZmcUsIb53IxsP3eQ0QRGbKfdOJKEpnv-_E0NjqE9FeWWCCwQWXNUHU9HNm6enQLN_3ZAzGXBLNdOlQentUnIsDV26QTAR-OvIzxYqmH3V_jK_T9SWIUKBc1JI3qYOiBVjOnkUUjhlkBiDYH1WLyQzENipE2DEA6jxEpgfZEh9HIk-wG2-q2s_0wxkKIPbXzXZePsy0Eo-5hxZga_ImuANU"/>
+<div>
+<p class="text-sm font-bold">Elena Rodriguez</p>
+<p class="text-xs text-on-surface-variant">Premium Plan</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6 max-w-md">
+<p class="text-sm leading-relaxed line-clamp-2">"Extremely disappointed with the mobile responsive view. It's missing several features that are available on the desktop."</p>
+</td>
+<td class="px-8 py-6">
+<div class="flex justify-center gap-0.5 text-error">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]">star</span>
+<span class="material-symbols-outlined text-[18px]">star</span>
+<span class="material-symbols-outlined text-[18px]">star</span>
+</div>
+</td>
+<td class="px-8 py-6 text-sm text-on-surface-variant">Oct 20, 2023</td>
+<td class="px-8 py-6">
+<div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-highest/40 rounded-lg">
+<span class="material-symbols-outlined text-sm">reply</span>
+</button>
+<button class="px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg hover:bg-primary hover:text-on-primary transition-all">Approve</button>
+<button class="px-4 py-2 bg-error/10 text-error text-xs font-bold rounded-lg hover:bg-error hover:text-on-error transition-all">Reject</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Pagination -->
+<div class="p-8 border-t border-outline-variant/5 flex justify-between items-center bg-surface-container-lowest/20">
+<p class="text-xs text-on-surface-variant font-medium uppercase tracking-widest">Showing 4 of 48 pending</p>
+<div class="flex gap-2">
+<button class="px-4 py-2 bg-surface-container-high rounded-lg text-sm disabled:opacity-30" disabled="">Previous</button>
+<button class="px-4 py-2 bg-surface-container-high text-primary font-bold rounded-lg text-sm border border-primary/20">Next</button>
+</div>
+</div>
+</div>
+</main>
+</body></html>
