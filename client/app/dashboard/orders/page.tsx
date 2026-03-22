@@ -15,8 +15,9 @@ export default function OrdersPage() {
     const router = useRouter();
     const [orders, setOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+    const [viewMode, setViewMode] = useState<"grid" | "list">("list");
     const [searchQuery, setSearchQuery] = useState("");
+    const [filterStatus, setFilterStatus] = useState("ALL");
     const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
 
     useEffect(() => {
@@ -57,13 +58,24 @@ export default function OrdersPage() {
 
     useEffect(() => {
         const query = searchQuery.toLowerCase();
-        const filtered = orders.filter(order =>
-            order.product_name?.toLowerCase().includes(query) ||
-            order.id.toString().includes(query) ||
-            order.status.toLowerCase().includes(query)
-        );
+        const filtered = orders.filter(order => {
+            const matchesSearch = order.product_name?.toLowerCase().includes(query) ||
+                order.id.toString().includes(query) ||
+                order.status.toLowerCase().includes(query);
+            const matchesFilter = filterStatus === "ALL" || order.status === filterStatus;
+            return matchesSearch && matchesFilter;
+        });
         setFilteredOrders(filtered);
-    }, [searchQuery, orders]);
+    }, [searchQuery, filterStatus, orders]);
+
+    const filterOptions = [
+        { label: "All Statuses", value: "ALL" },
+        { label: "Pending Payment", value: "PENDING_PAYMENT" },
+        { label: "Processing", value: "PROCESSING" },
+        { label: "Shipped", value: "SHIPPED" },
+        { label: "Delivered", value: "DELIVERED" },
+        { label: "Cancelled", value: "CANCELLED" }
+    ];
 
     if (isLoading) return (
         <div className="space-y-10 max-w-7xl mx-auto pb-20">
@@ -85,6 +97,9 @@ export default function OrdersPage() {
                 viewMode={viewMode}
                 setViewMode={setViewMode}
                 placeholder="Search orders by ID, product, or status..."
+                filterValue={filterStatus}
+                setFilterValue={setFilterStatus}
+                filterOptions={filterOptions}
             />
 
             {filteredOrders.length === 0 ? (

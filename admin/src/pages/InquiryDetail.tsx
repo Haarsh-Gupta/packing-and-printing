@@ -23,6 +23,17 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; dot: string; ic
     EXPIRED: { color: 'text-slate-500 dark:text-[#8d90a1]', bg: 'bg-slate-100 dark:bg-[#2d3449]/30', dot: 'bg-slate-400 dark:bg-[#8d90a1]', icon: Clock },
 };
 
+const ADMIN_ALLOWED_TRANSITIONS: Record<string, string[]> = {
+    SUBMITTED:    ['UNDER_REVIEW', 'REJECTED', 'CANCELLED'],
+    UNDER_REVIEW: ['NEGOTIATING', 'REJECTED', 'CANCELLED'],
+    NEGOTIATING:  ['REJECTED', 'CANCELLED'],
+    QUOTED:       ['NEGOTIATING', 'CANCELLED', 'EXPIRED'],
+    EXPIRED:      ['NEGOTIATING', 'CANCELLED'],
+    ACCEPTED:     ['CANCELLED'],
+    REJECTED:     ['NEGOTIATING'],
+    CANCELLED:    ['NEGOTIATING'],
+};
+
 const UserStatusIndicator = ({ isOnline }: { isOnline: boolean }) => {
     return (
         <div className="flex items-center gap-1.5 transition-colors">
@@ -122,7 +133,7 @@ function ItemCalculator({ item, subProducts, subServices }: { item: any, subProd
         <div className="mt-4 p-4 rounded-xl border border-blue-200 dark:border-[#adc6ff]/20 bg-white dark:bg-[#131b2e] shadow-lg transition-colors">
             <div className="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-[#434655]/20 pb-3">
                 <p className="font-bold text-blue-600 dark:text-[#adc6ff] flex items-center gap-1.5 text-xs uppercase tracking-wider transition-colors"><Calculator size={14} /> Item Sandbox Mode</p>
-                <button className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#c3c5d8] hover:text-slate-600 dark:hover:text-[#dae2fd] transition-colors" onClick={() => setOpen(false)}>Close</button>
+                <button className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#c3c5d8] hover:text-slate-600 dark:hover:text-slate-900 dark:hover:text-[#dae2fd] transition-colors" onClick={() => setOpen(false)}>Close</button>
             </div>
             <div className="space-y-2">
                 <div className="flex justify-between items-center bg-slate-50 dark:bg-[#0b1326] px-3 py-2 rounded-lg border border-slate-100 dark:border-[#434655]/20 transition-colors">
@@ -137,7 +148,7 @@ function ItemCalculator({ item, subProducts, subServices }: { item: any, subProd
                         </div>
                         <div className="flex items-center gap-1.5">
                             <span className="text-[9px] text-slate-300 dark:text-[#434655] font-bold font-mono uppercase">{opt.type === "ppu" ? "₹/unit" : "+₹"}</span>
-                            <input type="number" className="w-16 h-6 bg-transparent text-slate-900 dark:text-[#dae2fd] text-xs text-right font-bold outline-none border-b border-slate-200 dark:border-[#434655]/40 focus:border-blue-500 dark:focus:border-[#adc6ff] transition-colors" value={opt.val === 0 ? "" : opt.val} placeholder="0" onChange={e => updateOpt(i, parseFloat(e.target.value) || 0)} />
+                            <input type="number" className="w-16 h-6 bg-transparent text-slate-900 dark:text-[#dae2fd] text-xs text-right font-bold outline-none border-b border-slate-200 dark:border-[#434655]/40 focus:border-blue-500 dark:focus:border-blue-400 dark:border-[#adc6ff] transition-colors" value={opt.val === 0 ? "" : opt.val} placeholder="0" onChange={e => updateOpt(i, parseFloat(e.target.value) || 0)} />
                         </div>
                     </div>
                 ))}
@@ -166,6 +177,11 @@ export default function InquiryDetail() {
     const [isTyping, setIsTyping] = useState(false);
     const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const wsRef = React.useRef<WebSocket | null>(null);
+    const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [selected?.messages]);
 
     useEffect(() => {
         if (!id) return;
@@ -274,24 +290,24 @@ export default function InquiryDetail() {
 
     if (detailLoading) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-[#0b1326] min-h-screen">
-                <Loader2 size={28} className="text-[#adc6ff] animate-spin" />
+            <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-[#0b1326] min-h-screen">
+                <Loader2 size={28} className="text-blue-600 dark:text-[#adc6ff] animate-spin" />
             </div>
         );
     }
 
     if (!selected) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[#0b1326] min-h-screen">
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-slate-50 dark:bg-[#0b1326] min-h-screen">
                 <MessageSquare size={40} className="text-[#434655]" />
-                <p className="text-[13px] font-bold text-[#c3c5d8]">Inquiry not found or deleted.</p>
-                <button className="px-4 py-2 bg-[#131b2e] border border-[#434655]/20 rounded-lg text-xs font-bold text-[#adc6ff] tracking-widest uppercase hover:bg-[#171f33] transition-colors" onClick={() => navigate('/inquiries')}>Go Back</button>
+                <p className="text-[13px] font-bold text-slate-600 dark:text-[#c3c5d8]">Inquiry not found or deleted.</p>
+                <button className="px-4 py-2 bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-lg text-xs font-bold text-blue-600 dark:text-[#adc6ff] tracking-widest uppercase hover:bg-slate-50 dark:hover:bg-[#171f33] transition-colors" onClick={() => navigate('/inquiries')}>Go Back</button>
             </div>
         );
     }
 
     return (
-        <main className="min-h-screen p-8 lg:p-12 bg-[#f7f9fb] dark:bg-[#0b1326] text-[#191c1e] dark:text-[#dae2fd] antialiased overflow-y-auto custom-scrollbar transition-colors">
+        <main className="min-h-screen p-8 lg:p-12 bg-[#f7f9fb] dark:bg-[#0b1326] text-[#191c1e] dark:text-[#dae2fd] antialiased font-['Inter'] overflow-y-auto custom-scrollbar transition-colors">
             {/* Header Section */}
             <header className="mb-10 flex justify-between items-end">
                 <div>
@@ -424,6 +440,7 @@ export default function InquiryDetail() {
                             <div className="flex items-center gap-3">
                                 <MessageSquare size={18} className="text-blue-600 dark:text-[#adc6ff]" />
                                 <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-[#c3c5d8]">Communication Thread</h3>
+                                {userDetails && <UserStatusIndicator isOnline={userDetails.is_online} />}
                             </div>
                             <span className="text-[10px] font-bold text-slate-400 dark:text-[#c3c5d8]/40 uppercase tracking-widest">
                                 {selected.messages?.length || 0} Packets logged
@@ -446,23 +463,24 @@ export default function InquiryDetail() {
                                     </div>
                                 );
                             })}
-                            {remoteTyping && (
-                                <div className="flex items-start gap-4 max-w-[85%]">
-                                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-[#d8e2ff] flex items-center justify-center text-[10px] font-black text-blue-900 dark:text-[#001a42] shrink-0 ring-2 ring-blue-100/20 dark:ring-[#d8e2ff]/20">CL</div>
-                                    <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 p-3 rounded-xl rounded-tl-none flex items-center gap-2 shadow-sm">
-                                        <div className="flex gap-1">
-                                            <span className="w-1.5 h-1.5 bg-blue-600/40 rounded-full animate-bounce"></span>
-                                            <span className="w-1.5 h-1.5 bg-blue-600/40 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                                            <span className="w-1.5 h-1.5 bg-blue-600/40 rounded-full animate-bounce [animation-delay:0.4s]"></span>
-                                        </div>
+                            <div ref={messagesEndRef} />
+                        </div>
+                        
+                        {remoteTyping && (
+                            <div className="px-6 py-2 bg-slate-50 dark:bg-[#0b1326]/50 border-t border-slate-200/50 dark:border-[#434655]/10 shrink-0">
+                                <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 px-3 py-2 w-fit rounded-xl rounded-bl-none flex items-center shadow-sm">
+                                    <div className="flex gap-1 py-1">
+                                        <span className="w-1.5 h-1.5 bg-blue-600/50 rounded-full animate-bounce"></span>
+                                        <span className="w-1.5 h-1.5 bg-blue-600/50 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                        <span className="w-1.5 h-1.5 bg-blue-600/50 rounded-full animate-bounce [animation-delay:0.4s]"></span>
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                         <div className="p-6 bg-white dark:bg-[#131b2e] border-t border-slate-100 dark:border-[#434655]/20 transition-colors">
                             <div className="relative group">
                                 <textarea 
-                                    className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/20 rounded-xl p-4 pr-16 text-sm dark:text-[#dae2fd] focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24 resize-none transition-all placeholder:text-slate-400 dark:placeholder:text-[#c3c5d8]/30" 
+                                    className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/20 rounded-xl p-4 pr-16 text-sm dark:text-[#dae2fd] focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24 resize-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 dark:text-[#c3c5d8]/30" 
                                     placeholder="Draft a message to the client..."
                                     value={reply}
                                     onChange={handleTyping}
@@ -498,11 +516,11 @@ export default function InquiryDetail() {
                                 </div>
                                 <div className="space-y-5 relative z-10">
                                     <div className="group/field">
-                                        <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2 group-focus-within/field:text-blue-600 dark:group-focus-within/field:text-[#adc6ff] transition-colors">Total Contract Value (INR)</label>
+                                        <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2 group-focus-within/field:text-blue-600 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff] transition-colors">Total Contract Value (INR)</label>
                                         <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300 dark:text-[#424754]/30 group-focus-within/field:text-blue-600/50 dark:group-focus-within/field:text-[#adc6ff]/50 transition-colors">₹</span>
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300 dark:text-[#424754]/30 group-focus-within/field:text-blue-600/50 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff]/50 transition-colors">₹</span>
                                             <input 
-                                                className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl pl-9 pr-4 py-3.5 font-black text-lg focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-[#adc6ff] text-slate-900 dark:text-[#dae2fd] transition-all outline-none" 
+                                                className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl pl-9 pr-4 py-3.5 font-black text-lg focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-blue-400 dark:border-[#adc6ff] text-slate-900 dark:text-[#dae2fd] transition-all outline-none" 
                                                 type="number" 
                                                 value={quoteForm.amount}
                                                 onChange={e => setQuoteForm({ ...quoteForm, amount: e.target.value })}
@@ -514,7 +532,7 @@ export default function InquiryDetail() {
                                         <div>
                                             <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">Validity Days</label>
                                             <input 
-                                                className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl px-4 py-3 text-sm font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-[#adc6ff] text-slate-900 dark:text-[#dae2fd] transition-all outline-none" 
+                                                className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl px-4 py-3 text-sm font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-blue-400 dark:border-[#adc6ff] text-slate-900 dark:text-[#dae2fd] transition-all outline-none" 
                                                 type="number" 
                                                 value={quoteForm.validDays}
                                                 onChange={e => setQuoteForm({ ...quoteForm, validDays: e.target.value })}
@@ -542,17 +560,23 @@ export default function InquiryDetail() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                {selected.status !== 'REJECTED' && (
-                                    <button onClick={() => transitionStatus('REJECTED')} className="py-3.5 px-4 bg-slate-50 dark:bg-red-950/20 border border-slate-200 dark:border-red-500/20 text-slate-900 dark:text-red-400 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 hover:border-red-300 dark:hover:border-red-500/40 hover:text-red-600 transition-all flex items-center justify-center gap-2 group">
-                                        <XCircle size={16} className="text-red-400/40 group-hover:text-red-600 transition-colors" /> Reject Lead
-                                    </button>
-                                )}
-                                {selected.status === 'QUOTED' && (
-                                    <button onClick={() => transitionStatus('NEGOTIATING')} className="py-3.5 px-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center gap-2">
-                                        <MessageSquare size={16} /> Negotiating
-                                    </button>
-                                )}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-bold text-slate-500 dark:text-[#c3c5d8] uppercase tracking-[0.2em]">Manual State Override</label>
+                                <select 
+                                    className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-500 dark:focus:border-blue-400 dark:border-[#adc6ff] transition-colors appearance-none"
+                                    onChange={(e) => {
+                                        if(window.confirm(`Are you sure you want to change status to ${e.target.value}?`)) {
+                                            transitionStatus(e.target.value);
+                                        }
+                                    }}
+                                    value={selected.status}
+                                    disabled={sending || !(ADMIN_ALLOWED_TRANSITIONS[selected.status] && ADMIN_ALLOWED_TRANSITIONS[selected.status].length > 0)}
+                                >
+                                    <option value={selected.status} disabled>Current: {selected.status.replace(/_/g, ' ')}</option>
+                                    {(ADMIN_ALLOWED_TRANSITIONS[selected.status] || []).map(s => (
+                                        <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </section>

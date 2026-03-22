@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { DashboardOverview } from "@/types";
+import type { DashboardOverview, TrafficStats } from "@/types";
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    PieChart, Pie, Cell, Brush
+    PieChart, Pie, Cell, Brush, ComposedChart, Bar
 } from "recharts";
 import {
     TrendingUp, TrendingDown, Users, MessageSquare,
-    IndianRupee, ShoppingCart, Sun, Moon
+    IndianRupee, ShoppingCart, Sun, Moon, Filter, AlertCircle,
+    Monitor, Smartphone, Tablet
 } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -65,24 +66,39 @@ const formatValue = (val: number, type: string) => {
 };
 
 /* ── StatCard ── */
-const StatCard = ({ label, value, change, trend, icon: Icon, active, onClick }: any) => (
+const getCardColor = (id: string, dark: boolean) => {
+    switch (id) {
+        case 'revenue': return dark ? '#adc6ff' : '#2563eb'; // blue
+        case 'orders': return dark ? '#b7eb8f' : '#16a34a'; // green
+        case 'inquiries': return dark ? '#d8b4fe' : '#9333ea'; // purple
+        case 'conversion': return dark ? '#ffd666' : '#d97706'; // amber
+        case 'unpaid': return dark ? '#ffa39e' : '#dc2626'; // red
+        case 'users': return dark ? '#87e8de' : '#0d9488'; // teal
+        default: return dark ? '#adc6ff' : '#2563eb';
+    }
+};
+
+const StatCard = ({ label, value, change, trend, icon: Icon, active, onClick, color, dark }: any) => (
     <div
         onClick={onClick}
-        className={`p-6 rounded-xl border group cursor-pointer relative overflow-hidden transition-all duration-200
-            ${active
-                ? 'bg-blue-50 dark:bg-[#171f33] border-blue-200 dark:border-[#adc6ff]/20 ring-1 ring-blue-100 dark:ring-[#adc6ff]/10'
-                : 'bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/20 hover:bg-slate-50 dark:hover:bg-[#171f33]'
-            }`}
+        className={`p-6 rounded-xl border group cursor-pointer relative overflow-hidden transition-all duration-200 ${
+            !active ? 'bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/20 hover:bg-slate-50 dark:hover:bg-slate-50 dark:hover:bg-[#171f33]' : 'bg-white dark:bg-[#171f33]'
+        }`}
+        style={active ? {
+            borderColor: `${color}40`,
+            boxShadow: `0 0 0 1px ${color}20`,
+            backgroundColor: dark ? `${color}15` : `${color}0D`
+        } : {}}
     >
-        {active && <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 dark:bg-[#adc6ff]/5 rounded-full -mr-16 -mt-16 blur-2xl" />}
+        {active && <div className="absolute top-0 right-0 w-32 h-32 rounded-full -mr-16 -mt-16 blur-2xl pointer-events-none" style={{ backgroundColor: `${color}25` }} />}
         <div className="flex justify-between items-start mb-4 relative z-10">
-            <span className={`text-xs font-bold tracking-widest uppercase ${active ? 'text-blue-600 dark:text-[#adc6ff]' : 'text-slate-500 dark:text-[#c3c5d8]'}`}>{label}</span>
-            <Icon size={20} className={active ? 'text-blue-600 dark:text-[#adc6ff]' : 'text-slate-400 dark:text-[#c3c5d8]'} />
+            <span className="text-xs font-bold tracking-widest uppercase transition-colors" style={{ color: active ? color : (dark ? '#c3c5d8' : '#64748b') }}>{label}</span>
+            <Icon size={20} className="transition-colors" style={{ color: active ? color : (dark ? '#c3c5d8' : '#94a3b8') }} />
         </div>
-        <h2 className={`text-3xl font-bold tracking-tight relative z-10 ${active ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-[#dae2fd]'}`}>
+        <h2 className={`text-3xl font-bold tracking-tight relative z-10 transition-colors ${active ? (dark ? 'text-white' : 'text-slate-900') : (dark ? '#dae2fd' : 'text-slate-800')}`}>
             {value}
         </h2>
-        <p className={`text-[10px] mt-2 flex items-center gap-1 relative z-10 ${active ? 'text-blue-600 dark:text-[#adc6ff]' : 'text-slate-500 dark:text-[#c3c5d8]'}`}>
+        <p className="text-[10px] mt-2 flex items-center gap-1 relative z-10 transition-colors" style={{ color: active ? color : (dark ? '#c3c5d8' : '#64748b') }}>
             {trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
             {change} from last period
         </p>
@@ -91,21 +107,24 @@ const StatCard = ({ label, value, change, trend, icon: Icon, active, onClick }: 
 
 export default function Dashboard() {
     const [data, setData] = useState<DashboardOverview | null>(null);
+    const [traffic, setTraffic] = useState<TrafficStats | null>(null);
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState("month");
-    const [chartType, setChartType] = useState<"revenue" | "orders" | "inquiries" | "users">("revenue");
+    const [chartType, setChartType] = useState<"revenue" | "orders" | "inquiries" | "users" | "unpaid" | "conversion">("revenue");
     const { dark, toggle } = useTheme();
 
     useEffect(() => {
         setLoading(true);
         Promise.all([
             api<DashboardOverview>(`/admin/dashboard/overview?period=${period}`),
-            api<{ activities: any[] }>(`/admin/dashboard/recent-activity?limit=6`)
+            api<{ activities: any[] }>(`/admin/dashboard/recent-activity?limit=6`),
+            api<TrafficStats>(`/admin/dashboard/traffic?period=${period}`)
         ])
-            .then(([overviewData, activityData]) => {
+            .then(([overviewData, activityData, trafficData]) => {
                 setData(overviewData);
                 setRecentActivity(activityData.activities || []);
+                setTraffic(trafficData);
             })
             .catch(console.error)
             .finally(() => setLoading(false));
@@ -118,14 +137,18 @@ export default function Dashboard() {
         { id: 'orders', label: "Total Orders", value: data.orders.total.toLocaleString(), change: data.orders.change, trend: data.orders.trend, icon: ShoppingCart, path: "/orders" },
         { id: 'revenue', label: "Total Revenue", value: formatValue(data.revenue.total_collected, 'revenue'), change: data.revenue.change, trend: data.revenue.trend, icon: IndianRupee, path: "/orders" },
         { id: 'users', label: "New Users", value: data.users.total.toLocaleString(), change: data.users.change, trend: data.users.trend, icon: Users, path: "/users" },
+        { id: 'unpaid', label: "Unpaid Pending", value: formatValue(data.revenue.total_pending, 'revenue'), change: "Total Due", trend: 'up', icon: AlertCircle, path: "/orders" },
+        { id: 'conversion', label: "Inquiry Conv.", value: `${data.inquiries.conversion_rate}%`, change: "Conv Rate", trend: 'up', icon: Filter, path: "/inquiries" }
     ] : [];
 
     const getChartData = () => {
         if (!data) return [];
         switch (chartType) {
             case "revenue": return data.orders.daily_trend.map(d => ({ date: d.date, value: d.value }));
+            case "unpaid": return data.orders.daily_trend.map(d => ({ date: d.date, value: d.value }));
             case "orders": return data.orders.daily_trend.map(d => ({ date: d.date, value: d.count }));
             case "inquiries": return data.inquiries.daily_trend.map(d => ({ date: d.date, value: d.count }));
+            case "conversion": return data.inquiries.daily_trend.map(d => ({ date: d.date, value: d.count }));
             case "users": return data.users.daily_trend.map(d => ({ date: d.date, value: d.count }));
             default: return [];
         }
@@ -134,14 +157,26 @@ export default function Dashboard() {
     const chartData = getChartData();
     const activeStat = stats.find(s => s.id === chartType);
 
-    // Colors that adapt to theme
-    const accentColor = dark ? '#adc6ff' : '#2563eb';
+    // Colors that adapt to theme and selected stat
+    const accentColor = getCardColor(chartType, dark);
     const gridColor = dark ? '#434655' : '#e2e8f0';
     const tickColor = dark ? '#c3c5d8' : '#64748b';
     const brushBg = dark ? '#131b2e' : '#f1f5f9';
 
     const pipelineData = Object.entries(data?.orders.by_status || {}).map(([name, value]) => ({ name, value }));
     const totalOrders = pipelineData.reduce((s, d) => s + (d.value as number), 0);
+
+    const PIE_COLORS = {
+        mobile: '#10b981', // emerald
+        desktop: '#3b82f6', // blue
+        tablet: '#8b5cf6'  // violet
+    };
+
+    const trafficPieData = traffic ? [
+        { name: "Desktop", value: traffic.desktop.count, fill: PIE_COLORS.desktop },
+        { name: "Mobile", value: traffic.mobile.count, fill: PIE_COLORS.mobile },
+        { name: "Tablet", value: traffic.tablet.count, fill: PIE_COLORS.tablet },
+    ].filter(d => d.value > 0) : [];
 
     return (
         <div className="animate-fade-in font-['Inter'] min-h-screen bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] transition-colors">
@@ -154,7 +189,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={toggle}
-                        className="p-2 rounded-lg border border-slate-200 dark:border-[#434655]/30 bg-white dark:bg-[#131b2e] text-slate-500 dark:text-[#c3c5d8] hover:bg-slate-100 dark:hover:bg-[#171f33] transition-colors"
+                        className="p-2 rounded-lg border border-slate-200 dark:border-[#434655]/30 bg-white dark:bg-[#131b2e] text-slate-500 dark:text-[#c3c5d8] hover:bg-slate-100 dark:hover:bg-slate-50 dark:hover:bg-[#171f33] transition-colors"
                         title={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                     >
                         {dark ? <Sun size={16} /> : <Moon size={16} />}
@@ -175,13 +210,15 @@ export default function Dashboard() {
             <div className="px-10 pb-12 space-y-8 mt-4">
 
                 {/* Stat Cards */}
-                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                     {stats.map((s) => (
                         <StatCard
                             key={s.id}
                             {...s}
                             active={chartType === s.id}
                             onClick={() => setChartType(s.id as any)}
+                            color={getCardColor(s.id, dark)}
+                            dark={dark}
                         />
                     ))}
                 </section>
@@ -196,7 +233,7 @@ export default function Dashboard() {
                     </div>
                     <div className="bg-white dark:bg-[#131b2e] p-6 rounded-xl border border-slate-200 dark:border-[#434655]/10 w-full transition-colors" style={{ height: 420 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
+                            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
                                 <defs>
                                     <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="0%" stopColor={accentColor} stopOpacity={0.25} />
@@ -207,6 +244,7 @@ export default function Dashboard() {
                                 <XAxis
                                     dataKey="date" fontSize={11} fontFamily="'Inter',system-ui" fontWeight={500}
                                     axisLine={false} tickLine={false} tick={{ fill: tickColor }}
+                                    minTickGap={30}
                                 />
                                 <YAxis
                                     fontSize={11} fontFamily="'Inter',system-ui" fontWeight={500}
@@ -222,6 +260,14 @@ export default function Dashboard() {
                                     activeDot={{ r: 6, fill: accentColor, strokeWidth: 3, stroke: dark ? '#131b2e' : '#ffffff' }}
                                     animationDuration={800}
                                 />
+                                <Bar
+                                    dataKey="value"
+                                    maxBarSize={20}
+                                    fill={accentColor}
+                                    fillOpacity={0.15}
+                                    radius={[4, 4, 0, 0]}
+                                    animationDuration={1000}
+                                />
                                 {/* Interactive brush for zooming */}
                                 <Brush
                                     dataKey="date" height={28} stroke={accentColor}
@@ -229,18 +275,18 @@ export default function Dashboard() {
                                     travellerWidth={10}
                                     tickFormatter={() => ''}
                                 />
-                            </AreaChart>
+                            </ComposedChart>
                         </ResponsiveContainer>
                     </div>
                 </section>
 
-                {/* ─── Bottom Row: Pipeline + Reviews + Activity ─── */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* ─── Bottom Row 1: Pipelines + Funnel ─── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
                     {/* Order Pipeline */}
                     <div className="bg-white dark:bg-[#171f33] rounded-xl p-8 border border-slate-200 dark:border-[#434655]/10 transition-colors">
                         <div className="flex items-center gap-2 mb-8">
-                            <ShoppingCart size={18} className="text-blue-500 dark:text-[#b6c4ff]" />
+                            <ShoppingCart size={18} style={{ color: accentColor }} />
                             <h3 className="text-lg font-bold text-slate-800 dark:text-[#dae2fd]">Order Pipeline</h3>
                         </div>
                         <div className="h-[200px] relative mb-6">
@@ -255,7 +301,7 @@ export default function Dashboard() {
                                     >
                                         {pipelineData.length > 0
                                             ? pipelineData.map((item, i) => (
-                                                <Cell key={`cell-${i}`} fill={STATUS_COLORS[item.name] || '#434655'} />
+                                                <Cell key={`cell-${i}`} fill={accentColor} fillOpacity={1 - (i * 0.15)} className="transition-all duration-300" />
                                             ))
                                             : <Cell fill={dark ? '#434655' : '#e2e8f0'} fillOpacity={0.5} />
                                         }
@@ -277,18 +323,64 @@ export default function Dashboard() {
                                 <span className="text-[10px] text-slate-500 dark:text-[#c3c5d8] font-medium mt-1 uppercase tracking-widest">Orders</span>
                             </div>
                         </div>
+                        <div
+                            className="mb-5 flex justify-between px-5 py-3 rounded-xl text-xs font-semibold border transition-colors"
+                            style={{
+                                backgroundColor: dark ? `${accentColor}1A` : `${accentColor}15`,
+                                borderColor: dark ? `${accentColor}33` : `${accentColor}25`,
+                                color: dark ? accentColor : '#1e3a8a'
+                            }}
+                        >
+                            <span className="flex items-center gap-1.5 text-sm tracking-wide">📱 Online: {data?.orders.online_vs_offline?.online || 0}</span>
+                            <span className="flex items-center gap-1.5 text-sm tracking-wide">🏢 Offline: {data?.orders.online_vs_offline?.offline || 0}</span>
+                        </div>
+
                         <div className="space-y-3">
-                            {pipelineData.map(item => (
+                            {pipelineData.map((item, i) => (
                                 <div key={item.name} className="flex justify-between text-xs items-center p-2 rounded-lg bg-slate-50 dark:bg-[#0b1326]/50 transition-colors">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full" style={{ background: STATUS_COLORS[item.name] || '#434655' }} />
-                                        <span className="text-slate-600 dark:text-[#c3c5d8] font-medium tracking-wide">{item.name}</span>
+                                        <div className="w-2 h-2 rounded-full transition-colors duration-300" style={{ backgroundColor: accentColor, opacity: 1 - (i * 0.15) }} />
+                                        <span className="text-slate-600 dark:text-[#c3c5d8] font-medium tracking-wide uppercase">{item.name}</span>
                                     </div>
                                     <span className="font-bold text-slate-800 dark:text-[#dae2fd]">{item.value as number}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
+
+                    {/* Inquiry Funnel */}
+                    <div className="bg-white dark:bg-[#171f33] rounded-xl p-8 border border-slate-200 dark:border-[#434655]/10 transition-colors">
+                        <div className="flex items-center gap-2 mb-8">
+                            <Filter size={18} style={{ color: accentColor }} />
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-[#dae2fd]">Inquiry Funnel</h3>
+                        </div>
+                        <div className="space-y-6 mt-4">
+                            {[
+                                { stage: 'Drafts', value: data?.inquiries.funnel?.draft || 0, color: dark ? '#475569' : '#94a3b8' },
+                                { stage: 'Submitted', value: data?.inquiries.funnel?.submitted || 0, color: dark ? '#3b82f6' : '#60a5fa' },
+                                { stage: 'Quoted', value: data?.inquiries.funnel?.quoted || 0, color: dark ? '#f59e0b' : '#fbbf24' },
+                                { stage: 'Accepted', value: data?.inquiries.funnel?.accepted || 0, color: dark ? '#10b981' : '#34d399' },
+                            ].map((f) => {
+                                const max = Math.max(data?.inquiries.funnel?.draft || 1, 1);
+                                const width = Math.max((f.value / max) * 100, 4); // min width for visibility
+                                return (
+                                    <div key={f.stage} className="relative">
+                                        <div className="flex justify-between text-xs mb-1.5 text-slate-600 dark:text-[#c3c5d8] font-medium">
+                                            <span>{f.stage}</span>
+                                            <span className="font-bold text-slate-800 dark:text-[#dae2fd]">{f.value}</span>
+                                        </div>
+                                        <div className="w-full bg-slate-100 dark:bg-[#0b1326]/60 rounded-full h-2.5 overflow-hidden">
+                                            <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${width}%`, backgroundColor: f.color }} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* ─── Bottom Row 2: Reviews + Activity ─── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
 
                     {/* Recent Reviews */}
                     <div className="bg-white dark:bg-[#171f33] rounded-xl border border-slate-200 dark:border-[#434655]/10 overflow-hidden transition-colors">
@@ -301,7 +393,7 @@ export default function Dashboard() {
                                 <p className="px-6 py-8 text-center text-slate-400 dark:text-[#c3c5d8] text-xs">No recent reviews.</p>
                             ) : (
                                 data.recent_reviews.slice(0, 4).map((rev) => (
-                                    <div key={rev.id} className="px-6 py-4 hover:bg-slate-50 dark:hover:bg-[#222a3d]/50 transition-colors flex items-center gap-4">
+                                    <div key={rev.id} className="px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-200 dark:hover:bg-[#222a3d]/50 transition-colors flex items-center gap-4">
                                         <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-[#314587] flex items-center justify-center text-[10px] font-bold text-blue-600 dark:text-[#a2b5ff] shrink-0">
                                             {rev.user_name?.substring(0, 2).toUpperCase() || 'US'}
                                         </div>
@@ -338,7 +430,7 @@ export default function Dashboard() {
                                                 {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </p>
                                         </div>
-                                        <p className="text-xs text-slate-700 dark:text-[#dae2fd] font-medium group-hover:text-blue-600 dark:group-hover:text-[#adc6ff] transition-colors leading-relaxed m-0">
+                                        <p className="text-xs text-slate-700 dark:text-[#dae2fd] font-medium group-hover:text-blue-600 dark:group-hover:text-blue-600 dark:hover:text-[#adc6ff] transition-colors leading-relaxed m-0">
                                             {act.description}
                                         </p>
                                         {i !== recentActivity.length - 1 && <div className="mt-6 h-px bg-slate-100 dark:bg-[#434655]/20" />}
@@ -351,6 +443,54 @@ export default function Dashboard() {
                         </div>
                     </div>
                 </div>
+
+                {/* ─── Bottom Row 3: Traffic ─── */}
+                {traffic && (
+                    <div className="bg-white dark:bg-[#171f33] rounded-xl p-8 border border-slate-200 dark:border-[#434655]/10 mt-8 transition-colors flex flex-col md:flex-row gap-8 items-center">
+                        <div className="flex-1 w-full">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-[#dae2fd] mb-6">Traffic by Device</h3>
+                            <div className="h-[250px] relative">
+                                {traffic.total > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={trafficPieData}
+                                                cx="50%" cy="50%"
+                                                innerRadius={60} outerRadius={85}
+                                                paddingAngle={5} dataKey="value" stroke="none"
+                                            >
+                                                {trafficPieData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.fill} className="transition-all duration-300" />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip
+                                                formatter={(value: number | undefined) => [`${value || 0} visits`, 'Traffic']}
+                                                contentStyle={{
+                                                    backgroundColor: dark ? '#131b2e' : '#ffffff',
+                                                    borderColor: dark ? '#434655' : '#e2e8f0',
+                                                    borderRadius: '8px',
+                                                    fontSize: '12px',
+                                                }}
+                                                itemStyle={{ color: dark ? '#dae2fd' : '#1e293b' }}
+                                            />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">No traffic data recorded yet.</div>
+                                )}
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <span className="text-3xl font-bold tracking-tight text-slate-800 dark:text-[#dae2fd] leading-none">{traffic.total}</span>
+                                    <span className="text-[10px] text-slate-500 dark:text-[#c3c5d8] font-medium mt-1 uppercase tracking-widest">Total Hits</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex-1 w-full flex flex-col justify-center space-y-4">
+                            <TrafficLegendRow icon={Monitor} label="Desktop" stats={traffic.desktop} color="bg-blue-500" />
+                            <TrafficLegendRow icon={Smartphone} label="Mobile" stats={traffic.mobile} color="bg-emerald-500" />
+                            <TrafficLegendRow icon={Tablet} label="Tablet" stats={traffic.tablet} color="bg-violet-500" />
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -367,6 +507,22 @@ function DashboardSkeleton() {
                 ))}
             </section>
             <div className="bg-white dark:bg-[#131b2e] rounded-xl border border-slate-200 dark:border-[#434655]/10 w-full" style={{ height: 420 }} />
+        </div>
+    );
+}
+
+function TrafficLegendRow({ icon: Icon, label, stats, color }: { icon: any, label: string, stats: {count: number, percentage: number}, color: string }) {
+    return (
+        <div className="flex items-center justify-between text-sm bg-slate-50 dark:bg-[#0b1326]/50 p-4 rounded-xl border border-slate-100 dark:border-[#434655]/20 group transition-colors">
+            <div className="flex items-center gap-3 text-slate-700 dark:text-[#dae2fd]">
+                <div className={`w-3 h-3 rounded-full ${color} shadow-sm`} />
+                <Icon size={18} className="text-slate-500 dark:text-[#94a3b8] group-hover:text-slate-700 dark:group-hover:text-slate-900 dark:hover:text-[#dae2fd] transition-colors" />
+                <span className="font-semibold tracking-wide">{label}</span>
+            </div>
+            <div className="flex items-center gap-6">
+                <span className="text-slate-500 dark:text-[#c3c5d8] font-medium">{stats.count} hits</span>
+                <span className="font-bold min-w-[4ch] text-right text-slate-800 dark:text-[#dae2fd] text-base">{stats.percentage}%</span>
+            </div>
         </div>
     );
 }

@@ -9,19 +9,19 @@ import { useNavigate } from "react-router-dom";
 const STATUS_TABS = ["ALL", "DRAFT", "SUBMITTED", "UNDER_REVIEW", "QUOTED", "ACCEPTED", "REJECTED"];
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; borderColor: string }> = {
-    DRAFT: { color: 'text-slate-400', bg: 'bg-[#434655]/10', borderColor: 'border-[#434655]/30' },
+    DRAFT: { color: 'text-slate-400', bg: 'bg-[#434655]/10', borderColor: 'border-slate-200 dark:border-[#434655]/30' },
     SUBMITTED: { color: 'text-amber-400', bg: 'bg-amber-500/10', borderColor: 'border-amber-500/20' },
     UNDER_REVIEW: { color: 'text-purple-400', bg: 'bg-purple-500/10', borderColor: 'border-purple-500/20' },
     NEGOTIATING: { color: 'text-cyan-400', bg: 'bg-cyan-500/10', borderColor: 'border-cyan-500/20' },
-    QUOTED: { color: 'text-[#adc6ff]', bg: 'bg-[#adc6ff]/10', borderColor: 'border-[#adc6ff]/20' },
+    QUOTED: { color: 'text-blue-600 dark:text-[#adc6ff]', bg: 'bg-[#adc6ff]/10', borderColor: 'border-blue-400 dark:border-[#adc6ff]/20' },
     ACCEPTED: { color: 'text-[#34d399]', bg: 'bg-[#34d399]/10', borderColor: 'border-[#34d399]/20' },
     REJECTED: { color: 'text-[#ffb4ab]', bg: 'bg-[#ffb4ab]/10', borderColor: 'border-[#ffb4ab]/20' },
-    CANCELLED: { color: 'text-[#c3c5d8]', bg: 'bg-[#434655]/10', borderColor: 'border-[#434655]/20' },
-    EXPIRED: { color: 'text-[#8d90a1]', bg: 'bg-[#2d3449]/30', borderColor: 'border-[#2d3449]/50' },
+    CANCELLED: { color: 'text-slate-600 dark:text-[#c3c5d8]', bg: 'bg-[#434655]/10', borderColor: 'border-slate-200 dark:border-[#434655]/20' },
+    EXPIRED: { color: 'text-slate-500 dark:text-[#8d90a1]', bg: 'bg-[#2d3449]/30', borderColor: 'border-[#2d3449]/50' },
 };
 
 const StatusPill = ({ status }: { status: string }) => {
-    const cfg = STATUS_CONFIG[status] || { color: 'text-[#c3c5d8]', bg: 'bg-[#434655]/20', borderColor: 'border-[#434655]/30' };
+    const cfg = STATUS_CONFIG[status] || { color: 'text-slate-600 dark:text-[#c3c5d8]', bg: 'bg-[#434655]/20', borderColor: 'border-slate-200 dark:border-[#434655]/30' };
     const label = status.replace(/_/g, ' ');
     return (
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${cfg.bg} ${cfg.color} border ${cfg.borderColor}`}>
@@ -68,7 +68,7 @@ export default function Inquiries() {
     );
 
     return (
-        <div className="flex flex-col h-full font-sans bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] transition-colors">
+        <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] transition-colors">
 
             {/* Header */}
             <div className="flex items-end justify-between mb-8 px-2">
@@ -91,7 +91,7 @@ export default function Inquiries() {
                         <input
                             type="text" placeholder="Search by ID…" value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="bg-white dark:bg-[#060e20] border border-slate-200 dark:border-[#434655]/20 rounded-full py-2 pl-10 pr-4 text-sm w-64 focus:ring-1 focus:ring-blue-500 dark:focus:ring-[#adc6ff] transition-all text-slate-900 dark:text-[#dae2fd] placeholder:text-slate-400 dark:placeholder:text-[#c3c5d8]/40 outline-none"
+                            className="bg-white dark:bg-[#060e20] border border-slate-200 dark:border-[#434655]/20 rounded-full py-2 pl-10 pr-4 text-sm w-64 focus:ring-1 focus:ring-blue-500 dark:focus:ring-[#adc6ff] transition-all text-slate-900 dark:text-[#dae2fd] placeholder:text-slate-400 dark:placeholder:text-slate-600 dark:text-[#c3c5d8]/40 outline-none"
                         />
                     </div>
                 </div>
@@ -106,7 +106,7 @@ export default function Inquiries() {
                             className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all border ${
                                 statusFilter === tab 
                                 ? 'bg-white dark:bg-[#171f33] text-blue-600 dark:text-[#adc6ff] border-blue-200 dark:border-[#adc6ff]/30 shadow-sm dark:shadow-[0_0_15px_rgba(173,198,255,0.05)]' 
-                                : 'bg-white/50 dark:bg-[#131b2e] text-slate-500 dark:text-[#c3c5d8] border-slate-200 dark:border-[#434655]/10 hover:bg-white dark:hover:bg-[#171f33]'
+                                : 'bg-white/50 dark:bg-[#131b2e] text-slate-500 dark:text-[#c3c5d8] border-slate-200 dark:border-[#434655]/10 hover:bg-white dark:hover:bg-slate-50 dark:hover:bg-[#171f33]'
                             }`}
                         >
                             {tab === 'ALL' ? 'All' : tab.replace(/_/g, ' ')}
@@ -142,12 +142,17 @@ export default function Inquiries() {
                                     {filtered.map(iq => (
                                         <tr key={iq.id}
                                             onClick={() => navigate(`/inquiries/${iq.id}`)}
-                                            className="group cursor-pointer transition-colors duration-200 hover:bg-slate-50/80 dark:hover:bg-[#171f33]/60"
+                                            className="group cursor-pointer transition-colors duration-200 hover:bg-slate-50/80 dark:hover:bg-slate-50 dark:hover:bg-[#171f33]/60"
                                         >
                                             <td className="px-6 py-5">
-                                                <div className="flex items-center gap-1.5 text-[13px] text-blue-600 dark:text-[#adc6ff] font-semibold tracking-wider font-mono">
-                                                    <Hash size={11} className="text-slate-400 dark:text-[#c3c5d8]/60" />
-                                                    {shortId(iq.id)}
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-1.5 text-[13px] text-blue-600 dark:text-[#adc6ff] font-semibold tracking-wider font-mono">
+                                                        <Hash size={11} className="text-slate-400 dark:text-[#c3c5d8]/60" />
+                                                        {shortId(iq.id)}
+                                                    </div>
+                                                    <div className="font-mono text-[9px] text-slate-500 dark:text-[#8d90a1] select-all" title="Original UUID">
+                                                        {iq.id}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5">

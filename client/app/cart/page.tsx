@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { removeFromInquiry, clearInquiry, updateQuantity, updateOptions, InquiryItem } from "@/lib/store/inquirySlice";
 import { useAlert } from "@/components/CustomAlert";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     ShoppingCart, Trash2, ArrowRight, ArrowLeft, Loader2,
     Plus, Minus, Info, Pencil, X, Check
@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { Inquiry } from "@/types/dashboard";
 
 // ── SUBMIT HELPERS ────────────────────────────────────────────────────────────
 function buildPayload(items: InquiryItem[]) {

@@ -16,6 +16,7 @@ const PAGE_LABELS: Record<string, string> = {
     "/tickets": "Tickets",
     "/notifications": "Notifications & Email",
     "/reviews": "Reviews",
+    "/offline-payment": "Record Offline Payment",
     "/settings": "Settings",
 };
 
@@ -45,6 +46,7 @@ export default function Layout() {
     else if (location.pathname.startsWith("/orders/")) pageLabel = "Order Details";
     else if (location.pathname.startsWith("/products/")) pageLabel = "Product Details";
     else if (location.pathname.startsWith("/services/")) pageLabel = "Service Details";
+    else if (location.pathname.startsWith("/tickets/")) pageLabel = "Ticket Details";
     else pageLabel = PAGE_LABELS[location.pathname] || "Dashboard";
 
     return (

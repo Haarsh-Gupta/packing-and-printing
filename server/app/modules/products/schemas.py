@@ -94,8 +94,8 @@ class SubProductCreate(BaseModel):
     config_schema: ProductConfigSchema
     is_active: bool = True
     hsn_code: Optional[str] = None
-    cgst_rate: float = 0.0
-    sgst_rate: float = 0.0
+    cgst_rate: Optional[float] = 0.0
+    sgst_rate: Optional[float] = 0.0
 
     @model_validator(mode="after")
     def validate_config_schema(self):

@@ -7,6 +7,8 @@ from app.core.redis import redis_client
 from app.core.config import settings
 from jose import jwt, JWTError
 import asyncio
+from user_agents import parse
+from datetime import datetime, timezone
 
 logger = logging.getLogger("app.core.middleware")
 
@@ -76,6 +78,13 @@ class UserActivityMiddleware:
 
         request = Request(scope, receive)
         
+        # Track Device Traffic
+        user_agent_string = request.headers.get("User-Agent", "")
+        if user_agent_string:
+            task = asyncio.create_task(self.track_traffic(user_agent_string))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
+
         # Try to extract user from token without blocking or DB calls
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
@@ -99,4 +108,24 @@ class UserActivityMiddleware:
             # EX=300 is 5 minutes
             await redis_client.set(f"user_active:{user_id}", "online", ex=300)
         except Exception:
+            pass
+
+    async def track_traffic(self, user_agent_string: str):
+        try:
+            user_agent = parse(user_agent_string)
+            device_type = "mobile"
+            if user_agent.is_tablet:
+                device_type = "tablet"
+            elif user_agent.is_pc or user_agent.is_bot: # classify bots as desktop for simplicity, or we could ignore them
+                device_type = "desktop"
+                
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            key = f"analytics:traffic:{today}"
+            
+            async with redis_client.pipeline(transaction=True) as pipe:
+                await pipe.zincrby(key, 1, device_type)
+                await pipe.expire(key, 86400 * 90)  # Keep for 90 days
+                await pipe.execute()
+        except Exception as e:
+            logger.error(f"Error tracking traffic: {e}")
             pass

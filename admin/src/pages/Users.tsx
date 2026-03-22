@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { AuthUser } from "@/types";
-import { Search, Shield, User, Trash2, Loader2, Users } from "lucide-react";
+import { Search, Shield, User, Trash2, Loader2, Users, ChevronRight } from "lucide-react";
 
 const RoleBadge = ({ admin }: { admin: boolean }) => (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[9px] uppercase tracking-widest font-bold font-sans ${
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[9px] uppercase tracking-widest font-bold font-['Inter'] ${
         admin 
             ? 'text-[#fcd34d] bg-[#f59e0b]/10 border border-[#f59e0b]/20' 
-            : 'text-[#adc6ff] bg-[#1f70e3]/10 border border-[#1f70e3]/20'
+            : 'text-blue-600 dark:text-[#adc6ff] bg-[#1f70e3]/10 border border-[#1f70e3]/20'
     }`}>
         {admin ? <Shield size={10} /> : <User size={10} />}
         {admin ? 'System Admin' : 'Customer Asset'}
@@ -49,20 +50,20 @@ export default function UsersPage() {
     };
 
     return (
-        <div className="flex flex-col h-full font-['Inter'] bg-[#0b1326] text-[#dae2fd] px-2">
+        <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] px-2">
 
             {/* Header */}
             <div className="flex items-end justify-between mb-8">
                 <div>
-                    <nav className="flex items-center gap-2 text-[10px] font-bold text-[#adc6ff] mb-2 tracking-widest uppercase">
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-blue-600 dark:text-[#adc6ff] mb-2 tracking-widest uppercase">
                         <span>Directory</span>
                         <span>/</span>
-                        <span className="text-[#c3c5d8]/60">Accounts</span>
+                        <span className="text-slate-600 dark:text-[#c3c5d8]/60">Accounts</span>
                     </nav>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-[#dae2fd] m-0">
+                    <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] m-0">
                         Global User Registry
                     </h1>
-                    <p className="text-xs text-[#c3c5d8] mt-1 m-0">
+                    <p className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-1 m-0">
                         {users.length} {users.length === 1 ? 'account node' : 'account nodes'} indexed globally
                     </p>
                 </div>
@@ -73,13 +74,13 @@ export default function UsersPage() {
                         <input
                             type="text" placeholder="Query by string vector..." value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="h-10 pl-9 pr-3 w-64 border border-[#434655]/40 rounded-lg text-xs font-mono text-[#adc6ff] bg-[#131b2e] outline-none focus:border-[#adc6ff] placeholder:text-[#434655]/70 transition-colors"
+                            className="h-10 pl-9 pr-3 w-64 border border-slate-200 dark:border-[#434655]/40 rounded-lg text-xs font-mono text-blue-600 dark:text-[#adc6ff] bg-white dark:bg-[#131b2e] outline-none focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]/70 transition-colors"
                         />
                     </div>
                     {/* Role filter */}
                     <select
                         onChange={e => setAdminFilter(e.target.value === 'all' ? null : e.target.value === 'admin')}
-                        className="h-10 px-3 border border-[#434655]/40 rounded-lg text-xs font-bold uppercase tracking-widest text-[#c3c5d8] bg-[#131b2e] cursor-pointer outline-none focus:border-[#adc6ff] transition-colors"
+                        className="h-10 px-3 border border-slate-200 dark:border-[#434655]/40 rounded-lg text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] cursor-pointer outline-none focus:border-blue-400 dark:border-[#adc6ff] transition-colors"
                     >
                         <option value="all">All Roles</option>
                         <option value="admin">System Admins</option>
@@ -89,11 +90,11 @@ export default function UsersPage() {
             </div>
 
             {/* Table card */}
-            <div className="bg-[#131b2e] rounded-2xl border border-[#434655]/20 flex-1 overflow-hidden flex flex-col">
+            <div className="bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 flex-1 overflow-hidden flex flex-col">
                 <div className="overflow-x-auto custom-scrollbar flex-1">
                     <table className="w-full border-collapse text-left">
                         <thead>
-                            <tr className="bg-[#060e20]/50 text-[#c3c5d8] uppercase text-[10px] tracking-[0.2em] font-bold border-b border-[#434655]/20">
+                            <tr className="bg-slate-100 dark:bg-[#0b1326]/50 text-slate-600 dark:text-[#c3c5d8] uppercase text-[10px] tracking-[0.2em] font-bold border-b border-slate-200 dark:border-[#434655]/20">
                                 {['Identity Protocol', 'Privilege State', 'Contact Vector', 'Registration Epoch', ''].map((h, i) => (
                                     <th key={i} className="px-6 py-4">
                                         {h}
@@ -104,40 +105,42 @@ export default function UsersPage() {
                         <tbody className="divide-y divide-[#434655]/10">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={5} className="p-16 text-center text-[#c3c5d8] font-bold tracking-widest text-[10px] uppercase">
-                                        <Loader2 size={16} className="animate-spin text-[#adc6ff] mx-auto mb-2" />
+                                    <td colSpan={5} className="p-16 text-center text-slate-600 dark:text-[#c3c5d8] font-bold tracking-widest text-[10px] uppercase">
+                                        <Loader2 size={16} className="animate-spin text-blue-600 dark:text-[#adc6ff] mx-auto mb-2" />
                                         Querying node directory...
                                     </td>
                                 </tr>
                             ) : users.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-16 text-center text-[#c3c5d8]/50 font-bold tracking-widest text-[10px] uppercase">
+                                    <td colSpan={5} className="p-16 text-center text-slate-600 dark:text-[#c3c5d8]/50 font-bold tracking-widest text-[10px] uppercase">
                                         <Users size={32} className="opacity-20 mx-auto mb-3 block" />
                                         <p>No matching accounts found in local shard.</p>
                                     </td>
                                 </tr>
                             ) : users.map(user => (
-                                <tr key={user.id} className="group hover:bg-[#171f33]/80 transition-colors">
+                                <tr key={user.id} className="group hover:bg-slate-50 dark:hover:bg-[#171f33]/80 transition-colors">
                                     {/* Identity */}
                                     <td className="px-6 py-5 flex items-center gap-4">
-                                        <div className="relative shrink-0">
-                                            <div className={`w-12 h-12 rounded-xl border border-[#434655]/30 shrink-0 flex items-center justify-center text-lg font-black ${
-                                                user.admin 
-                                                    ? 'bg-[#1f70e3]/10 text-[#adc6ff]' 
-                                                    : 'bg-[#0b1326] text-[#c3c5d8]'
-                                            }`}>
-                                                {(user.name || user.email || 'U')[0].toUpperCase()}
+                                        <Link to={`/users/${user.id}`} className="flex items-center gap-4 group/link">
+                                            <div className="relative shrink-0">
+                                                <div className={`w-12 h-12 rounded-xl border border-slate-200 dark:border-[#434655]/30 shrink-0 flex items-center justify-center text-lg font-black transition-colors group-hover/link:border-blue-400 dark:border-[#adc6ff]/50 ${
+                                                    user.admin 
+                                                        ? 'bg-[#1f70e3]/10 text-blue-600 dark:text-[#adc6ff]' 
+                                                        : 'bg-slate-50 dark:bg-[#0b1326] text-slate-600 dark:text-[#c3c5d8]'
+                                                }`}>
+                                                    {(user.name || user.email || 'U')[0].toUpperCase()}
+                                                </div>
+                                                <OnlineDot isOnline={(user as any).is_online} />
                                             </div>
-                                            <OnlineDot isOnline={(user as any).is_online} />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-extrabold text-[#dae2fd] mb-1">
-                                                {user.name || 'Anonymous Node'}
-                                            </p>
-                                            <p className="text-[10px] text-[#adc6ff] bg-[#adc6ff]/5 px-1.5 py-0.5 rounded border border-[#adc6ff]/10 font-mono tracking-widest inline-block">
-                                                {user.id.toString().slice(0, 16)}…
-                                            </p>
-                                        </div>
+                                            <div>
+                                                <p className="text-sm font-extrabold text-slate-900 dark:text-[#dae2fd] mb-1 group-hover/link:text-blue-600 dark:text-[#adc6ff] transition-colors">
+                                                    {user.name || 'Anonymous Node'}
+                                                </p>
+                                                <p className="text-[10px] text-blue-600 dark:text-[#adc6ff] bg-[#adc6ff]/5 px-1.5 py-0.5 rounded border border-blue-400 dark:border-[#adc6ff]/10 font-mono tracking-widest inline-block transition-colors group-hover/link:bg-[#adc6ff]/10">
+                                                    {user.id.toString().slice(0, 16)}…
+                                                </p>
+                                            </div>
+                                        </Link>
                                     </td>
 
                                     {/* Privilege */}
@@ -147,7 +150,7 @@ export default function UsersPage() {
 
                                     {/* Contact */}
                                     <td className="px-6 py-5">
-                                        <p className="text-xs font-mono text-[#c3c5d8] flex items-center gap-2 mb-1.5">
+                                        <p className="text-xs font-mono text-slate-600 dark:text-[#c3c5d8] flex items-center gap-2 mb-1.5">
                                             {user.email}
                                             {(user as any).email_bounced && (
                                                 <span className="text-[9px] font-black text-[#ffb4ab] bg-[#ffb4ab]/10 border border-[#ffb4ab]/20 px-1.5 py-0.5 rounded-sm uppercase tracking-widest">
@@ -155,14 +158,14 @@ export default function UsersPage() {
                                                 </span>
                                             )}
                                         </p>
-                                        <p className="text-[11px] font-mono text-[#8d90a1]">
+                                        <p className="text-[11px] font-mono text-slate-500 dark:text-[#8d90a1]">
                                             CCOM: {(user as any).phone || 'UNREGISTERED'}
                                         </p>
                                     </td>
 
                                     {/* Registered */}
                                     <td className="px-6 py-5">
-                                        <span className="text-[11px] font-bold text-[#8d90a1] uppercase tracking-wider">
+                                        <span className="text-[11px] font-bold text-slate-500 dark:text-[#8d90a1] uppercase tracking-wider">
                                             {user.created_at
                                                 ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
                                                 : 'Epoch 0'}
@@ -172,6 +175,13 @@ export default function UsersPage() {
                                     {/* Actions */}
                                     <td className="px-6 py-5 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Link
+                                                to={`/users/${user.id}`}
+                                                className="p-2 text-slate-600 dark:text-[#c3c5d8] hover:text-blue-600 dark:hover:text-[#adc6ff] hover:bg-[#1f70e3]/10 rounded-lg transition-colors border border-transparent hover:border-blue-400 dark:hover:border-[#adc6ff]/20"
+                                                title="View profile"
+                                            >
+                                                <ChevronRight size={18} />
+                                            </Link>
                                             <button
                                                 onClick={() => deleteUser(user.id)}
                                                 className="p-2 text-[#434655] hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10 rounded-lg transition-colors border border-transparent hover:border-[#ffb4ab]/20"

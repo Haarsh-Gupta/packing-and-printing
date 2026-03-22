@@ -1,5 +1,8 @@
 import asyncio
 import logging
+import os
+import sys
+import threading
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,12 +66,35 @@ async def lifespan(app: FastAPI):
     await check_redis_connection()
     await check_smtp_connection()
     
-    # logger.info("--------- STARTUP COMPLETE ---------")
+    print(f"🟢 Server PID: {os.getpid()}")
     print("--------- STARTUP COMPLETE ---------")
     
     yield
     
-    # logger.info("--------- SHUTDOWN STARTED ---------")
+    print(f"🔴 Shutdown started for PID: {os.getpid()}")
+
+    # Windows watchdog: force-kill if shutdown takes too long
+    if sys.platform == "win32":
+        def _watchdog():
+            import time
+            time.sleep(8)
+            print("💀 Shutdown watchdog: force killing process")
+            os._exit(1)
+        threading.Thread(target=_watchdog, daemon=True).start()
+
+    try:
+        print("⏳ Shutting down SSE manager...")
+        await asyncio.wait_for(sse_manager.shutdown(), timeout=2.0)
+        print("✅ SSE manager shut down")
+    except Exception as e:
+        logger.warning("SSE manager shutdown error: %s", e)
+
+    try:
+        print("⏳ Shutting down WS manager...")
+        await asyncio.wait_for(ws_manager.shutdown(), timeout=2.0)
+        print("✅ WS manager shut down")
+    except Exception as e:
+        logger.warning("WS manager shutdown error: %s", e)
 
     await cancel_all(timeout=3.0)
 

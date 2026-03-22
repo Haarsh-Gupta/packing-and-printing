@@ -79,6 +79,7 @@ export default function OrderDetailPage() {
     const orderId = params?.id;
 
     const [order, setOrder] = useState<Order | null>(null);
+    const [inquiry, setInquiry] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSwitching, setIsSwitching] = useState(false);
 
@@ -123,11 +124,30 @@ export default function OrderDetailPage() {
             });
             if (res.status === 401) { localStorage.removeItem("access_token"); router.replace("/auth/login"); return; }
             if (res.status === 404) { showAlert("Order not found.", "error"); router.replace("/dashboard/orders"); return; }
-            if (res.ok) setOrder(await res.json());
+            if (res.ok) {
+                const data = await res.json();
+                setOrder(data);
+                if (data.inquiry_id) {
+                    fetchInquiry(data.inquiry_id);
+                }
+            }
         } catch (e) {
             showAlert("Failed to load order.", "error");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const fetchInquiry = async (inqId: string) => {
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inqId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                setInquiry(await res.json());
+            }
+        } catch (e) {
+            console.error("Failed to fetch inquiry details");
         }
     };
 
@@ -356,6 +376,67 @@ export default function OrderDetailPage() {
                     <p className="text-3xl font-black mt-1">₹{balanceDue.toLocaleString()}</p>
                 </div>
             </div>
+
+            {/* Order Items */}
+            {inquiry?.items && inquiry.items.length > 0 && (
+                <div className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden mt-8 mb-8">
+                    <div className="border-b-2 border-black p-4 bg-zinc-50">
+                        <h2 className="font-black uppercase tracking-tight">Order Items</h2>
+                    </div>
+                    <div className="divide-y-2 divide-zinc-100 p-6">
+                        <div className="space-y-8">
+                            {inquiry.items.map((item: any, i: number) => (
+                                <div key={item.id || i} className="flex flex-col sm:flex-row gap-6 pb-8 last:pb-0 border-b-2 border-zinc-100 last:border-b-0">
+                                    {item.images && item.images.length > 0 ? (
+                                        <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg overflow-hidden bg-zinc-100">
+                                            <img src={item.images[0]} alt="Product" className="w-full h-full object-cover" />
+                                        </div>
+                                    ) : (
+                                        <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg bg-zinc-100 flex items-center justify-center">
+                                            <Package className="w-8 h-8 text-zinc-400" />
+                                        </div>
+                                    )}
+                                    <div className="flex-1">
+                                        <h3 className="text-xl font-black uppercase">
+                                            {item.template_name || item.service_name || "Custom Item"}
+                                        </h3>
+                                        {item.variant_name && (
+                                            <span className="inline-block mt-2 px-3 py-1 bg-[#fdf567] border-2 border-black text-black text-xs font-black uppercase rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                                {item.variant_name}
+                                            </span>
+                                        )}
+                                        <p className="text-sm font-bold text-zinc-500 mt-3">Quantity: <span className="text-black">{item.quantity}</span></p>
+                                        
+                                        {item.selected_options && typeof item.selected_options === 'object' && Object.keys(item.selected_options).length > 0 && (
+                                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                                {Object.entries(item.selected_options).filter(([k]) => k !== 'variant_name').map(([k, v]) => (
+                                                    <div key={k} className="flex flex-col">
+                                                        <span className="text-xs text-zinc-500 font-bold uppercase">{k.replace(/_/g, " ")}</span>
+                                                        <span className="font-medium text-black">{String(v)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        
+                                        {item.notes && (
+                                            <div className="mt-4 p-4 bg-zinc-50 border-2 border-black rounded-none shadow-[2px_2px_0_0_#000]">
+                                                <p className="text-xs text-black font-black uppercase mb-1">Notes</p>
+                                                <p className="text-sm">{item.notes}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {item.line_item_price !== undefined && item.line_item_price > 0 && (
+                                        <div className="sm:text-right mt-4 sm:mt-0">
+                                            <p className="text-xs font-black uppercase text-zinc-500">Item Price</p>
+                                            <p className="text-2xl font-black text-black">₹{(item.line_item_price || item.estimated_price || 0).toLocaleString()}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Payment Schedule Switcher (Only if unpaid) */}
             {order.amount_paid === 0 && (

@@ -339,6 +339,15 @@ async def razorpay_webhook_event(
             
         await db.commit()
         
+        from app.modules.notifications.service import NotificationService
+        username = getattr(order.user, 'name', None) or getattr(order.user, 'email', 'A user')
+        await NotificationService.notify_admins(
+            db,
+            title="Online Payment Received",
+            message=f"{username} successfully paid ₹{paid_amount:,.2f} for Order #{str(order.id)[:8].upper()} (Webhook).",
+            metadata={"type": "payment_received", "id": str(order.id)}
+        )
+        
         # Fire SSE + messaging (fire-and-forget)
         try:
             from app.core.messaging import get_dispatcher

@@ -119,7 +119,7 @@ export function OrderCard({ order }: { order: Order }) {
 export function OrderListRow({ order }: { order: Order }) {
     const { showAlert } = useAlert();
     const balanceDue = order.total_amount - order.amount_paid;
-    const productName = order.product_name || `Order #${order.id}`;
+    const productName = order.product_name || `Order ${order.order_number || '#' + order.id.slice(0, 8)}`;
 
     return (
         <div className="bg-white border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-xl">
@@ -130,9 +130,9 @@ export function OrderListRow({ order }: { order: Order }) {
                 <div>
                     <div className="flex items-center gap-2">
                         <h4 className="font-bold text-lg">{productName}</h4>
-                        <span className="text-xs font-mono text-zinc-400">#{order.id}</span>
+                        <span className="text-xs font-mono text-zinc-400">{order.order_number || `#${order.id.slice(0, 8)}`}</span>
                     </div>
-                    <p className="text-sm text-zinc-500">Inquiry #{order.inquiry_id} • {order.quantity} Units</p>
+                    <p className="text-sm text-zinc-500">Inquiry #{order.inquiry_id} • {order.quantity || 0} Units</p>
                 </div>
             </div>
 

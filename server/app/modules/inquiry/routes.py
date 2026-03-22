@@ -474,12 +474,17 @@ async def update_inquiry_status_user(
     
     group.status = status_update.status.value
 
+    # Run DB query if we need user's name
+    from app.modules.users.models import User
+    user_obj = (await db.execute(select(User).where(User.id == current_user.id))).scalar_one_or_none()
+    username = getattr(user_obj, 'name', None) or getattr(user_obj, 'email', 'A user')
+
     # Notify admins if status became SUBMITTED, and fire SSE
     if status_update.status == InquiryStatus.SUBMITTED:
         await NotificationService.notify_admins(
             db,
             title="New Inquiry Submitted",
-            message=f"An inquiry with {len(group.items)} items was officially submitted.",
+            message=f"{username} submitted an inquiry with {len(group.items)} items.",
             metadata={"type": "new_inquiry", "id": str(group.id)}
         )
         
@@ -508,6 +513,12 @@ async def update_inquiry_status_user(
     refreshed_group = refreshed_result.scalar_one()
     
     if group.status == 'ACCEPTED':
+        await NotificationService.notify_admins(
+            db,
+            title="Quote Accepted",
+            message=f"{username} accepted the quote for Inquiry #{str(group.id)[:8].upper()}.",
+            metadata={"type": "quote_accepted", "id": str(group.id)}
+        )
         # Ensure order doesn't already exist to be safe
         existing_stmt = select(Order).where(Order.inquiry_id == group.id)
         existing_order = (await db.execute(existing_stmt)).scalar_one_or_none()

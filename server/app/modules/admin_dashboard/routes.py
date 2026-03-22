@@ -84,3 +84,14 @@ async def dashboard_recent_activity(
     """Chronological feed of latest events (signups, orders, payments, inquiries)."""
     svc = DashboardService(db)
     return await svc.get_recent_activity(limit)
+
+
+@router.get("/traffic")
+async def dashboard_traffic(
+    period: PeriodType = Query("all", description="Time filter"),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin_user),
+):
+    """Traffic breakdown by device (mobile vs desktop from Redis)."""
+    svc = DashboardService(db)
+    return await svc.get_traffic_stats(period)

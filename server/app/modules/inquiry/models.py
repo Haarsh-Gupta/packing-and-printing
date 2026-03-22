@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, func, Uuid, text, Integer, Text, ARRAY, Float
+from sqlalchemy import Column, String, DateTime, ForeignKey, func, Uuid, text, Integer, Text, ARRAY, Float, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from app.core.database import Base
@@ -16,6 +16,7 @@ class InquiryGroup(Base):
     active_quote_id = Column(Uuid, ForeignKey("quote_versions.id"), nullable=True)
     quote_email_status = Column(String, nullable=True)
     admin_notes     = Column(Text, nullable=True)
+    is_offline      = Column(Boolean, default=False, nullable=False)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

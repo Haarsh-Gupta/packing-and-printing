@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, LayoutGrid, List } from "lucide-react";
+import { Search, LayoutGrid, List, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface DashboardSearchProps {
@@ -9,6 +9,9 @@ interface DashboardSearchProps {
     viewMode: "grid" | "list";
     setViewMode: (mode: "grid" | "list") => void;
     placeholder?: string;
+    filterValue?: string;
+    setFilterValue?: (value: string) => void;
+    filterOptions?: { label: string; value: string }[];
 }
 
 export function DashboardSearch({
@@ -16,7 +19,10 @@ export function DashboardSearch({
     setSearchQuery,
     viewMode,
     setViewMode,
-    placeholder = "Search..."
+    placeholder = "Search...",
+    filterValue,
+    setFilterValue,
+    filterOptions
 }: DashboardSearchProps) {
     return (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
@@ -30,8 +36,25 @@ export function DashboardSearch({
                 />
             </div>
 
-            <div className="flex items-center gap-3">
-                <div className="flex border-2 border-black p-1 bg-zinc-100">
+            <div className="flex flex-wrap items-center gap-4">
+                {filterOptions && setFilterValue && (
+                    <div className="flex items-center gap-2">
+                        <Filter className="w-5 h-5 text-zinc-500 hidden sm:block" />
+                        <select
+                            value={filterValue}
+                            onChange={(e) => setFilterValue(e.target.value)}
+                            className="h-12 px-4 border-2 border-black bg-white focus:outline-none focus:ring-0 cursor-pointer font-bold uppercase text-sm"
+                        >
+                            {filterOptions.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+                
+                <div className="flex border-2 border-black p-1 bg-zinc-100 shrink-0">
                     <button
                         onClick={() => setViewMode("grid")}
                         className={`p-2 transition-all ${viewMode === "grid" ? "bg-black text-white" : "hover:bg-zinc-200"}`}

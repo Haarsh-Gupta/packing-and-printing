@@ -1,36 +1,15 @@
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { Ticket, TicketMessage } from "@/types";
-import { Send, Search, Loader2, ChevronDown, MoreHorizontal, CheckCircle, Ticket as TicketIcon, Clock, AlertCircle } from "lucide-react";
-
-const PRIORITY_CONFIG: Record<string, { color: string; bg: string; border: string }> = {
-    LOW: { color: '#34d399', bg: '#34d399/10', border: '#34d399/20' },
-    MEDIUM: { color: '#adc6ff', bg: '#1f70e3/10', border: '#1f70e3/20' },
-    HIGH: { color: '#fcd34d', bg: '#f59e0b/10', border: '#f59e0b/20' },
-    URGENT: { color: '#ffb4ab', bg: '#ffb4ab/10', border: '#ffb4ab/20' },
-};
-
-const PriorityBadge = ({ priority }: { priority: string }) => {
-    const cfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.LOW;
-    return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border"
-            style={{ color: cfg.color, backgroundColor: `rgba(${cfg.bg})`, borderColor: `rgba(${cfg.border})` }}
-        >
-            {priority}
-        </span>
-    );
-};
+import type { Ticket } from "@/types";
+import { Loader2, Filter, Plus, ChevronLeft, ChevronRight, Zap, Headset } from "lucide-react";
 
 export default function Tickets() {
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState("ALL");
     const [priorityFilter, setPriorityFilter] = useState("ALL");
-    const [selected, setSelected] = useState<Ticket | null>(null);
-    const [msgs, setMsgs] = useState<TicketMessage[]>([]);
-    const [reply, setReply] = useState("");
-    const [sending, setSending] = useState(false);
-    const [search, setSearch] = useState("");
+    const navigate = useNavigate();
 
     const fetchTickets = () => {
         setLoading(true);
@@ -39,274 +18,264 @@ export default function Tickets() {
         if (statusFilter !== "ALL") params.append("status_filter", statusFilter);
         if (priorityFilter !== "ALL") params.append("priority_filter", priorityFilter);
         if (params.toString()) url += `&${params.toString()}`;
-        api<Ticket[]>(url).then(setTickets).catch(console.error).finally(() => setLoading(false));
+        
+        api<Ticket[]>(url)
+            .then(setTickets)
+            .catch(console.error)
+            .finally(() => setLoading(false));
     };
 
-    useEffect(() => { fetchTickets(); }, [statusFilter, priorityFilter]);
+    useEffect(() => { 
+        fetchTickets(); 
+    }, [statusFilter, priorityFilter]);
 
-    const selectTicket = async (t: Ticket) => {
-        setSelected(t);
-        try {
-            const data = await api<Ticket>(`/tickets/${t.id}`);
-            setMsgs(data.messages || []);
-        } catch (e) { console.error(e); }
+    // Derived statistics
+    const totalActive = tickets.filter(t => t.status !== 'CLOSED' && t.status !== 'RESOLVED').length;
+    const criticalIssues = tickets.filter(t => t.priority === 'URGENT' || t.priority === 'HIGH').length;
+
+    const resolvedTickets = tickets.filter(t => t.status === 'RESOLVED' || t.status === 'CLOSED');
+    const resolvedRate = tickets.length > 0 ? ((resolvedTickets.length / tickets.length) * 100).toFixed(1) + '%' : '100%';
+
+    let avgResolutionStr = "N/A";
+    if (resolvedTickets.length > 0) {
+        const totalResolveTime = resolvedTickets.reduce((acc, t) => {
+            return acc + (new Date(t.updated_at).getTime() - new Date(t.created_at).getTime());
+        }, 0);
+        const avgMs = totalResolveTime / resolvedTickets.length;
+        const avgHours = avgMs / (1000 * 60 * 60);
+        avgResolutionStr = avgHours < 24 ? `${avgHours.toFixed(1)}h` : `${(avgHours / 24).toFixed(1)}d`;
+    }
+
+    const renderPriority = (priority: string) => {
+        let colorClass = "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
+        if (priority === "MEDIUM") colorClass = "text-blue-500 bg-blue-500/10 border-blue-500/20";
+        if (priority === "HIGH") colorClass = "text-amber-500 bg-amber-500/10 border-amber-500/20";
+        if (priority === "URGENT") colorClass = "text-rose-500 bg-rose-500/10 border-rose-500/20";
+
+        return (
+            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-widest ${colorClass}`}>
+                {priority}
+            </span>
+        );
     };
 
-    const sendReply = async () => {
-        if (!selected || !reply.trim()) return;
-        setSending(true);
-        try {
-            await api(`/tickets/${selected.id}/messages`, {
-                method: "POST", body: JSON.stringify({ message: reply }),
-            });
-            setReply("");
-            const data = await api<Ticket>(`/tickets/${selected.id}`);
-            setMsgs(data.messages || []);
-        } catch (e) { console.error(e); } finally { setSending(false); }
-    };
+    const renderStatus = (status: string) => {
+        let dotColor = "bg-primary";
+        let colorClass = "bg-primary/10 text-primary border-primary/20";
+        
+        if (status === "RESOLVED" || status === "CLOSED") {
+            dotColor = "bg-emerald-500";
+            colorClass = "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+        } else if (status === "OPEN") {
+            dotColor = "bg-rose-500";
+            colorClass = "bg-rose-500/10 text-rose-500 border-rose-500/20";
+        }
 
-    const markResolved = async () => {
-        if (!selected) return;
-        try {
-            await api(`/admin/tickets/${selected.id}/status`, {
-                method: "PATCH", body: JSON.stringify({ status: "RESOLVED" }),
-            });
-            fetchTickets();
-            setSelected(prev => prev ? { ...prev, status: "RESOLVED" } : null);
-        } catch (e) { console.error(e); }
+        return (
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${colorClass}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></span>
+                {status.replace("_", " ")}
+            </span>
+        );
     };
-
-    const filtered = tickets.filter(t =>
-        !search || t.subject?.toLowerCase().includes(search.toLowerCase()) ||
-        (t as any).user_name?.toLowerCase().includes(search.toLowerCase())
-    );
 
     return (
-        <div className="flex flex-col h-full font-['Inter'] bg-[#0b1326] text-[#dae2fd] px-2 pb-12 animate-fade-in">
-
-            {/* Top bar */}
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
+        <div className="font-['Inter'] pb-12 animate-fade-in w-full max-w-[1400px] mx-auto min-h-screen">
+            
+            {/* Page Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-10 gap-4">
                 <div>
-                    <nav className="flex items-center gap-2 text-[10px] font-bold text-[#adc6ff] mb-2 tracking-widest uppercase">
-                        <span>Management</span>
-                        <span>/</span>
-                        <span className="text-[#c3c5d8]/60">Support Desk</span>
-                    </nav>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-[#dae2fd] m-0">
-                        Resolution Center
-                    </h1>
-                    <p className="text-xs text-[#c3c5d8] mt-1 m-0">{tickets.length} total threads active</p>
+                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] mb-2">Support Tickets</h1>
+                    <p className="text-slate-500 dark:text-[#c3c5d8] text-sm max-w-xl">Monitor and resolve incoming customer requests across all architectural modules.</p>
                 </div>
-                <div className="flex flex-wrap gap-3 items-center shrink-0">
-                    <select
-                        value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                        className="h-10 px-3 border border-[#434655]/40 rounded-lg text-xs font-bold text-[#dae2fd] bg-[#131b2e] focus:border-[#adc6ff] outline-none transition-colors appearance-none min-w-[140px]"
-                    >
-                        {['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map(s => (
-                            <option key={s} value={s}>{s === 'ALL' ? 'State: Any' : s.replace('_', ' ')}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
-                        className="h-10 px-3 border border-[#434655]/40 rounded-lg text-xs font-bold text-[#dae2fd] bg-[#131b2e] focus:border-[#adc6ff] outline-none transition-colors appearance-none min-w-[140px]"
-                    >
-                        {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'].map(p => (
-                            <option key={p} value={p}>{p === 'ALL' ? 'Level: Any' : p}</option>
-                        ))}
-                    </select>
-                    <button className="h-10 px-6 bg-[#adc6ff] hover:bg-white text-[#001a42] border-none rounded-lg text-[10px] uppercase tracking-widest font-extrabold transition-all shadow-[0_4px_12px_rgba(173,198,255,0.2)] ml-auto sm:ml-0">
-                        Initialize Thread
+                <div className="flex gap-3">
+                    <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white dark:bg-[#222a3d] border border-slate-200 dark:border-[#434655]/10 text-slate-800 dark:text-[#dae2fd] text-sm font-semibold hover:bg-slate-50 dark:hover:bg-[#31394d] transition-colors shadow-sm">
+                        <Filter size={18} />
+                        Filters
+                    </button>
+                    <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform">
+                        <Plus size={18} />
+                        Create Ticket
                     </button>
                 </div>
             </div>
 
-            {/* Split view */}
-            <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-[600px] h-[calc(100vh-200px)]">
+            {/* Dashboard Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-primary shadow-sm">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Total Active</p>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{totalActive}</h3>
+                </div>
+                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-rose-500 shadow-sm">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Critical Issues</p>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{criticalIssues}</h3>
+                </div>
+                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-amber-500 shadow-sm">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Avg Resolution</p>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{avgResolutionStr}</h3>
+                </div>
+                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-emerald-500 shadow-sm">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Resolve Rate</p>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{resolvedRate}</h3>
+                </div>
+            </div>
 
-                {/* Left: Ticket list */}
-                <div className="w-full md:w-[350px] shrink-0 bg-[#131b2e] rounded-2xl border border-[#434655]/20 shadow-sm flex flex-col overflow-hidden">
-                    <div className="p-5 border-b border-[#434655]/20 bg-[#060e20]/50">
-                        <div className="flex items-center gap-2 mb-4">
-                            <TicketIcon size={16} className="text-[#adc6ff]" />
-                            <h2 className="text-[11px] font-extrabold text-[#dae2fd] uppercase tracking-widest m-0">Active Threads</h2>
-                        </div>
-                        {/* Search */}
-                        <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#434655]" />
-                            <input
-                                type="text" placeholder="Query thread vector..."
-                                value={search} onChange={e => setSearch(e.target.value)}
-                                className="w-full h-10 pl-9 pr-3 rounded-lg border border-[#434655]/40 text-xs font-mono text-[#adc6ff] bg-[#0b1326] outline-none focus:border-[#adc6ff] transition-colors placeholder:text-[#434655]"
-                            />
-                        </div>
+            {/* Filters Bar */}
+            <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-[#060e20] rounded-xl border border-slate-200 dark:border-transparent">
+                <select 
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="appearance-none bg-white dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/20 text-slate-700 dark:text-[#c3c5d8] text-xs py-2 px-4 pr-10 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-200 dark:hover:bg-[#222a3d] transition-colors font-medium shadow-sm"
+                >
+                    <option value="ALL">Status: All</option>
+                    <option value="OPEN">Open</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="RESOLVED">Resolved</option>
+                </select>
+
+                <select 
+                    value={priorityFilter}
+                    onChange={(e) => setPriorityFilter(e.target.value)}
+                    className="appearance-none bg-white dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/20 text-slate-700 dark:text-[#c3c5d8] text-xs py-2 px-4 pr-10 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-200 dark:hover:bg-[#222a3d] transition-colors font-medium shadow-sm"
+                >
+                    <option value="ALL">Priority: All</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                </select>
+
+                <div className="ml-auto flex items-center gap-2 text-xs text-slate-500 dark:text-[#c3c5d8] font-medium">
+                    <span>Showing {tickets.length} tickets</span>
+                    <div className="flex gap-1 ml-4">
+                        <button className="p-1 rounded bg-white dark:bg-[#222a3d] hover:bg-slate-100 dark:hover:bg-primary/20 transition-colors border border-slate-200 dark:border-transparent shadow-sm">
+                            <ChevronLeft size={16} />
+                        </button>
+                        <button className="p-1 rounded bg-white dark:bg-[#222a3d] hover:bg-slate-100 dark:hover:bg-primary/20 transition-colors border border-slate-200 dark:border-transparent shadow-sm">
+                            <ChevronRight size={16} />
+                        </button>
                     </div>
+                </div>
+            </div>
 
-                    {/* List */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {loading ? (
-                            <div className="p-12 flex flex-col items-center justify-center text-[#c3c5d8] gap-3">
-                                <Loader2 size={24} className="animate-spin text-[#adc6ff]" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest m-0">Fetching Data...</p>
-                            </div>
-                        ) : filtered.length === 0 ? (
-                            <div className="p-12 flex flex-col items-center justify-center text-[#434655]">
-                                <AlertCircle size={32} className="mb-3 opacity-50" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest m-0">Zero Threads Found</p>
-                            </div>
-                        ) : filtered.map(ticket => (
-                            <div key={ticket.id}
-                                onClick={() => selectTicket(ticket)}
-                                className={`p-4 border-b border-[#434655]/10 cursor-pointer transition-all ${
-                                    selected?.id === ticket.id 
-                                        ? 'bg-[#1f70e3]/10 border-l-2 border-l-[#1f70e3]' 
-                                        : 'bg-transparent border-l-2 border-l-transparent hover:bg-[#171f33]/80'
-                                }`}
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-[10px] font-mono tracking-widest text-[#adc6ff]">#{ticket.id}</span>
-                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${ticket.status === 'RESOLVED' ? 'text-[#34d399]' : 'text-[#8d90a1]'}`}>
-                                        {ticket.status}
-                                    </span>
-                                </div>
-                                <p className="text-sm font-bold text-[#dae2fd] m-0 mb-1 leading-snug line-clamp-2">
-                                    {ticket.subject || 'Support Request'}
-                                </p>
-                                <div className="flex items-center justify-between mt-3">
-                                    <p className="text-[11px] text-[#c3c5d8] m-0 font-medium">
-                                        {(ticket as any).user_name || 'Customer Identity Name'}
-                                    </p>
-                                    <PriorityBadge priority={ticket.priority || 'LOW'} />
-                                </div>
-                            </div>
-                        ))}
+            {/* High-Fidelity Table Container */}
+            <div className="bg-white dark:bg-[#131b2e] rounded-2xl overflow-hidden shadow-sm border border-slate-200 dark:border-[#434655]/10">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                            <tr className="bg-slate-50 dark:bg-[#060e20]/50 text-slate-600 dark:text-[#c3c5d8]">
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Ticket ID</th>
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">User</th>
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Subject</th>
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Status</th>
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Priority</th>
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10 text-right">Created</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-[#434655]/5">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                        <Loader2 size={24} className="animate-spin mx-auto text-primary mb-2" />
+                                        <p className="text-xs uppercase tracking-widest font-bold">Fetching Data</p>
+                                    </td>
+                                </tr>
+                            ) : tickets.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                        <p className="text-xs uppercase tracking-widest font-bold">No tickets found</p>
+                                    </td>
+                                </tr>
+                            ) : tickets.map((ticket) => (
+                                <tr 
+                                    key={ticket.id} 
+                                    onClick={() => navigate(`/tickets/${ticket.id}`)}
+                                    className="hover:bg-slate-50 dark:hover:bg-slate-50 dark:hover:bg-[#171f33]/50 transition-colors group cursor-pointer"
+                                >
+                                    <td className="px-6 py-5 min-w-[150px]">
+                                        <div className="font-mono text-xs text-primary font-bold">
+                                            #TKT-{ticket.id}
+                                        </div>
+                                        <div className="font-mono text-[9px] text-slate-400 mt-1 select-all" title="Original UUID">
+                                            {ticket.id}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-[#222a3d] flex items-center justify-center font-bold text-xs text-slate-600 dark:text-[#dae2fd]">
+                                                {((ticket as any).user_name || 'U')[0].toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-slate-900 dark:text-[#dae2fd]">
+                                                    {(ticket as any).user_name || 'Customer'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        <p className="text-sm font-medium text-slate-900 dark:text-[#dae2fd] max-w-xs truncate">
+                                            {ticket.subject || 'Support Inquiry'}
+                                        </p>
+                                        <span className="text-[10px] text-slate-500 dark:text-[#c3c5d8]/60">General Queue</span>
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        {renderStatus(ticket.status)}
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        {renderPriority(ticket.priority || 'LOW')}
+                                    </td>
+                                    <td className="px-6 py-5 text-right text-xs text-slate-500 dark:text-[#c3c5d8] font-medium">
+                                        {new Date(ticket.created_at).toLocaleDateString()}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Table Pagination */}
+                <div className="px-10 py-5 bg-slate-50 dark:bg-[#060e20]/30 flex justify-between items-center border-t border-slate-200 dark:border-[#434655]/10">
+                    <p className="text-xs text-slate-500 dark:text-[#c3c5d8] font-medium">Page 1 of 1</p>
+                    <div className="flex gap-2">
+                        <button className="px-4 py-1.5 rounded-lg bg-white dark:bg-[#222a3d] text-xs font-semibold text-slate-500 dark:text-[#c3c5d8] hover:text-slate-900 dark:hover:text-slate-900 dark:hover:text-[#dae2fd] transition-colors disabled:opacity-30 border border-slate-200 dark:border-transparent shadow-sm" disabled>Previous</button>
+                        <button className="px-4 py-1.5 rounded-lg bg-white dark:bg-[#222a3d] text-xs font-semibold text-slate-500 dark:text-[#c3c5d8] hover:text-slate-900 dark:hover:text-slate-900 dark:hover:text-[#dae2fd] transition-colors border border-slate-200 dark:border-transparent shadow-sm">Next</button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bento Grid - Quick Actions & Recent Activity */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+                <div className="md:col-span-2 p-8 rounded-2xl bg-white dark:bg-[#131b2e] relative overflow-hidden group shadow-sm border border-slate-200 dark:border-transparent">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-primary/10 transition-colors"></div>
+                    
+                    <h4 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-[#dae2fd]">
+                        <Zap className="text-primary size-5" />
+                        Quick Analysis
+                    </h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/10">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8] mb-2">Total Received</p>
+                            <p className="text-sm font-semibold text-slate-900 dark:text-[#dae2fd]">{tickets.length}</p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/10">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8] mb-2">Team Load</p>
+                            <p className="text-sm font-semibold text-slate-900 dark:text-[#dae2fd]">{totalActive > 10 ? 'High Capacity' : 'Moderate Capacity'}</p>
+                        </div>
                     </div>
                 </div>
 
-                {/* Right: Chat thread */}
-                {selected ? (
-                    <div className="flex-1 bg-[#131b2e] rounded-2xl border border-[#434655]/20 shadow-sm flex flex-col overflow-hidden relative">
-                        {/* Chat header */}
-                        <div className="p-5 border-b border-[#434655]/20 bg-[#060e20]/50 flex items-center justify-between shrink-0">
-                            <div>
-                                <h2 className="text-lg font-extrabold text-[#dae2fd] m-0">
-                                    {selected.subject || 'Support Request'}
-                                </h2>
-                                <p className="text-xs text-[#8d90a1] font-mono mt-1 m-0 flex items-center gap-2">
-                                    <span className="text-[#adc6ff]">#{selected.id}</span>
-                                    <span className="text-[#434655]">•</span>
-                                    {(selected as any).user_name || 'Customer'}
-                                    <span className="text-[#434655]">•</span>
-                                    Init: {new Date(selected.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </p>
-                            </div>
-                            <div className="flex gap-3 items-center">
-                                {selected.status !== 'RESOLVED' && (
-                                    <button
-                                        onClick={markResolved}
-                                        className="h-9 px-4 bg-[#34d399]/10 text-[#34d399] border hover:border-[#34d399] border-[#34d399]/30 rounded-lg text-[10px] font-bold uppercase tracking-widest cursor-pointer flex items-center gap-2 transition-all hover:bg-[#34d399]/20"
-                                    >
-                                        <CheckCircle size={14} /> Mark Sealed
-                                    </button>
-                                )}
-                                {selected.status === 'RESOLVED' && (
-                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#34d399]/10 text-[#34d399] border border-[#34d399]/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">
-                                        <CheckCircle size={14} /> Sealed
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Messages */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 flex flex-col gap-6 bg-[#0b1326]">
-                            {/* First message (customer request) */}
-                            {selected.description && (
-                                <div className="p-5 bg-[#171f33] rounded-2xl border border-[#434655]/30">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <p className="text-[10px] font-bold text-[#fcd34d] uppercase tracking-[0.2em] m-0">
-                                            Incident Vector
-                                        </p>
-                                    </div>
-                                    <p className="text-sm text-[#dae2fd] leading-relaxed m-0 font-medium">
-                                        {selected.description}
-                                    </p>
-                                    {(selected as any).order_id && (
-                                        <div className="mt-4 flex gap-2">
-                                            <span className="text-[10px] font-mono tracking-widest bg-[#0b1326] px-2 py-1 rounded border border-[#434655]/40 text-[#adc6ff]">
-                                                REF_PO_{(selected as any).order_id}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Thread messages */}
-                            {msgs.map((msg, i) => {
-                                const isAdmin = (msg as any).sender_type === 'admin' || (msg as any).is_admin;
-                                return (
-                                    <div key={i} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[75%] p-4 rounded-2xl ${
-                                            isAdmin 
-                                                ? 'bg-[#1f70e3] text-white rounded-tr-sm' 
-                                                : 'bg-[#171f33] border border-[#434655]/30 text-[#dae2fd] rounded-tl-sm'
-                                        }`}>
-                                            <p className="text-[13px] leading-relaxed m-0 font-medium whitespace-pre-wrap">{msg.message}</p>
-                                            <p className={`text-[9px] font-mono tracking-wider mt-2 m-0 ${isAdmin ? 'text-white/60' : 'text-[#8d90a1]'}`}>
-                                                {isAdmin ? 'SYS_ADMIN' : 'USER_NODE'} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-
-                            {msgs.length === 0 && !selected.description && (
-                                <div className="flex flex-col items-center justify-center p-12 text-[#434655]">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest">No data fragments</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Reply input */}
-                        <div className="p-5 border-t border-[#434655]/20 bg-[#060e20]/50 flex gap-3 items-end shrink-0">
-                            <textarea
-                                placeholder={`Compile response payload for ${(selected as any).user_name || 'node'}...`}
-                                value={reply}
-                                onChange={e => setReply(e.target.value)}
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        sendReply();
-                                    }
-                                }}
-                                className="flex-1 min-h-[48px] max-h-[120px] p-3 rounded-xl border border-[#434655]/40 text-[13px] text-[#dae2fd] bg-[#0b1326] outline-none focus:border-[#adc6ff] transition-colors resize-y custom-scrollbar placeholder:text-[#434655]"
-                            />
-                            <button
-                                onClick={sendReply}
-                                disabled={sending || !reply.trim()}
-                                className={`w-12 h-12 rounded-xl border-none flex items-center justify-center transition-all ${
-                                    reply.trim() 
-                                        ? 'bg-[#adc6ff] hover:bg-white text-[#001a42] cursor-pointer shadow-[0_4px_12px_rgba(173,198,255,0.2)]' 
-                                        : 'bg-[#131b2e] border border-[#434655]/40 text-[#434655] cursor-default'
-                                }`}
-                            >
-                                {sending
-                                    ? <Loader2 size={18} className="animate-spin text-[#001a42]" />
-                                    : <Send size={18} className={reply.trim() ? "translate-x-0.5" : ""} />
-                                }
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex-1 bg-[#131b2e] rounded-2xl border border-[#434655]/20 shadow-sm flex flex-col items-center justify-center text-[#434655] gap-4">
-                        <div className="w-16 h-16 rounded-2xl bg-[#0b1326] border border-[#434655]/20 flex items-center justify-center">
-                            <TicketIcon size={24} className="text-[#434655]" />
-                        </div>
-                        <div className="text-center">
-                            <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#8d90a1] m-0 mb-1.5">No Thread Selected</p>
-                            <p className="text-[10px] font-medium text-[#434655] m-0">Select a vector from the queue to process data</p>
-                        </div>
-                    </div>
-                )}
+                <div className="p-8 rounded-2xl bg-primary text-white relative overflow-hidden group shadow-sm">
+                    <Headset className="absolute right-[-20px] bottom-[-20px] text-[120px] opacity-10 -rotate-12" />
+                    
+                    <h4 className="text-lg font-bold mb-2">Help Center</h4>
+                    <p className="text-sm opacity-90 mb-6 leading-relaxed">Need protocol assistance with a complex or escalated customer ticket?</p>
+                    
+                    <button className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-colors">
+                        Review Policies
+                    </button>
+                </div>
             </div>
+
         </div>
     );
 }
