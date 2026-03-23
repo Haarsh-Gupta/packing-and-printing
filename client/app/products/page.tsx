@@ -156,12 +156,12 @@ export default function ProductsPage() {
                     {/* Floating doodles */}
                     <DoodleBook     className="absolute top-16 left-[4%]        w-16 opacity-20 pp-doodle-float-1 hidden sm:block" />
                     <DoodleBox      className="absolute top-20 right-[6%]       w-14 opacity-20 pp-doodle-float-2 hidden sm:block" />
-                    <DoodlePrinter  className="absolute top-[45%] left-[2%]     w-16 pp-doodle-float-3 hidden md:block" style={{ opacity: "0.15" } as React.CSSProperties} />
+                    <DoodlePrinter  className="absolute top-[45%] left-[2%]     w-16 pp-doodle-float-3 hidden md:block opacity-[0.15]" />
                     <DoodleStar     className="absolute top-[30%] right-[5%]    w-10 opacity-25 pp-doodle-spin hidden sm:block" />
-                    <DoodleScribble className="absolute bottom-[22%] left-[10%] w-12 pp-doodle-float-2 hidden md:block" style={{ opacity: "0.15" } as React.CSSProperties} />
+                    <DoodleScribble className="absolute bottom-[22%] left-[10%] w-12 pp-doodle-float-2 hidden md:block opacity-[0.15]" />
                     <DoodleArrow    className="absolute bottom-[20%] right-[5%] w-20 opacity-20 pp-doodle-float-1 hidden sm:block" />
                     <DoodleHeart    className="absolute top-16 left-[25%]       w-8  opacity-20 pp-doodle-float-3 hidden lg:block" />
-                    <DoodleStar     className="absolute top-[60%] left-[15%]    w-6  pp-doodle-spin-slow hidden lg:block" style={{ opacity: "0.15" } as React.CSSProperties} />
+                    <DoodleStar     className="absolute top-[60%] left-[15%]    w-6  pp-doodle-spin-slow hidden lg:block opacity-[0.15]" />
 
                     <div className="pp-hero-inner" style={{ position: "relative", zIndex: 1 }}>
 
