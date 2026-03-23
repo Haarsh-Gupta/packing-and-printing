@@ -109,7 +109,7 @@ export default function SupportPage() {
             <div className="flex justify-end">
                 <Button
                     onClick={() => setShowForm(!showForm)}
-                    className="h-12 px-6 font-black uppercase border-2 border-black bg-black text-white hover:bg-[#fdf567] hover:text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-none"
+                    className="h-12 px-6 font-black uppercase border-2 border-black bg-black text-white hover:bg-[#fdf567] hover:text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full"
                 >
                     {showForm ? <><X className="h-4 w-4 mr-2" /> Cancel</> : <><Plus className="h-4 w-4 mr-2" /> New Ticket</>}
                 </Button>
@@ -117,7 +117,7 @@ export default function SupportPage() {
 
             {/* New Ticket Form */}
             {showForm && (
-                <form onSubmit={handleSubmit} className="border-4 border-black p-8 bg-zinc-50 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] space-y-6">
+                <form onSubmit={handleSubmit} className="border-4 border-black p-8 bg-zinc-50 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] space-y-6 rounded-2xl">
                     <h2 className="text-2xl font-black uppercase tracking-tight border-b-4 border-black pb-4">Open a New Ticket</h2>
 
                     <div className="space-y-2">
@@ -126,7 +126,7 @@ export default function SupportPage() {
                             value={form.subject}
                             onChange={(e) => setForm({ ...form, subject: e.target.value })}
                             placeholder="Brief description of your issue..."
-                            className="border-2 border-black rounded-none h-12 focus:ring-0 focus:border-black"
+                            className="border-2 border-black rounded-full h-12 focus:ring-0 focus:border-black"
                             required
                         />
                     </div>
@@ -139,7 +139,7 @@ export default function SupportPage() {
                                     key={p}
                                     type="button"
                                     onClick={() => setForm({ ...form, priority: p })}
-                                    className={`px-4 py-2 border-2 border-black font-black uppercase text-sm transition-all ${form.priority === p ? `${PRIORITY_STYLES[p]} shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]` : "bg-white hover:bg-zinc-100"}`}
+                                    className={`px-4 py-2 border-2 border-black font-black uppercase text-sm transition-all rounded-lg ${form.priority === p ? `${PRIORITY_STYLES[p]} shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]` : "bg-white hover:bg-zinc-100"}`}
                                 >
                                     {p}
                                 </button>
@@ -153,7 +153,7 @@ export default function SupportPage() {
                             value={form.message}
                             onChange={(e) => setForm({ ...form, message: e.target.value })}
                             placeholder="Describe your issue in detail..."
-                            className="min-h-[140px] border-2 border-black rounded-none focus:ring-0 focus:border-black"
+                            className="min-h-[140px] border-2 border-black rounded-xl focus:ring-0 focus:border-black"
                             required
                         />
                     </div>
@@ -161,7 +161,7 @@ export default function SupportPage() {
                     <Button
                         type="submit"
                         disabled={isSubmitting}
-                        className="w-full h-14 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase text-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-none"
+                        className="w-full h-14 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase text-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full"
                     >
                         {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Submit Ticket"}
                     </Button>
@@ -185,7 +185,7 @@ export default function SupportPage() {
                 <div className="space-y-4">
                     {tickets.map((ticket) => (
                         <Link key={ticket.id} href={`/dashboard/support/${ticket.id}`}>
-                            <div className="border-2 border-black bg-white p-6 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-px hover:-translate-y-px transition-all flex items-center justify-between gap-4 group">
+                            <div className="border-2 border-black bg-white p-6 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-px hover:-translate-y-px transition-all flex items-center justify-between gap-4 group rounded-xl">
                                 <div className="flex items-center gap-4 flex-1 min-w-0">
                                     <div className={`h-12 w-2 shrink-0 ${PRIORITY_STYLES[ticket.priority]}`} />
                                     <div className="min-w-0">
@@ -194,7 +194,7 @@ export default function SupportPage() {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
-                                    <span className={`px-3 py-1 text-xs font-black uppercase border border-black ${STATUS_STYLES[ticket.status]}`}>
+                                    <span className={`px-3 py-1 text-xs font-black uppercase border border-black rounded-full ${STATUS_STYLES[ticket.status]}`}>
                                         {ticket.status.replace("_", " ")}
                                     </span>
                                     <ChevronRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" />

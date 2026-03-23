@@ -27,24 +27,26 @@ def valid_phone(phone):
 class UserBase(BaseModel):
     name: str
     email: EmailStr
-    phone: Optional[str] = None
     is_active: bool = True
-
-    # @field_validator("phone")
-    # def check_phone(cls , value):
-    #     if value:
-    #         valid_phone(value)
-    #     return value
 
 class UserCreate(UserBase):
     password: str = Field(min_length = 6)
     profile_picture: Optional[str] = None
+    phone: Optional[str] = None
     otp: str = Field(min_length=6, max_length=6)
 
-    @field_validator("password")
-    def check_password(cls , value):
-        valid_password(value)
-        return value
+    @model_validator(mode="after")
+    def is_all_none(self):
+        if self.name is None and self.phone is None and self.password is None and self.profile_picture is None:
+            raise ValueError("At least one field must be provided")
+
+        if self.password:
+            valid_password(self.password)
+        
+        if self.phone:
+            valid_phone(self.phone)
+            
+        return self
 
     class Config:
         from_attributes = True
@@ -55,16 +57,17 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     profile_picture: Optional[str] = None
 
-    @field_validator("password")
-    def check_password(cls , value):
-        if value:
-            valid_password(value)
-        return value
-
     @model_validator(mode="after")
     def is_all_none(self):
         if self.name is None and self.phone is None and self.password is None and self.profile_picture is None:
             raise ValueError("At least one field must be provided")
+
+        if self.password:
+            valid_password(self.password)
+        
+        if self.phone:
+            valid_phone(self.phone)
+            
         return self
     
     class Config:

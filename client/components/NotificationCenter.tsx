@@ -165,6 +165,9 @@ export default function NotificationCenter() {
         if (n.metadata.type.startsWith("inquiry_")) {
             return `/dashboard/inquiries/${n.metadata.id}`;
         }
+        if (n.metadata.type === "ticket") {
+            return `/dashboard/support/${n.metadata.id}`;
+        }
         return null;
     };
 
@@ -191,7 +194,7 @@ export default function NotificationCenter() {
                     {/* Backdrop */}
                     <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
 
-                    <div className="absolute right-0 top-full mt-2 w-80 bg-white border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] z-50 animate-in slide-in-from-top-2">
+                    <div className="absolute right-0 top-full mt-2 w-80 bg-white border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] z-[1000] animate-in slide-in-from-top-2">
                         <div className="p-4 border-b-2 border-black flex justify-between items-center bg-zinc-50">
                             <h3 className="font-black uppercase text-sm tracking-tight flex items-center gap-2">
                                 <Bell className="w-4 h-4" /> Notifications

@@ -138,7 +138,7 @@ export default function NotificationsBell() {
             if (n.metadata.type.startsWith("inquiry_")) {
                 window.location.href = `/dashboard/inquiries/${n.metadata.id}`;
             } else if (n.metadata.type === "ticket") {
-                window.location.href = `/dashboard/tickets/${n.metadata.id}`;
+                window.location.href = `/dashboard/support/${n.metadata.id}`;
             }
         }
         setOpen(false);
@@ -224,7 +224,7 @@ export default function NotificationsBell() {
 
             {/* Dropdown Panel */}
             {open && (
-                <div className="absolute right-0 top-12 w-96 bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] z-200">
+                <div className="absolute right-0 top-12 w-96 bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] z-[1000]">
                     {/* Header */}
                     <div className="flex items-center justify-between p-4 border-b-4 border-black bg-black text-white">
                         <div className="flex items-center gap-2">

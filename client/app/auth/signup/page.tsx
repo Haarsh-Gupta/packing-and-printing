@@ -10,17 +10,34 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
 import { useRouter } from "next/navigation";
+import { PasswordInput } from "@/components/ui/password-input";
+import { getFriendlyErrorMessage, validatePassword } from "@/lib/auth-utils";
 
 export default function SignUpPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ password?: string }>({});
 
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", password: "", otp: "" });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    // Clear field error as user types
+    if (fieldErrors[name as keyof typeof fieldErrors]) {
+      setFieldErrors({ ...fieldErrors, [name]: undefined });
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === "password") {
+      const error = validatePassword(value);
+      setFieldErrors({ ...fieldErrors, password: error || undefined });
+    }
   };
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -28,6 +45,14 @@ export default function SignUpPage() {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Validate password before proceeding
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) {
+      setFieldErrors({ ...fieldErrors, password: passwordError });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -38,11 +63,11 @@ export default function SignUpPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to send OTP.");
+      if (!res.ok) throw new Error(getFriendlyErrorMessage(data.detail) || "Failed to send OTP.");
 
       setStep(2);
     } catch (err: any) {
-      setError(err.message);
+      setError(getFriendlyErrorMessage(err.message));
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +107,7 @@ export default function SignUpPage() {
           router.push("/auth/login");
           return;
         }
-        throw new Error(data.detail || "Registration failed.");
+        throw new Error(getFriendlyErrorMessage(data.detail) || "Registration failed.");
       }
 
       // Auto-login: call login endpoint with the same credentials
@@ -137,7 +162,7 @@ export default function SignUpPage() {
             <form onSubmit={handleSendOtp} className="space-y-4">
               <div className="space-y-2">
                 <Label>Full Name</Label>
-                <Input name="name" required value={formData.name} onChange={handleInputChange} placeholder="Harsh Kumar Gupta" />
+                <Input name="name" required value={formData.name} onChange={handleInputChange} placeholder="Enter Your Name Here..." />
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
@@ -148,8 +173,22 @@ export default function SignUpPage() {
                 <Input name="phone" type="tel" value={formData.phone} onChange={handleInputChange} />
               </div>
               <div className="space-y-2">
-                <Label>Password</Label>
-                <Input name="password" type="password" required value={formData.password} onChange={handleInputChange} />
+                <Label className={fieldErrors.password ? "text-red-500" : ""}>Password</Label>
+                <PasswordInput
+                  name="password"
+                  required
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  onBlur={handleBlur}
+                  placeholder="••••••••"
+                  className={fieldErrors.password ? "border-red-500 focus-visible:ring-red-500/50" : ""}
+                  aria-invalid={!!fieldErrors.password}
+                />
+                {fieldErrors.password ? (
+                  <p className="text-[10px] text-red-500 font-medium leading-tight">{fieldErrors.password}</p>
+                ) : (
+                  <p className="text-[10px] text-zinc-500 leading-tight">Must be at least 6 characters and contain one uppercase letter, one lowercase letter, and one number.</p>
+                )}
               </div>
               <Button type="submit" className="w-full bg-black" disabled={isLoading}>
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Continue with Email"}

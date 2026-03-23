@@ -23,11 +23,11 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         {item?.service_id ? (
-                            <Badge className="bg-[#ff90e8] text-black border-2 border-black rounded-none flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5">
+                            <Badge className="bg-[#ff90e8] text-black border-2 border-black rounded-full flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5">
                                 <Layers className="w-3 h-3" /> Service
                             </Badge>
                         ) : (
-                            <Badge className="bg-[#90e8ff] text-black border-2 border-black rounded-none flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5">
+                            <Badge className="bg-[#90e8ff] text-black border-2 border-black rounded-full flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5">
                                 <Box className="w-3 h-3" /> Product
                             </Badge>
                         )}
@@ -65,7 +65,7 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                         })}
                     </div>
                     {item?.notes && (
-                        <div className="bg-zinc-100 p-3 border border-black text-sm italic">
+                        <div className="bg-zinc-100 p-3 border border-black text-sm italic rounded-lg">
                             "{item.notes}"
                         </div>
                     )}
@@ -132,7 +132,7 @@ export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: I
     return (
         <div className="bg-white border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-xl">
             <div className="flex items-center gap-4 flex-1">
-                <div className="w-12 h-12 bg-zinc-100 border border-black flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-zinc-100 border border-black flex items-center justify-center shrink-0 rounded-lg">
                     {item?.service_id ? (
                         <Layers className="w-6 h-6 text-[#ff90e8]" />
                     ) : (

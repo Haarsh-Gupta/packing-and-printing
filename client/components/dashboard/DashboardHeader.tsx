@@ -19,7 +19,7 @@ export function DashboardHeader({ title, description, children }: DashboardHeade
             </div>
             <div className="flex gap-2">
                 {children}
-                <Button variant="outline" className="gap-2 border-2 border-black font-bold hover:bg-zinc-100 h-10">
+                <Button variant="outline" className="gap-2 border-2 border-black font-bold hover:bg-zinc-100 h-10 rounded-full">
                     <Download className="w-4 h-4" /> Export All
                 </Button>
             </div>

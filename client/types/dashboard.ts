@@ -54,6 +54,7 @@ export interface Inquiry {
     status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "NEGOTIATING" | "QUOTED" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED";
     active_quote_id?: string;
     active_quote?: QuoteVersion;
+    admin_notes?: string;
     created_at: string;
     updated_at: string;
     items?: InquiryItem[];

@@ -32,28 +32,30 @@ export default function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 bg-black transition-all duration-300 ${isScrolled
+      className={`sticky top-0 z-[100] bg-black transition-all duration-300 ${isScrolled
         ? 'shadow-[0_4px_20px_rgba(0,0,0,0.3)] border-b border-white/10'
         : 'border-b border-transparent'
         }`}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="text-2xl font-black tracking-tighter text-white hover:text-white transition-colors flex items-center">
-          NavArt<span className="text-[#FF00FF]">.</span>
-        </Link>
+        {/* Logo - Left aligned */}
+        <div className="flex-1 flex justify-start">
+          <Link href="/" className="text-xl font-black tracking-tighter text-white hover:text-white transition-colors flex items-center">
+            NavArt<span className="text-[#FF90E8]">.</span>
+          </Link>
+        </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex gap-8 font-bold text-sm uppercase tracking-wider text-white/70">
-          <Link href="/products" className="hover:text-[#FF90E8] transition-colors">Products</Link>
+        {/* Desktop Navigation - Absolute Center-ish */}
+        <nav className="hidden md:flex gap-10 font-bold text-[13px] uppercase tracking-widest text-white/70">
+          <Link href="/products" className="hover:text-[#FF90E8] transition-colors">Catalog</Link>
           <Link href="/services" className="hover:text-[#FF90E8] transition-colors">Services</Link>
-          <Link href="/#how-it-works" className="hover:text-[#FF90E8] transition-colors">How it works</Link>
+          <Link href="/quote" className="hover:text-[#FF90E8] transition-colors">Quote</Link>
+          <Link href="/#how-it-works" className="hover:text-[#FF90E8] transition-colors">Process</Link>
           <Link href="/#about" className="hover:text-[#FF90E8] transition-colors">About</Link>
-          <Link href="/#contact" className="hover:text-[#FF90E8] transition-colors">Contact</Link>
         </nav>
 
-        {/* Desktop Actions */}
-        <div className="hidden md:flex items-center gap-4">
+        {/* Desktop Actions - Right aligned */}
+        <div className="hidden md:flex flex-1 justify-end items-center gap-5">
           <InquiryCartSidebar />
 
           {isLoggedIn ? (
@@ -71,17 +73,17 @@ export default function Header() {
               </Link>
             </>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 asChild
-                className="text-white/80 hover:text-white hover:bg-white/10 text-sm font-bold uppercase tracking-wider cursor-pointer"
+                className="text-white/80 hover:text-white hover:bg-white/5 text-[12px] font-bold uppercase tracking-wider cursor-pointer h-9"
               >
                 <Link href="/auth/login">Log in</Link>
               </Button>
               <Button
                 asChild
-                className="bg-[#FF90E8] text-black text-sm font-black uppercase tracking-wider rounded-full border-2 border-[#FF90E8] px-6 h-10 hover:bg-white hover:border-white hover:text-black transition-all cursor-pointer"
+                className="bg-[#FF90E8] text-black text-[12px] font-black uppercase tracking-widest rounded-full border-2 border-[#FF90E8] px-6 h-9 hover:bg-white hover:border-white hover:text-black transition-all cursor-pointer"
               >
                 <Link href="/auth/signup">Sign up</Link>
               </Button>
@@ -105,6 +107,7 @@ export default function Header() {
         <div className="md:hidden border-t border-white/10 bg-black p-6 flex flex-col gap-4 absolute w-full left-0 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
           <Link href="/products" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>Products</Link>
           <Link href="/services" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>Services</Link>
+          <Link href="/quote" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>Quote</Link>
           <Link href="/#how-it-works" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>How it works</Link>
           <Link href="/#about" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>About</Link>
           <Link href="/#contact" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>Contact</Link>

@@ -33,7 +33,7 @@ export function OrderCard({ order }: { order: Order }) {
                 <div className="flex-1 flex flex-col">
                     <div className="p-6 flex-1">
                         <div className="flex justify-between items-start mb-2">
-                            <Badge variant="outline" className={`${getOrderStatusColor(order.status)} border-0 font-bold px-3 py-1`}>
+                            <Badge variant="outline" className={`${getOrderStatusColor(order.status)} border-0 font-bold px-3 py-1 rounded-full`}>
                                 {order.status.replace("_", " ")}
                             </Badge>
                             <span className="text-xs text-zinc-400 font-mono">{order.order_number || '#' + order.id.slice(0, 8)}</span>
@@ -124,7 +124,7 @@ export function OrderListRow({ order }: { order: Order }) {
     return (
         <div className="bg-white border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-xl">
             <div className="flex items-center gap-4 flex-1">
-                <div className="w-12 h-12 bg-zinc-100 border border-black flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-zinc-100 border border-black flex items-center justify-center shrink-0 rounded-lg">
                     <Package className="w-6 h-6 text-zinc-400" />
                 </div>
                 <div>
@@ -142,7 +142,7 @@ export function OrderListRow({ order }: { order: Order }) {
                     <p className="font-bold">₹{order.total_amount.toLocaleString()}</p>
                 </div>
 
-                <Badge variant="outline" className={`${getOrderStatusColor(order.status)} border-0 font-bold px-3 py-1 text-xs shrink-0`}>
+                <Badge variant="outline" className={`${getOrderStatusColor(order.status)} border-0 font-bold px-3 py-1 text-xs shrink-0 rounded-full`}>
                     {order.status.replace("_", " ")}
                 </Badge>
 

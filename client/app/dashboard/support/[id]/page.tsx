@@ -132,7 +132,7 @@ export default function TicketDetailPage() {
                     <ArrowLeft className="h-4 w-4" /> Back to Tickets
                 </Link>
 
-                <div className="border-4 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                <div className="border-4 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-2xl">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                             <h1 className="text-2xl font-black uppercase tracking-tight">{ticket.subject}</h1>
@@ -140,7 +140,7 @@ export default function TicketDetailPage() {
                                 #TKT-{ticket.id} · Opened {formatTime(ticket.created_at)}
                             </p>
                         </div>
-                        <span className={`px-4 py-2 font-black uppercase text-sm border-2 border-black ${STATUS_STYLES[ticket.status] || "bg-zinc-100"}`}>
+                        <span className={`px-4 py-2 font-black uppercase text-sm border-2 border-black rounded-full ${STATUS_STYLES[ticket.status] || "bg-zinc-100"}`}>
                             {ticket.status.replace("_", " ")}
                         </span>
                     </div>
@@ -148,7 +148,7 @@ export default function TicketDetailPage() {
             </div>
 
             {/* Messages Thread */}
-            <div className="border-4 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+            <div className="border-4 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-2xl overflow-hidden">
                 <div className="border-b-4 border-black p-4 bg-zinc-50">
                     <h2 className="font-black uppercase tracking-tight">Conversation</h2>
                 </div>
@@ -164,7 +164,7 @@ export default function TicketDetailPage() {
                             return (
                                 <div key={msg.id} className={`p-6 ${isMe ? "bg-white" : "bg-zinc-50 border-l-4 border-black"}`}>
                                     <div className="flex items-center gap-2 mb-2">
-                                        <div className={`p-1.5 border-2 border-black ${isMe ? "bg-[#fdf567]" : "bg-black text-white"}`}>
+                                        <div className={`p-1.5 border-2 border-black rounded-lg ${isMe ? "bg-[#fdf567]" : "bg-black text-white"}`}>
                                             {isMe ? <User className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
                                         </div>
                                         <span className="font-black text-sm uppercase tracking-tight">
@@ -184,24 +184,24 @@ export default function TicketDetailPage() {
 
             {/* Reply Box */}
             {ticket.status !== "CLOSED" ? (
-                <form onSubmit={handleReply} className="border-4 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] space-y-4">
+                <form onSubmit={handleReply} className="border-4 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] space-y-4 rounded-2xl">
                     <h3 className="font-black uppercase tracking-tight">Add a Reply</h3>
                     <Textarea
                         value={reply}
                         onChange={(e) => setReply(e.target.value)}
                         placeholder="Type your message here..."
-                        className="min-h-[120px] border-2 border-black rounded-none focus:ring-0 focus:border-black"
+                        className="min-h-[120px] border-2 border-black rounded-xl focus:ring-0 focus:border-black"
                     />
                     <Button
                         type="submit"
                         disabled={isSending || !reply.trim()}
-                        className="h-12 px-8 bg-black text-white font-black uppercase border-2 border-black hover:bg-[#fdf567] hover:text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-none"
+                        className="h-12 px-8 bg-black text-white font-black uppercase border-2 border-black hover:bg-[#fdf567] hover:text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full"
                     >
                         {isSending ? <Loader2 className="animate-spin h-5 w-5" /> : <><Send className="h-4 w-4 mr-2" /> Send Reply</>}
                     </Button>
                 </form>
             ) : (
-                <div className="border-4 border-black p-6 bg-zinc-100 text-center font-black uppercase text-zinc-500">
+                <div className="border-4 border-black p-6 bg-zinc-100 text-center font-black uppercase text-zinc-500 rounded-2xl">
                     This ticket is closed. Open a new one if you need further help.
                 </div>
             )}

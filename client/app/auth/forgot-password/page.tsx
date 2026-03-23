@@ -8,17 +8,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PasswordInput } from "@/components/ui/password-input"
+import { getFriendlyErrorMessage, validatePassword } from "@/lib/auth-utils";
 
 export default function ForgotPasswordPage() {
     const router = useRouter();
     const [step, setStep] = useState<1 | 2>(1);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
+    const [fieldErrors, setFieldErrors] = useState<{ newPassword?: string }>({});
 
     // Form State
     const [email, setEmail] = useState("");
     const [otp, setOtp] = useState("");
     const [newPassword, setNewPassword] = useState("");
+
+    const handleNewPasswordBlur = () => {
+        const error = validatePassword(newPassword);
+        setFieldErrors({ ...fieldErrors, newPassword: error || undefined });
+    };
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -41,7 +49,7 @@ export default function ForgotPasswordPage() {
 
             setStep(2); // Move to Step 2
         } catch (err: any) {
-            setError(err.message);
+            setError(getFriendlyErrorMessage(err.message));
         } finally {
             setIsLoading(false);
         }
@@ -50,6 +58,13 @@ export default function ForgotPasswordPage() {
     const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+
+        const passwordError = validatePassword(newPassword);
+        if (passwordError) {
+            setFieldErrors({ ...fieldErrors, newPassword: passwordError });
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -67,7 +82,7 @@ export default function ForgotPasswordPage() {
             // Automatically redirect to login on success
             router.push("/auth/login?reset=success");
         } catch (err: any) {
-            setError(err.message);
+            setError(getFriendlyErrorMessage(err.message));
         } finally {
             setIsLoading(false);
         }
@@ -124,15 +139,24 @@ export default function ForgotPasswordPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>New Password</Label>
-                                <Input
+                                <Label className={fieldErrors.newPassword ? "text-red-500" : ""}>New Password</Label>
+                                <PasswordInput
                                     name="newPassword"
-                                    type="password"
                                     required
                                     value={newPassword}
                                     placeholder="Enter new password"
-                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    onChange={(e) => {
+                                        setNewPassword(e.target.value);
+                                        if (fieldErrors.newPassword) setFieldErrors({ ...fieldErrors, newPassword: undefined });
+                                    }}
+                                    onBlur={handleNewPasswordBlur}
+                                    className={fieldErrors.newPassword ? "border-red-500 focus-visible:ring-red-500/50" : ""}
                                 />
+                                {fieldErrors.newPassword ? (
+                                    <p className="text-[10px] text-red-500 font-medium leading-tight">{fieldErrors.newPassword}</p>
+                                ) : (
+                                    <p className="text-[10px] text-zinc-500 leading-tight">Must be at least 6 characters and contain one uppercase letter, one lowercase letter, and one number.</p>
+                                )}
                             </div>
                             <Button type="submit" className="w-full bg-black" disabled={isLoading}>
                                 {isLoading ? <Loader2 className="mr-2 h-4 animate-spin" /> : "Reset & Sign In"}

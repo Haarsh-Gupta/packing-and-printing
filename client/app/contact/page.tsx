@@ -15,10 +15,10 @@ export default function ContactPage() {
                 {/* Contact Info Cards */}
                 <div className="space-y-6">
                     {[
-                        { icon: Mail, label: "Email", value: "hello@bookbind.com", href: "mailto:hello@bookbind.com", color: "bg-[#fdf567]" },
-                        { icon: Phone, label: "Phone", value: "+91 98765 43210", href: "tel:+919876543210", color: "bg-[#4be794]" },
-                        { icon: MapPin, label: "Address", value: "BookBind HQ, Sector 62, Noida, UP 201301", href: "#", color: "bg-[#90e8ff]" },
-                        { icon: Clock, label: "Working Hours", value: "Mon – Sat, 9:00 AM – 7:00 PM IST", href: "#", color: "bg-[#ff90e8]" },
+                        { icon: Mail, label: "Email", value: `${process.env.NEXT_PUBLIC_EMAIL}`, href: `mailto:${process.env.NEXT_PUBLIC_EMAIL}`, color: "bg-[#fdf567]" },
+                        { icon: Phone, label: "Phone", value: `${process.env.NEXT_PUBLIC_PHONE}`, href: `tel:${process.env.NEXT_PUBLIC_PHONE}`, color: "bg-[#4be794]" },
+                        { icon: MapPin, label: "Address", value: `${process.env.NEXT_PUBLIC_ADDRESS}`, href: "#", color: "bg-[#90e8ff]" },
+                        { icon: Clock, label: "Working Hours", value: `${process.env.NEXT_PUBLIC_WORKING_HOURS}`, href: "#", color: "bg-[#ff90e8]" },
                     ].map((item) => (
                         <a key={item.label} href={item.href} className={`${item.color} border-4 border-black p-6 flex items-center gap-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px] transition-all`}>
                             <div className="h-14 w-14 bg-black text-white flex items-center justify-center shrink-0">

@@ -184,7 +184,7 @@ export default function HeroSection() {
 
                     {/* Giant headline */}
                     <h1
-                        className={`text-5xl md:text-7xl lg:text-[7rem] font-black leading-[0.85] tracking-tighter text-black transition-all duration-700 delay-150 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                        className={`text-4xl md:text-7xl lg:text-[7rem] font-black leading-[0.85] tracking-tighter text-black transition-all duration-700 delay-150 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
                     >
                         Print your<br />
                         <span className="relative inline-block">

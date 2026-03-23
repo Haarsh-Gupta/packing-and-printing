@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Inquiry } from "@/types/dashboard";
-import { MOCK_INQUIRIES } from "../../../lib/mockData";
 import { InquirySkeleton } from "./InquirySkeleton";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardSearch } from "@/components/dashboard/DashboardSearch";

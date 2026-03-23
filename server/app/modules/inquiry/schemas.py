@@ -146,6 +146,7 @@ class InquiryGroupResponse(BaseModel):
     id: UUID; display_id: Optional[str] = None; user_id: UUID; status: InquiryStatus
     active_quote_id: Optional[UUID] = None; active_quote: Optional[QuoteVersionResponse] = None
     quote_email_status: Optional[str] = None
+    admin_notes: Optional[str] = None
     quote_versions: List[QuoteVersionResponse] = []
     created_at: datetime; updated_at: datetime
     items: List[InquiryItemResponse] = []; messages: List[InquiryMessageResponse] = []
@@ -155,5 +156,6 @@ class InquiryGroupListResponse(BaseModel):
     id: UUID; display_id: Optional[str] = None; user_id: UUID; status: InquiryStatus
     active_quote_id: Optional[UUID] = None; total_price: Optional[float] = None
     quote_email_status: Optional[str] = None
+    admin_notes: Optional[str] = None
     created_at: datetime; item_count: int = 0
     model_config = ConfigDict(from_attributes=True)

@@ -107,7 +107,7 @@ export default function DashboardLayout({
 
             {/* Main Content Area */}
             <main className={`flex-1 min-h-screen transition-all duration-300 ease-in-out ${isCollapsed ? 'md:ml-24' : 'md:ml-72'}`}>
-                <header className="bg-white border-b-2 border-black p-4 flex justify-between items-center sticky top-0 z-10 h-16">
+                <header className="bg-white border-b-2 border-black p-4 flex justify-between items-center sticky top-0 z-[100] h-16">
                     <div className="flex items-center gap-4">
                         <button
                             className="p-2 border-2 border-black md:hidden hover:bg-zinc-100 transition-colors"

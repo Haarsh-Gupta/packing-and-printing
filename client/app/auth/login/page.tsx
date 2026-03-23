@@ -11,6 +11,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { useAuth } from "@/context/AuthContext";
+import { PasswordInput } from "@/components/ui/password-input";
+import { getFriendlyErrorMessage } from "@/lib/auth-utils";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,7 +50,7 @@ export default function LoginPage() {
       // Use AuthContext login — fetches user data before navigating
       await login(data.access_token);
     } catch (err: any) {
-      setError(err.message);
+      setError(getFriendlyErrorMessage(err.message));
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +80,13 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <Input name="password" type="password" required onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+              <PasswordInput
+                name="password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="••••••••"
+              />
             </div>
             <Button type="submit" className="w-full bg-black" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 animate-spin" /> : "Sign In"}
