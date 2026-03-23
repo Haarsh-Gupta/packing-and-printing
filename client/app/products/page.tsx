@@ -93,22 +93,25 @@ const FILTERS = [
 const HOW_STEPS = [
     {
         num: "01",
-        icon: <span className="material-symbols-outlined" style={{ fontSize: 22 }}>grid_view</span>,
+        icon: <span className="material-symbols-outlined text-[22px]">grid_view</span>,
         color: "#f5c6e0",
+        tw: "bg-[#f5c6e0]",
         title: "Browse catalog",
         body: "Explore our 200+ products. Filter by category, search by name, and find exactly what your brand needs.",
     },
     {
         num: "02",
-        icon: <span className="material-symbols-outlined" style={{ fontSize: 22 }}>description</span>,
+        icon: <span className="material-symbols-outlined text-[22px]">description</span>,
         color: "#fff0a0",
+        tw: "bg-[#fff0a0]",
         title: "Submit inquiry",
         body: "Choose specs, upload artwork, and send your inquiry. Our team reviews and prepares a transparent quote.",
     },
     {
         num: "03",
-        icon: <span className="material-symbols-outlined" style={{ fontSize: 22 }}>local_shipping</span>,
+        icon: <span className="material-symbols-outlined text-[22px]">local_shipping</span>,
         color: "#b8f0c8",
+        tw: "bg-[#b8f0c8]",
         title: "Receive & enjoy",
         body: "Approve the quote, confirm payment, and track production in real time from your dashboard.",
     },
@@ -141,51 +144,40 @@ export default function ProductsPage() {
                 {/* ══════════════════════════════════════════════════════
                     HERO
                 ══════════════════════════════════════════════════════ */}
-                <section className="pp-hero" style={{ position: "relative", overflow: "hidden" }}>
+                <section className="pp-hero relative overflow-hidden">
 
                     {/* Dot pattern */}
                     <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{
-                            opacity: 0.05,
-                            backgroundImage: "radial-gradient(circle, #000 1px, transparent 1px)",
-                            backgroundSize: "24px 24px",
-                        }}
+                        className="absolute inset-0 pointer-events-none opacity-5 bg-[radial-gradient(circle,#000_1px,transparent_1px)] bg-size-[24px_24px]"
                     />
 
                     {/* Floating doodles */}
                     <DoodleBook     className="absolute top-16 left-[4%]        w-16 opacity-20 pp-doodle-float-1 hidden sm:block" />
                     <DoodleBox      className="absolute top-20 right-[6%]       w-14 opacity-20 pp-doodle-float-2 hidden sm:block" />
-                    <DoodlePrinter  className="absolute top-[45%] left-[2%]     w-16 pp-doodle-float-3 hidden md:block opacity-[0.15]" />
+                    <DoodlePrinter  className="absolute top-[45%] left-[2%]     w-16 opacity-[0.15] pp-doodle-float-3 hidden md:block" />
                     <DoodleStar     className="absolute top-[30%] right-[5%]    w-10 opacity-25 pp-doodle-spin hidden sm:block" />
-                    <DoodleScribble className="absolute bottom-[22%] left-[10%] w-12 pp-doodle-float-2 hidden md:block opacity-[0.15]" />
+                    <DoodleScribble className="absolute bottom-[22%] left-[10%] w-12 opacity-[0.15] pp-doodle-float-2 hidden md:block" />
                     <DoodleArrow    className="absolute bottom-[20%] right-[5%] w-20 opacity-20 pp-doodle-float-1 hidden sm:block" />
                     <DoodleHeart    className="absolute top-16 left-[25%]       w-8  opacity-20 pp-doodle-float-3 hidden lg:block" />
-                    <DoodleStar     className="absolute top-[60%] left-[15%]    w-6  pp-doodle-spin-slow hidden lg:block opacity-[0.15]" />
+                    <DoodleStar     className="absolute top-[60%] left-[15%]    w-6  opacity-[0.15] pp-doodle-spin-slow hidden lg:block" />
 
-                    <div className="pp-hero-inner" style={{ position: "relative", zIndex: 1 }}>
+                    <div className="pp-hero-inner relative z-1">
 
                         {/* Left */}
                         <div>
                             <h1
-                                className="pp-hero-title"
-                                style={{
-                                    opacity:    mounted ? 1 : 0,
-                                    transform:  mounted ? "translateY(0)" : "translateY(24px)",
-                                    transition: "opacity 0.6s ease, transform 0.6s ease",
-                                }}
+                                className={`pp-hero-title transition-all duration-600 ease-out ${
+                                    mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+                                }`}
                             >
                                 Browse our<br />
                                 <em>product catalog.</em>
                             </h1>
 
                             <p
-                                className="pp-hero-sub"
-                                style={{
-                                    opacity:    mounted ? 1 : 0,
-                                    transform:  mounted ? "translateY(0)" : "translateY(24px)",
-                                    transition: "opacity 0.6s ease 0.15s, transform 0.6s ease 0.15s",
-                                }}
+                                className={`pp-hero-sub transition-all duration-600 ease-out delay-150 ${
+                                    mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+                                }`}
                             >
                                 From custom packaging to offset printing — every product
                                 is crafted with precision. Simple pricing, fast delivery.
@@ -231,7 +223,7 @@ export default function ProductsPage() {
                                 onClick={() => { setActiveKeyword(""); }}
                                 title="Clear filters"
                             >
-                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>filter_list_off</span>
+                                <span className="material-symbols-outlined text-[14px]">filter_list_off</span>
                                 Reset
                             </button>
                         </div>
@@ -270,7 +262,7 @@ export default function ProductsPage() {
                                     New categories are being added. Check back soon or request a custom order.
                                 </p>
                                 <Link href="/services#contact" className="pp-empty-cta">
-                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_forward</span>
+                                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                                     Request a Custom Order
                                 </Link>
                             </div>
@@ -288,9 +280,9 @@ export default function ProductsPage() {
                     </div>
                     <div className="pp-strip-grid">
                         {HOW_STEPS.map((step) => (
-                            <div key={step.num} className="pp-strip-card" style={{ background: "#fff" }}>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                    <div className="pp-strip-icon" style={{ background: step.color }}>
+                             <div key={step.num} className="pp-strip-card bg-white">
+                                <div className="flex items-center justify-between">
+                                    <div className={`pp-strip-icon ${step.tw}`}>
                                         {step.icon}
                                     </div>
                                     <span className="pp-strip-num">{step.num}</span>
@@ -310,9 +302,9 @@ export default function ProductsPage() {
                         <div className="pp-cta-deco" aria-hidden />
                         <div className="pp-cta-deco2" aria-hidden />
 
-                        <div style={{ position: "relative", zIndex: 1 }}>
+                        <div className="relative z-1">
                             <div className="pp-cta-badge">
-                                <span className="material-symbols-outlined" style={{ fontSize: 12 }}>support_agent</span>
+                                <span className="material-symbols-outlined text-[12px]">support_agent</span>
                                 Enterprise &amp; Bulk Orders
                             </div>
                             <h2 className="pp-cta-title">
@@ -326,9 +318,9 @@ export default function ProductsPage() {
                             </p>
                         </div>
 
-                        <div className="pp-cta-actions" style={{ position: "relative", zIndex: 1 }}>
+                        <div className="pp-cta-actions relative z-1">
                             <Link href="/services#contact" className="pp-btn-black">
-                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_forward</span>
+                                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                                 Contact Sales
                             </Link>
                             <Link href="/services" className="pp-btn-outline">

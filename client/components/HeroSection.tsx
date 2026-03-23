@@ -141,12 +141,9 @@ export default function HeroSection() {
     }, []);
 
     return (
-        <section className="relative overflow-hidden" style={{ backgroundColor: '#FF90E8' }}>
+        <section className="relative overflow-hidden bg-[#FF90E8]">
             {/* Background pattern */}
-            <div className="absolute inset-0 opacity-[0.06]" style={{
-                backgroundImage: `radial-gradient(circle, #000 1px, transparent 1px)`,
-                backgroundSize: '24px 24px'
-            }} />
+            <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(circle,#000_1px,transparent_1px)] bg-size-[24px_24px]" />
             {/* ── Floating Doodles ── */}
             {/* Top-left book */}
             <DoodleBook className="absolute top-16 left-[5%] w-16 md:w-20 opacity-20 doodle-float-1 hidden sm:block" />
@@ -155,13 +152,13 @@ export default function HeroSection() {
             <DoodleBox className="absolute top-24 right-[8%] w-14 md:w-18 opacity-20 doodle-float-2 hidden sm:block" />
 
             {/* Left printer */}
-            <DoodlePrinter className="absolute top-[45%] left-[3%] w-16 md:w-22 opacity-15 doodle-float-3 hidden md:block" />
+            <DoodlePrinter className="absolute top-[45%] left-[3%] w-16 md:w-22 opacity-[0.15] doodle-float-3 hidden md:block" />
 
             {/* Right star */}
             <DoodleStar className="absolute top-[30%] right-[5%] w-10 md:w-14 opacity-25 doodle-spin hidden sm:block" />
 
             {/* Bottom-left scribble */}
-            <DoodleScribble className="absolute bottom-[20%] left-[10%] w-12 md:w-16 opacity-15 doodle-float-2 hidden md:block" />
+            <DoodleScribble className="absolute bottom-[20%] left-[10%] w-12 md:w-16 opacity-[0.15] doodle-float-2 hidden md:block" />
 
             {/* Bottom-right arrow */}
             <DoodleArrow className="absolute bottom-[25%] right-[6%] w-16 md:w-24 opacity-20 doodle-float-1 hidden sm:block" />
@@ -173,9 +170,9 @@ export default function HeroSection() {
             <DoodleSparkle className="absolute top-[55%] right-[15%] w-8 md:w-10 opacity-20 doodle-spin-slow hidden md:block" />
 
             {/* Extra small doodles */}
-            <DoodleStar className="absolute top-[60%] left-[15%] w-6 md:w-8 opacity-15 doodle-spin-slow hidden lg:block" />
-            <DoodleSparkle className="absolute top-12 right-[25%] w-7 opacity-15 doodle-float-1 hidden lg:block" />
-            <DoodleHeart className="absolute bottom-[30%] right-[25%] w-7 opacity-15 doodle-float-2 hidden lg:block" />
+            <DoodleStar className="absolute top-[60%] left-[15%] w-6 md:w-8 opacity-[0.15] doodle-spin-slow hidden lg:block" />
+            <DoodleSparkle className="absolute top-12 right-[25%] w-7 opacity-[0.15] doodle-float-1 hidden lg:block" />
+            <DoodleHeart className="absolute bottom-[30%] right-[25%] w-7 opacity-[0.15] doodle-float-2 hidden lg:block" />
 
             <div className="max-w-6xl mx-auto px-6 pt-20 pb-32 md:pt-32 md:pb-48 relative z-10">
 

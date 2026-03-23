@@ -79,22 +79,25 @@ const FILTERS = [
 const WHY_CARDS = [
     {
         num: "01",
-        icon: <span className="material-symbols-outlined" style={{ fontSize: 22 }}>verified</span>,
+        icon: <span className="material-symbols-outlined text-[22px]">verified</span>,
         color: "#c8d8ff",
+        tw: "bg-[#c8d8ff]",
         title: "Expert studio",
         body: "Every service is handled by specialists — from pre-press designers to production engineers with years in the trade.",
     },
     {
         num: "02",
-        icon: <span className="material-symbols-outlined" style={{ fontSize: 22 }}>receipt_long</span>,
+        icon: <span className="material-symbols-outlined text-[22px]">receipt_long</span>,
         color: "#fff0a0",
+        tw: "bg-[#fff0a0]",
         title: "Transparent pricing",
         body: "No hidden fees. You get a detailed quote before any work begins. Approve, negotiate, or cancel — your call.",
     },
     {
         num: "03",
-        icon: <span className="material-symbols-outlined" style={{ fontSize: 22 }}>bolt</span>,
+        icon: <span className="material-symbols-outlined text-[22px]">bolt</span>,
         color: "#b8f0c8",
+        tw: "bg-[#b8f0c8]",
         title: "Fast turnaround",
         body: "Rush jobs accepted. Our studio keeps capacity reserved for urgent requests with guaranteed delivery windows.",
     },
@@ -127,16 +130,11 @@ export default function ServicesCatalogPage() {
                 {/* ══════════════════════════════════════════════════════
                     HERO
                 ══════════════════════════════════════════════════════ */}
-                <section className="pp-hero" style={{ background: "#c8d8ff", position: "relative", overflow: "hidden" }}>
+                <section className="pp-hero bg-[#c8d8ff] relative overflow-hidden">
 
                     {/* Dot pattern */}
                     <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{
-                            opacity: 0.05,
-                            backgroundImage: "radial-gradient(circle, #000 1px, transparent 1px)",
-                            backgroundSize: "24px 24px",
-                        }}
+                        className="absolute inset-0 pointer-events-none opacity-5 bg-[radial-gradient(circle,#000_1px,transparent_1px)] bg-size-[24px_24px]"
                     />
 
                     {/* Floating doodles */}
@@ -146,32 +144,26 @@ export default function ServicesCatalogPage() {
                     <DoodleStar     className="absolute top-[28%] right-[5%]     w-10 opacity-25 pp-doodle-spin   hidden sm:block" />
                     <DoodleArrow    className="absolute bottom-[20%] right-[5%]  w-20 opacity-20 pp-doodle-float-1 hidden sm:block" />
                     <DoodleSparkle  className="absolute top-[55%] right-[14%]    w-8  opacity-20 pp-doodle-spin-slow hidden md:block" />
-                    <DoodleStar     className="absolute top-12 right-[25%]       w-7  opacity-15 pp-doodle-float-2 hidden lg:block" />
-                    <DoodleSparkle  className="absolute top-[60%] left-[15%]     w-6  opacity-15 pp-doodle-float-3 hidden lg:block" />
+                    <DoodleStar     className="absolute top-12 right-[25%]       w-7  opacity-[0.15] pp-doodle-float-2 hidden lg:block" />
+                    <DoodleSparkle  className="absolute top-[60%] left-[15%]     w-6  opacity-[0.15] pp-doodle-float-3 hidden lg:block" />
 
-                    <div className="pp-hero-inner" style={{ position: "relative", zIndex: 1 }}>
+                    <div className="pp-hero-inner relative z-1">
 
                         {/* Left */}
                         <div>
                             <h1
-                                className="pp-hero-title"
-                                style={{
-                                    opacity:    mounted ? 1 : 0,
-                                    transform:  mounted ? "translateY(0)" : "translateY(24px)",
-                                    transition: "opacity 0.6s ease, transform 0.6s ease",
-                                }}
+                                className={`pp-hero-title transition-all duration-600 ease-out ${
+                                    mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+                                }`}
                             >
                                 Explore our<br />
                                 <em>service catalog.</em>
                             </h1>
 
                             <p
-                                className="pp-hero-sub"
-                                style={{
-                                    opacity:    mounted ? 1 : 0,
-                                    transform:  mounted ? "translateY(0)" : "translateY(24px)",
-                                    transition: "opacity 0.6s ease 0.15s, transform 0.6s ease 0.15s",
-                                }}
+                                className={`pp-hero-sub transition-all duration-600 ease-out delay-150 ${
+                                    mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+                                }`}
                             >
                                 From conceptual mockups to full production setups — every service
                                 is executed with precision by our studio masters.
@@ -217,7 +209,7 @@ export default function ServicesCatalogPage() {
                                 onClick={() => { setActiveKeyword(""); }}
                                 title="Clear filters"
                             >
-                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>filter_list_off</span>
+                                <span className="material-symbols-outlined text-[14px]">filter_list_off</span>
                                 Reset
                             </button>
                         </div>
@@ -256,7 +248,7 @@ export default function ServicesCatalogPage() {
                                     New services are being added. Check back soon or request custom work.
                                 </p>
                                 <Link href="/contact" className="pp-empty-cta">
-                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_forward</span>
+                                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                                     Contact the Studio
                                 </Link>
                             </div>
@@ -274,9 +266,9 @@ export default function ServicesCatalogPage() {
                     </div>
                     <div className="pp-strip-grid">
                         {WHY_CARDS.map((card) => (
-                            <div key={card.num} className="pp-strip-card" style={{ background: "#fff" }}>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                    <div className="pp-strip-icon" style={{ background: card.color }}>
+                             <div key={card.num} className="pp-strip-card bg-white">
+                                <div className="flex items-center justify-between">
+                                    <div className={`pp-strip-icon ${card.tw}`}>
                                         {card.icon}
                                     </div>
                                     <span className="pp-strip-num">{card.num}</span>
@@ -296,9 +288,9 @@ export default function ServicesCatalogPage() {
                         <div className="pp-cta-deco" aria-hidden />
                         <div className="pp-cta-deco2" aria-hidden />
 
-                        <div style={{ position: "relative", zIndex: 1 }}>
+                        <div className="relative z-1">
                             <div className="pp-cta-badge">
-                                <span className="material-symbols-outlined" style={{ fontSize: 12 }}>support_agent</span>
+                                <span className="material-symbols-outlined text-[12px]">support_agent</span>
                                 Custom Studio Work
                             </div>
                             <h2 className="pp-cta-title">
@@ -311,9 +303,9 @@ export default function ServicesCatalogPage() {
                             </p>
                         </div>
 
-                        <div className="pp-cta-actions" style={{ position: "relative", zIndex: 1 }}>
+                        <div className="pp-cta-actions relative z-1">
                             <Link href="/contact" className="pp-btn-black">
-                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_forward</span>
+                                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                                 Contact Us
                             </Link>
                             <Link href="/products" className="pp-btn-outline">
