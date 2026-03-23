@@ -27,7 +27,9 @@ config = context.config
 # Inject the real database URL from our Settings (overrides whatever is in
 # alembic.ini, making the .ini value a harmless placeholder)
 from app.core.config import settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+
+url = str(settings.async_database_url).replace("%", "%%")
+config.set_main_option("sqlalchemy.url", url)
 
 # Standard Python-logging setup from the ini file
 if config.config_file_name is not None:

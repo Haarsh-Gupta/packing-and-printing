@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Column, String, DateTime, func, Double, Uuid, Integer, text, UniqueConstraint, Sequence, event
+from sqlalchemy import ForeignKey, Column, String, DateTime, func, Double, Uuid, Integer, text, UniqueConstraint, Sequence, event, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -23,6 +23,7 @@ class Order(Base):
     status = Column(String, default='WAITING_PAYMENT')
     payment_gateway_order_id = Column(String, nullable=True, unique=True, index=True)
     admin_notes = Column(String, nullable=True)
+    is_offline = Column(Boolean, default=False, nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -32,6 +33,14 @@ class Order(Base):
     milestones = relationship("OrderMilestone", back_populates="order", cascade="all, delete-orphan", order_by="OrderMilestone.order_index")
     transactions = relationship("Transaction", back_populates="order")
     declarations = relationship("PaymentDeclaration", back_populates="order")
+    
+    @property
+    def user_name(self):
+        return self.user.name if self.user else None
+        
+    @property
+    def user_email(self):
+        return self.user.email if self.user else None
 
 
 class OrderMilestone(Base):

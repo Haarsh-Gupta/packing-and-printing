@@ -1,40 +1,15 @@
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { Ticket, TicketMessage } from "@/types";
-import { Send, Search, Loader2, ChevronDown, MoreHorizontal, CheckCircle } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const PRIORITY_CONFIG: Record<string, { color: string; bg: string }> = {
-    LOW: { color: '#16a34a', bg: '#f0fdf4' },
-    MEDIUM: { color: '#2563eb', bg: '#eff6ff' },
-    HIGH: { color: '#d97706', bg: '#fffbeb' },
-    URGENT: { color: '#dc2626', bg: '#fef2f2' },
-};
-
-const PriorityBadge = ({ priority }: { priority: string }) => {
-    const cfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.LOW;
-    return (
-        <span style={{
-            display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
-            borderRadius: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
-            letterSpacing: '0.04em', color: cfg.color, background: cfg.bg,
-            fontFamily: "'Inter', system-ui",
-        }}>
-            {priority}
-        </span>
-    );
-};
+import type { Ticket } from "@/types";
+import { Loader2, Filter, Plus, ChevronLeft, ChevronRight, Zap, Headset } from "lucide-react";
 
 export default function Tickets() {
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState("ALL");
     const [priorityFilter, setPriorityFilter] = useState("ALL");
-    const [selected, setSelected] = useState<Ticket | null>(null);
-    const [msgs, setMsgs] = useState<TicketMessage[]>([]);
-    const [reply, setReply] = useState("");
-    const [sending, setSending] = useState(false);
-    const [search, setSearch] = useState("");
+    const navigate = useNavigate();
 
     const fetchTickets = () => {
         setLoading(true);
@@ -43,293 +18,264 @@ export default function Tickets() {
         if (statusFilter !== "ALL") params.append("status_filter", statusFilter);
         if (priorityFilter !== "ALL") params.append("priority_filter", priorityFilter);
         if (params.toString()) url += `&${params.toString()}`;
-        api<Ticket[]>(url).then(setTickets).catch(console.error).finally(() => setLoading(false));
+        
+        api<Ticket[]>(url)
+            .then(setTickets)
+            .catch(console.error)
+            .finally(() => setLoading(false));
     };
 
-    useEffect(() => { fetchTickets(); }, [statusFilter, priorityFilter]);
+    useEffect(() => { 
+        fetchTickets(); 
+    }, [statusFilter, priorityFilter]);
 
-    const selectTicket = async (t: Ticket) => {
-        setSelected(t);
-        try {
-            const data = await api<Ticket>(`/tickets/${t.id}`);
-            setMsgs(data.messages || []);
-        } catch (e) { console.error(e); }
+    // Derived statistics
+    const totalActive = tickets.filter(t => t.status !== 'CLOSED' && t.status !== 'RESOLVED').length;
+    const criticalIssues = tickets.filter(t => t.priority === 'URGENT' || t.priority === 'HIGH').length;
+
+    const resolvedTickets = tickets.filter(t => t.status === 'RESOLVED' || t.status === 'CLOSED');
+    const resolvedRate = tickets.length > 0 ? ((resolvedTickets.length / tickets.length) * 100).toFixed(1) + '%' : '100%';
+
+    let avgResolutionStr = "N/A";
+    if (resolvedTickets.length > 0) {
+        const totalResolveTime = resolvedTickets.reduce((acc, t) => {
+            return acc + (new Date(t.updated_at).getTime() - new Date(t.created_at).getTime());
+        }, 0);
+        const avgMs = totalResolveTime / resolvedTickets.length;
+        const avgHours = avgMs / (1000 * 60 * 60);
+        avgResolutionStr = avgHours < 24 ? `${avgHours.toFixed(1)}h` : `${(avgHours / 24).toFixed(1)}d`;
+    }
+
+    const renderPriority = (priority: string) => {
+        let colorClass = "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
+        if (priority === "MEDIUM") colorClass = "text-blue-500 bg-blue-500/10 border-blue-500/20";
+        if (priority === "HIGH") colorClass = "text-amber-500 bg-amber-500/10 border-amber-500/20";
+        if (priority === "URGENT") colorClass = "text-rose-500 bg-rose-500/10 border-rose-500/20";
+
+        return (
+            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-widest ${colorClass}`}>
+                {priority}
+            </span>
+        );
     };
 
-    const sendReply = async () => {
-        if (!selected || !reply.trim()) return;
-        setSending(true);
-        try {
-            await api(`/tickets/${selected.id}/messages`, {
-                method: "POST", body: JSON.stringify({ message: reply }),
-            });
-            setReply("");
-            const data = await api<Ticket>(`/tickets/${selected.id}`);
-            setMsgs(data.messages || []);
-        } catch (e) { console.error(e); } finally { setSending(false); }
-    };
+    const renderStatus = (status: string) => {
+        let dotColor = "bg-primary";
+        let colorClass = "bg-primary/10 text-primary border-primary/20";
+        
+        if (status === "RESOLVED" || status === "CLOSED") {
+            dotColor = "bg-emerald-500";
+            colorClass = "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+        } else if (status === "OPEN") {
+            dotColor = "bg-rose-500";
+            colorClass = "bg-rose-500/10 text-rose-500 border-rose-500/20";
+        }
 
-    const markResolved = async () => {
-        if (!selected) return;
-        try {
-            await api(`/admin/tickets/${selected.id}/status`, {
-                method: "PATCH", body: JSON.stringify({ status: "RESOLVED" }),
-            });
-            fetchTickets();
-            setSelected(prev => prev ? { ...prev, status: "RESOLVED" } : null);
-        } catch (e) { console.error(e); }
+        return (
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${colorClass}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></span>
+                {status.replace("_", " ")}
+            </span>
+        );
     };
-
-    const filtered = tickets.filter(t =>
-        !search || t.subject?.toLowerCase().includes(search.toLowerCase()) ||
-        (t as any).user_name?.toLowerCase().includes(search.toLowerCase())
-    );
 
     return (
-        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '0', fontFamily: "'Inter', system-ui", height: '100%' }}>
-
-            {/* Top bar */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div className="font-['Inter'] pb-12 animate-fade-in w-full max-w-[1400px] mx-auto min-h-screen">
+            
+            {/* Page Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-10 gap-4">
                 <div>
-                    <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#18181b', margin: 0 }}>
-                        Support Tickets
-                    </h1>
-                    <p style={{ fontSize: '13px', color: '#71717a', marginTop: '3px' }}>{tickets.length} tickets total</p>
+                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] mb-2">Support Tickets</h1>
+                    <p className="text-slate-500 dark:text-[#c3c5d8] text-sm max-w-xl">Monitor and resolve incoming customer requests across all architectural modules.</p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <select
-                        value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                        style={{
-                            height: '34px', padding: '0 10px', border: '1px solid #e4e4e7', borderRadius: '9px',
-                            fontSize: '12.5px', color: '#52525b', background: 'white',
-                            fontFamily: "'Inter', system-ui", cursor: 'pointer', outline: 'none',
-                        }}
-                    >
-                        {['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map(s => (
-                            <option key={s} value={s}>{s === 'ALL' ? 'Status: All' : s.replace('_', ' ')}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
-                        style={{
-                            height: '34px', padding: '0 10px', border: '1px solid #e4e4e7', borderRadius: '9px',
-                            fontSize: '12.5px', color: '#52525b', background: 'white',
-                            fontFamily: "'Inter', system-ui", cursor: 'pointer', outline: 'none',
-                        }}
-                    >
-                        {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'].map(p => (
-                            <option key={p} value={p}>{p === 'ALL' ? 'Priority: All' : p}</option>
-                        ))}
-                    </select>
-                    <button style={{
-                        height: '34px', padding: '0 14px',
-                        background: '#18181b', color: 'white', border: 'none', borderRadius: '9px',
-                        fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                        fontFamily: "'Inter', system-ui",
-                    }}>
-                        + New Ticket
+                <div className="flex gap-3">
+                    <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white dark:bg-[#222a3d] border border-slate-200 dark:border-[#434655]/10 text-slate-800 dark:text-[#dae2fd] text-sm font-semibold hover:bg-slate-50 dark:hover:bg-[#31394d] transition-colors shadow-sm">
+                        <Filter size={18} />
+                        Filters
+                    </button>
+                    <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform">
+                        <Plus size={18} />
+                        Create Ticket
                     </button>
                 </div>
             </div>
 
-            {/* Split view */}
-            <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-[500px] md:min-h-0 md:h-[calc(100vh-180px)]">
+            {/* Dashboard Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-primary shadow-sm">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Total Active</p>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{totalActive}</h3>
+                </div>
+                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-rose-500 shadow-sm">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Critical Issues</p>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{criticalIssues}</h3>
+                </div>
+                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-amber-500 shadow-sm">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Avg Resolution</p>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{avgResolutionStr}</h3>
+                </div>
+                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-emerald-500 shadow-sm">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Resolve Rate</p>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{resolvedRate}</h3>
+                </div>
+            </div>
 
-                {/* Left: Ticket list */}
-                <div className="w-full md:w-[320px] flex-shrink-0 bg-white rounded-2xl border border-black/5 shadow-sm flex flex-col overflow-hidden" style={{ minHeight: '300px' }}>
-                    <div style={{ padding: '14px 14px 0' }}>
-                        <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#18181b', margin: '0 0 12px' }}>Support Tickets</h2>
-                        {/* Search */}
-                        <div style={{ position: 'relative', marginBottom: '12px' }}>
-                            <Search size={12} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa' }} />
-                            <input
-                                type="text" placeholder="Search tickets..."
-                                value={search} onChange={e => setSearch(e.target.value)}
-                                style={{
-                                    width: '100%', height: '34px', paddingLeft: '28px', paddingRight: '10px',
-                                    border: '1px solid #e4e4e7', borderRadius: '8px', fontSize: '12.5px',
-                                    color: '#18181b', background: '#f9f9f9', fontFamily: "'Inter', system-ui",
-                                    outline: 'none', boxSizing: 'border-box',
-                                }}
-                            />
-                        </div>
+            {/* Filters Bar */}
+            <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-[#060e20] rounded-xl border border-slate-200 dark:border-transparent">
+                <select 
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="appearance-none bg-white dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/20 text-slate-700 dark:text-[#c3c5d8] text-xs py-2 px-4 pr-10 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-200 dark:hover:bg-[#222a3d] transition-colors font-medium shadow-sm"
+                >
+                    <option value="ALL">Status: All</option>
+                    <option value="OPEN">Open</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="RESOLVED">Resolved</option>
+                </select>
+
+                <select 
+                    value={priorityFilter}
+                    onChange={(e) => setPriorityFilter(e.target.value)}
+                    className="appearance-none bg-white dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/20 text-slate-700 dark:text-[#c3c5d8] text-xs py-2 px-4 pr-10 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-200 dark:hover:bg-[#222a3d] transition-colors font-medium shadow-sm"
+                >
+                    <option value="ALL">Priority: All</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                </select>
+
+                <div className="ml-auto flex items-center gap-2 text-xs text-slate-500 dark:text-[#c3c5d8] font-medium">
+                    <span>Showing {tickets.length} tickets</span>
+                    <div className="flex gap-1 ml-4">
+                        <button className="p-1 rounded bg-white dark:bg-[#222a3d] hover:bg-slate-100 dark:hover:bg-primary/20 transition-colors border border-slate-200 dark:border-transparent shadow-sm">
+                            <ChevronLeft size={16} />
+                        </button>
+                        <button className="p-1 rounded bg-white dark:bg-[#222a3d] hover:bg-slate-100 dark:hover:bg-primary/20 transition-colors border border-slate-200 dark:border-transparent shadow-sm">
+                            <ChevronRight size={16} />
+                        </button>
                     </div>
+                </div>
+            </div>
 
-                    {/* List */}
-                    <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {loading ? (
-                            <div style={{ padding: '40px', textAlign: 'center' }}>
-                                <Loader2 size={20} style={{ animation: 'spin 0.8s linear infinite', color: '#3b82f6', margin: '0 auto' }} />
-                            </div>
-                        ) : filtered.map(ticket => (
-                            <div key={ticket.id}
-                                onClick={() => selectTicket(ticket)}
-                                style={{
-                                    padding: '12px 14px', borderBottom: '1px solid #f4f4f5', cursor: 'pointer',
-                                    background: selected?.id === ticket.id ? '#eff6ff' : 'transparent',
-                                    borderLeft: selected?.id === ticket.id ? '3px solid #3b82f6' : '3px solid transparent',
-                                    transition: 'all 0.1s',
-                                }}
-                                onMouseEnter={e => { if (selected?.id !== ticket.id) e.currentTarget.style.background = '#f9f9f9'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = selected?.id === ticket.id ? '#eff6ff' : 'transparent'; }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#3b82f6' }}>#{ticket.id}</span>
-                                    <MoreHorizontal size={13} style={{ color: '#d4d4d8' }} />
-                                </div>
-                                <p style={{
-                                    fontSize: '13px', fontWeight: 600, color: '#18181b',
-                                    margin: '0 0 3px', lineHeight: 1.3,
-                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                }}>
-                                    {ticket.subject || 'Support Request'}
-                                </p>
-                                <p style={{ fontSize: '11px', color: '#71717a', margin: '0 0 8px' }}>
-                                    {(ticket as any).user_name || 'Customer'}
-                                </p>
-                                <PriorityBadge priority={ticket.priority || 'LOW'} />
-                            </div>
-                        ))}
+            {/* High-Fidelity Table Container */}
+            <div className="bg-white dark:bg-[#131b2e] rounded-2xl overflow-hidden shadow-sm border border-slate-200 dark:border-[#434655]/10">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                            <tr className="bg-slate-50 dark:bg-[#060e20]/50 text-slate-600 dark:text-[#c3c5d8]">
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Ticket ID</th>
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">User</th>
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Subject</th>
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Status</th>
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Priority</th>
+                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10 text-right">Created</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-[#434655]/5">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                        <Loader2 size={24} className="animate-spin mx-auto text-primary mb-2" />
+                                        <p className="text-xs uppercase tracking-widest font-bold">Fetching Data</p>
+                                    </td>
+                                </tr>
+                            ) : tickets.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                        <p className="text-xs uppercase tracking-widest font-bold">No tickets found</p>
+                                    </td>
+                                </tr>
+                            ) : tickets.map((ticket) => (
+                                <tr 
+                                    key={ticket.id} 
+                                    onClick={() => navigate(`/tickets/${ticket.id}`)}
+                                    className="hover:bg-slate-50 dark:hover:bg-slate-50 dark:hover:bg-[#171f33]/50 transition-colors group cursor-pointer"
+                                >
+                                    <td className="px-6 py-5 min-w-[150px]">
+                                        <div className="font-mono text-xs text-primary font-bold">
+                                            #TKT-{ticket.id}
+                                        </div>
+                                        <div className="font-mono text-[9px] text-slate-400 mt-1 select-all" title="Original UUID">
+                                            {ticket.id}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-[#222a3d] flex items-center justify-center font-bold text-xs text-slate-600 dark:text-[#dae2fd]">
+                                                {((ticket as any).user_name || 'U')[0].toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-slate-900 dark:text-[#dae2fd]">
+                                                    {(ticket as any).user_name || 'Customer'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        <p className="text-sm font-medium text-slate-900 dark:text-[#dae2fd] max-w-xs truncate">
+                                            {ticket.subject || 'Support Inquiry'}
+                                        </p>
+                                        <span className="text-[10px] text-slate-500 dark:text-[#c3c5d8]/60">General Queue</span>
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        {renderStatus(ticket.status)}
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        {renderPriority(ticket.priority || 'LOW')}
+                                    </td>
+                                    <td className="px-6 py-5 text-right text-xs text-slate-500 dark:text-[#c3c5d8] font-medium">
+                                        {new Date(ticket.created_at).toLocaleDateString()}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Table Pagination */}
+                <div className="px-10 py-5 bg-slate-50 dark:bg-[#060e20]/30 flex justify-between items-center border-t border-slate-200 dark:border-[#434655]/10">
+                    <p className="text-xs text-slate-500 dark:text-[#c3c5d8] font-medium">Page 1 of 1</p>
+                    <div className="flex gap-2">
+                        <button className="px-4 py-1.5 rounded-lg bg-white dark:bg-[#222a3d] text-xs font-semibold text-slate-500 dark:text-[#c3c5d8] hover:text-slate-900 dark:hover:text-slate-900 dark:hover:text-[#dae2fd] transition-colors disabled:opacity-30 border border-slate-200 dark:border-transparent shadow-sm" disabled>Previous</button>
+                        <button className="px-4 py-1.5 rounded-lg bg-white dark:bg-[#222a3d] text-xs font-semibold text-slate-500 dark:text-[#c3c5d8] hover:text-slate-900 dark:hover:text-slate-900 dark:hover:text-[#dae2fd] transition-colors border border-slate-200 dark:border-transparent shadow-sm">Next</button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bento Grid - Quick Actions & Recent Activity */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+                <div className="md:col-span-2 p-8 rounded-2xl bg-white dark:bg-[#131b2e] relative overflow-hidden group shadow-sm border border-slate-200 dark:border-transparent">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-primary/10 transition-colors"></div>
+                    
+                    <h4 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-[#dae2fd]">
+                        <Zap className="text-primary size-5" />
+                        Quick Analysis
+                    </h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/10">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8] mb-2">Total Received</p>
+                            <p className="text-sm font-semibold text-slate-900 dark:text-[#dae2fd]">{tickets.length}</p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/10">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8] mb-2">Team Load</p>
+                            <p className="text-sm font-semibold text-slate-900 dark:text-[#dae2fd]">{totalActive > 10 ? 'High Capacity' : 'Moderate Capacity'}</p>
+                        </div>
                     </div>
                 </div>
 
-                {/* Right: Chat thread */}
-                {selected ? (
-                    <div className="flex-1 bg-white rounded-2xl border border-black/5 shadow-sm flex flex-col overflow-hidden" style={{ minHeight: '400px' }}>
-                        {/* Chat header */}
-                        <div style={{
-                            padding: '16px 20px', borderBottom: '1px solid #f4f4f5',
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        }}>
-                            <div>
-                                <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#18181b', margin: 0 }}>
-                                    {selected.subject || 'Support Request'}
-                                </h2>
-                                <p style={{ fontSize: '12px', color: '#71717a', margin: '3px 0 0' }}>
-                                    #{selected.id} &bull; {(selected as any).user_name || 'Customer'} &bull; Created {new Date(selected.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </p>
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                {selected.status !== 'RESOLVED' && (
-                                    <button
-                                        onClick={markResolved}
-                                        style={{
-                                            height: '34px', padding: '0 14px',
-                                            background: '#f4f4f5', color: '#52525b', border: 'none', borderRadius: '9px',
-                                            fontSize: '12.5px', fontWeight: 600, cursor: 'pointer',
-                                            display: 'flex', alignItems: 'center', gap: '6px',
-                                            fontFamily: "'Inter', system-ui",
-                                        }}
-                                    >
-                                        <CheckCircle size={13} /> Mark Resolved
-                                        <ChevronDown size={12} />
-                                    </button>
-                                )}
-                                {selected.status === 'RESOLVED' && (
-                                    <span style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 10px',
-                                        background: '#f0fdf4', color: '#16a34a', borderRadius: '9px', fontSize: '12px', fontWeight: 600,
-                                    }}>
-                                        <CheckCircle size={12} /> Resolved
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Messages */}
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            {/* First message (customer request) */}
-                            {selected.description && (
-                                <div style={{
-                                    padding: '14px 16px', background: '#f9f9f9', borderRadius: '12px',
-                                    border: '1px solid #f0f0f0',
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                        <p style={{ fontSize: '11px', fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
-                                            INCIDENT REPORT
-                                        </p>
-                                    </div>
-                                    <p style={{ fontSize: '13px', color: '#3f3f46', lineHeight: 1.6, margin: 0 }}>
-                                        "{selected.description}"
-                                    </p>
-                                    {(selected as any).order_id && (
-                                        <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
-                                            <span style={{ fontSize: '11px', background: '#f4f4f5', padding: '3px 8px', borderRadius: '6px', color: '#52525b', fontWeight: 500 }}>
-                                                PO-{(selected as any).order_id}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Thread messages */}
-                            {msgs.map((msg, i) => {
-                                const isAdmin = (msg as any).sender_type === 'admin' || (msg as any).is_admin;
-                                return (
-                                    <div key={i} style={{ display: 'flex', justifyContent: isAdmin ? 'flex-end' : 'flex-start' }}>
-                                        <div style={{
-                                            maxWidth: '70%', padding: '12px 14px', borderRadius: '14px',
-                                            background: isAdmin ? '#3b82f6' : '#f4f4f5',
-                                            color: isAdmin ? 'white' : '#18181b',
-                                        }}>
-                                            <p style={{ fontSize: '13px', lineHeight: 1.5, margin: 0 }}>{msg.message}</p>
-                                            <p style={{ fontSize: '10px', opacity: 0.6, marginTop: '6px', margin: '6px 0 0' }}>
-                                                {isAdmin ? 'Admin' : (selected as any).user_name} &bull; {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-
-                            {msgs.length === 0 && !selected.description && (
-                                <div style={{ textAlign: 'center', padding: '40px', color: '#a1a1aa' }}>
-                                    <p style={{ fontSize: '13px', fontWeight: 500 }}>No messages yet</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Reply input */}
-                        <div style={{ padding: '14px 20px', borderTop: '1px solid #f4f4f5', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                            <input
-                                type="text"
-                                placeholder={`Type a message to ${(selected as any).user_name || 'customer'}…`}
-                                value={reply}
-                                onChange={e => setReply(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendReply()}
-                                style={{
-                                    flex: 1, height: '40px', padding: '0 14px',
-                                    border: '1px solid #e4e4e7', borderRadius: '10px', fontSize: '13px',
-                                    color: '#18181b', background: '#f9f9f9', fontFamily: "'Inter', system-ui",
-                                    outline: 'none',
-                                }}
-                            />
-                            <button
-                                onClick={sendReply}
-                                disabled={sending || !reply.trim()}
-                                style={{
-                                    width: '40px', height: '40px', borderRadius: '10px',
-                                    background: reply.trim() ? '#3b82f6' : '#e4e4e7',
-                                    border: 'none', cursor: reply.trim() ? 'pointer' : 'default',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    transition: 'background 0.12s',
-                                }}>
-                                {sending
-                                    ? <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite', color: 'white' }} />
-                                    : <Send size={15} style={{ color: reply.trim() ? 'white' : '#a1a1aa' }} />
-                                }
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex-1 bg-white rounded-2xl border border-black/5 shadow-sm flex flex-col items-center justify-center text-zinc-300 gap-2.5" style={{ minHeight: '400px' }}>
-                        <div style={{ fontSize: '32px' }}>💬</div>
-                        <div style={{ textAlign: 'center' }}>
-                            <p style={{ fontSize: '14px', fontWeight: 600, color: '#71717a', margin: 0 }}>Select a ticket</p>
-                            <p style={{ fontSize: '13px', color: '#a1a1aa', margin: '4px 0 0' }}>Choose a ticket from the list to view the conversation</p>
-                        </div>
-                    </div>
-                )}
+                <div className="p-8 rounded-2xl bg-primary text-white relative overflow-hidden group shadow-sm">
+                    <Headset className="absolute right-[-20px] bottom-[-20px] text-[120px] opacity-10 -rotate-12" />
+                    
+                    <h4 className="text-lg font-bold mb-2">Help Center</h4>
+                    <p className="text-sm opacity-90 mb-6 leading-relaxed">Need protocol assistance with a complex or escalated customer ticket?</p>
+                    
+                    <button className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-colors">
+                        Review Policies
+                    </button>
+                </div>
             </div>
+
         </div>
     );
 }

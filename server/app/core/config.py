@@ -19,11 +19,12 @@ class Settings(BaseSettings):
     redirect_uri : str
 
     # Database
-    db_user: str
-    db_password: str
-    db_host: str
-    db_port: int
-    db_name: str
+    db_url: str | None = None
+    db_user: str = "postgres"
+    db_password: str = ""
+    db_host: str = "localhost"
+    db_port: int = 5432
+    db_name: str = "postgres"
 
     # Redis
     redis_host: str = "localhost"
@@ -41,7 +42,7 @@ class Settings(BaseSettings):
     otp_expire_seconds: int = 300  # 5 minutes
 
     # Company Details (invoices, emails, etc.)
-    company_name: str = "BookBind Printing"
+    company_name: str = "Navart"
     company_address: str = ""
     company_phone: str = ""
     company_email: str = ""
@@ -76,9 +77,38 @@ class Settings(BaseSettings):
             f"{self.cloudinary_cloud_name}"
         )
 
-    @computed_field
     @property
-    def database_url(self) -> str:
+    def async_database_url(self) -> str:
+        if self.db_url:
+            url = self.db_url
+            # Replace prefix
+            if url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            
+            # Remove parameters not supported by asyncpg
+            if "?" in url:
+                base, params = url.split("?", 1)
+                param_list = params.split("&")
+                
+                # Filter out unsupported params
+                # asyncpg uses 'ssl=true/false/...' instead of 'sslmode'
+                # but often 'ssl=require' works too if driver handles it.
+                # However, for Neon, we often just need to ensure the driver is asyncpg.
+                filtered_params = [
+                    p for p in param_list 
+                    if not p.startswith("sslmode=") and not p.startswith("channel_binding=")
+                ]
+                
+                # Add ssl=require if it was there as sslmode
+                if "sslmode=require" in params and not any(p.startswith("ssl=") for p in filtered_params):
+                    filtered_params.append("ssl=require")
+                
+                if filtered_params:
+                    url = f"{base}?{'&'.join(filtered_params)}"
+                else:
+                    url = base
+            return url
+        
         return (
             f"postgresql+asyncpg://{self.db_user}:"
             f"{self.db_password}@"

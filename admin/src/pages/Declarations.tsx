@@ -57,83 +57,96 @@ export default function Declarations() {
     );
 
     return (
-        <div className="animate-fade-in flex flex-col gap-0 font-sans h-full">
+        <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] px-2 pb-12 animate-fade-in">
             {/* Top bar */}
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
                 <div>
-                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white m-0">
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-blue-600 dark:text-[#adc6ff] mb-2 tracking-widest uppercase">
+                        <span>Economic Control</span>
+                        <span>/</span>
+                        <span className="text-slate-600 dark:text-[#c3c5d8]/60">Settlement Claims</span>
+                    </nav>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] m-0">
                         Payment Declarations
                     </h1>
-                    <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1 m-0">{declarations.length} pending reviews</p>
+                    <p className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-1 m-0">Awaiting clearance for {declarations.length} incoming nodes</p>
                 </div>
-                <div className="flex items-center gap-2.5">
-                    <div className="relative">
-                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
-                        <input
-                            type="text" placeholder="Search Order ID or UTR..." value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            className="h-9 pl-8 pr-3 w-[220px] border border-slate-200 dark:border-slate-800 rounded-lg text-[13px] text-slate-900 dark:text-white bg-white dark:bg-slate-900 outline-none focus:border-blue-500 transition-colors"
-                        />
-                    </div>
+                <div className="relative shrink-0">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#434655]" />
+                    <input
+                        type="text" placeholder="Query Order Hash or UTR..." value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        className="h-10 pl-9 pr-3 w-full sm:w-72 border border-slate-200 dark:border-[#434655]/40 rounded-lg text-xs font-mono text-blue-600 dark:text-[#adc6ff] bg-white dark:bg-[#131b2e] outline-none focus:border-blue-400 dark:border-[#adc6ff] transition-colors placeholder:text-[#434655]/60"
+                    />
                 </div>
             </div>
 
-            <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
+            <div className="flex-1 bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
+                <div className="px-6 py-4 border-b border-slate-200 dark:border-[#434655]/20 bg-slate-100 dark:bg-[#0b1326]/50 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <CreditCard size={16} className="text-[#fcd34d]" />
+                        <h2 className="text-[11px] uppercase tracking-widest font-extrabold text-slate-900 dark:text-[#dae2fd] m-0">Verification Queue</h2>
+                    </div>
+                </div>
+
                 {loading ? (
-                    <div className="p-12 text-center text-slate-400 dark:text-slate-500">
-                        <Loader2 size={24} className="animate-spin text-blue-500 mx-auto" />
+                    <div className="flex-1 p-16 flex flex-col items-center justify-center text-slate-600 dark:text-[#c3c5d8] gap-3">
+                        <Loader2 size={24} className="animate-spin text-blue-600 dark:text-[#adc6ff]" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest m-0">Scanning Block Data...</p>
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div className="p-16 text-center text-slate-400 dark:text-slate-500">
-                        <CheckCircle size={32} className="text-emerald-500 mx-auto mb-3 opacity-80" />
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white m-0">All caught up</p>
-                        <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1 m-0">No pending payment declarations to review.</p>
+                    <div className="flex-1 p-16 flex flex-col items-center justify-center text-[#434655]">
+                        <CheckCircle size={40} className="mb-4 text-[#34d399]/50" strokeWidth={1.5} />
+                        <p className="text-sm font-extrabold text-slate-900 dark:text-[#dae2fd] m-0 tracking-tight">Zero Delta</p>
+                        <p className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-1.5 m-0 max-w-[240px] text-center leading-relaxed">Network status is nominal. No pending value structures await verification.</p>
                     </div>
                 ) : (
-                    <div className="overflow-y-auto flex-1 p-5">
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
+                    <div className="overflow-y-auto custom-scrollbar flex-1 p-6">
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
                             {filtered.map(dec => (
-                                <div key={dec.id} className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col gap-3">
+                                <div key={dec.id} className="group bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 hover:border-blue-400 dark:hover:border-[#adc6ff]/50 hover:bg-slate-50 dark:hover:bg-[#171f33]/60 transition-all rounded-xl p-5 flex flex-col gap-4">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 m-0">ORDER ID</p>
-                                            <p className="text-[13px] font-bold text-blue-500 dark:text-blue-400 m-0">#{dec.order_id.toString().split('-')[0].toUpperCase()}</p>
+                                            <p className="text-[9px] font-bold text-slate-500 dark:text-[#8d90a1] uppercase tracking-[0.2em] mb-1 m-0">Ledger Index</p>
+                                            <p className="text-sm font-extrabold text-slate-900 dark:text-[#dae2fd] font-mono m-0">#{dec.order_id.toString().split('-')[0].toUpperCase()}</p>
                                         </div>
-                                        <div className="px-2 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-500 rounded-full text-[10px] font-bold">PENDING</div>
+                                        <div className="px-2 py-1 bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#fcd34d] rounded-sm text-[9px] font-bold uppercase tracking-widest animate-pulse">
+                                            AWAITING
+                                        </div>
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg">
-                                        <div>
-                                            <p className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 font-semibold mb-0.5 m-0"><CreditCard size={10} /> MODE</p>
-                                            <p className="text-xs text-slate-900 dark:text-white m-0 font-medium">{dec.payment_mode}</p>
+                                    <div className="grid grid-cols-2 gap-px bg-[#434655]/20 rounded-lg overflow-hidden border border-slate-200 dark:border-[#434655]/20">
+                                        <div className="bg-slate-50 dark:bg-[#0b1326] p-3 text-center sm:text-left group-hover:bg-slate-50 dark:hover:bg-[#171f33] transition-colors">
+                                            <p className="flex items-center justify-center sm:justify-start gap-1.5 text-[9px] text-slate-500 dark:text-[#8d90a1] font-bold uppercase tracking-widest mb-1 m-0"><CreditCard size={10} className="text-blue-600 dark:text-[#adc6ff]" /> Protocol</p>
+                                            <p className="text-[11px] font-extrabold text-slate-900 dark:text-[#dae2fd] m-0">{dec.payment_mode}</p>
                                         </div>
-                                        <div>
-                                            <p className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 font-semibold mb-0.5 m-0"><Hash size={10} /> UTR NUMBER</p>
-                                            <p className="text-xs text-slate-900 dark:text-white m-0 font-medium">{dec.utr_number || 'N/A'}</p>
+                                        <div className="bg-slate-50 dark:bg-[#0b1326] p-3 text-center sm:text-left group-hover:bg-slate-50 dark:hover:bg-[#171f33] transition-colors">
+                                            <p className="flex items-center justify-center sm:justify-start gap-1.5 text-[9px] text-slate-500 dark:text-[#8d90a1] font-bold uppercase tracking-widest mb-1 m-0"><Hash size={10} className="text-blue-600 dark:text-[#adc6ff]" /> Cipher</p>
+                                            <p className="text-[10px] font-mono font-bold text-blue-600 dark:text-[#adc6ff] m-0 truncate">{dec.utr_number || 'NULL'}</p>
                                         </div>
-                                        <div className="col-span-2">
-                                            <p className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 font-semibold mb-0.5 m-0"><Calendar size={10} /> DECLARED ON</p>
-                                            <p className="text-xs text-slate-900 dark:text-white m-0 font-medium">{new Date(dec.created_at).toLocaleString()}</p>
+                                        <div className="col-span-2 bg-slate-50 dark:bg-[#0b1326] p-3 text-center sm:text-left group-hover:bg-slate-50 dark:hover:bg-[#171f33] transition-colors border-t border-slate-200 dark:border-[#434655]/20">
+                                            <p className="flex items-center justify-center sm:justify-start gap-1.5 text-[9px] text-slate-500 dark:text-[#8d90a1] font-bold uppercase tracking-widest mb-1 m-0"><Calendar size={10} className="text-blue-600 dark:text-[#adc6ff]" /> Epoch Signature</p>
+                                            <p className="text-[11px] font-bold text-slate-600 dark:text-[#c3c5d8] m-0">{new Date(dec.created_at).toLocaleString()}</p>
                                         </div>
                                     </div>
 
                                     {dec.screenshot_url && (
-                                        <a href={dec.screenshot_url} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 font-medium p-2 border border-blue-200 dark:border-blue-500/30 rounded-md bg-blue-50 dark:bg-blue-500/10 no-underline transition-colors hover:bg-blue-100 dark:hover:bg-blue-500/20">
-                                            <ExternalLink size={14} /> View Screenshot proof
+                                        <a href={dec.screenshot_url} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 text-[10px] text-blue-600 dark:text-[#adc6ff] font-bold uppercase tracking-widest p-2 border border-[#1f70e3]/40 rounded-lg bg-[#1f70e3]/10 no-underline transition-all hover:bg-[#1f70e3]/20 hover:border-[#1f70e3] hover:text-white">
+                                            <ExternalLink size={14} /> Inspect Visual Auth
                                         </a>
                                     )}
 
-                                    <div className="flex gap-2 mt-auto pt-2">
+                                    <div className="flex gap-3 mt-auto pt-2">
                                         <button 
                                             onClick={() => handleReview(dec.id, dec.order_id as string, true)}
                                             disabled={processingId !== null}
-                                            className={`flex-1 p-2 border-none bg-emerald-500 text-white rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${processingId ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-emerald-600'}`}>
+                                            className={`flex-1 h-10 border-none bg-[#34d399]/10 text-[#34d399] hover:bg-[#34d399] hover:text-black hover:shadow-[0_0_15px_rgba(52,211,153,0.3)] rounded-lg text-[10px] font-extrabold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${processingId ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                                             {processingId === dec.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} Approve
                                         </button>
                                         <button 
                                             onClick={() => handleReview(dec.id, dec.order_id as string, false)}
                                             disabled={processingId !== null}
-                                            className={`flex-1 p-2 border-none bg-red-100 dark:bg-red-500/20 text-red-500 dark:text-red-400 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${processingId ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-red-200 dark:hover:bg-red-500/30'}`}>
+                                            className={`flex-1 h-10 border-none bg-[#ffb4ab]/10 text-[#ffb4ab] hover:bg-[#ffb4ab] hover:text-[#001a42] hover:shadow-[0_0_15px_rgba(255,180,171,0.3)] rounded-lg text-[10px] font-extrabold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${processingId ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                                             {processingId === dec.id ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />} Reject
                                         </button>
                                     </div>

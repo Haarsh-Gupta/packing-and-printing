@@ -18,8 +18,9 @@ export default function MyInquiriesPage() {
     const [inquiries, setInquiries] = useState<Inquiry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+    const [viewMode, setViewMode] = useState<"grid" | "list">("list");
     const [searchQuery, setSearchQuery] = useState("");
+    const [filterStatus, setFilterStatus] = useState("ALL");
     const [filteredInquiries, setFilteredInquiries] = useState<Inquiry[]>([]);
 
     useEffect(() => {
@@ -60,18 +61,28 @@ export default function MyInquiriesPage() {
 
     useEffect(() => {
         const query = searchQuery.toLowerCase();
-        const filtered = inquiries.filter(inquiry =>
-            inquiry.id.toString().includes(query) ||
-            inquiry.status.toLowerCase().includes(query) ||
-            (inquiry.admin_notes && inquiry.admin_notes.toLowerCase().includes(query)) ||
-            (inquiry.items && inquiry.items.some(item =>
-                item.notes?.toLowerCase().includes(query) ||
-                item.template_name?.toLowerCase().includes(query) ||
-                item.service_name?.toLowerCase().includes(query)
-            ))
-        );
+        const filtered = inquiries.filter(inquiry => {
+            const matchesSearch = inquiry.id.toString().includes(query) ||
+                inquiry.status.toLowerCase().includes(query) ||
+                (inquiry.admin_notes && inquiry.admin_notes.toLowerCase().includes(query)) ||
+                (inquiry.items && inquiry.items.some(item =>
+                    item.notes?.toLowerCase().includes(query) ||
+                    item.template_name?.toLowerCase().includes(query) ||
+                    item.service_name?.toLowerCase().includes(query)
+                ));
+            const matchesFilter = filterStatus === "ALL" || inquiry.status === filterStatus;
+            return matchesSearch && matchesFilter;
+        });
         setFilteredInquiries(filtered);
-    }, [searchQuery, inquiries]);
+    }, [searchQuery, filterStatus, inquiries]);
+
+    const filterOptions = [
+        { label: "All Statuses", value: "ALL" },
+        { label: "Pending", value: "PENDING" },
+        { label: "Quoted", value: "QUOTED" },
+        { label: "Accepted", value: "ACCEPTED" },
+        { label: "Rejected", value: "REJECTED" }
+    ];
 
     const handleStatusUpdate = async (id: string, status: "ACCEPTED" | "REJECTED") => {
         setActionLoading(id);
@@ -126,6 +137,9 @@ export default function MyInquiriesPage() {
                 viewMode={viewMode}
                 setViewMode={setViewMode}
                 placeholder="Search inquiries by ID, status, or notes..."
+                filterValue={filterStatus}
+                setFilterValue={setFilterStatus}
+                filterOptions={filterOptions}
             />
 
             {filteredInquiries.length === 0 ? (

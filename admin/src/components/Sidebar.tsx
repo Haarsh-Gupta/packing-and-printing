@@ -2,7 +2,7 @@ import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
     LayoutDashboard, ShoppingCart, MessageSquare, Package,
-    Wrench, Users, LifeBuoy, Bell, Mail, Star, Settings as SettingsIcon, LogOut, Calculator
+    Wrench, Users, LifeBuoy, Bell, Mail, Star, Settings as SettingsIcon, LogOut, Calculator, Receipt, History
 } from "lucide-react";
 import {
     Sidebar, SidebarContent, SidebarFooter, SidebarHeader,
@@ -12,7 +12,7 @@ import {
 const navItems = [
     { label: "Dashboard", icon: LayoutDashboard, path: "/" },
     { label: "Orders", icon: ShoppingCart, path: "/orders" },
-    { label: "Declarations", icon: ShoppingCart, path: "/declarations" },
+    { label: "Declarations", icon: Receipt, path: "/declarations" },
     { label: "Inquiries", icon: MessageSquare, path: "/inquiries" },
     { label: "Products", icon: Package, path: "/products" },
     { label: "Services", icon: Wrench, path: "/services" },
@@ -21,9 +21,10 @@ const navItems = [
     { label: "Tickets", icon: LifeBuoy, path: "/tickets" },
     { label: "Notifications", icon: Bell, path: "/notifications" },
     { label: "Email Center", icon: Mail, path: "/emails" },
-    { label: "Email Logs", icon: Star, path: "/email-logs" },
+    { label: "Email Logs", icon: History, path: "/email-logs" },
     { label: "Reviews", icon: Star, path: "/reviews" },
 ];
+
 
 export function AppSidebar() {
     const { admin: user, logout } = useAuth();
@@ -39,11 +40,11 @@ export function AppSidebar() {
             {/* Logo — matches Stitch: blue circle "N" + Navart / Admin Portal */}
             <SidebarHeader className="h-14 flex flex-row items-center px-4 gap-2.5 border-b border-sidebar-border group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
                 <div className="w-[30px] h-[30px] rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
-                    <span className="text-white font-extrabold text-[15px] font-sans tracking-tight">N</span>
+                    <span className="text-white font-bold text-[15px] font-['Inter'] tracking-tight">N</span>
                 </div>
                 <div className="group-data-[collapsible=icon]:hidden flex flex-col justify-center">
-                    <span className="font-bold text-[15px] tracking-tight text-sidebar-foreground font-sans block leading-tight">Navart</span>
-                    <span className="text-[10px] font-medium text-sidebar-foreground/45 font-sans leading-tight">Admin Portal</span>
+                    <span className="font-semibold text-[15px] tracking-tight text-sidebar-foreground font-['Inter'] block leading-tight">Navart</span>
+                    <span className="text-[10px] font-medium text-sidebar-foreground/45 font-['Inter'] leading-tight">Admin Portal</span>
                 </div>
             </SidebarHeader>
 
@@ -58,10 +59,10 @@ export function AppSidebar() {
                                     asChild
                                     isActive={active}
                                     tooltip={item.label}
-                                    className={`h-9 rounded-lg font-sans text-[13px] gap-2.5 ${
+                                    className={`h-9 rounded-lg font-['Inter'] text-[13px] gap-2.5 ${
                                         active
-                                            ? 'font-semibold text-sidebar-foreground bg-sidebar-accent opacity-100'
-                                            : 'font-normal text-sidebar-foreground bg-transparent opacity-75 hover:opacity-100'
+                                            ? 'font-medium text-sidebar-foreground bg-sidebar-accent opacity-100 shadow-sm'
+                                            : 'font-normal text-sidebar-foreground bg-transparent opacity-70 hover:opacity-100'
                                     }`}
                                 >
                                     <Link className="flex items-center gap-2.5 w-full" to={item.path}>
@@ -84,8 +85,8 @@ export function AppSidebar() {
                             asChild
                             isActive={location.pathname === '/settings'}
                             tooltip="Settings"
-                            className={`h-9 rounded-lg font-sans text-[13px] ${
-                                location.pathname === '/settings' ? 'font-semibold opacity-100' : 'font-normal opacity-80'
+                            className={`h-9 rounded-lg font-['Inter'] text-[13px] ${
+                                location.pathname === '/settings' ? 'font-medium opacity-100' : 'font-normal opacity-80'
                             }`}
                         >
                             <Link to="/settings" className="flex items-center gap-2.5 w-full">
@@ -98,14 +99,14 @@ export function AppSidebar() {
 
                 {/* User info */}
                 {user && (
-                    <div className="flex items-center gap-2.5 py-2 px-1.5 mt-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:mx-auto">
+                    <div className="flex items-center gap-2.5 py-2 px-1.5 mt-1 font-['Inter'] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:mx-auto">
                         <div className="w-[30px] h-[30px] rounded-full shrink-0 bg-blue-500 flex items-center justify-center">
-                            <span className="text-white font-bold text-[13px]">
+                            <span className="text-white font-semibold text-[13px]">
                                 {(user.name || user.email || 'A')[0].toUpperCase()}
                             </span>
                         </div>
                         <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                            <p className="text-[12px] font-semibold text-sidebar-foreground truncate m-0">
+                            <p className="text-[12px] font-medium text-sidebar-foreground truncate m-0">
                                 {user.name || "Admin User"}
                             </p>
                             <p className="text-[10px] text-sidebar-foreground/45 m-0 truncate">

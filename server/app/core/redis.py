@@ -31,13 +31,15 @@ redis_client = redis.Redis(
     ssl=settings.redis_ssl
 )
 
+from app.core.colors import color_print, GREEN, RED
+
 async def check_redis_connection():
     try:
         await redis_client.ping()
-        logger.info("Redis: Connected")
+        color_print("Redis: Connected", GREEN)
         return True
     except Exception as e:
-        logger.error("Redis: Connection Failed - %s", e)
+        color_print(f"Redis: Connection Failed - {e}", RED)
         return False
         
 

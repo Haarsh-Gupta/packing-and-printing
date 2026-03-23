@@ -29,7 +29,13 @@ async def cancel_all(timeout: float = 3.0) -> None:
     logger.info(f"TaskRegistry: cancelling {len(pending)} tasks...")
     for t in pending:
         t.cancel()
-    await asyncio.gather(*pending, return_exceptions=True)
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(*pending, return_exceptions=True),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("TaskRegistry: %d tasks did not finish in %.1fs", len(pending), timeout)
     _tasks.clear()
 
 

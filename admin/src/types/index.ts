@@ -25,12 +25,20 @@ export interface Metric {
 
 export interface DashboardOverview {
     users: Metric & { new_in_period: number; daily_trend: { date: string; count: number }[] };
-    orders: Metric & { in_period: number; by_status: Record<string, number>; daily_trend: { date: string; value: number; count: number }[] };
+    orders: Metric & { in_period: number; by_status: Record<string, number>; online_vs_offline?: { online: number; offline: number }; daily_trend: { date: string; value: number; count: number }[] };
     revenue: Metric & { total_billed: number; total_collected: number; total_pending: number; collected_in_period: number };
-    inquiries: Metric & { pending: number; in_period: number; daily_trend: { date: string; count: number }[] };
+    inquiries: Metric & { pending: number; in_period: number; daily_trend: { date: string; count: number }[]; funnel?: { draft: number; submitted: number; quoted: number; accepted: number }; conversion_rate?: number };
     products: { total: number; active: number };
     services: { total: number; active: number };
     recent_reviews: Review[];
+}
+
+export interface TrafficStats {
+    mobile: { count: number; percentage: number };
+    desktop: { count: number; percentage: number };
+    tablet: { count: number; percentage: number };
+    total: number;
+    daily_trend: { date: string; mobile: number; desktop: number; tablet: number }[];
 }
 
 export interface RevenueData {
@@ -129,6 +137,26 @@ export interface Order {
     declarations?: PaymentDeclaration[];
 }
 
+export interface AdminOfflineOrderCreateItem {
+    product_id?: number;
+    sub_product_id?: number;
+    service_id?: number;
+    sub_service_id?: number;
+    name: string;
+    quantity: number;
+    unit_price: number;
+}
+
+export interface AdminOfflineOrderCreateRequest {
+    user_id: string;
+    items: AdminOfflineOrderCreateItem[];
+    tax_amount: number;
+    shipping_amount: number;
+    discount_amount: number;
+    split_type: "FULL" | "HALF" | "CUSTOM";
+    milestones?: { label: string; percentage: number }[];
+}
+
 // ============ Inquiries ============
 export interface InquiryItem {
     id: string;
@@ -180,6 +208,7 @@ export interface InquiryGroup {
     items: InquiryItem[];
     messages: InquiryMessage[];
     quote_email_status?: string;
+    admin_notes?: string;
 }
 
 export interface InquiryGroupList {

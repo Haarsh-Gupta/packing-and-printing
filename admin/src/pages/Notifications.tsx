@@ -1,316 +1,288 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { Notification } from "@/types";
 import {
-    Bell, Send, User, MoreHorizontal, ChevronDown,
-    Bold, Italic, Underline, List, ListOrdered, Link,
-    ArrowRight, Eye, MonitorSmartphone
+    Loader2, CheckCircle, MessageSquare, CreditCard,
+    BarChart3, ChevronRight, CheckCheck, RefreshCcw
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
-type TabId = "notifications" | "email";
-
-export default function NotificationsEmailPage() {
-    const [tab, setTab] = useState<TabId>("email");
-    const [history, setHistory] = useState<Notification[]>([]);
+export default function Notifications() {
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [total, setTotal] = useState(0);
+    const [unread, setUnread] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [sending, setSending] = useState(false);
+    const [filter, setFilter] = useState("all");
 
-    // Added template type to align with your Python backend templates
-    const [form, setForm] = useState({
-        to: "All Users",
-        subject: "Your Order is Ready for Pickup!",
-        message: "Your order #1042 has been completed and is ready for pickup at our workshop.\n\nPlease bring your order confirmation when you visit.",
-        template: "admin_notice"
+    const fetchNotifications = () => {
+        setLoading(true);
+        api<any[]>('/admin/notifications')
+            .then(data => {
+                setNotifications(data || []);
+                setTotal(data?.length || 0);
+                setUnread(data?.filter(n => !n.is_read).length || 0);
+            })
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchNotifications();
+    }, []);
+
+    const markAllRead = () => {
+        api('/admin/notifications/mark-all-read', { method: 'PATCH' })
+            .then(() => fetchNotifications())
+            .catch(console.error);
+    };
+
+    const markRead = (id: number) => {
+        api(`/admin/notifications/${id}/read`, { method: 'PATCH' })
+            .then(() => {
+                setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+                setUnread(prev => Math.max(0, prev - 1));
+            })
+            .catch(console.error);
+    };
+
+    const deleteNotification = (id: number) => {
+        api(`/admin/notifications/${id}`, { method: 'DELETE' })
+            .then(() => {
+                setNotifications(prev => prev.filter(n => n.id !== id));
+                setTotal(prev => Math.max(0, prev - 1));
+            })
+            .catch(console.error);
+    };
+
+    const getIcon = (type?: string, title?: string) => {
+        const text = (type || title || "").toLowerCase();
+        if (text.includes("payment") || text.includes("invoice")) return <CreditCard size={20} />;
+        if (text.includes("inquiry") || text.includes("message")) return <MessageSquare size={20} />;
+        return <CheckCircle size={20} />;
+    };
+
+    const getTimeAgo = (dateStr: string) => {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+        
+        let interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + " years ago";
+        interval = seconds / 2592000;
+        if (interval > 1) return Math.floor(interval) + " months ago";
+        interval = seconds / 86400;
+        if (interval > 1) {
+            if (Math.floor(interval) === 1) return "Yesterday";
+            return Math.floor(interval) + " days ago";
+        }
+        interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + " hours ago";
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + " mins ago";
+        return Math.floor(seconds) + " seconds ago";
+    };
+
+    // Filter logic
+    const displayedNotifications = notifications.filter(n => {
+        if (filter === "all") return true;
+        const text = (n.title || "").toLowerCase();
+        if (filter === "inquiries" && text.includes("inquiry")) return true;
+        if (filter === "payments" && text.includes("payment")) return true;
+        if (filter === "quotes" && text.includes("quote")) return true;
+        return false;
     });
 
-    const emailLogs = [
-        { to: 'admin@example.com', subject: 'System Update Scheduled', status: 'Sent', date: 'Oct 24, 10:00 AM' },
-        { to: 'user1@example.com', subject: 'Your Order is Shipped', status: 'Sent', date: 'Oct 24, 09:15 AM' },
-        { to: 'user2@example.com', subject: 'Payment Failed', status: 'Failed', date: 'Oct 23, 16:30 PM' },
-        { to: 'all_users@example.com', subject: 'New Feature Announcement', status: 'Pending', date: 'Oct 25, 12:00 PM' },
-    ];
-
-    const fetchHistory = () => {
-        setLoading(true);
-        setTimeout(() => {
-            setHistory([]);
-            setLoading(false);
-        }, 500);
-    };
-
-    useEffect(() => { fetchHistory(); }, []);
-
-    const sendEmail = async () => {
-        if (!form.subject || !form.message) return;
-        setSending(true);
-        setTimeout(() => {
-            setForm({ ...form, subject: "", message: "" });
-            setSending(false);
-            alert("Broadcast email sent!");
-        }, 1500);
-    };
-
     return (
-        <div className="min-h-screen w-full bg-[#f9f9f9] dark:bg-[#18181a] font-['Inter',system-ui] text-base text-slate-900 dark:text-slate-100 flex flex-col items-center py-8 overflow-x-hidden">
-
-            {/* Expanded to max-w-[1400px] for a true "Full Screen" feel */}
-            <div className="flex flex-col w-full max-w-[1400px] px-6 lg:px-12">
-
-                {/* Page Title & Subtitle */}
-                <div className="flex flex-wrap justify-between gap-3 pb-8">
-                    <div className="flex min-w-72 flex-col gap-3">
-                        <h1 className="text-slate-900 dark:text-white tracking-tight text-4xl font-extrabold leading-tight">
-                            Notifications & Email
-                        </h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-base font-medium">
-                            Manage system notifications and broadcast emails.
-                        </p>
-                    </div>
+        <div className="font-['Inter'] animate-fade-in bg-slate-50 dark:bg-[#0b1326] -m-8 p-8 min-h-screen transition-colors">
+            {/* Header Section */}
+            <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                    <span className="text-[0.75rem] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1]">System Activity</span>
+                    <h2 className="text-[2.25rem] font-black tracking-tight text-slate-900 dark:text-[#dae2fd]">Notifications</h2>
                 </div>
-
-                {/* Tabs */}
-                <div className="mb-10 border-b border-slate-200 dark:border-slate-800">
-                    <div className="flex gap-10">
-                        <button
-                            onClick={() => setTab("notifications")}
-                            className={`flex flex-col items-center justify-center border-b-[3px] pb-4 pt-2 transition-colors ${tab === "notifications"
-                                ? "border-b-[#18181b] dark:border-b-white text-[#18181b] dark:text-white"
-                                : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-                                }`}
+                <div className="flex items-center gap-4">
+                    <div className="relative group">
+                        <select 
+                            value={filter}
+                            onChange={(e) => setFilter(e.target.value)}
+                            className="appearance-none bg-white dark:bg-[#131b2e] border-none px-5 py-2.5 pr-10 rounded-lg shadow-sm text-sm font-bold text-slate-700 dark:text-[#dae2fd] focus:ring-2 focus:ring-blue-500/20 cursor-pointer outline-none transition-colors"
                         >
-                            <span className="text-sm font-bold tracking-wide">Notifications</span>
-                        </button>
-                        <button
-                            onClick={() => setTab("email")}
-                            className={`flex flex-col items-center justify-center border-b-[3px] pb-4 pt-2 transition-colors ${tab === "email"
-                                ? "border-b-[#18181b] dark:border-b-white text-[#18181b] dark:text-white"
-                                : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-                                }`}
-                        >
-                            <span className="text-sm font-bold tracking-wide">Email Center</span>
-                        </button>
+                            <option value="all">All Notification Types</option>
+                            <option value="inquiries">New Inquiries</option>
+                            <option value="payments">Payments Received</option>
+                            <option value="quotes">Quotes Accepted</option>
+                        </select>
+                        <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-[#c3c5d8] rotate-90" size={16} />
                     </div>
+                    <button 
+                        onClick={markAllRead}
+                        className="bg-gradient-to-br from-blue-600 to-blue-800 dark:from-[#1f70e3] dark:to-[#004395] text-white px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:shadow-lg transition-all active:scale-[0.98]"
+                    >
+                        <CheckCheck size={18} />
+                        Mark all read
+                    </button>
                 </div>
+            </header>
 
-                {/* Email Center Tab Content */}
-                {tab === "email" && (
-                    <div className="flex flex-col gap-12 w-full pb-20">
-
-                        {/* 1. FULL SCREEN RECENT EMAILS */}
-                        <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden w-full">
-                            <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                                <h2 className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-tight">Recent Email Logs</h2>
-                                <button className="text-sm font-bold text-slate-500 hover:text-[#18181b] dark:text-slate-400 dark:hover:text-white transition-colors flex items-center gap-2">
-                                    View All Logs <ArrowRight size={16} />
-                                </button>
+            {/* Layout for Content */}
+            <div className="grid grid-cols-12 gap-8 items-start">
+                
+                {/* Main Notifications Feed (2/3 Width) */}
+                <section className="col-span-12 xl:col-span-8 space-y-4">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#131b2e] rounded-xl border border-slate-200 dark:border-[#434655]/30">
+                            <Loader2 size={32} className="animate-spin text-blue-500 dark:text-[#1f70e3] mb-4" />
+                            <p className="text-sm font-bold text-slate-500 dark:text-[#8d90a1] uppercase tracking-widest">Loading Activity...</p>
+                        </div>
+                    ) : displayedNotifications.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#131b2e] rounded-xl border border-slate-200 dark:border-[#434655]/30 text-center">
+                            <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-[#171f33] flex items-center justify-center mb-6">
+                                <CheckCircle size={32} className="text-emerald-500 dark:text-emerald-400" />
                             </div>
-                            <div className="overflow-x-auto p-4">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="border-b border-slate-100 dark:border-slate-800">
-                                            {['To', 'Subject', 'Status', 'Date Sent'].map(h => (
-                                                <th key={h} className="py-5 px-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                                                    {h}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                                        {emailLogs.map((log, i) => (
-                                            <tr key={i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors group">
-                                                <td className="py-5 px-6 text-sm font-medium text-slate-600 dark:text-slate-300">{log.to}</td>
-                                                <td className="py-5 px-6 text-sm font-bold text-slate-900 dark:text-white">{log.subject}</td>
-                                                <td className="py-5 px-6">
-                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${log.status === 'Sent' ? 'bg-green-100/80 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                        log.status === 'Failed' ? 'bg-red-100/80 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                            'bg-amber-100/80 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                                        }`}>
-                                                        {log.status}
-                                                    </span>
-                                                </td>
-                                                <td className="py-5 px-6 text-sm text-slate-400 dark:text-slate-500">{log.date}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-[#dae2fd]">No notifications</h3>
+                            <p className="text-sm text-slate-500 dark:text-[#c3c5d8] mt-2">You're all up to date. Check back later for new activity.</p>
+                        </div>
+                    ) : (
+                        displayedNotifications.map(notif => {
+                            const isUnread = !notif.is_read;
+                            const t = (notif.title || "").toLowerCase();
+                            const isPayment = t.includes("payment");
+                            
+                            return (
+                                <div 
+                                    key={notif.id}
+                                    className={`group p-6 rounded-xl flex gap-5 transition-colors relative overflow-hidden border border-slate-200 dark:border-[#434655]/30
+                                        ${isUnread 
+                                            ? 'bg-white dark:bg-[#131b2e] shadow-sm hover:bg-slate-50 dark:hover:bg-slate-50 dark:hover:bg-[#171f33]' 
+                                            : 'bg-slate-50/60 dark:bg-[#131b2e]/60 opacity-80 hover:bg-slate-50 dark:hover:bg-slate-50 dark:hover:bg-[#171f33]'
+                                        }`}
+                                >
+                                    {isUnread && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 dark:bg-[#1f70e3]"></div>}
+                                    
+                                    <div className="shrink-0">
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                            isUnread && isPayment ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' :
+                                            isUnread ? 'bg-blue-100 dark:bg-[#1f70e3]/20 text-blue-600 dark:text-[#adc6ff]' :
+                                            'bg-slate-200 dark:bg-[#171f33] text-slate-500 dark:text-[#8d90a1]'
+                                        }`}>
+                                            {getIcon(notif.metadata_?.type, notif.title)}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex-1 w-full min-w-0">
+                                        <div className="flex items-center justify-between mb-1 gap-2">
+                                            <span className={`truncate text-[0.65rem] font-bold uppercase tracking-wider ${
+                                                isUnread && isPayment ? 'text-indigo-600 dark:text-indigo-400' :
+                                                isUnread ? 'text-blue-600 dark:text-[#1f70e3]' :
+                                                'text-slate-500 dark:text-[#c3c5d8]'
+                                            }`}>
+                                                {notif.title.replace(/_/g, ' ')}
+                                            </span>
+                                            <span className="text-xs text-slate-500 dark:text-[#8d90a1] whitespace-nowrap">{getTimeAgo(notif.created_at)}</span>
+                                        </div>
+                                        <h4 className="text-slate-900 dark:text-[#dae2fd] font-bold text-base mb-2 truncate">{notif.title}</h4>
+                                        <p className="text-slate-600 dark:text-[#c3c5d8] text-sm leading-relaxed max-w-2xl">{notif.message}</p>
+                                        
+                                        <div className="mt-4 flex gap-4">
+                                            {isUnread && (
+                                                <button onClick={() => markRead(notif.id)} className="text-xs font-bold text-blue-600 dark:text-[#1f70e3] hover:underline uppercase tracking-tight">Mark as Read</button>
+                                            )}
+                                            <button onClick={() => deleteNotification(notif.id)} className="text-xs font-bold text-slate-400 hover:text-rose-500 dark:hover:text-[#8d90a1] dark:hover:text-rose-400 uppercase tracking-tight transition-colors">Dismiss</button>
+                                        </div>
+                                    </div>
+                                    
+                                    {isUnread && (
+                                        <div className="shrink-0 self-start">
+                                            <div className="w-2.5 h-2.5 bg-blue-500 dark:bg-[#1f70e3] rounded-full shadow-[0_0_8px_rgba(31,112,227,0.5)]"></div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
+                    
+                    {!loading && displayedNotifications.length > 0 && (
+                        <div className="pt-6 flex items-center justify-center">
+                            <button onClick={fetchNotifications} className="flex items-center gap-2 text-slate-500 dark:text-[#8d90a1] hover:text-blue-500 dark:hover:text-[#1f70e3] transition-colors font-bold text-xs uppercase tracking-widest">
+                                <RefreshCcw size={14} />
+                                Refresh feed
+                            </button>
+                        </div>
+                    )}
+                </section>
+
+                {/* Secondary Analytics/Summary (1/3 Width) */}
+                <aside className="col-span-12 xl:col-span-4 space-y-8">
+                    
+                    {/* Notification Stats Card */}
+                    <div className="bg-white dark:bg-[#131b2e] p-8 rounded-xl shadow-sm border border-slate-200 dark:border-[#434655]/30 transition-colors">
+                        <h3 className="uppercase text-[0.75rem] font-black text-slate-500 dark:text-[#c3c5d8] mb-6 flex items-center gap-2 tracking-widest">
+                            <BarChart3 size={18} />
+                            Insight Summary
+                        </h3>
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-slate-600 dark:text-[#8d90a1]">Unread Alerts</span>
+                                <span className="text-2xl font-black text-blue-600 dark:text-[#1f70e3]">{unread.toString().padStart(2, '0')}</span>
+                            </div>
+                            <div className="w-full bg-slate-100 dark:bg-[#171f33] rounded-full h-1.5 overflow-hidden border border-slate-200 dark:border-[#434655]/10">
+                                <div className="bg-blue-500 dark:bg-[#1f70e3] h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(31,112,227,0.6)]" style={{ width: `${Math.min(100, (unread/Math.max(1, total))*100)}%` }}></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 pt-4">
+                                <div className="p-4 bg-slate-50 dark:bg-[#0b1326] rounded-xl border border-slate-200 dark:border-[#434655]/20">
+                                    <span className="block text-[0.65rem] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] mb-1">Total</span>
+                                    <span className="text-lg font-black text-slate-900 dark:text-[#dae2fd]">{total}</span>
+                                </div>
+                                <div className="p-4 bg-slate-50 dark:bg-[#0b1326] rounded-xl border border-slate-200 dark:border-[#434655]/20">
+                                    <span className="block text-[0.65rem] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] mb-1">Responded</span>
+                                    <span className="text-lg font-black text-slate-900 dark:text-[#dae2fd]">
+                                        {total > 0 ? Math.round(((total - unread) / total) * 100) : 100}%
+                                    </span>
+                                </div>
                             </div>
                         </div>
-
-                        {/* 2. THE 70/30 SPLIT GRID */}
-                        <div className="grid grid-cols-1 xl:grid-cols-10 gap-8 items-start w-full">
-
-                            {/* LEFT SIDE: 70% COMPOSER FORM */}
-                            <div className="xl:col-span-7 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 p-8 lg:p-10">
-                                <div className="flex flex-col gap-8">
-                                    <div>
-                                        <h2 className="text-slate-900 dark:text-white text-2xl font-extrabold leading-tight tracking-tight mb-2">Broadcast Email</h2>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">Compose and send emails using your predefined backend templates.</p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="flex flex-col gap-3">
-                                            <label className="text-sm font-bold text-slate-800 dark:text-slate-200">To</label>
-                                            <div className="relative">
-                                                <select
-                                                    className="py-3.5 pl-5 pr-10 block w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-[#18181b] focus:ring-[#18181b] sm:text-sm appearance-none outline-none transition-colors"
-                                                    value={form.to} onChange={e => setForm({ ...form, to: e.target.value })}
-                                                >
-                                                    <option>All Users</option>
-                                                    <option>Admins Only</option>
-                                                    <option>Active Customers</option>
-                                                    <option>Newsletter Subscribers</option>
-                                                </select>
-                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                                                    <ChevronDown size={20} />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col gap-3">
-                                            <label className="text-sm font-bold text-slate-800 dark:text-slate-200">Template</label>
-                                            <div className="relative">
-                                                <select
-                                                    className="py-3.5 pl-5 pr-10 block w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-[#18181b] focus:ring-[#18181b] sm:text-sm appearance-none outline-none transition-colors"
-                                                    value={form.template} onChange={e => setForm({ ...form, template: e.target.value })}
-                                                >
-                                                    <option value="admin_notice">Admin Notice</option>
-                                                    <option value="custom_greeting">Custom Greeting</option>
-                                                    <option value="reminder">Payment Reminder</option>
-                                                </select>
-                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                                                    <ChevronDown size={20} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col gap-3">
-                                        <label className="text-sm font-bold text-slate-800 dark:text-slate-200">Subject</label>
-                                        <input
-                                            type="text" placeholder="Enter email subject"
-                                            className="py-3.5 px-5 block w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-[#18181b] focus:ring-[#18181b] sm:text-sm outline-none transition-colors"
-                                            value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })}
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col gap-3">
-                                        <label className="text-sm font-bold text-slate-800 dark:text-slate-200">Message</label>
-                                        <div className="border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden bg-slate-50/50 dark:bg-slate-800/50 focus-within:border-[#18181b] focus-within:ring-1 focus-within:ring-[#18181b] transition-colors">
-                                            <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-700 px-4 py-3 bg-white dark:bg-slate-800/80">
-                                                {[Bold, Italic, Underline].map((Icon, i) => (
-                                                    <button key={i} className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" type="button">
-                                                        <Icon size={18} strokeWidth={2.5} />
-                                                    </button>
-                                                ))}
-                                                <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-2"></div>
-                                                {[List, ListOrdered].map((Icon, i) => (
-                                                    <button key={i} className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" type="button">
-                                                        <Icon size={18} strokeWidth={2.5} />
-                                                    </button>
-                                                ))}
-                                                <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-2"></div>
-                                                <button className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" type="button">
-                                                    <Link size={18} strokeWidth={2.5} />
-                                                </button>
-                                            </div>
-                                            <textarea
-                                                rows={12} placeholder="Compose your email here..."
-                                                className="py-5 px-6 block w-full border-0 bg-transparent text-slate-900 dark:text-white focus:ring-0 sm:text-base resize-y outline-none leading-relaxed"
-                                                value={form.message} onChange={e => setForm({ ...form, message: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-end pt-4">
-                                        <button
-                                            onClick={sendEmail} disabled={sending || !form.subject || !form.message}
-                                            type="button"
-                                            className="inline-flex items-center justify-center rounded-full bg-[#18181b] px-8 py-4 text-sm font-bold text-white shadow-lg hover:bg-zinc-800 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed gap-2"
-                                        >
-                                            <Send size={18} />
-                                            {sending ? "Sending Email..." : "Send Broadcast"}
-                                        </button>
-                                    </div>
-
-                                </div>
-                            </div>
-
-                            {/* RIGHT SIDE: 30% LIVE PREVIEW */}
-                            {/* 'sticky top-8' keeps the preview visible even if the form is long */}
-                            <div className="xl:col-span-3 flex flex-col gap-6 sticky top-8">
-                                <div className="flex items-center justify-between px-2">
-                                    <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                        <Eye size={16} /> Live Preview
-                                    </h3>
-                                    <MonitorSmartphone size={16} className="text-slate-400" />
-                                </div>
-
-                                {/* Simulated Email Client Window */}
-                                <div className="bg-[#f3f4f6] dark:bg-[#0f0f11] rounded-[2rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm flex flex-col h-[700px]">
-
-                                    {/* Email Header Info */}
-                                    <div className="bg-white dark:bg-slate-900 p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-1">
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">From: <span className="text-slate-900 dark:text-white">Navart System &lt;hello@navart.in&gt;</span></p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">To: <span className="text-slate-900 dark:text-white">{form.to}</span></p>
-                                        <h4 className="text-base font-bold text-slate-900 dark:text-white mt-2 leading-tight">
-                                            {form.subject || "Email Subject Line"}
-                                        </h4>
-                                    </div>
-
-                                    {/* Rendered HTML Email Body mimicking preview_templates.py */}
-                                    <div className="flex-1 overflow-y-auto p-4 md:p-6 flex justify-center bg-[#f9fafb] dark:bg-black/50">
-                                        <div className="bg-white dark:bg-slate-900 w-full max-w-[400px] h-fit rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
-
-                                            {/* Mock Email Brand Header */}
-                                            <div className="bg-slate-900 px-6 py-4 flex justify-center">
-                                                <span className="text-white font-extrabold tracking-widest text-sm">NAVART.IN</span>
-                                            </div>
-
-                                            {/* Mock Email Content Area */}
-                                            <div className="p-6 md:p-8 flex flex-col gap-6">
-                                                <p className="text-sm text-slate-700 dark:text-slate-300">
-                                                    Hello <span className="font-bold text-slate-900 dark:text-white">Customer</span>,
-                                                </p>
-
-                                                <div className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap font-medium">
-                                                    {form.message || (
-                                                        <span className="text-slate-300 dark:text-slate-600 italic">Your email content will be rendered here...</span>
-                                                    )}
-                                                </div>
-
-                                                {/* Mock Action Button based on Python Template logic */}
-                                                {form.template === 'admin_notice' && form.message && (
-                                                    <div className="pt-2">
-                                                        <div className="inline-block bg-blue-600 text-white text-xs font-bold px-6 py-3 rounded-lg w-full text-center">
-                                                            View Order Details
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {form.template === 'custom_greeting' && form.message && (
-                                                    <div className="pt-2">
-                                                        <div className="inline-block bg-slate-900 text-white text-xs font-bold px-6 py-3 rounded-lg w-full text-center">
-                                                            Shop Now 🎁
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Mock Email Footer */}
-                                            <div className="bg-slate-50 dark:bg-slate-800/50 p-6 text-center border-t border-slate-100 dark:border-slate-800">
-                                                <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                                                    © 2026 Navart Packing & Printing.<br />All rights reserved.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-
-                        </div>
                     </div>
-                )}
+
+                    {/* Recent Contacts/Activity */}
+                    <div className="bg-slate-100 dark:bg-[#131b2e] p-8 rounded-xl border border-slate-200 dark:border-[#434655]/30">
+                        <h3 className="uppercase text-[0.75rem] font-black text-slate-500 dark:text-[#c3c5d8] mb-6 tracking-widest">Pending Action Log</h3>
+                        <div className="space-y-4">
+                            {/* Dummy Data for demonstration similar to HTML */}
+                            <div className="bg-white dark:bg-[#0b1326] p-4 rounded-xl border border-slate-200 dark:border-[#434655]/20 flex items-center justify-between group hover:border-blue-500/30 dark:hover:border-[#1f70e3]/30 transition-colors cursor-pointer">
+                                <div>
+                                    <p className="text-sm font-bold text-slate-900 dark:text-[#dae2fd]">Unprocessed Order Payments</p>
+                                    <p className="text-[10px] font-bold uppercase text-slate-500 dark:text-[#c3c5d8] mt-1 tracking-wider">Awaiting Verification</p>
+                                </div>
+                                <ChevronRight size={16} className="text-slate-400 group-hover:text-blue-500 dark:hover:text-[#8d90a1] dark:group-hover:text-[#1f70e3] transition-colors" />
+                            </div>
+                            <div className="bg-white dark:bg-[#0b1326] p-4 rounded-xl border border-slate-200 dark:border-[#434655]/20 flex items-center justify-between group hover:border-blue-500/30 dark:hover:border-[#1f70e3]/30 transition-colors cursor-pointer">
+                                <div>
+                                    <p className="text-sm font-bold text-slate-900 dark:text-[#dae2fd]">Draft Quotes Expiring Soon</p>
+                                    <p className="text-[10px] font-bold uppercase text-rose-500 dark:text-rose-400 mt-1 tracking-wider">3 Quotes (Within 24h)</p>
+                                </div>
+                                <ChevronRight size={16} className="text-slate-400 group-hover:text-blue-500 dark:hover:text-[#8d90a1] dark:group-hover:text-[#1f70e3] transition-colors" />
+                            </div>
+                        </div>
+                        <Link to="/orders" className="block text-center w-full mt-8 py-3.5 text-[10px] bg-slate-200 dark:bg-[#171f33] font-black uppercase tracking-[0.2em] border border-slate-300 dark:border-[#434655]/40 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-200 dark:hover:bg-[#222a3d] text-slate-700 dark:text-[#dae2fd] transition-colors shadow-sm">
+                            View Workflow Dashboard
+                        </Link>
+                    </div>
+
+                    {/* System Status Glass Card */}
+                    <div className="relative overflow-hidden rounded-xl p-8 text-white bg-slate-900 dark:bg-[#0b1326] border border-slate-800 dark:border-[#434655]/40 shadow-xl group">
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-2 mb-4">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)] animate-pulse"></span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">System Status</span>
+                            </div>
+                            <h4 className="text-lg font-bold tracking-tight mb-2 text-white group-hover:text-blue-300 transition-colors">Notification Services Operational</h4>
+                            <p className="text-xs text-white/60 leading-relaxed font-medium">Real-time sockets are active. Activity indices updated live.</p>
+                        </div>
+                        {/* Decorative background element */}
+                        <div className="absolute -right-12 -bottom-16 w-48 h-48 bg-blue-500/20 rounded-full blur-[60px] pointer-events-none transition-transform group-hover:scale-110"></div>
+                        <div className="absolute -left-12 -top-16 w-48 h-48 bg-indigo-500/10 rounded-full blur-[60px] pointer-events-none"></div>
+                    </div>
+
+                </aside>
             </div>
         </div>
     );

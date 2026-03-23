@@ -166,6 +166,47 @@ class AdminMilestoneCreateRequest(BaseModel):
         return self
 
 
+# ── Admin offline manual order creation ──────────────────────────────────────
+
+class AdminOfflineOrderCreateItem(BaseModel):
+    product_id: Optional[int] = None
+    sub_product_id: Optional[int] = None
+    service_id: Optional[int] = None
+    sub_service_id: Optional[int] = None
+    name: str = Field(..., description="Fallback generic name for custom offline items")
+    quantity: int = Field(..., gt=0)
+    unit_price: float = Field(..., ge=0)
+
+class AdminOfflineOrderCreateRequest(BaseModel):
+    """Payload to atomically create Inquiry, Quote, and Order for manual entries."""
+    user_id: UUID
+    items: List[AdminOfflineOrderCreateItem] = Field(..., min_length=1)
+    tax_amount: float = Field(default=0.0, ge=0)
+    shipping_amount: float = Field(default=0.0, ge=0)
+    discount_amount: float = Field(default=0.0, ge=0)
+    
+    split_type: PaymentSplitType
+    milestones: Optional[List[MilestoneDefinition]] = Field(
+        None, description="Required only if split_type is CUSTOM."
+    )
+
+    @model_validator(mode="after")
+    def validate_split(self) -> "AdminOfflineOrderCreateRequest":
+        t = self.split_type
+        if t in (PaymentSplitType.FULL, PaymentSplitType.HALF) and self.milestones:
+            raise ValueError(f"Do not provide milestones when split_type is {t.value}.")
+        if t == PaymentSplitType.CUSTOM:
+            if not self.milestones or len(self.milestones) < 2:
+                raise ValueError("CUSTOM split requires at least 2 milestones.")
+            total = sum(m.percentage for m in self.milestones)
+            if abs(total - 100.0) > 0.01:
+                raise ValueError(f"Milestones must sum to 100. Got {total:.4f}.")
+            labels = [m.label.strip().lower() for m in self.milestones]
+            if len(labels) != len(set(labels)):
+                raise ValueError("Each milestone must have a unique label.")
+        return self
+
+
 # ── Admin record payment ──────────────────────────────────────────────────────
 
 class AdminRecordPaymentRequest(BaseModel):

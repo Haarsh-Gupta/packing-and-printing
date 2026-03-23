@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
-import { Calculator, Box, FileText, ChevronRight, Activity, Percent } from "lucide-react";
+import { Calculator, Box, FileText, ChevronRight, Activity, Percent, ChevronDown } from "lucide-react";
 import { api } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { SubProduct, SubService } from "@/types";
 
 export default function PricingCalculator() {
@@ -36,8 +32,8 @@ export default function PricingCalculator() {
         }).catch(console.error).finally(() => setLoading(false));
     }, []);
 
-    const handleSelectType = (val: "product" | "service") => {
-        setSelectedType(val);
+    const handleSelectType = (val: string) => {
+        setSelectedType(val as "product" | "service");
         setSelectedId("");
         setBasePrice(0);
         setConfigSchema(null);
@@ -46,11 +42,13 @@ export default function PricingCalculator() {
 
     const handleSelectItem = (id: string) => {
         const numId = parseInt(id);
-        setSelectedId(numId);
+        setSelectedId(numId || "");
         setSelectedOptions({});
         setGlobalMarkup(0);
         setOptionMarkups({});
         setOptionFixedMarkups({});
+
+        if (!numId) return;
 
         if (selectedType === "product") {
             const prod = subProducts.find(p => p.id === numId);
@@ -128,162 +126,238 @@ export default function PricingCalculator() {
     const { unitPrice, total } = calculateTotal();
 
     return (
-        <div className="max-w-6xl mx-auto w-full space-y-6 animate-fade-in font-['Inter',sans-serif]">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <Calculator className="text-[#136dec]" size={28} /> Pricing Sandbox
-                </h2>
-                <p className="text-slate-500 dark:text-slate-400 mt-1">Test bulk configurations and modify base prices in real-time.</p>
+        <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] px-2 pb-12 animate-fade-in">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
+                <div>
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-blue-600 dark:text-[#adc6ff] mb-2 tracking-widest uppercase">
+                        <span>Tools</span>
+                        <span>/</span>
+                        <span className="text-slate-600 dark:text-[#c3c5d8]/60">Estimator</span>
+                    </nav>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] m-0 flex items-center gap-3">
+                        <Calculator className="text-[#1f70e3]" size={28} /> Pricing Sandbox
+                    </h1>
+                    <p className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-1 m-0">Simulate payload configurations and rate modifications in an isolated environment.</p>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
                 
                 {/* CONFIGURATION PANEL */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 space-y-6">
+                <div className="flex flex-col gap-6">
+                    <div className="bg-white dark:bg-[#131b2e] rounded-2xl shadow-sm border border-slate-200 dark:border-[#434655]/20 flex flex-col overflow-hidden">
+                        <div className="px-6 py-5 border-b border-slate-200 dark:border-[#434655]/20 bg-slate-100 dark:bg-[#0b1326]/50">
+                            <h2 className="text-[11px] uppercase tracking-widest font-extrabold text-slate-900 dark:text-[#dae2fd] m-0">Entity Vector</h2>
+                        </div>
                         
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Type</label>
-                                <Select value={selectedType} onValueChange={handleSelectType}>
-                                    <SelectTrigger className="h-12 border-slate-200 bg-slate-50">
-                                        <SelectValue placeholder="Select Type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="product">Product</SelectItem>
-                                        <SelectItem value="service">Service</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Item</label>
-                                <Select value={String(selectedId)} onValueChange={handleSelectItem} disabled={!selectedType || loading}>
-                                    <SelectTrigger className="h-12 border-slate-200 bg-slate-50">
-                                        <SelectValue placeholder="Select Item" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {selectedType === "product" ? subProducts.map(p => (
-                                            <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                                        )) : subServices.map(s => (
-                                            <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                        <div className="p-6 flex flex-col gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-[#8d90a1]">Class</label>
+                                    <div className="relative">
+                                        <select 
+                                            value={selectedType} 
+                                            onChange={e => handleSelectType(e.target.value)}
+                                            className="w-full h-11 pl-4 pr-10 rounded-lg border border-slate-200 dark:border-[#434655]/40 text-sm font-bold bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-400 dark:border-[#adc6ff] transition-colors appearance-none"
+                                        >
+                                            <option value="product">Manufacturing Structure (Product)</option>
+                                            <option value="service">Execution Sequence (Service)</option>
+                                        </select>
+                                        <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#434655] pointer-events-none" />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-[#8d90a1]">Identifier</label>
+                                    <div className="relative">
+                                        <select 
+                                            value={String(selectedId)} 
+                                            onChange={e => handleSelectItem(e.target.value)} 
+                                            disabled={!selectedType || loading}
+                                            className="w-full h-11 pl-4 pr-10 rounded-lg border border-slate-200 dark:border-[#434655]/40 text-sm font-bold bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-400 dark:border-[#adc6ff] transition-colors appearance-none disabled:opacity-50"
+                                        >
+                                            <option value="">-- Select Target --</option>
+                                            {selectedType === "product" ? subProducts.map(p => (
+                                                <option key={p.id} value={String(p.id)}>{p.name}</option>
+                                            )) : subServices.map(s => (
+                                                <option key={s.id} value={String(s.id)}>{s.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#434655] pointer-events-none" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         {selectedId && (
-                            <div className="space-y-4 pt-4 border-t border-slate-100">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-700">Base Price (₹)</label>
-                                    <Input type="number" value={basePrice} onChange={e => setBasePrice(e.target.value)} className="h-12 text-lg font-bold" />
-                                </div>
-
-                                {selectedType === "product" && configSchema?.sections?.map((sec: any) => (
-                                    <div key={sec.key} className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-sm font-bold text-slate-700 flex flex-col gap-1">
-                                                <span>{sec.label}</span>
-                                                {sec.type === 'number_input' ? (
-                                                    <span className="text-xs text-slate-500 font-mono">₹{sec.price_per_unit || 0} per unit</span>
-                                                ) : (
-                                                    <span className="text-xs text-[#136dec] font-mono">Mod</span>
-                                                )}
-                                            </label>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-slate-400">Options Adjust:</span>
-                                                <div className="relative w-24">
-                                                    <span className="absolute left-2 top-2 text-xs text-slate-400">₹</span>
-                                                    <Input type="number" placeholder="0" value={optionFixedMarkups[sec.key] || ""} onChange={e => handleFixedMarkupChange(sec.key, e.target.value)} className="h-8 text-xs font-mono pl-6 bg-white" />
-                                                </div>
-                                                <span className="text-slate-300 font-bold">+</span>
-                                                <div className="relative w-20">
-                                                    <Input type="number" placeholder="0" value={optionMarkups[sec.key] || ""} onChange={e => handleMarkupChange(sec.key, e.target.value)} className="h-8 text-xs font-mono pr-6 bg-white" />
-                                                    <span className="absolute right-2 top-2 text-xs text-slate-400">%</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        {sec.type === "dropdown" || sec.type === "radio" ? (
-                                            <Select value={String(selectedOptions[sec.key] || "")} onValueChange={(v) => handleOptionChange(sec.key, v)}>
-                                                <SelectTrigger className="bg-white">
-                                                    <SelectValue placeholder="Select Option" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {sec.options?.map((opt: any, i:number) => {
-                                                        const markupPct = parseFloat(String(optionMarkups[sec.key])) || 0;
-                                                        const markupFixed = parseFloat(String(optionFixedMarkups[sec.key])) || 0;
-                                                        const baseMod = parseFloat(opt.price_mod) || 0;
-                                                        const finalMod = baseMod + (baseMod * (markupPct / 100)) + markupFixed;
-                                                        return (
-                                                            <SelectItem key={i} value={String(opt.value)}>
-                                                                {opt.label} {(finalMod !== 0 || baseMod !== 0 || markupFixed !== 0) && <span className="text-xs text-slate-400 ml-2">(+{finalMod < 0 ? '-' : ''}₹{Math.abs(finalMod).toFixed(2)})</span>}
-                                                            </SelectItem>
-                                                        );
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
-                                        ) : sec.type === "number_input" ? (
-                                            <Input type="number" min={sec.min || 0} max={sec.max} value={selectedOptions[sec.key] || ""} onChange={e => handleOptionChange(sec.key, e.target.value)} className="bg-white" placeholder={`Quantity for ${sec.label}`} />
-                                        ) : (
-                                            <Input value={selectedOptions[sec.key] || ""} onChange={e => handleOptionChange(sec.key, e.target.value)} className="bg-white" />
-                                        )}
+                            <div className="border-t border-slate-200 dark:border-[#434655]/20 bg-slate-50 dark:bg-[#0b1326]">
+                                <div className="p-6 space-y-6">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-[#c3c5d8]">Base Evaluation (₹)</label>
+                                        <input 
+                                            type="number" 
+                                            value={basePrice} 
+                                            onChange={e => setBasePrice(e.target.value)} 
+                                            className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-[#434655]/40 bg-white dark:bg-[#131b2e] text-lg font-mono font-extrabold text-blue-600 dark:text-[#adc6ff] outline-none focus:border-blue-400 dark:border-[#adc6ff] transition-colors"
+                                        />
                                     </div>
-                                ))}
+
+                                    {selectedType === "product" && configSchema?.sections?.length > 0 && (
+                                        <div className="flex flex-col gap-4">
+                                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-[#c3c5d8]">Configuration Parameters</label>
+                                            {configSchema.sections.map((sec: any) => (
+                                                <div key={sec.key} className="flex flex-col gap-3 p-5 rounded-xl border border-slate-200 dark:border-[#434655]/40 bg-slate-50 dark:bg-[#171f33]/50">
+                                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <span className="text-[11px] font-extrabold text-slate-900 dark:text-[#dae2fd] leading-none uppercase tracking-widest">{sec.label}</span>
+                                                            <span className="text-[9px] font-mono uppercase tracking-[0.2em]">
+                                                                {sec.type === 'number_input' ? (
+                                                                    <span className="text-slate-500 dark:text-[#8d90a1]">₹{sec.price_per_unit || 0} / UNIT</span>
+                                                                ) : (
+                                                                    <span className="text-[#1f70e3]">MUTATOR</span>
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#434655]">DELTA:</span>
+                                                            <div className="relative">
+                                                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-600 dark:text-[#c3c5d8]">₹</span>
+                                                                <input 
+                                                                    type="number" 
+                                                                    placeholder="0" 
+                                                                    value={optionFixedMarkups[sec.key] || ""} 
+                                                                    onChange={e => handleFixedMarkupChange(sec.key, e.target.value)} 
+                                                                    className="w-[80px] h-8 pl-6 pr-2 rounded text-[11px] font-mono font-bold bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-400 dark:border-[#adc6ff] transition-colors placeholder:text-[#434655]" 
+                                                                />
+                                                            </div>
+                                                            <span className="text-[#434655] font-extrabold">+</span>
+                                                            <div className="relative">
+                                                                <input 
+                                                                    type="number" 
+                                                                    placeholder="0" 
+                                                                    value={optionMarkups[sec.key] || ""} 
+                                                                    onChange={e => handleMarkupChange(sec.key, e.target.value)} 
+                                                                    className="w-[70px] h-8 px-2 pr-6 rounded text-[11px] font-mono font-bold bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-400 dark:border-[#adc6ff] transition-colors placeholder:text-[#434655] text-right" 
+                                                                />
+                                                                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-600 dark:text-[#c3c5d8]">%</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {sec.type === "dropdown" || sec.type === "radio" ? (
+                                                        <div className="relative w-full">
+                                                            <select 
+                                                                value={String(selectedOptions[sec.key] || "")} 
+                                                                onChange={(e) => handleOptionChange(sec.key, e.target.value)}
+                                                                className="w-full h-11 pl-4 pr-10 rounded-lg border border-slate-200 dark:border-[#434655]/40 text-xs font-bold bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-400 dark:border-[#adc6ff] transition-colors appearance-none"
+                                                            >
+                                                                <option value="">-- Select State --</option>
+                                                                {sec.options?.map((opt: any, i:number) => {
+                                                                    const markupPct = parseFloat(String(optionMarkups[sec.key])) || 0;
+                                                                    const markupFixed = parseFloat(String(optionFixedMarkups[sec.key])) || 0;
+                                                                    const baseMod = parseFloat(opt.price_mod) || 0;
+                                                                    const finalMod = baseMod + (baseMod * (markupPct / 100)) + markupFixed;
+                                                                    return (
+                                                                        <option key={i} value={String(opt.value)}>
+                                                                            {opt.label} {(finalMod !== 0 || baseMod !== 0 || markupFixed !== 0) ? ` (+${finalMod < 0 ? '-' : ''}₹${Math.abs(finalMod).toFixed(2)})` : ''}
+                                                                        </option>
+                                                                    );
+                                                                })}
+                                                            </select>
+                                                            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#434655] pointer-events-none" />
+                                                        </div>
+                                                    ) : sec.type === "number_input" ? (
+                                                        <input 
+                                                            type="number" 
+                                                            min={sec.min || 0} 
+                                                            max={sec.max} 
+                                                            value={selectedOptions[sec.key] || ""} 
+                                                            onChange={e => handleOptionChange(sec.key, e.target.value)} 
+                                                            className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-[#434655]/40 text-xs font-bold bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-400 dark:border-[#adc6ff] transition-colors placeholder:text-[#434655]" 
+                                                            placeholder={`Define metric for ${sec.label}`} 
+                                                        />
+                                                    ) : (
+                                                        <input 
+                                                            type="text"
+                                                            value={selectedOptions[sec.key] || ""} 
+                                                            onChange={e => handleOptionChange(sec.key, e.target.value)} 
+                                                            className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-[#434655]/40 text-xs font-bold bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-400 dark:border-[#adc6ff] transition-colors" 
+                                                        />
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
 
                 {/* REAL TIME OUTPUT PANEL */}
-                <div className="space-y-6 sticky top-20 self-start">
-                    <div className="bg-slate-900 rounded-2xl shadow-xl shadow-[#136dec]/10 overflow-hidden text-white border border-slate-800 relative">
-                        {/* decorative blobs */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#136dec] opacity-20 blur-[50px] rounded-full" />
+                <div className="flex flex-col gap-6 sticky top-6 self-start">
+                    {/* Live Output Card */}
+                    <div className="bg-[#1f70e3] rounded-2xl shadow-lg border border-transparent overflow-hidden text-white relative">
+                        {/* Decorative highlights */}
+                        <div className="absolute top-0 right-0 w-48 h-48 bg-white opacity-10 blur-[60px] rounded-full pointer-events-none" />
                         
-                        <div className="p-6 relative z-10 flex flex-col items-center text-center space-y-4 border-b border-white/10">
-                            <p className="text-xs font-bold text-slate-400 tracking-widest uppercase flex items-center gap-2"><Activity size={14}/> Live Total</p>
-                            <h3 className="text-5xl font-black tracking-tight font-mono text-transparent bg-clip-text bg-linear-to-br from-white to-slate-400">
+                        <div className="p-8 relative z-10 flex flex-col items-center justify-center text-center gap-4">
+                            <p className="text-[10px] font-extrabold text-blue-600 dark:text-[#adc6ff] tracking-[0.3em] uppercase flex items-center gap-2 m-0">
+                                <Activity size={14} /> Live Computation
+                            </p>
+                            <h3 className="text-5xl font-extrabold tracking-tight font-mono text-white m-0">
                                 ₹{total.toLocaleString()}
                             </h3>
-                            <div className="bg-slate-800/50 px-4 py-1.5 rounded-full text-sm font-mono text-slate-300">
-                                Unit Price: <span className="font-bold text-white">₹{unitPrice.toLocaleString()}</span>
+                            <div className="bg-[#001a42]/30 border border-white/10 px-4 py-1.5 rounded-lg text-[11px] font-mono text-blue-600 dark:text-[#adc6ff] shadow-inner mt-2">
+                                Unit Metric: <span className="font-bold text-white">₹{unitPrice.toLocaleString()}</span>
                             </div>
                         </div>
 
-                        <div className="p-6 bg-slate-950/50 space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Bulk Quantity</label>
-                                <Input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} className="h-12 text-center text-xl font-bold bg-slate-800 border-slate-700 text-white" />
+                        <div className="p-6 bg-[#001a42]/60 flex flex-col gap-5 border-t border-white/10 relative z-10">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[9px] font-bold text-blue-600 dark:text-[#adc6ff] uppercase tracking-[0.2em] text-center">Batch Size Volume</label>
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    value={quantity} 
+                                    onChange={e => setQuantity(e.target.value)} 
+                                    className="w-full h-12 text-center text-xl font-mono font-extrabold bg-slate-50 dark:bg-[#0b1326] border border-[#1f70e3]/50 rounded-xl text-white outline-none focus:border-white transition-colors" 
+                                />
                             </div>
-                            <div className="space-y-2 pt-2 border-t border-slate-800">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Global Price Adjustment</label>
-                                <div className="flex items-center gap-3">
+                            
+                            <div className="flex flex-col gap-3 pt-4 border-t border-[#1f70e3]/30">
+                                <label className="text-[9px] font-bold text-blue-600 dark:text-[#adc6ff] uppercase tracking-[0.2em] text-center">Global Metric Override</label>
+                                <div className="flex items-center gap-4">
                                     <input 
                                         type="range" 
                                         min="-100" 
                                         max="100" 
                                         value={typeof globalMarkup === "number" ? globalMarkup : parseFloat(globalMarkup as string) || 0} 
                                         onChange={e => setGlobalMarkup(e.target.value)}
-                                        className="flex-1 accent-[#136dec]"
+                                        className="flex-1 accent-white h-1.5 rounded-full bg-white dark:bg-[#131b2e] appearance-none"
                                     />
                                     <div className="relative w-20 shrink-0">
-                                        <Input type="number" value={globalMarkup} onChange={e => setGlobalMarkup(e.target.value)} className="bg-slate-800 border-slate-700 text-white pr-6 text-center font-bold" />
-                                        <span className="absolute right-2 top-2.5 text-xs text-slate-400">%</span>
+                                        <input 
+                                            type="number" 
+                                            value={globalMarkup} 
+                                            onChange={e => setGlobalMarkup(e.target.value)} 
+                                            className="w-full h-9 pl-2 pr-6 rounded-lg text-xs font-mono font-extrabold bg-slate-50 dark:bg-[#0b1326] border border-[#1f70e3]/50 text-white outline-none text-center" 
+                                        />
+                                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-blue-600 dark:text-[#adc6ff]">%</span>
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-slate-500 text-center">Applies to total unit price (defaults to 0%)</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                        <div className="flex gap-3">
-                            <Percent className="text-amber-600 shrink-0 mt-0.5" size={18} />
-                            <div className="text-sm text-amber-800">
-                                <p className="font-bold">Sandbox Mode</p>
-                                <p className="mt-1 opacity-90">Changes made here are <span className="font-semibold underline">not</span> saved to the database. This tool is purely for calculation previews.</p>
-                            </div>
+                    {/* Notice */}
+                    <div className="bg-[#f59e0b]/10 rounded-xl p-5 border border-[#f59e0b]/20 flex gap-4">
+                        <Percent className="text-[#fcd34d] shrink-0 mt-0.5" size={20} />
+                        <div className="flex flex-col gap-1.5 text-slate-900 dark:text-[#dae2fd]">
+                            <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#fcd34d] m-0">Isolated Environment</p>
+                            <p className="text-[11px] font-medium leading-relaxed m-0 text-slate-600 dark:text-[#c3c5d8]">
+                                Vectors injected into this sandbox do <span className="text-white font-bold underline">not</span> mutate global state. Used purely for projective calculations.
+                            </p>
                         </div>
                     </div>
                 </div>

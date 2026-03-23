@@ -35,6 +35,7 @@ from app.modules.orders.schemas import (
     OrderResponse,
     OrderListResponse,
     AdminRefundRequest,
+    AdminOfflineOrderCreateRequest,
 )
 from app.modules.orders.service.order import OrderService
 from app.modules.orders.service.payment import PaymentService
@@ -81,6 +82,34 @@ async def get_order(
     order = await svc.get_order(order_id)
     if not order:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    return order
+
+
+@router.post("/offline", response_model=OrderResponse)
+async def create_offline_order(
+    payload: AdminOfflineOrderCreateRequest,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Manually creates an offline order directly from the dashboard.
+    Bypasses standard client-side 4-step Inquiry process.
+    """
+    svc = OrderService(db)
+    
+    try:
+        order = await svc.create_offline_order(payload, admin.id)
+    except Exception as e:
+        logger.error(f"Error creating offline order: {e}")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+        
+    await db.commit()
+    
+    _fire_admin_sse("admin_order_created_offline", {
+        "order_id": str(order.id),
+        "admin": str(admin.id),
+    })
+
     return order
 
 

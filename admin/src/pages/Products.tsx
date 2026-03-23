@@ -68,7 +68,7 @@ export default function Products() {
     const handleSave = async () => {
         setSaving(true);
         const payload = { ...formState };
-        if (!payload.slug) delete (payload as any).slug; // let backend auto-slugify if empty
+        if (!payload.slug) delete (payload as any).slug;
         if (!payload.description) delete (payload as any).description;
         if (!payload.cover_image) delete (payload as any).cover_image;
 
@@ -96,82 +96,121 @@ export default function Products() {
 
     const activeSubProductsCount = products.reduce((acc, p) => acc + (p.sub_products?.filter(sp => sp.is_active)?.length || 0), 0);
     const catColors = [
-        "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
-        "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
-        "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
-        "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400",
-        "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+        "bg-[#1f70e3]/10 text-blue-600 dark:text-[#adc6ff] border-[#1f70e3]/20",
+        "bg-[#34d399]/10 text-[#34d399] border-[#34d399]/20",
+        "bg-[#8b5cf6]/10 text-[#c4b5fd] border-[#8b5cf6]/20",
+        "bg-[#f59e0b]/10 text-[#fcd34d] border-[#f59e0b]/20",
+        "bg-[#06b6d4]/10 text-[#67e8f9] border-[#06b6d4]/20"
     ];
 
     return (
-        <div className="max-w-7xl mx-auto w-full space-y-6 animate-fade-in font-['Inter',sans-serif]">
-            {/* Page Title Area */}
-            <div className="flex items-end justify-between">
+        <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] px-2">
+            
+            {/* Header */}
+            <div className="flex items-end justify-between mb-8">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Parent Products</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Manage core product categories and custom printing services.</p>
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-blue-600 dark:text-[#adc6ff] mb-2 tracking-widest uppercase">
+                        <span>Catalog</span>
+                        <span>/</span>
+                        <span className="text-slate-600 dark:text-[#c3c5d8]/60">Taxonomy</span>
+                    </nav>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] m-0">
+                        Products
+                    </h1>
+                    <p className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-1 m-0">
+                        {products.length} Manage your product categories
+                    </p>
                 </div>
-                <button onClick={openCreate} className="bg-[#136dec] hover:bg-[#136dec]/90 text-white px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg shadow-[#136dec]/20 transition-all active:scale-95">
-                    <Plus size={20} />
-                    New Product Class
+                <button onClick={openCreate} className="h-10 px-5 bg-[#adc6ff] hover:bg-white text-[#001a42] font-extrabold text-[11px] uppercase tracking-widest rounded-lg flex items-center gap-2 transition-colors shadow-[0_4px_12px_rgba(173,198,255,0.2)]">
+                    <Plus size={16} />
+                    Add Product
                 </button>
             </div>
 
-            {/* Main Table Card */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-200 dark:border-slate-800 overflow-hidden">
-                <div className="overflow-x-auto">
+            {/* Stats Summary Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="p-6 bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 flex flex-col justify-center">
+                    <p className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-[#434655] rounded-full"></span> Total Products
+                    </p>
+                    <p className="text-3xl font-black text-slate-900 dark:text-[#dae2fd]">{products.length}</p>
+                </div>
+                <div className="p-6 bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 flex flex-col justify-center">
+                    <p className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-[#434655] rounded-full"></span> Active Variants
+                    </p>
+                    <p className="text-3xl font-black text-slate-900 dark:text-[#dae2fd]">{activeSubProductsCount}</p>
+                </div>
+                <div className="p-6 bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 flex flex-col justify-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#34d399]/5 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                    <p className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-[#434655] rounded-full"></span> System Status
+                    </p>
+                    <p className="text-2xl font-bold text-[#34d399] flex items-center gap-2 relative z-10">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#34d399] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#34d399]"></span>
+                        </span>
+                        Online
+                    </p>
+                </div>
+            </div>
+
+            {/* Main Table */}
+            <div className="bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 flex-1 overflow-hidden flex flex-col">
+                <div className="overflow-x-auto custom-scrollbar flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-24">Cover</th>
-                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Product Category</th>
-                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Slug</th>
-                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Sub-products</th>
-                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                            <tr className="bg-slate-100 dark:bg-[#0b1326]/50 text-slate-600 dark:text-[#c3c5d8] uppercase text-[10px] tracking-[0.2em] font-bold border-b border-slate-200 dark:border-[#434655]/20">
+                                <th className="px-6 py-4 w-24">Cover</th>
+                                <th className="px-6 py-4">Product Name</th>
+                                <th className="px-6 py-4">URL Slug</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4">Variants</th>
+                                <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                        <tbody className="divide-y divide-[#434655]/10">
                             {loading ? (
-                                <tr><td colSpan={6} className="text-center py-12 text-slate-500 font-medium"><Loader2 className="animate-spin inline mr-2" /> Loading products...</td></tr>
+                                <tr><td colSpan={6} className="text-center py-16 text-slate-600 dark:text-[#c3c5d8] font-bold tracking-widest text-[10px] uppercase"><Loader2 className="animate-spin inline mr-2" size={16} /> Loading products...</td></tr>
                             ) : products.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-12 text-slate-500 font-medium">No products found. Create your first category!</td></tr>
+                                <tr><td colSpan={6} className="text-center py-16 text-slate-600 dark:text-[#c3c5d8]/50 font-bold tracking-widest text-[10px] uppercase">No products found.</td></tr>
                             ) : products.map((product, idx) => (
-                                <tr key={product.id} onClick={() => navigate(`/products/${product.slug}`)} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer">
-                                    <td className="px-6 py-4">
-                                        <div className="size-14 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 relative">
+                                <tr key={product.id} onClick={() => navigate(`/products/${product.slug}`)} className="group cursor-pointer hover:bg-slate-50 dark:hover:bg-[#171f33]/80 transition-colors">
+                                    <td className="px-6 py-5">
+                                        <div className="size-14 rounded-xl bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 flex items-center justify-center overflow-hidden relative">
                                             {product.cover_image ? (
                                                 <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('${product.cover_image}')` }}></div>
                                             ) : (
-                                                <span className="text-xs text-slate-400 font-medium">N/A</span>
+                                                <span className="text-[10px] text-[#434655] font-bold uppercase tracking-wider">NULL</span>
                                             )}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-slate-900 dark:text-slate-100 text-base">{product.name}</div>
-                                        {product.description && <div className="text-xs text-slate-500 mt-1 truncate max-w-xs">{product.description}</div>}
+                                    <td className="px-6 py-5">
+                                        <div className="font-extrabold text-slate-900 dark:text-[#dae2fd] text-base mb-1">{product.name}</div>
+                                        {product.description && <div className="text-xs text-slate-600 dark:text-[#c3c5d8]/70 truncate max-w-[250px]">{product.description}</div>}
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <code className="text-xs font-mono font-medium text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700">{product.slug}</code>
+                                    <td className="px-6 py-5">
+                                        <code className="text-[11px] font-mono font-bold text-blue-600 dark:text-[#adc6ff] bg-[#adc6ff]/10 px-2 py-1 rounded border border-blue-400 dark:border-[#adc6ff]/20">{product.slug}</code>
                                     </td>
-                                    <td className="px-6 py-4 text-sm">
-                                        <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide ${product.is_active ? catColors[idx % catColors.length] : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-                                            {product.is_active ? "Active" : "Archived"}
+                                    <td className="px-6 py-5 text-sm">
+                                        <span className={`px-2.5 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest border ${product.is_active ? catColors[idx % catColors.length] : 'bg-[#434655]/10 text-slate-500 dark:text-[#8d90a1] border-slate-200 dark:border-[#434655]/20'}`}>
+                                            {product.is_active ? "Live" : "Archived"}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-sm font-medium text-slate-600 dark:text-slate-400">
-                                        {product.sub_products?.length || 0} variants
+                                    <td className="px-6 py-5 text-[13px] font-bold text-slate-600 dark:text-[#c3c5d8]">
+                                        <span className="text-slate-900 dark:text-[#dae2fd] bg-[#434655]/20 px-2.5 py-1 text-xs rounded-md shadow-inner">{product.sub_products?.length || 0}</span> variants
                                     </td>
-                                    <td className="px-6 py-4 text-right">
+                                    <td className="px-6 py-5 text-right">
                                         <div className="inline-flex items-center gap-1.5">
-                                            <button onClick={(e) => openEdit(e, product)} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all text-slate-400 hover:text-blue-600">
-                                                <Edit2 size={18} />
+                                            <button onClick={(e) => openEdit(e, product)} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-[#1f70e3]/20 rounded-lg transition-all text-slate-600 dark:text-[#c3c5d8] hover:text-blue-600 dark:hover:text-[#adc6ff]">
+                                                <Edit2 size={16} />
                                             </button>
-                                            <button onClick={(e) => handleDelete(e, product.id)} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all text-slate-400 hover:text-red-600">
-                                                <Trash2 size={18} />
+                                            <button onClick={(e) => handleDelete(e, product.id)} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-[#ffb4ab]/10 rounded-lg transition-all text-slate-600 dark:text-[#c3c5d8] hover:text-[#ffb4ab]">
+                                                <Trash2 size={16} />
                                             </button>
-                                            <button className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-400">
-                                                <ChevronRight size={20} />
+                                            <button className="p-2 text-[#434655] group-hover:text-slate-600 dark:hover:text-[#c3c5d8] transition-colors">
+                                                <ChevronRight size={18} />
                                             </button>
                                         </div>
                                     </td>
@@ -182,103 +221,67 @@ export default function Products() {
                 </div>
             </div>
 
-            {/* Stats Summary Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Categories</p>
-                    <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{products.length}</p>
-                </div>
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Active Variants</p>
-                    <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{activeSubProductsCount}</p>
-                </div>
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">System Status</p>
-                    <p className="text-2xl font-bold text-[#136dec] flex items-center gap-2">
-                        <span className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#136dec] opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-[#136dec]"></span>
-                        </span>
-                        Live Synced
-                    </p>
-                </div>
-            </div>
-
-            {/* Product Modal */}
+            {/* Modal */}
             <Dialog open={showForm} onOpenChange={setShowForm}>
-                <DialogContent className="sm:max-w-[75vw] w-[75vw] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-['Inter',sans-serif] p-0 overflow-hidden shadow-2xl">
-                    <DialogHeader className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                        <DialogTitle className="text-2xl font-bold">{editingProduct ? "Edit Product Category" : "Build Product Category"}</DialogTitle>
-                        <DialogDescription className="text-base mt-2">
-                            This creates the top-level parent grouping (e.g., 'Corporate Diaries') which will hold multiple specific sub-products.
+                <DialogContent className="sm:max-w-2xl bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 text-slate-900 dark:text-[#dae2fd] shadow-2xl p-0 overflow-hidden font-['Inter']">
+                    <DialogHeader className="px-8 py-6 border-b border-slate-200 dark:border-[#434655]/20 bg-white dark:bg-[#131b2e]">
+                        <DialogTitle className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd]">
+                            {editingProduct ? "Edit Product" : "Add New Product"}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-1 font-medium">
+                            Create a new product category to organize your items.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="px-8 py-6 space-y-6">
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                    Name <span className="text-red-500 font-normal">*</span>
+                                <label className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest flex items-center gap-1.5">
+                                    Product Name <span className="text-[#ffb4ab] text-sm leading-none">*</span>
                                 </label>
-                                <Input className="h-11 text-base placeholder:text-slate-400" value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} placeholder="e.g. Rigid Boxes" />
-                                <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-1.5">
-                                    <Info size={14} className="shrink-0 mt-0.5 text-[#136dec]" />
-                                    <span>The public-facing display name of this product category.</span>
-                                </p>
+                                <Input className="h-10 text-sm font-bold bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} placeholder="e.g. Rigid Boxes" />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                                    <span>System Slug</span>
-                                    <span className="text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded">Optional</span>
+                                <label className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest flex items-center justify-between">
+                                    <span>URL Slug</span>
+                                    <span className="text-[9px] bg-[#434655]/30 text-slate-500 dark:text-[#8d90a1] px-1.5 py-0.5 rounded">AUTO</span>
                                 </label>
-                                <Input className="h-11 text-base font-mono bg-slate-50 dark:bg-slate-900/50 placeholder:text-slate-400" value={formState.slug} onChange={e => setFormState({ ...formState, slug: e.target.value })} placeholder="rigid-boxes" />
-                                <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-1.5">
-                                    <Info size={14} className="shrink-0 mt-0.5" />
-                                    <span>Used in the URL. Leave blank to auto-generate from the Name.</span>
-                                </p>
+                                <Input className="h-10 text-sm font-mono text-blue-600 dark:text-[#adc6ff] bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.slug} onChange={e => setFormState({ ...formState, slug: e.target.value })} placeholder="rigid-boxes" />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest flex items-center justify-between">
                                 <span>Description</span>
-                                <span className="text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded">Optional</span>
+                                <span className="text-[9px] bg-[#434655]/30 text-slate-500 dark:text-[#8d90a1] px-1.5 py-0.5 rounded">OPT</span>
                             </label>
-                            <Textarea className="resize-none min-h-[90px] text-base placeholder:text-slate-400" value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="A short marketing description..." />
-                            <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-1.5">
-                                <Info size={14} className="shrink-0 mt-0.5" />
-                                <span>Shown to customers to summarize what's in this category.</span>
-                            </p>
+                            <Textarea className="resize-none min-h-[80px] text-sm bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="A brief description of this product category..." />
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest flex items-center justify-between">
                                 <span>Cover Image URL</span>
-                                <span className="text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded">Optional</span>
+                                <span className="text-[9px] bg-[#434655]/30 text-slate-500 dark:text-[#8d90a1] px-1.5 py-0.5 rounded">OPT</span>
                             </label>
-                            <Input className="h-11 text-base placeholder:text-slate-400" value={formState.cover_image} onChange={e => setFormState({ ...formState, cover_image: e.target.value })} placeholder="https://domain.com/image.jpg" />
-                            <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-1.5">
-                                <Info size={14} className="shrink-0 mt-0.5" />
-                                <span>The thumbnail graphic for the category grid.</span>
-                            </p>
+                            <Input className="h-10 text-sm font-mono text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.cover_image} onChange={e => setFormState({ ...formState, cover_image: e.target.value })} placeholder="https://..." />
                         </div>
 
-                        <div className="flex items-center justify-between border-2 border-slate-100 dark:border-slate-800 p-5 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+                        <div className="flex items-center justify-between border border-slate-200 dark:border-[#434655]/30 p-4 rounded-xl bg-white dark:bg-[#131b2e]">
                             <div>
-                                <p className="font-bold text-slate-900 dark:text-slate-100">Live Status</p>
-                                <p className="text-sm text-slate-500 mt-0.5">Determines if customers can see this category online.</p>
+                                <p className="font-bold text-slate-900 dark:text-[#dae2fd] text-sm">Active Status</p>
+                                <p className="text-xs text-slate-600 dark:text-[#c3c5d8]/70 mt-0.5">Make this product visible in the catalog.</p>
                             </div>
-                            <Switch checked={formState.is_active} onCheckedChange={c => setFormState({ ...formState, is_active: c })} className="data-[state=checked]:bg-[#136dec]" />
+                            <Switch checked={formState.is_active} onCheckedChange={c => setFormState({ ...formState, is_active: c })} className="data-[state=checked]:bg-[#34d399]" />
                         </div>
                     </div>
 
-                    <DialogFooter className="px-8 py-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                    <DialogFooter className="px-8 py-5 border-t border-slate-200 dark:border-[#434655]/20 bg-white dark:bg-[#131b2e]">
                         <DialogClose asChild>
-                            <Button variant="outline" className="h-11 px-6 font-semibold">Discard</Button>
+                            <Button variant="outline" className="h-10 px-6 font-bold text-xs uppercase tracking-widest bg-transparent border-[#434655] hover:bg-[#434655]/20 text-slate-600 dark:text-[#c3c5d8]">Cancel</Button>
                         </DialogClose>
-                        <Button className="h-11 px-8 font-semibold bg-[#136dec] hover:bg-[#136dec]/90 text-white" onClick={handleSave} disabled={saving || !formState.name.trim()}>
-                            {saving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />}
-                            {editingProduct ? "Update Configuration" : "Publish Category"}
+                        <Button className="h-10 px-8 font-bold text-xs uppercase tracking-widest bg-[#adc6ff] hover:bg-white text-[#001a42]" onClick={handleSave} disabled={saving || !formState.name.trim()}>
+                            {saving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
+                            Write
                         </Button>
                     </DialogFooter>
                 </DialogContent>

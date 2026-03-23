@@ -144,10 +144,10 @@ export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: I
                         <h4 className="font-bold text-lg uppercase tracking-tight">
                             {item?.service_id ? item?.service_name : item?.template_name}
                         </h4>
-                        <span className="text-[10px] font-black bg-zinc-100 border border-black px-1.5 uppercase">ID #{inquiry.id.slice(0, 8).toUpperCase()}</span>
+                        <span className="text-lg text-font-mono black uppercase">{inquiry.display_id || `ID #${inquiry.id.slice(0, 8).toUpperCase()}`}</span>
                     </div>
-                    <p className="text-xs text-zinc-500 font-medium">
-                        {item?.quantity || 0} Units • {item?.variant_name || 'Standard'} • {new Date(inquiry.created_at).toLocaleDateString()}
+                    <p className="text-sm text-zinc-500 font-medium">
+                        {inquiry.items?.reduce((total, i) => total + (i.quantity || 0), 0) || 0} Units • {item?.variant_name || 'Standard'} • {new Date(inquiry.created_at).toLocaleDateString()}
                     </p>
                 </div>
             </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import {
-    Mail, Search, Loader2, CheckCircle2, AlertCircle, Eye, Info, Clock
+    Mail, Search, Loader2, CheckCircle2, AlertCircle, Eye, Info, Clock, ArrowUpRight
 } from "lucide-react";
 
 interface EmailLog {
@@ -13,14 +13,14 @@ interface EmailLog {
     sent_at: string;
 }
 
-const STATUS_CONFIG: Record<string, { color: string; bg: string; icon: any }> = {
-    delivered: { color: '#16a34a', bg: '#f0fdf4', icon: CheckCircle2 },
-    opened: { color: '#2563eb', bg: '#eff6ff', icon: Eye },
-    click: { color: '#8b5cf6', bg: '#f5f3ff', icon: Info },
-    bounce: { color: '#dc2626', bg: '#fef2f2', icon: AlertCircle },
-    soft_bounce: { color: '#ea580c', bg: '#fff7ed', icon: AlertCircle },
-    failed: { color: '#991b1b', bg: '#fef2f2', icon: AlertCircle },
-    pending: { color: '#71717a', bg: '#f4f4f5', icon: Clock },
+const STATUS_CONFIG: Record<string, { color: string; bg: string; border: string; icon: any }> = {
+    delivered: { color: '#34d399', bg: '#34d399/10', border: '#34d399/20', icon: CheckCircle2 },
+    opened: { color: '#adc6ff', bg: '#1f70e3/10', border: '#1f70e3/20', icon: Eye },
+    click: { color: '#c4b5fd', bg: '#8b5cf6/10', border: '#8b5cf6/20', icon: Info },
+    bounce: { color: '#ffb4ab', bg: '#ffb4ab/10', border: '#ffb4ab/20', icon: AlertCircle },
+    soft_bounce: { color: '#fcd34d', bg: '#f59e0b/10', border: '#f59e0b/20', icon: AlertCircle },
+    failed: { color: '#ffb4ab', bg: '#ffb4ab/10', border: '#ffb4ab/20', icon: AlertCircle },
+    pending: { color: '#c3c5d8', bg: '#434655/20', border: '#434655/40', icon: Clock },
 };
 
 const StatusPill = ({ status }: { status: string }) => {
@@ -29,11 +29,9 @@ const StatusPill = ({ status }: { status: string }) => {
     const label = status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
     
     return (
-        <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px',
-            background: cfg.bg, borderRadius: '999px', fontSize: '11px', fontWeight: 600,
-            color: cfg.color, fontFamily: "'Inter', sans-serif",
-        }}>
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[9px] font-bold uppercase tracking-widest border`}
+            style={{ color: cfg.color, backgroundColor: `rgba(${cfg.bg})`, borderColor: `rgba(${cfg.border})` }}
+        >
             <Icon size={12} strokeWidth={2.5} />
             {label}
         </span>
@@ -67,99 +65,93 @@ export default function EmailLogs() {
     );
 
     return (
-        <div className="animate-fade-in" style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '24px', 
-            fontFamily: "'Inter', sans-serif" 
-        }}>
+        <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] px-2 pb-12 animate-fade-in">
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
                 <div>
-                    <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.02em', color: '#18181b', margin: 0 }}>
-                        Email Logs
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-blue-600 dark:text-[#adc6ff] mb-2 tracking-widest uppercase">
+                        <span>Communications</span>
+                        <span>/</span>
+                        <span className="text-slate-600 dark:text-[#c3c5d8]/60">Dispatch Log</span>
+                    </nav>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] m-0">
+                        Email Telemetry
                     </h1>
-                    <p style={{ fontSize: '14px', color: '#71717a', marginTop: '4px' }}>
-                        Track delivery status, opens, and bounces for all outgoing emails.
+                    <p className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-1 m-0">
+                        Track delivery status, opens, and bounces for all outbound nodes.
                     </p>
                 </div>
                 
-                <div style={{ position: 'relative' }}>
-                    <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa' }} />
+                <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#434655]" />
                     <input
                         type="text" 
-                        placeholder="Search recipient or subject..." 
+                        placeholder="Query target or subject vector..." 
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        style={{
-                            height: '40px', paddingLeft: '36px', paddingRight: '12px', width: '280px',
-                            border: '1px solid #e4e4e7', borderRadius: '10px', fontSize: '14px',
-                            color: '#18181b', background: 'white', outline: 'none',
-                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                        }}
+                        className="h-10 pl-9 pr-3 w-72 border border-slate-200 dark:border-[#434655]/40 rounded-lg text-xs font-mono text-blue-600 dark:text-[#adc6ff] bg-white dark:bg-[#131b2e] outline-none focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]/70 transition-colors"
                     />
                 </div>
             </div>
 
             {/* Table */}
-            <div style={{ 
-                background: 'white', 
-                borderRadius: '12px', 
-                border: '1px solid #e4e4e7',
-                overflow: 'hidden',
-                boxShadow: '0 4px 12px -2px rgba(0,0,0,0.05)'
-            }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                    <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e4e4e7' }}>
-                        <tr>
-                            <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sent At</th>
-                            <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recipient</th>
-                            <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subject</th>
-                            <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
+            <div className="bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 flex flex-col flex-1 overflow-hidden min-h-[400px]">
+                <div className="overflow-x-auto custom-scrollbar flex-1">
+                    <table className="w-full border-collapse text-left">
+                        <thead className="bg-slate-100 dark:bg-[#0b1326]/50 border-b border-slate-200 dark:border-[#434655]/20">
                             <tr>
-                                <td colSpan={4} style={{ padding: '60px', textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                                        <Loader2 size={24} className="animate-spin" style={{ color: '#2563eb' }} />
-                                        <span style={{ fontSize: '14px', color: '#71717a' }}>Loading logs...</span>
-                                    </div>
-                                </td>
+                                <th className="px-6 py-4 text-[10px] uppercase font-bold tracking-[0.2em] text-slate-600 dark:text-[#c3c5d8]">Epoch</th>
+                                <th className="px-6 py-4 text-[10px] uppercase font-bold tracking-[0.2em] text-slate-600 dark:text-[#c3c5d8]">Target Node</th>
+                                <th className="px-6 py-4 text-[10px] uppercase font-bold tracking-[0.2em] text-slate-600 dark:text-[#c3c5d8]">Payload Subject</th>
+                                <th className="px-6 py-4 text-[10px] uppercase font-bold tracking-[0.2em] text-slate-600 dark:text-[#c3c5d8]">Event State</th>
                             </tr>
-                        ) : filtered.length === 0 ? (
-                            <tr>
-                                <td colSpan={4} style={{ padding: '60px', textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                        <Mail size={32} style={{ color: '#e4e4e7', marginBottom: '8px' }} />
-                                        <span style={{ fontSize: '15px', fontWeight: 600, color: '#27272a' }}>No emails found</span>
-                                        <span style={{ fontSize: '13px', color: '#71717a' }}>Try searching for something else or check back later.</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : filtered.map((log) => (
-                            <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
-                                <td style={{ padding: '16px 20px', fontSize: '13px', color: '#71717a' }}>
-                                    {new Date(log.sent_at).toLocaleString('en-IN', {
-                                        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-                                    })}
-                                </td>
-                                <td style={{ padding: '16px 20px' }}>
-                                    <div style={{ fontSize: '14px', fontWeight: 500, color: '#0f172a' }}>{log.recipient}</div>
-                                    <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace', marginTop: '2px' }}>{log.message_id}</div>
-                                </td>
-                                <td style={{ padding: '16px 20px', fontSize: '14px', color: '#334155' }}>
-                                    {log.subject}
-                                </td>
-                                <td style={{ padding: '16px 20px' }}>
-                                    <StatusPill status={log.status} />
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-[#434655]/10">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={4} className="p-16 text-center text-slate-600 dark:text-[#c3c5d8] font-bold tracking-widest text-[10px] uppercase">
+                                        <Loader2 size={16} className="animate-spin text-blue-600 dark:text-[#adc6ff] mx-auto mb-2" />
+                                        Querying Telemetry...
+                                    </td>
+                                </tr>
+                            ) : filtered.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="p-16 text-center text-slate-600 dark:text-[#c3c5d8]/50 font-bold tracking-widest text-[10px] uppercase">
+                                        <Mail size={32} className="opacity-20 mx-auto mb-3 block" />
+                                        <p>No dispatch events matching query parameters.</p>
+                                    </td>
+                                </tr>
+                            ) : filtered.map((log) => (
+                                <tr key={log.id} className="group hover:bg-slate-50 dark:hover:bg-[#171f33]/80 transition-colors">
+                                    <td className="px-6 py-5">
+                                        <span className="text-[11px] font-bold text-slate-500 dark:text-[#8d90a1] uppercase tracking-wider">
+                                            {new Date(log.sent_at).toLocaleString('en-IN', {
+                                                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                                            })}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        <div className="text-sm font-extrabold text-slate-900 dark:text-[#dae2fd] flex items-center gap-2">
+                                            {log.recipient}
+                                            <button className="text-[#434655] hover:text-blue-600 dark:hover:text-[#adc6ff] p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <ArrowUpRight size={14} />
+                                            </button>
+                                        </div>
+                                        <div className="text-[10px] text-blue-600 dark:text-[#adc6ff] bg-[#adc6ff]/5 px-1.5 py-0.5 rounded border border-blue-400 dark:border-[#adc6ff]/10 font-mono tracking-widest inline-block mt-1.5">
+                                            MSG_{log.message_id.slice(0, 12)}...
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-5 text-[13px] text-slate-600 dark:text-[#c3c5d8] font-medium max-w-sm truncate">
+                                        {log.subject}
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        <StatusPill status={log.status} />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

@@ -17,6 +17,7 @@ from app.modules.inquiry.models import InquiryGroup, InquiryItem, QuoteVersion
 from app.modules.products.models import SubProduct
 from app.modules.services.models import Service
 from app.modules.reviews.models import Review
+from app.core.redis import redis_client
 
 
 PeriodType = Literal["today", "week", "month", "quarter", "year", "all"]
@@ -65,6 +66,58 @@ class DashboardService:
         self.db = db
 
     # ------------------------------------------------------------------ #
+    #  8.  TRAFFIC STATS (REDIS)
+    # ------------------------------------------------------------------ #
+    async def get_traffic_stats(self, period: PeriodType = "all") -> dict:
+        """Fetch device traffic from Redis sorted sets."""
+        now = datetime.now(timezone.utc)
+        delta = _period_delta(period)
+        
+        # If period is "all", default to last 30 days for practical limits
+        days_to_check = delta.days if delta else 30
+        if days_to_check > 90:
+            days_to_check = 90  # We only store 90 days in Redis
+            
+        mobile = 0
+        desktop = 0
+        tablet = 0
+        daily_trend = []
+        
+        for i in range(days_to_check, -1, -1):
+            d = now - timedelta(days=i)
+            key = f"analytics:traffic:{d.strftime('%Y-%m-%d')}"
+            
+            # zscore returns bytes or None
+            m_score = await redis_client.zscore(key, "mobile")
+            d_score = await redis_client.zscore(key, "desktop")
+            t_score = await redis_client.zscore(key, "tablet")
+            
+            m_val = int(m_score) if m_score else 0
+            d_val = int(d_score) if d_score else 0
+            t_val = int(t_score) if t_score else 0
+            
+            mobile += m_val
+            desktop += d_val
+            tablet += t_val
+            
+            daily_trend.append({
+                "date": d.strftime("%b %d"),
+                "mobile": m_val,
+                "desktop": d_val,
+                "tablet": t_val
+            })
+            
+        total = mobile + desktop + tablet
+        
+        return {
+            "mobile": {"count": mobile, "percentage": round((mobile/total)*100, 1) if total else 0},
+            "desktop": {"count": desktop, "percentage": round((desktop/total)*100, 1) if total else 0},
+            "tablet": {"count": tablet, "percentage": round((tablet/total)*100, 1) if total else 0},
+            "total": total,
+            "daily_trend": daily_trend
+        }
+
+    # ------------------------------------------------------------------ #
     #  1.  OVERVIEW
     # ------------------------------------------------------------------ #
     async def get_overview(self, period: PeriodType = "all") -> dict:
@@ -100,6 +153,16 @@ class DashboardService:
         )).all()
         orders_by_status = {row[0]: row[1] for row in status_rows}
 
+        source_rows = (await self.db.execute(
+            select(Order.is_offline, func.count(Order.id)).group_by(Order.is_offline)
+        )).all()
+        orders_online_vs_offline = {"offline": 0, "online": 0}
+        for row in source_rows:
+            if row[0]:
+                orders_online_vs_offline["offline"] = row[1]
+            else:
+                orders_online_vs_offline["online"] = row[1]
+
         # --- Revenue ---
         rev_q = select(
             func.coalesce(func.sum(Order.total_amount), 0),
@@ -131,6 +194,27 @@ class DashboardService:
         inquiries_in_period = await get_count_in_range(InquiryGroup, start)
         prev_inquiries_in_period = await get_count_in_range(InquiryGroup, prev_start, start)
         inquiry_metrics = _calculate_change(inquiries_in_period, prev_inquiries_in_period)
+
+        inq_status_counts = (await self.db.execute(
+            select(InquiryGroup.status, func.count(InquiryGroup.id)).group_by(InquiryGroup.status)
+        )).all()
+        inquiries_by_status = {r[0]: r[1] for r in inq_status_counts}
+        
+        accepted_count = inquiries_by_status.get("ACCEPTED", 0)
+        rejected_count = inquiries_by_status.get("REJECTED", 0)
+        total_submitted = pending_inquiries + accepted_count + rejected_count
+        
+        quoted_count = (await self.db.execute(
+            select(func.count(func.distinct(QuoteVersion.inquiry_id)))
+        )).scalar() or 0
+        
+        inquiry_funnel = {
+            "draft": total_inquiries,
+            "submitted": total_submitted,
+            "quoted": quoted_count,
+            "accepted": accepted_count
+        }
+        conversion_rate = round((accepted_count / total_submitted * 100), 1) if total_submitted > 0 else 0.0
 
         # --- Products & Services ---
         total_products = (await self.db.execute(
@@ -205,6 +289,7 @@ class DashboardService:
                 "total": total_orders,
                 "in_period": orders_in_period,
                 "by_status": orders_by_status,
+                "online_vs_offline": orders_online_vs_offline,
                 "daily_trend": daily_trend,
                 **order_metrics
             },
@@ -220,6 +305,8 @@ class DashboardService:
                 "pending": pending_inquiries,
                 "in_period": inquiries_in_period,
                 "daily_trend": inquiry_trend,
+                "funnel": inquiry_funnel,
+                "conversion_rate": conversion_rate,
                 **inquiry_metrics
             },
             "products": {"total": total_products, "active": active_products},

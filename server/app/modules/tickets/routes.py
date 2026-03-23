@@ -110,7 +110,7 @@ async def get_ticket_detail(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
 
     # Users can only see their own tickets; admins can see any
-    if ticket.user_id != current_user.id:
+    if not current_user.admin and ticket.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your ticket")
 
     return ticket
