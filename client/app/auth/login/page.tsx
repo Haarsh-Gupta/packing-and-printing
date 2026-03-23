@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import { useAuth } from "@/context/AuthContext";
 import { PasswordInput } from "@/components/ui/password-input";
 import { getFriendlyErrorMessage } from "@/lib/auth-utils";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
@@ -61,45 +61,60 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-slate-50">
-      <Card className="w-full max-w-md border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-        <CardHeader><CardTitle>Welcome back</CardTitle></CardHeader>
-        <CardContent>
-          {searchParams.get("reset") === "success" && (
-            <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-md text-sm mb-4 text-center font-medium">
-              Password reset successfully! Please sign in with your new password.
-            </div>
-          )}
-          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2"><Label>Email</Label><Input name="email" type="email" required onChange={(e) => setFormData({ ...formData, email: e.target.value })} /></div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Password</Label>
-                <Link href="/auth/forgot-password" className="text-sm text-zinc-600 hover:text-black underline-offset-4 hover:underline">
-                  Forgot password?
-                </Link>
-              </div>
-              <PasswordInput
-                name="password"
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="••••••••"
-              />
-            </div>
-            <Button type="submit" className="w-full bg-black" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 animate-spin" /> : "Sign In"}
-            </Button>
-            <Button type="button" variant="outline" className="w-full border-2 border-black" onClick={handleGoogleLogin}>
-              <FcGoogle className="mr-2 h-5 w-5" /> Sign in with Google
-            </Button>
-          </form>
-          <div className="mt-6 text-center text-sm">
-            Don't have an account? <Link href="/auth/signup" className="underline font-medium">Sign up</Link>
+    <Card className="w-full max-w-md border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+      <CardHeader><CardTitle>Welcome back</CardTitle></CardHeader>
+      <CardContent>
+        {searchParams.get("reset") === "success" && (
+          <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-md text-sm mb-4 text-center font-medium">
+            Password reset successfully! Please sign in with your new password.
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-2"><Label>Email</Label><Input name="email" type="email" required onChange={(e) => setFormData({ ...formData, email: e.target.value })} /></div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Password</Label>
+              <Link href="/auth/forgot-password" className="text-sm text-zinc-600 hover:text-black underline-offset-4 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
+            <PasswordInput
+              name="password"
+              required
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder="••••••••"
+            />
+          </div>
+          <Button type="submit" className="w-full bg-black" disabled={isLoading}>
+            {isLoading ? <Loader2 className="mr-2 h-4 animate-spin" /> : "Sign In"}
+          </Button>
+          <Button type="button" variant="outline" className="w-full border-2 border-black" onClick={handleGoogleLogin}>
+            <FcGoogle className="mr-2 h-5 w-5" /> Sign in with Google
+          </Button>
+        </form>
+        <div className="mt-6 text-center text-sm">
+          Don't have an account? <Link href="/auth/signup" className="underline font-medium">Sign up</Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4 bg-slate-50">
+      <Suspense fallback={
+        <Card className="w-full max-w-md border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <CardHeader><CardTitle>Welcome back</CardTitle></CardHeader>
+          <CardContent className="flex justify-center items-center py-10">
+            <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+          </CardContent>
+        </Card>
+      }>
+        <LoginForm />
+      </Suspense>
+    </div>
+  );
+}
