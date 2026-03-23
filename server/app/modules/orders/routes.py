@@ -293,31 +293,59 @@ async def get_invoice(
     items = []
     if inquiry:
         for itm in inquiry.items:
-            name = itm.sub_product.name if itm.sub_product else "Custom item"
+            # Determine the source entity (sub_product or sub_service) for HSN/GST
+            sp = itm.sub_product
+            ss = itm.sub_service
+            source = sp or ss  # whichever is populated
+
+            name = (sp.name if sp else ss.name if ss else "Custom item")
             qty = itm.quantity or 1
             total = float(itm.line_item_price or 0)
+            options = itm.selected_options or {}
+            variant = options.pop("variant_name", None) if isinstance(options, dict) else None
+
+            # Build specs string from remaining selected_options
+            specs_parts = []
+            if isinstance(options, dict):
+                for k, v in options.items():
+                    if v not in (None, "", False):
+                        specs_parts.append(f"{k}: {v}")
+            specs = " · ".join(specs_parts) if specs_parts else ""
+
             items.append({
                 "description": name,
                 "quantity": qty,
                 "unit_price": round(total / qty, 2) if qty > 0 else 0,
                 "total": total,
+                "variant": variant,
+                "specs": specs,
+                "hsn_sac": getattr(source, "hsn_code", "") or "",
+                "cgst_rate": float(getattr(source, "cgst_rate", 0) or 0),
+                "sgst_rate": float(getattr(source, "sgst_rate", 0) or 0),
+                "igst_rate": float(getattr(source, "cgst_rate", 0) or 0) + float(getattr(source, "sgst_rate", 0) or 0),
             })
+
+    # Logo path: configurable via env or placed in server/static/logo.png
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "static", "logo.png")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         filepath = tmp.name
 
     await run_in_threadpool(
         generate_simple_invoice,
-        filepath, 
+        filepath,
         {
-            "invoice_number": f"INV-{str(order_id)[:8].upper()}",
+            "invoice_number": f"INV-{order.order_number or str(order_id)[:8].upper()}",
             "invoice_date": order.created_at,
             "order_data": {
-                "total_amount": order.total_amount,
-                "amount_paid": order.amount_paid,
-                "subtotal": order.total_amount,
-                "tax": 0,
-                "discount": 0,
+                "order_id": order.order_number or str(order_id)[:8].upper(),
+                "status": order.status,
+                "order_date": order.created_at.strftime("%d %b %Y"),
+                "total_amount": float(order.total_amount or 0),
+                "tax_amount": float(order.tax_amount or 0),
+                "shipping_amount": float(order.shipping_amount or 0),
+                "order_discount": float(order.discount_amount or 0),
+                "amount_paid": float(order.amount_paid or 0),
             },
             "company_info": {
                 "name": settings.company_name,
@@ -325,6 +353,7 @@ async def get_invoice(
                 "phone": settings.company_phone,
                 "email": settings.company_email,
                 "gstin": settings.company_gstin or None,
+                "website": settings.company_website or None,
             },
             "customer_info": {
                 "name": order.user.name or "Customer",
@@ -333,7 +362,7 @@ async def get_invoice(
                 "address": "",
             },
             "items": items,
-            "qr_code": None,
+            "logo_path": logo_path,
         }
     )
 

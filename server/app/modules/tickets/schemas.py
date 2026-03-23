@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from enum import Enum
 from pydantic import BaseModel, Field, ConfigDict
@@ -49,6 +49,7 @@ class TicketMessageResponse(BaseModel):
 
 class TicketResponse(BaseModel):
     id: UUID
+    display_id: Optional[str] = None
     user_id: UUID
     subject: str
     status: TicketStatus
@@ -66,6 +67,7 @@ class TicketDetailResponse(TicketResponse):
 
 class TicketListResponse(BaseModel):
     id: UUID
+    display_id: Optional[str] = None
     user_id: UUID
     subject: str
     status: TicketStatus

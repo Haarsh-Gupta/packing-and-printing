@@ -18,7 +18,7 @@ export function OrderCard({ order }: { order: Order }) {
     const [orderStatus, setOrderStatus] = useState<Order["status"]>(order.status);
     const balanceDue = order.total_amount - paidAmount;
     const currentStep = getOrderStatusStep(orderStatus);
-    const productName = order.product_name || `Custom Order #${order.id}`;
+    const productName = order.product_name || `Order ${order.order_number || '#' + order.id.slice(0, 8)}`;
     const quantity = order.quantity || 100;
 
     return (
@@ -36,7 +36,7 @@ export function OrderCard({ order }: { order: Order }) {
                             <Badge variant="outline" className={`${getOrderStatusColor(order.status)} border-0 font-bold px-3 py-1`}>
                                 {order.status.replace("_", " ")}
                             </Badge>
-                            <span className="text-xs text-zinc-400 font-mono">#{order.id}</span>
+                            <span className="text-xs text-zinc-400 font-mono">{order.order_number || '#' + order.id.slice(0, 8)}</span>
                         </div>
 
                         <h3 className="text-xl font-bold text-zinc-900 leading-tight mb-1">{productName}</h3>

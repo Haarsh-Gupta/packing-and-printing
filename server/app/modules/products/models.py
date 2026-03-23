@@ -45,6 +45,11 @@ class SubProduct(Base):
     config_schema = Column(JSONB, nullable=False)
     images = Column(ARRAY(String), nullable=True)
     
+    # Taxation
+    hsn_code  = Column(String, nullable=True)   # Optional HSN/SAC code
+    cgst_rate = Column(Double, default=0.0)     # e.g. 9.0 for 9%
+    sgst_rate = Column(Double, default=0.0)     # e.g. 9.0 for 9%
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

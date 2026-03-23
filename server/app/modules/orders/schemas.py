@@ -318,6 +318,7 @@ class PaymentDeclarationResponse(BaseModel):
 
 class TransactionResponse(BaseModel):
     id: UUID
+    receipt_number: Optional[str] = None
     order_id: UUID
     milestone_id: UUID
     amount: float
@@ -355,11 +356,15 @@ class PaymentSessionResponse(BaseModel):
 
 class OrderResponse(BaseModel):
     id: UUID
+    order_number: Optional[str] = None
     inquiry_id: UUID
     user_id: UUID
     user_name: Optional[str] = None
     user_email: Optional[str] = None
     total_amount: float
+    tax_amount: Optional[float] = 0.0
+    shipping_amount: Optional[float] = 0.0
+    discount_amount: Optional[float] = 0.0
     amount_paid: float
     status: OrderStatus
     admin_notes: Optional[str] = None
@@ -374,11 +379,15 @@ class OrderResponse(BaseModel):
 
 class OrderListResponse(BaseModel):
     id: UUID
+    order_number: Optional[str] = None
     inquiry_id: UUID
     user_id: UUID
     user_name: Optional[str] = None
     user_email: Optional[str] = None
     total_amount: float
+    tax_amount: Optional[float] = 0.0
+    shipping_amount: Optional[float] = 0.0
+    discount_amount: Optional[float] = 0.0
     amount_paid: float
     status: OrderStatus
     created_at: datetime

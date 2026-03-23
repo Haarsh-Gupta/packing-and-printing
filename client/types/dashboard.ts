@@ -1,5 +1,6 @@
 export interface Order {
     id: string;
+    order_number?: string;
     inquiry_id: string;
     total_amount: number;
     amount_paid: number;
@@ -37,6 +38,7 @@ export interface InquiryMessage {
 
 export interface QuoteVersion {
     id: string;
+    display_id?: string;
     inquiry_id: string;
     version_number: number;
     total_price: number;
@@ -47,6 +49,7 @@ export interface QuoteVersion {
 
 export interface Inquiry {
     id: string;
+    display_id?: string;
     user_id: string;
     status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "NEGOTIATING" | "QUOTED" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED";
     active_quote_id?: string;

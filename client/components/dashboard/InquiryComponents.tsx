@@ -36,7 +36,7 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                         {item?.service_id ? item?.service_name : item?.template_name}
                     </CardTitle>
                     <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mt-1">
-                        ID #{inquiry.id.slice(0, 8).toUpperCase()} • {new Date(inquiry.created_at).toLocaleDateString()}
+                        {inquiry.display_id || `#${inquiry.id.slice(0, 8).toUpperCase()}`} • {new Date(inquiry.created_at).toLocaleDateString()}
                     </p>
                 </div>
                 <InquiryStatusBadge status={inquiry.status} />

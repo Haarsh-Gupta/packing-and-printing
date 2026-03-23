@@ -93,6 +93,9 @@ class SubProductCreate(BaseModel):
     images: Optional[List[str]] = None
     config_schema: ProductConfigSchema
     is_active: bool = True
+    hsn_code: Optional[str] = None
+    cgst_rate: float = 0.0
+    sgst_rate: float = 0.0
 
     @model_validator(mode="after")
     def validate_config_schema(self):
@@ -148,6 +151,9 @@ class SubProductUpdate(BaseModel):
     images: Optional[List[str]] = None
     config_schema: Optional[ProductConfigSchema] = None
     is_active: Optional[bool] = None
+    hsn_code: Optional[str] = None
+    cgst_rate: Optional[float] = None
+    sgst_rate: Optional[float] = None
 
     @model_validator(mode="after")
     def validate_update(self):

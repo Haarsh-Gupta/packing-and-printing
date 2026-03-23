@@ -2,16 +2,19 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, func, Uuid, text, I
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from app.core.database import Base
+from app.core.display_id import generate_nanoid
 
 
 class InquiryGroup(Base):
     __tablename__ = "inquiry_groups"
 
     id              = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
+    display_id      = Column(String, unique=True, nullable=False, index=True,
+                             default=lambda: generate_nanoid("INQ", 4))
     user_id         = Column(Uuid, ForeignKey("users.id"), nullable=False, index=True)
-    status          = Column(String, default="DRAFT", nullable=False, index=True)  # was "PENDING"
-    active_quote_id = Column(Uuid, ForeignKey("quote_versions.id"), nullable=True)  # NEW
-    quote_email_status = Column(String, nullable=True) # delivered, bounced, etc.
+    status          = Column(String, default="DRAFT", nullable=False, index=True)
+    active_quote_id = Column(Uuid, ForeignKey("quote_versions.id"), nullable=True)
+    quote_email_status = Column(String, nullable=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -81,11 +84,16 @@ class QuoteVersion(Base):
     __tablename__ = "quote_versions"
 
     id          = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
+    display_id  = Column(String, unique=True, nullable=False, index=True,
+                         default=lambda: generate_nanoid("QTV", 4))
     inquiry_id  = Column(Uuid, ForeignKey("inquiry_groups.id", ondelete="CASCADE"), nullable=False, index=True)
     version     = Column(Integer, nullable=False)
     created_by  = Column(Uuid, ForeignKey("users.id"), nullable=False)
 
     total_price = Column(Float, nullable=False)
+    tax_amount  = Column(Float, default=0.0)
+    shipping_amount = Column(Float, default=0.0)
+    discount_amount = Column(Float, default=0.0)
     valid_until = Column(DateTime(timezone=True), nullable=False)
     admin_notes = Column(Text, nullable=True)
 

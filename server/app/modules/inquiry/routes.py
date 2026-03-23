@@ -525,6 +525,9 @@ async def update_inquiry_status_user(
                 inquiry_id=group.id,
                 user_id=group.user_id,
                 total_amount=quoted_total,
+                tax_amount=group.active_quote.tax_amount or 0.0,
+                shipping_amount=group.active_quote.shipping_amount or 0.0,
+                discount_amount=group.active_quote.discount_amount or 0.0,
                 status="WAITING_PAYMENT"
             )
             db.add(new_order)
@@ -703,6 +706,9 @@ async def direct_checkout_zero_cost(
         inquiry_id=new_group.id,
         user_id=new_group.user_id,
         total_amount=0.0,
+        tax_amount=0.0,
+        shipping_amount=0.0,
+        discount_amount=0.0,
         amount_paid=0.0,
         status="PAID"
     )

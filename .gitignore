@@ -52,3 +52,7 @@ Thumbs.db # Windows
 # credentials.json
 # config.ini
 
+# Logs
+*.log
+
+
