@@ -5,11 +5,14 @@ POST /payments/create-order  — create a gateway order for a specific milestone
 POST /payments/verify        — verify the payment and record the transaction
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -18,7 +21,9 @@ from app.modules.auth import get_current_user
 from app.modules.users.models import User
 from app.modules.orders.models import Order, Transaction
 
-from .schemas import CreatePaymentOrder, PaymentOrderResponse, VerifyPayment
+from app.modules.payments.schemas import CreatePaymentOrder, PaymentOrderResponse, VerifyPayment
+
+logger = logging.getLogger("app.modules.payments")
 
 router = APIRouter()
 
@@ -95,7 +100,7 @@ async def create_payment_order(
         gw_order = provider.create_order(
             amount_paise=amount_paise,
             currency="INR",
-            receipt=f"order_{order.id}_ms_{milestone.id}",
+            receipt=f"o_{str(order.id)[:8]}_m_{str(milestone.id)[:8]}",
             notes={
                 "internal_order_id": str(order.id),
                 "milestone_id": str(milestone.id),
@@ -103,6 +108,7 @@ async def create_payment_order(
             },
         )
     except Exception as e:
+        logger.error(f"Razorpay create_order failed: {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Payment gateway error: {str(e)}",
@@ -259,3 +265,101 @@ async def verify_payment(
         "amount_paid": order.amount_paid,
         "status": order.status,
     }
+
+@router.post("/webhooks/razorpay")
+async def razorpay_webhook_event(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    provider = get_payment_provider()
+    payload_body = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+
+    if not signature:
+        raise HTTPException(status_code=400, detail="Missing signature")
+
+    if not provider.verify_webhook_signature(
+        payload_body.decode("utf-8"),
+        signature,
+        settings.razorpay_webhook_secret
+    ):
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    payload = await request.json()
+    event = payload.get("event")
+
+    if event == "payment.captured":
+        # Check if transaction already recorded (sync flow raced us)
+        gateway_payment_id = payload["payload"]["payment"]["entity"]["id"]
+        gateway_order_id = payload["payload"]["payment"]["entity"]["order_id"]
+        
+        result = await db.execute(
+            select(Transaction).where(Transaction.gateway_payment_id == gateway_payment_id)
+        )
+        if result.scalar_one_or_none():
+            return {"status": "already_processed"}
+            
+        # Get order
+        result = await db.execute(
+            select(Order)
+            .options(selectinload(Order.milestones), selectinload(Order.user))
+            .where(Order.payment_gateway_order_id == gateway_order_id)
+        )
+        order = result.scalar_one_or_none()
+        if not order:
+            return {"status": "order_not_found"}
+            
+        # Find milestone via notes
+        notes = payload["payload"]["payment"]["entity"].get("notes", {})
+        milestone_id = notes.get("milestone_id")
+        
+        milestone = next((m for m in order.milestones if m.id == milestone_id), None)
+        if not milestone or milestone.status == "PAID":
+            return {"status": "milestone_already_paid_or_not_found"}
+            
+        paid_amount = milestone.amount
+        
+        # Record txn
+        txn = Transaction(
+            order_id=order.id,
+            milestone_id=milestone.id,
+            amount=paid_amount,
+            payment_mode="ONLINE",
+            notes=f"Webhook: {gateway_payment_id}",
+            gateway_payment_id=gateway_payment_id,
+        )
+        db.add(txn)
+        milestone.status = "PAID"
+        milestone.paid_at = datetime.now(timezone.utc)
+        order.amount_paid += paid_amount
+        if order.amount_paid >= order.total_amount:
+            order.status = "PAID"
+        else:
+            order.status = "PARTIALLY_PAID"
+            
+        await db.commit()
+        
+        # Fire SSE + messaging (fire-and-forget)
+        try:
+            from app.core.messaging import get_dispatcher
+            dispatcher = get_dispatcher()
+            user_obj = order.user
+            await dispatcher.dispatch(
+                to_email=user_obj.email if user_obj else None,
+                to_phone=user_obj.phone if user_obj else None,
+                subject=f"Payment Confirmed — ₹{paid_amount:,.2f}",
+                body_html=f"<p>Your payment of ₹{paid_amount:,.2f} for milestone {milestone.label} has been confirmed via Webhook.</p>",
+                body_text=f"Payment of ₹{paid_amount:,.2f} confirmed.",
+                sse_user_id=str(order.user_id),
+                sse_event="payment_verified",
+                sse_data={"order_id": str(order.id), "status": order.status},
+                sse_admin_event="admin_payment_received",
+                sse_admin_data={"order_id": str(order.id), "status": order.status},
+            )
+        except Exception:
+            pass
+            
+        return {"status": "success", "event": "payment.captured"}
+
+    return {"status": "ignored"}
+

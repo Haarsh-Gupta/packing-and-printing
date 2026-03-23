@@ -1,7 +1,21 @@
 import asyncio
-from fastapi import FastAPI 
-from fastapi.responses import HTMLResponse 
-from app.core.database import engine
+import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+
+from app.core.config import settings
+from app.core.logging_config import setup_logging
+from app.core.database import engine, check_db_connection
+from app.core.middleware import RateLimitMiddleware, UserActivityMiddleware
+from app.core.redis import check_redis_connection, redis_client
+from app.core.email.service import check_smtp_connection
+from app.core.sse import sse_manager
+from app.core.websockets import ws_manager
+from app.core.task_registry import cancel_all, pending_count
+
+
 from app.modules.users.routes import router as user_router
 from app.modules.users.admin_routes import router as admin_user_router
 
@@ -36,67 +50,49 @@ from app.modules.wishlist.routes import router as wishlist_router
 from app.modules.wishlist.admin_routes import router as admin_wishlist_router
 from app.modules.events.routes import router as events_router
 
+logger = logging.getLogger("app.main")
 
-from starlette.middleware.sessions import SessionMiddleware
-
-from contextlib import asynccontextmanager
-from app.core.config import settings
-from app.core.middleware import RateLimitMiddleware, UserActivityMiddleware
-
-from app.core.database import check_db_connection
-from app.core.redis import check_redis_connection, redis_client
-from app.core.email.service import check_smtp_connection
-from app.core.sse import sse_manager
-from app.core.websockets import ws_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("\n--------- STARTUP CHECKS ---------")
+    setup_logging()
 
+    # logger.info("--------- STARTUP CHECKS ---------")
+    print("--------- STARTUP CHECKS ---------")
     await check_db_connection()
     await check_redis_connection()
     await check_smtp_connection()
     
-    print("----------------------------------\n")
+    # logger.info("--------- STARTUP COMPLETE ---------")
+    print("--------- STARTUP COMPLETE ---------")
     
     yield
     
-    print("\n--------- SHUTDOWN STARTED ---------")
-    
-    async def _graceful_shutdown():
-        print("⏳ Shutting down SSE Manager...")
-        await sse_manager.shutdown()
-        print("✅ SSE Manager shutdown")
-        
-        print("⏳ Shutting down WebSocket Manager...")
-        await ws_manager.shutdown()
-        print("✅ WebSocket Manager shutdown")
-        
-        print("⏳ Closing Redis client...")
-        await redis_client.close()
-        print("✅ Redis client closed")
-        
-        print("⏳ Disposing Database Engine...")
-        await engine.dispose()
-        print("✅ Database Engine disposed")
+    # logger.info("--------- SHUTDOWN STARTED ---------")
+
+    await cancel_all(timeout=3.0)
 
     try:
-        await asyncio.wait_for(_graceful_shutdown(), timeout=5.0)
-    except asyncio.TimeoutError:
-        print("⚠️  Shutdown timed out after 5s — forcing exit")
+        print("⏳ Closing Redis client...")
+        await asyncio.wait_for(redis_client.aclose(), timeout=2.0)
+        print("✅ Redis client closed")
     except Exception as e:
-        print(f"⚠️  Shutdown error: {e}")
+        logger.warning("Redis close error: %s", e)
+
+    try:
+        print("⏳ Disposing Database Engine...")
+        await asyncio.wait_for(engine.dispose(), timeout=3.0)
+        print("✅ Database Engine disposed")
+    except Exception as e:
+        logger.warning("DB engine dispose error: %s", e)
     
-    print("--------- SHUTDOWN COMPLETE ---------\n")
+    logger.info("--------- SHUTDOWN COMPLETE ---------")
 
 app = FastAPI(lifespan=lifespan)
 
-from fastapi.middleware.cors import CORSMiddleware
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
-    allow_origin_regex=r"http://localhost:\d+",
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_credentials=True, # Critical for setting the refresh_token cookie!
     allow_methods=["*"],
     allow_headers=["*"],

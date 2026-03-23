@@ -14,14 +14,15 @@ from app.core.config import settings
 from app.core.sse import sse_manager
 from app.modules.auth.schemas import TokenData
 
-from .models import Notification
-from .schemas import (
+from app.modules.notifications.models import Notification, EmailLog
+from app.modules.inquiry.models import InquiryGroup
+from app.modules.notifications.schemas import (
     NotificationBulkCreate,
     NotificationResponse,
     NotificationListResponse,
     UnreadCountResponse,
 )
-from .service import NotificationService
+from app.modules.notifications.service import NotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -259,3 +260,74 @@ async def delete_notification(
     if result.rowcount == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
     return {"message": "Notification deleted"}
+
+@router.post("/webhooks/brevo")
+async def brevo_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    """
+    Webhook receiver for Brevo email status events.
+    Events: delivered, bounce, soft_bounce, opened, click
+    """
+    try:
+        payload = await request.json()
+        # Brevo sends single event or array? Docs say single POST per event.
+        event = payload.get("event")
+        email = payload.get("email")
+        message_id = payload.get("message-id")
+        
+        logger.info(f"📧 Brevo Webhook: event={event}, email={email}, message_id={message_id}")
+
+        if not message_id:
+            return {"status": "ignored", "reason": "no message-id"}
+
+        # 1. Update EmailLog status
+        stmt = select(EmailLog).where(EmailLog.message_id == message_id)
+        result = await db.execute(stmt)
+        log_entry = result.scalar_one_or_none()
+
+        if log_entry:
+            log_entry.status = event
+            # Store extra details in metadata if available
+            meta = dict(log_entry.metadata_ or {})
+            meta["last_webhook_payload"] = payload
+            log_entry.metadata_ = meta
+            
+            # 1.1 Sync Inquiry status if linked
+            if log_entry.inquiry_id:
+                await db.execute(
+                    update(InquiryGroup)
+                    .where(InquiryGroup.id == log_entry.inquiry_id)
+                    .values(quote_email_status=event)
+                )
+            
+        # 2. Specific Logic for Bounce
+        if event in ["bounce", "soft_bounce"]:
+            logger.warning(f"❌ Email bounced for {email}. Marking user.email_bounced = True")
+            await db.execute(
+                update(User).where(User.email == email).values(email_bounced=True)
+            )
+            # 2.2 Notify Admins about the bounce
+            # Find all admins
+            admin_stmt = select(User).where(User.admin == True)
+            admins_res = await db.execute(admin_stmt)
+            admins = admins_res.scalars().all()
+            for admin in admins:
+                db.add(Notification(
+                    user_id=admin.id,
+                    title="Critical: Email Bounced",
+                    message=f"Email to {email} ({event}) failed. User marked as bounced.",
+                    metadata_={"type": "email_bounce", "email": email, "event": event}
+                ))
+
+        # 3. Specific Logic for Opened/Clicked (can use for stats later)
+        if event == "opened":
+            logger.info(f"👀 Email opened by {email}")
+        elif event == "click":
+            logger.info(f"🖱️ Link clicked by {email}: {payload.get('link')}")
+
+        await db.commit()
+        return {"status": "ok"}
+
+    except Exception as e:
+        logger.error(f"Brevo webhook error: {e}")
+        # Always return 200 to Brevo to avoid retries if the logic failed but we received it
+        return {"status": "error", "message": str(e)}

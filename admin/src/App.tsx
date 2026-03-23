@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import Login from "@/components/Login";
 import Dashboard from "@/pages/Dashboard";
 import Orders from "@/pages/Orders";
+import Declarations from "@/pages/Declarations";
 import Inquiries from "@/pages/Inquiries";
 import Products from "@/pages/Products";
 import Services from "@/pages/Services";
@@ -11,6 +12,8 @@ import Users from "@/pages/Users";
 import Tickets from "@/pages/Tickets";
 import Notifications from "@/pages/Notifications";
 import Reviews from "@/pages/Reviews";
+import Emails from "@/pages/Emails";
+import EmailLogs from "@/pages/EmailLogs";
 import InquiryDetail from "@/pages/InquiryDetail";
 import Settings from "@/pages/Settings";
 import SubProducts from "@/pages/SubProducts";
@@ -26,6 +29,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/orders" element={<Orders />} />
+            <Route path="/declarations" element={<Declarations />} />
             <Route path="/inquiries" element={<Inquiries />} />
             <Route path="/inquiries/:id" element={<InquiryDetail />} />
             <Route path="/products" element={<Products />} />
@@ -36,6 +40,8 @@ export default function App() {
             <Route path="/tickets" element={<Tickets />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/reviews" element={<Reviews />} />
+            <Route path="/emails" element={<Emails />} />
+            <Route path="/email-logs" element={<EmailLogs />} />
             <Route path="/calculator" element={<PricingCalculator />} />
             <Route path="/settings" element={<Settings />} />
           </Route>

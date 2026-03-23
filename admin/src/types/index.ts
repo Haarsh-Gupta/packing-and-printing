@@ -12,17 +12,25 @@ export interface AuthUser {
     admin: boolean;
     avatar_url?: string;
     profile_picture?: string;
+    email_bounced?: boolean;
     created_at: string;
 }
 
 // ============ Dashboard ============
+export interface Metric {
+    total: number;
+    change: string;
+    trend: 'up' | 'down';
+}
+
 export interface DashboardOverview {
-    users: { total: number; new_in_period: number };
-    orders: { total: number; in_period: number; by_status: Record<string, number> };
-    revenue: { total_billed: number; total_collected: number; total_pending: number; collected_in_period: number };
-    inquiries: { total: number; pending: number; in_period: number };
+    users: Metric & { new_in_period: number; daily_trend: { date: string; count: number }[] };
+    orders: Metric & { in_period: number; by_status: Record<string, number>; daily_trend: { date: string; value: number; count: number }[] };
+    revenue: Metric & { total_billed: number; total_collected: number; total_pending: number; collected_in_period: number };
+    inquiries: Metric & { pending: number; in_period: number; daily_trend: { date: string; count: number }[] };
     products: { total: number; active: number };
     services: { total: number; active: number };
+    recent_reviews: Review[];
 }
 
 export interface RevenueData {
@@ -61,6 +69,40 @@ export interface ActivityItem {
 }
 
 // ============ Orders ============
+export type OrderStatus = 
+    | "WAITING_PAYMENT" 
+    | "PARTIALLY_PAID" 
+    | "PAID" 
+    | "PROCESSING" 
+    | "READY" 
+    | "COMPLETED" 
+    | "CANCELLED";
+
+export interface Milestone {
+    id: string;
+    order_id: string;
+    label: string;
+    amount: number;
+    percentage: number;
+    order_index: number;
+    status: string;
+    paid_at?: string;
+}
+
+export interface PaymentDeclaration {
+    id: string;
+    order_id: string;
+    milestone_id: string;
+    user_id: string;
+    payment_mode: string;
+    utr_number?: string;
+    screenshot_url?: string;
+    status: string;
+    rejection_reason?: string;
+    created_at: string;
+    reviewed_at?: string;
+}
+
 export interface Transaction {
     id: string;
     order_id: string;
@@ -77,12 +119,14 @@ export interface Order {
     user_id: string;
     total_amount: number;
     amount_paid: number;
-    status: string;
+    status: OrderStatus;
     product_name?: string;
     payment_id?: string;
     created_at: string;
     updated_at: string;
+    milestones?: Milestone[];
     transactions?: Transaction[];
+    declarations?: PaymentDeclaration[];
 }
 
 // ============ Inquiries ============
@@ -111,25 +155,38 @@ export interface InquiryMessage {
     created_at: string;
 }
 
+export interface QuoteVersion {
+    id: string;
+    inquiry_id: string;
+    version_number: number;
+    total_price: number;
+    valid_until: string;
+    admin_notes?: string;
+    milestones?: { label: string; percentage: number; description?: string }[];
+    line_items?: Record<string, unknown>[];
+    status: string;
+    created_at: string;
+}
+
 export interface InquiryGroup {
     id: string;
     user_id: string;
     status: string;
-    total_quoted_price?: number;
-    admin_notes?: string;
-    quoted_at?: string;
-    quote_valid_until?: string;
+    active_quote_id?: string;
+    active_quote?: QuoteVersion;
+    quote_versions?: QuoteVersion[];
     created_at: string;
     updated_at: string;
     items: InquiryItem[];
     messages: InquiryMessage[];
+    quote_email_status?: string;
 }
 
 export interface InquiryGroupList {
     id: string;
     user_id: string;
     status: string;
-    total_quoted_price?: number;
+    active_quote?: { total_price: number };
     created_at: string;
     item_count: number;
 }
@@ -209,6 +266,7 @@ export interface User {
     admin: boolean;
     avatar_url?: string;
     profile_picture?: string;
+    email_bounced?: boolean;
     created_at?: string;
 }
 
@@ -253,6 +311,8 @@ export interface Review {
     service_id?: number | null;
     rating: number;
     comment: string;
+    user_name?: string;
+    product_name?: string;
     is_verified: boolean;
     created_at: string;
     user?: { name: string; avatar_url?: string; profile_picture?: string };

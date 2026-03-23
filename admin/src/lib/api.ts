@@ -1,3 +1,4 @@
+export const TOKEN_KEY = "admin_token";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 function getToken(): string | null {
@@ -77,3 +78,4 @@ export async function apiBlob(path: string): Promise<Blob> {
 }
 
 export { API_URL, getToken };
+export default api;

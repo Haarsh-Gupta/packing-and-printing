@@ -3,7 +3,7 @@ export interface Order {
     inquiry_id: string;
     total_amount: number;
     amount_paid: number;
-    status: "PENDING" | "WAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "IN_PRODUCTION" | "PROCESSING" | "READY" | "SHIPPED" | "DELIVERED" | "COMPLETED" | "CANCELLED";
+    status: "WAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "PROCESSING" | "READY" | "COMPLETED" | "CANCELLED";
     product_name?: string;
     quantity?: number;
     image_url?: string;
@@ -35,16 +35,25 @@ export interface InquiryMessage {
     created_at: string;
 }
 
+export interface QuoteVersion {
+    id: string;
+    inquiry_id: string;
+    version_number: number;
+    total_price: number;
+    admin_notes?: string;
+    valid_until: string;
+    created_at: string;
+}
+
 export interface Inquiry {
     id: string;
     user_id: string;
-    status: "PENDING" | "UNDER_REVIEW" | "QUOTED" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED";
-    total_quoted_price?: number | null;
-    admin_notes?: string | null;
-    quoted_at?: string | null;
-    quote_valid_until?: string | null;
+    status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "NEGOTIATING" | "QUOTED" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED";
+    active_quote_id?: string;
+    active_quote?: QuoteVersion;
     created_at: string;
     updated_at: string;
     items?: InquiryItem[];
     messages?: InquiryMessage[];
+    quote_versions?: QuoteVersion[];
 }

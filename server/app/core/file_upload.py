@@ -16,6 +16,7 @@ cloudinary.config(
 ALLOWED_TYPES = {
     "profile": ["image/jpeg", "image/png", "image/webp"],
     "product": ["image/jpeg", "image/png", "image/webp"],
+    "payment": ["image/jpeg", "image/png", "image/webp"],
     # Inquiries need vector files (CDR, AI) and PDFs
     "inquiry": ["image/jpeg", "image/png", "application/pdf", "application/cdr", "application/postscript", "application/octet-stream"] 
 }
@@ -50,7 +51,8 @@ async def upload_file_to_cloud(file: UploadFile, purpose: str) -> str:
     folder_map = {
         "profile": "bookbind/users/profiles",
         "product": "bookbind/products",
-        "inquiry": "bookbind/inquiries" # Private-ish folder
+        "inquiry": "bookbind/inquiries",
+        "payment": "bookbind/payment_screenshots",
     }
     
     try:

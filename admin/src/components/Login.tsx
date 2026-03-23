@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 
 export default function Login() {
-    const { user, login } = useAuth();
+    const { admin: user, login } = useAuth();
     const navigate = useNavigate();
     const [tab, setTab] = useState<"password" | "otp">("password");
     const [email, setEmail] = useState("");

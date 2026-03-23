@@ -1,14 +1,17 @@
+import logging
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, or_
 
-from .schemas import UserOut
-from .models import User
+from app.modules.users.schemas import UserOut
+from app.modules.users.models import User
 from app.core.database import get_db
-from ..auth import get_current_admin_user
+from app.modules.auth import get_current_admin_user
 from app.core.redis import redis_client
+
+logger = logging.getLogger("app.modules.users.admin")
 
 router = APIRouter()
 

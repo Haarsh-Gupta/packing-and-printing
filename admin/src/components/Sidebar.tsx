@@ -12,18 +12,21 @@ import {
 const navItems = [
     { label: "Dashboard", icon: LayoutDashboard, path: "/" },
     { label: "Orders", icon: ShoppingCart, path: "/orders" },
+    { label: "Declarations", icon: ShoppingCart, path: "/declarations" },
     { label: "Inquiries", icon: MessageSquare, path: "/inquiries" },
     { label: "Products", icon: Package, path: "/products" },
     { label: "Services", icon: Wrench, path: "/services" },
     { label: "Pricing Calculator", icon: Calculator, path: "/calculator" },
     { label: "Customers", icon: Users, path: "/users" },
     { label: "Tickets", icon: LifeBuoy, path: "/tickets" },
-    { label: "Notifications & Email", icon: Bell, path: "/notifications" },
+    { label: "Notifications", icon: Bell, path: "/notifications" },
+    { label: "Email Center", icon: Mail, path: "/emails" },
+    { label: "Email Logs", icon: Star, path: "/email-logs" },
     { label: "Reviews", icon: Star, path: "/reviews" },
 ];
 
 export function AppSidebar() {
-    const { user, logout } = useAuth();
+    const { admin: user, logout } = useAuth();
     const location = useLocation();
 
     const isActive = (path: string) => {

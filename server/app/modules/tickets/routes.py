@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -10,14 +11,16 @@ from app.modules.auth import get_current_user
 from app.modules.auth.schemas import TokenData
 from app.modules.notifications.service import NotificationService
 
-from .models import Ticket, TicketMessage
-from .schemas import (
+from app.modules.tickets.models import Ticket, TicketMessage
+from app.modules.tickets.schemas import (
     TicketCreate,
     TicketMessageCreate,
     TicketResponse,
     TicketDetailResponse,
     TicketMessageResponse,
 )
+
+logger = logging.getLogger("app.modules.tickets")
 
 router = APIRouter()
 

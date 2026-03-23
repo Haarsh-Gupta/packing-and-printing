@@ -1,3 +1,5 @@
+import logging
+
 from app.modules.auth import get_current_user
 from fastapi import APIRouter , Depends, status, HTTPException
 from fastapi.requests import Request
@@ -5,14 +7,16 @@ from fastapi.responses import Response, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select 
-from .auth import verify_password, create_access_token , create_refresh_token, verify_token
-from .schemas import TokenData
-from ..users.models import User
+from app.modules.auth.auth import verify_password, create_access_token , create_refresh_token, verify_token
+from app.modules.auth.schemas import TokenData
+from app.modules.users.models import User
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.oauth import oauth
 from authlib.integrations.base_client import OAuthError
 from app.core.rate_limiter import RateLimiter
+
+logger = logging.getLogger("app.modules.auth")
 
 REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
@@ -106,7 +110,7 @@ async def refresh(response: Response, request: Request, db : AsyncSession = Depe
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
     #create the access token
-    new_payload = TokenData(id=user.id, email=user.email, admin=user.admin)
+    new_payload = TokenData(id=user.id, email=user.email, admin=user.admin, token_version=user.token_version)
     access_token = await create_access_token(data = new_payload.model_dump())
 
     response.set_cookie(
@@ -189,7 +193,7 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
     # Redirect to frontend
     # We still keep the token in the URL for the frontend success page to catch it
     # until the frontend is fully migrated to use cookies.
-    frontend_url = f"http://localhost:3000/auth/success?access_token={access_token}&refresh_token={refresh_token}"
+    frontend_url = f"http://localhost:3000/auth/success?access_token={access_token}"
     response = RedirectResponse(url=frontend_url)
 
     response.set_cookie(
@@ -214,8 +218,8 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
 
 # ==================== FORGOT PASSWORD ====================
 
-from .schemas import ForgotPasswordRequest, ResetPasswordRequest
-from .auth import get_password_hash
+from app.modules.auth.schemas import ForgotPasswordRequest, ResetPasswordRequest
+from app.modules.auth.auth import get_password_hash
 from app.modules.otps.services import get_otp_service
 
 _otp_service = get_otp_service()

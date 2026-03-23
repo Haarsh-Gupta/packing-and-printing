@@ -5,7 +5,7 @@ Mock implementation of PaymentProvider for local testing without API keys.
 import uuid
 from typing import Optional
 
-from .base import PaymentProvider, PaymentOrderResult
+from app.core.payment.base import PaymentProvider, PaymentOrderResult
 
 
 class MockProvider(PaymentProvider):
@@ -36,3 +36,13 @@ class MockProvider(PaymentProvider):
     ) -> bool:
         # Accept anything for local mock testing
         return True
+
+    def verify_webhook_signature(
+        self,
+        payload_body: str,
+        signature: str,
+        secret: str,
+    ) -> bool:
+        # Accept anything for local mock testing
+        return True
+

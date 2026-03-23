@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Razorpay (Payment Gateway)
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
+    razorpay_webhook_secret: str = ""
 
     # OTP
     otp_expire_seconds: int = 300  # 5 minutes
@@ -52,7 +53,13 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 200
     rate_limit_window_seconds: int = 60
 
-    # Brevo SMTP (Email)
+    # CORS
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:5174"
+
+    # Brevo API (REST)
+    brevo_api_key: str | None = None
+
+    # Brevo SMTP (Email - Fallback)
     brevo_smtp_host: str = "smtp-relay.brevo.com"
     brevo_smtp_port: int = 587
     brevo_smtp_user: str = ""

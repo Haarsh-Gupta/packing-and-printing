@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from app.modules.tickets.schemas import (
     TicketStatusUpdate,
 )
 
+logger = logging.getLogger("app.modules.tickets.admin")
 
 router = APIRouter()
 

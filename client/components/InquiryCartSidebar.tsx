@@ -74,10 +74,11 @@ export default function InquiryCartSidebar() {
             });
 
             if (res.ok) {
-                showAlert("Inquiry submitted! Our studio will review it soon.", "success");
+                const data = await res.json();
+                showAlert("Inquiry saved as draft! Please review and submit it to our studio.", "success");
                 dispatch(clearInquiry());
                 setIsOpen(false);
-                router.push("/dashboard/inquiries");
+                router.push(`/dashboard/inquiries/${data.id}`);
             } else {
                 const err = await res.json();
                 // Pydantic validation errors come back as an array

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, FileText, Settings, LogOut, ChevronLeft, ChevronRight, Menu, X, MessageSquare, Home } from "lucide-react";
+import { LayoutDashboard, Package, FileText, Settings, LogOut, ChevronLeft, ChevronRight, Menu, X, MessageSquare, Home, ClipboardCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NotificationCenter from "@/components/NotificationCenter";
@@ -44,6 +44,7 @@ export default function DashboardLayout({
         { href: "/dashboard/inquiries", label: "Inquiries", icon: FileText, activeColor: "#90e8ff" },
         { href: "/dashboard/support", label: "Support", icon: MessageSquare, activeColor: "#4be794" },
         { href: "/dashboard/settings", label: "Settings", icon: Settings, activeColor: "#ffffff" },
+        ...(user?.admin ? [{ href: "/dashboard/declarations", label: "Declarations", icon: ClipboardCheck, activeColor: "#ffa07a" }] : []),
     ];
 
     return (

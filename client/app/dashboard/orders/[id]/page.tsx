@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Clock, Package, Truck, Receipt, CreditCard, Loader2, ArrowLeft, Download, X, CircleDot } from "lucide-react";
+import { CheckCircle2, Clock, Package, Truck, Receipt, CreditCard, Loader2, ArrowLeft, Download, X, CircleDot, Upload, ImageIcon, AlertCircle } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { useAuth } from "@/context/AuthContext";
@@ -27,6 +27,17 @@ interface Milestone {
     paid_at: string | null;
 }
 
+interface Declaration {
+    id: string;
+    milestone_id: string;
+    status: string;
+    utr_number: string | null;
+    screenshot_url: string | null;
+    rejection_reason: string | null;
+    created_at: string;
+    reviewed_at: string | null;
+}
+
 interface Order {
     id: string;
     inquiry_id: string;
@@ -39,6 +50,7 @@ interface Order {
     updated_at: string;
     transactions?: Transaction[];
     milestones: Milestone[];
+    declarations?: Declaration[];
 }
 
 const STATUS_STEPS = [
@@ -72,6 +84,8 @@ export default function OrderDetailPage() {
     const [showQrModal, setShowQrModal] = useState(false);
     const [qrData, setQrData] = useState<{qr_code: string, amount: number, milestone_label: string, milestone_id: string} | null>(null);
     const [utrNumber, setUtrNumber] = useState("");
+    const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+    const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
     const [isFetchingQr, setIsFetchingQr] = useState(false);
     const [isSubmittingUtr, setIsSubmittingUtr] = useState(false);
     const { user } = useAuth();
@@ -83,6 +97,19 @@ export default function OrderDetailPage() {
         if (!token) { router.replace("/auth/login"); return; }
         fetchOrder();
     }, [orderId]);
+
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (showQrModal && (screenshotFile || utrNumber.length > 0)) {
+                e.preventDefault();
+                e.returnValue = "You have entered payment details but haven't submitted them. Are you sure you want to leave?";
+                return e.returnValue;
+            }
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [showQrModal, screenshotFile, utrNumber]);
 
     const userEmail = user?.email || "";
 
@@ -177,10 +204,48 @@ export default function OrderDetailPage() {
         }
     };
 
+    const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                showAlert("Screenshot must be under 5MB.", "error");
+                return;
+            }
+            setScreenshotFile(file);
+            const reader = new FileReader();
+            reader.onload = () => setScreenshotPreview(reader.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleSubmitUtr = async () => {
         if (!qrData || !nextMilestone) return;
+        if (!screenshotFile && utrNumber.length < 6) {
+            showAlert("Please upload a screenshot or enter a UTR number.", "error");
+            return;
+        }
         setIsSubmittingUtr(true);
         try {
+            // Step 1: Upload screenshot if provided
+            let screenshotUrl: string | null = null;
+            if (screenshotFile) {
+                const formData = new FormData();
+                formData.append("file", screenshotFile);
+                const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=payment`, {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${token}` },
+                    body: formData,
+                });
+                if (!uploadRes.ok) {
+                    const err = await uploadRes.json();
+                    showAlert(err.detail || "Failed to upload screenshot.", "error");
+                    return;
+                }
+                const uploadData = await uploadRes.json();
+                screenshotUrl = uploadData.url;
+            }
+
+            // Step 2: Submit declaration
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/declarations`, {
                 method: "POST",
                 headers: { 
@@ -190,14 +255,18 @@ export default function OrderDetailPage() {
                 body: JSON.stringify({
                     milestone_id: qrData.milestone_id || nextMilestone.id,
                     payment_mode: "UPI_MANUAL",
-                    utr_number: utrNumber
+                    utr_number: utrNumber || undefined,
+                    screenshot_url: screenshotUrl || undefined,
                 })
             });
 
             if (res.ok) {
-                showAlert("Payment declaration submitted successfully! It is now pending admin approval.", "success");
+                showAlert("Payment declaration submitted! It is now pending admin verification.", "success");
                 setShowQrModal(false);
-                fetchOrder(); // Reload order so the milestone or declarations can show processing
+                setScreenshotFile(null);
+                setScreenshotPreview(null);
+                setUtrNumber("");
+                fetchOrder();
             } else {
                 const err = await res.json();
                 showAlert(err.detail || "Failed to submit declaration.", "error");
@@ -207,6 +276,22 @@ export default function OrderDetailPage() {
         } finally {
             setIsSubmittingUtr(false);
         }
+    };
+
+    const handlePayOnline = async (milestone: any) => {
+        initiatePayment({
+            orderId: order.id,
+            balanceDue: milestone.amount,
+            productName: order.product_name || `Order #${order.id}`,
+            userEmail,
+            onSuccess: (data) => {
+                showAlert("Payment successful!", "success");
+                fetchOrder();
+            },
+            onError: (message) => {
+                showAlert(message, "error");
+            }
+        });
     };
 
     return (
@@ -274,42 +359,43 @@ export default function OrderDetailPage() {
             {order.amount_paid === 0 && (
                 <div className="border-2 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl">
                     <h2 className="text-xl font-black uppercase tracking-tight mb-4">Payment Schedule</h2>
-                    {currentSplitType === "CUSTOM" ? (
-                        <div className="flex items-center gap-3 p-4 bg-[#fdf567]/30 border-2 border-black rounded-lg">
-                            <span className="px-3 py-1 bg-[#fdf567] border-2 border-black rounded-full text-xs font-black uppercase">Custom</span>
-                            <p className="text-sm font-medium text-zinc-700">This order has a custom payment schedule set by admin. Contact support to modify it.</p>
-                        </div>
-                    ) : (
-                        <>
-                            <p className="text-sm font-medium text-zinc-600 mb-4">You can change how you want to pay for this order before making your first payment.</p>
-                            <div className="flex flex-wrap gap-3">
-                                <Button 
-                                    variant={currentSplitType === "FULL" ? "default" : "outline"}
-                                    className={`flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg ${currentSplitType === "FULL" ? "bg-[#fdf567] text-black hover:bg-[#ece459]" : "hover:bg-zinc-100"}`}
-                                    onClick={() => handleSwitchSplit("FULL")}
-                                    disabled={isSwitching || currentSplitType === "FULL"}
-                                >
-                                    Full Payment
-                                </Button>
-                                <Button 
-                                    variant={currentSplitType === "HALF" ? "default" : "outline"}
-                                    className={`flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg ${currentSplitType === "HALF" ? "bg-[#fdf567] text-black hover:bg-[#ece459]" : "hover:bg-zinc-100"}`}
-                                    onClick={() => handleSwitchSplit("HALF")}
-                                    disabled={isSwitching || currentSplitType === "HALF"}
-                                >
-                                    Half & Half (50%)
-                                </Button>
-                                <Button 
-                                    variant="outline"
-                                    className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg hover:bg-zinc-100"
-                                    onClick={() => showAlert("Please contact support to request a custom payment schedule for this order.", "info")}
-                                    disabled={isSwitching}
-                                >
-                                    Custom Schedule
-                                </Button>
-                            </div>
-                        </>
-                    )}
+                    <p className="text-sm font-medium text-zinc-600 mb-4">You can change how you want to pay for this order before making your first payment.</p>
+                    <div className="flex flex-wrap gap-3">
+                        <Button 
+                            variant={currentSplitType === "FULL" ? "default" : "outline"}
+                            className={`flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg ${currentSplitType === "FULL" ? "bg-[#fdf567] text-black hover:bg-[#ece459]" : "hover:bg-zinc-100"}`}
+                            onClick={() => handleSwitchSplit("FULL")}
+                            disabled={isSwitching || currentSplitType === "FULL"}
+                        >
+                            Full Payment
+                        </Button>
+                        <Button 
+                            variant={currentSplitType === "HALF" ? "default" : "outline"}
+                            className={`flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg ${currentSplitType === "HALF" ? "bg-[#fdf567] text-black hover:bg-[#ece459]" : "hover:bg-zinc-100"}`}
+                            onClick={() => handleSwitchSplit("HALF")}
+                            disabled={isSwitching || currentSplitType === "HALF"}
+                        >
+                            Half & Half (50%)
+                        </Button>
+                        {currentSplitType === "CUSTOM" ? (
+                            <Button 
+                                variant="default"
+                                className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg bg-[#fdf567] text-black hover:bg-[#ece459]"
+                                disabled={true}
+                            >
+                                Custom Schedule
+                            </Button>
+                        ) : (
+                            <Button 
+                                variant="outline"
+                                className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg hover:bg-zinc-100"
+                                onClick={() => showAlert("Please contact support to request a custom payment schedule for this order.", "info")}
+                                disabled={isSwitching}
+                            >
+                                Custom Schedule
+                            </Button>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -343,20 +429,37 @@ export default function OrderDetailPage() {
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-4">
                 {nextMilestone && (
-                    <Button
-                        className="h-12 px-8 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full disabled:opacity-70 disabled:cursor-not-allowed"
-                        disabled={isFetchingQr}
-                        onClick={() => handlePayNow(nextMilestone)}
-                    >
-                        {isFetchingQr ? <Loader2 className="h-5 w-5 animate-spin" /> : <><CreditCard className="h-4 w-4 mr-2" /> Pay {nextMilestone.label} (₹{nextMilestone.amount.toLocaleString()})</>}
-                    </Button>
+                    <>
+                        <Button
+                            className="h-12 px-8 bg-[#fdf567] hover:bg-[#ece459] text-black font-black uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full disabled:opacity-70 disabled:cursor-not-allowed"
+                            disabled={isProcessing}
+                            onClick={() => handlePayOnline(nextMilestone)}
+                        >
+                            {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <><CreditCard className="h-4 w-4 mr-2" /> Pay Online (₹{nextMilestone.amount.toLocaleString()})</>}
+                        </Button>
+                        <Button
+                            className="h-12 px-8 bg-[#4be794] hover:bg-[#3cd083] text-black font-black uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full disabled:opacity-70 disabled:cursor-not-allowed"
+                            disabled={isFetchingQr}
+                            onClick={() => handlePayNow(nextMilestone)}
+                        >
+                            {isFetchingQr ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Receipt className="h-4 w-4 mr-2" /> Pay Offline</>}
+                        </Button>
+                    </>
                 )}
                 
                 {showQrModal && qrData && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-                        <div className="bg-white border-4 border-black p-6 md:p-8 rounded-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] w-full max-w-md relative">
+                        <div className="bg-white border-4 border-black p-6 md:p-8 rounded-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] w-full max-w-md relative max-h-[90vh] overflow-y-auto">
                             <button 
-                                onClick={() => setShowQrModal(false)}
+                                onClick={() => { 
+                                    if ((screenshotFile || utrNumber) && !window.confirm("You have entered payment details but haven't submitted them. Are you sure you want to close this window? Your payment verification might be lost.")) {
+                                        return;
+                                    }
+                                    setShowQrModal(false); 
+                                    setScreenshotFile(null); 
+                                    setScreenshotPreview(null); 
+                                    setUtrNumber(""); 
+                                }}
                                 className="absolute top-4 right-4 h-8 w-8 bg-zinc-100 hover:bg-zinc-200 border-2 border-black rounded-full flex items-center justify-center transition-colors focus:outline-none"
                             >
                                 <X className="h-4 w-4" />
@@ -370,8 +473,38 @@ export default function OrderDetailPage() {
                                     <img src={qrData.qr_code} alt="UPI QR Code" className="w-48 h-48 object-contain" />
                                 </div>
                             </div>
+
+                            {/* Screenshot Upload */}
+                            <div className="space-y-3 mb-4">
+                                <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Upload Payment Screenshot *</label>
+                                {screenshotPreview ? (
+                                    <div className="relative border-2 border-black rounded-lg overflow-hidden">
+                                        <img src={screenshotPreview} alt="Screenshot preview" className="w-full max-h-48 object-contain bg-zinc-50" />
+                                        <button
+                                            onClick={() => { setScreenshotFile(null); setScreenshotPreview(null); }}
+                                            className="absolute top-2 right-2 h-7 w-7 bg-red-500 text-white border-2 border-black rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-black rounded-lg cursor-pointer hover:bg-zinc-50 transition-colors">
+                                        <Upload className="h-6 w-6 text-zinc-400 mb-2" />
+                                        <span className="text-sm font-medium text-zinc-500">Click to upload screenshot</span>
+                                        <span className="text-xs text-zinc-400 mt-1">JPG, PNG or WebP (max 5MB)</span>
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="hidden"
+                                            onChange={handleScreenshotChange}
+                                        />
+                                    </label>
+                                )}
+                            </div>
+
+                            {/* UTR Number (optional) */}
                             <div className="space-y-3">
-                                <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Enter 12-Digit UTR Number</label>
+                                <label className="text-xs font-black uppercase tracking-widest text-zinc-500">UTR Number (optional)</label>
                                 <input 
                                     type="text"
                                     value={utrNumber}
@@ -381,12 +514,15 @@ export default function OrderDetailPage() {
                                     className="w-full h-12 border-2 border-black rounded-lg px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#4be794] focus:border-transparent transition-all"
                                 />
                             </div>
+
+                            <p className="text-xs text-zinc-400 mt-3 text-center">Upload screenshot or enter UTR — at least one is required</p>
+
                             <Button 
                                 onClick={handleSubmitUtr}
-                                disabled={isSubmittingUtr || utrNumber.length < 6}
-                                className="w-full h-12 mt-6 bg-[#4be794] hover:bg-[#3cd083] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all text-black font-black uppercase rounded-lg disabled:opacity-50"
+                                disabled={isSubmittingUtr || (!screenshotFile && utrNumber.length < 6)}
+                                className="w-full h-12 mt-4 bg-[#4be794] hover:bg-[#3cd083] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all text-black font-black uppercase rounded-lg disabled:opacity-50"
                             >
-                                {isSubmittingUtr ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "Submit Payment"}
+                                {isSubmittingUtr ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "Submit Payment Declaration"}
                             </Button>
                         </div>
                     </div>
@@ -444,6 +580,53 @@ export default function OrderDetailPage() {
                                 <p className="text-xl font-black text-green-700">+₹{txn.amount.toLocaleString()}</p>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Payment Declarations */}
+            {order.declarations && order.declarations.length > 0 && (
+                <div className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden">
+                    <div className="border-b-2 border-black p-4 bg-zinc-50">
+                        <h2 className="font-black uppercase tracking-tight">Payment Declarations</h2>
+                    </div>
+                    <div className="divide-y-2 divide-zinc-100">
+                        {order.declarations.map((decl) => {
+                            const milestone = order.milestones.find(m => m.id === decl.milestone_id);
+                            return (
+                                <div key={decl.id} className="p-5">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`px-3 py-1 text-xs font-black uppercase border-2 border-black rounded-full ${
+                                                    decl.status === "APPROVED" ? "bg-[#4be794]" :
+                                                    decl.status === "REJECTED" ? "bg-red-200 text-red-800" :
+                                                    "bg-[#fdf567]"
+                                                }`}>
+                                                    {decl.status}
+                                                </span>
+                                                {milestone && <span className="text-sm font-medium text-zinc-500">{milestone.label}</span>}
+                                            </div>
+                                            {decl.utr_number && <p className="text-sm font-mono text-zinc-600 mt-1">UTR: {decl.utr_number}</p>}
+                                            <p className="text-xs text-zinc-400 mt-1">Submitted {formatDate(decl.created_at)}</p>
+                                            {decl.rejection_reason && (
+                                                <div className="mt-2 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                                    <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                                                    <p className="text-sm text-red-700">{decl.rejection_reason}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {decl.screenshot_url && (
+                                            <a href={decl.screenshot_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                                <div className="w-16 h-16 border-2 border-black rounded-lg overflow-hidden hover:opacity-80 transition-opacity">
+                                                    <img src={decl.screenshot_url} alt="Payment screenshot" className="w-full h-full object-cover" />
+                                                </div>
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}

@@ -43,9 +43,9 @@ class NotificationResponse(BaseModel):
     message: str
     is_read: bool
     created_at: datetime
-    metadata: Optional[dict] = Field(None, alias="metadata_")
+    metadata: Optional[dict] = Field(None, validation_alias="metadata_")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class NotificationListResponse(BaseModel):

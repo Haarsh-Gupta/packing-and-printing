@@ -13,9 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User
 from app.modules.orders.models import Order, Transaction
-from app.modules.inquiry.models import InquiryGroup, InquiryItem
+from app.modules.inquiry.models import InquiryGroup, InquiryItem, QuoteVersion
 from app.modules.products.models import SubProduct
 from app.modules.services.models import Service
+from app.modules.reviews.models import Review
 
 
 PeriodType = Literal["today", "week", "month", "quarter", "year", "all"]
@@ -125,7 +126,7 @@ class DashboardService:
         # --- Inquiries ---
         total_inquiries = await get_count_in_range(InquiryGroup, None)
         pending_inquiries = (await self.db.execute(
-            select(func.count(InquiryGroup.id)).where(InquiryGroup.status == "PENDING")
+            select(func.count(InquiryGroup.id)).where(InquiryGroup.status == "SUBMITTED")
         )).scalar() or 0
         inquiries_in_period = await get_count_in_range(InquiryGroup, start)
         prev_inquiries_in_period = await get_count_in_range(InquiryGroup, prev_start, start)
@@ -223,7 +224,29 @@ class DashboardService:
             },
             "products": {"total": total_products, "active": active_products},
             "services": {"total": total_services, "active": active_services},
+            "recent_reviews": await self.get_recent_reviews(limit=5),
         }
+
+    # ------------------------------------------------------------------ #
+    #  7.  REVIEWS
+    # ------------------------------------------------------------------ #
+    async def get_recent_reviews(self, limit: int = 5) -> list:
+        """Fetches the latest customer reviews."""
+        result = await self.db.execute(
+            select(Review).order_by(desc(Review.created_at)).limit(limit)
+        )
+        reviews = result.scalars().all()
+        return [
+            {
+                "id": r.id,
+                "user_name": r.user.name if r.user else "Anonymous",
+                "rating": r.rating,
+                "comment": r.comment,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "product_name": r.product.name if r.product else (r.service.name if r.service else None),
+            }
+            for r in reviews
+        ]
 
     # ------------------------------------------------------------------ #
     #  2.  REVENUE & PAYMENTS
@@ -435,8 +458,8 @@ class DashboardService:
 
         # Average quoted price
         avg_quoted = (await self.db.execute(
-            select(func.coalesce(func.avg(InquiryGroup.total_quoted_price), 0))
-            .where(InquiryGroup.total_quoted_price.isnot(None))
+            select(func.coalesce(func.avg(QuoteVersion.total_price), 0))
+            .where(QuoteVersion.status == "PENDING_REVIEW")
         )).scalar()
 
         # Popular products (top 10 by inquiry item count)

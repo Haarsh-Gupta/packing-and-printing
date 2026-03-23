@@ -1,7 +1,7 @@
 """
 OTP verification email template.
 """
-from .base import wrap_in_base
+from app.core.email.templates.base import wrap_in_base
 
 
 def render_otp_email(

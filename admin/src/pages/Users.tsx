@@ -4,13 +4,11 @@ import type { AuthUser } from "@/types";
 import { Search, Shield, User, Trash2, Loader2, Users } from "lucide-react";
 
 const RoleBadge = ({ admin }: { admin: boolean }) => (
-    <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 9px',
-        borderRadius: '999px', fontSize: '11px', fontWeight: 600,
-        color: admin ? '#3b82f6' : '#52525b',
-        background: admin ? '#eff6ff' : '#f4f4f5',
-        fontFamily: "'Inter', system-ui",
-    }}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold font-sans ${
+        admin 
+            ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' 
+            : 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800'
+    }`}>
         {admin ? <Shield size={10} /> : <User size={10} />}
         {admin ? 'Admin' : 'Customer'}
     </span>
@@ -19,12 +17,7 @@ const RoleBadge = ({ admin }: { admin: boolean }) => (
 const OnlineDot = ({ isOnline }: { isOnline: boolean }) => {
     if (!isOnline) return null;
     return (
-        <div style={{
-            position: 'absolute', bottom: '-1px', right: '-1px',
-            width: '11px', height: '11px', borderRadius: '50%',
-            background: '#22c55e', border: '2px solid white',
-            boxShadow: '0 0 8px rgba(34, 197, 94, 0.4)'
-        }} />
+        <div className="absolute -bottom-px -right-px w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white dark:border-slate-900 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
     );
 };
 
@@ -56,158 +49,136 @@ export default function UsersPage() {
     };
 
     return (
-        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: "'Inter', system-ui" }}>
+        <div className="animate-fade-in flex flex-col gap-5 font-sans h-full">
 
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="flex items-center justify-between">
                 <div>
-                    <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#18181b', margin: 0 }}>
+                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white m-0">
                         Account Registry
                     </h1>
-                    <p style={{ fontSize: '13px', color: '#71717a', marginTop: '3px' }}>
+                    <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1">
                         {users.length} {users.length === 1 ? 'account' : 'accounts'} registered
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div className="flex gap-2 items-center">
                     {/* Search */}
-                    <div style={{ position: 'relative' }}>
-                        <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa' }} />
+                    <div className="relative">
+                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                         <input
                             type="text" placeholder="Search by name or email…" value={search}
                             onChange={e => setSearch(e.target.value)}
-                            style={{
-                                height: '36px', paddingLeft: '32px', paddingRight: '12px', width: '240px',
-                                border: '1px solid #e4e4e7', borderRadius: '9px', fontSize: '13px',
-                                color: '#18181b', background: 'white', fontFamily: "'Inter', system-ui", outline: 'none',
-                            }}
+                            className="h-9 pl-8 pr-3 w-60 border border-slate-200 dark:border-slate-800 rounded-lg text-[13px] text-slate-900 dark:text-white bg-white dark:bg-slate-900 font-sans outline-none focus:border-blue-500 transition-colors"
                         />
                     </div>
                     {/* Role filter */}
                     <select
                         onChange={e => setAdminFilter(e.target.value === 'all' ? null : e.target.value === 'admin')}
-                        style={{
-                            height: '36px', padding: '0 10px', border: '1px solid #e4e4e7', borderRadius: '9px',
-                            fontSize: '13px', color: '#52525b', background: 'white',
-                            fontFamily: "'Inter', system-ui", cursor: 'pointer', outline: 'none',
-                        }}
+                        className="h-9 px-2.5 border border-slate-200 dark:border-slate-800 rounded-lg text-[13px] text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 font-sans cursor-pointer outline-none focus:border-blue-500 transition-colors"
                     >
                         <option value="all">All Roles</option>
                         <option value="admin">Admins</option>
                         <option value="customer">Customers</option>
                     </select>
                     {/* Add button */}
-                    <button style={{
-                        height: '36px', padding: '0 16px',
-                        background: '#3b82f6', color: 'white', border: 'none', borderRadius: '9px',
-                        fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                        fontFamily: "'Inter', system-ui",
-                    }}>
+                    <button className="h-9 px-4 bg-blue-500 hover:bg-blue-600 text-white border-none rounded-lg text-[13px] font-semibold cursor-pointer font-sans transition-colors">
                         + Add Account
                     </button>
                 </div>
             </div>
 
             {/* Table card */}
-            <div style={{
-                background: 'white', borderRadius: '16px',
-                border: '1px solid rgba(0,0,0,0.06)',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-                overflow: 'hidden',
-            }}>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm overflow-hidden min-h-[400px]">
                 {loading ? (
-                    <div style={{ padding: '64px', textAlign: 'center' }}>
-                        <Loader2 size={24} style={{ animation: 'spin 0.8s linear infinite', color: '#3b82f6', margin: '0 auto' }} />
+                    <div className="p-16 text-center text-slate-400 dark:text-slate-500">
+                        <Loader2 size={24} className="animate-spin text-blue-500 mx-auto" />
                     </div>
                 ) : users.length === 0 ? (
-                    <div style={{ padding: '64px', textAlign: 'center' }}>
-                        <Users size={32} style={{ opacity: 0.3, margin: '0 auto 10px', display: 'block' }} />
-                        <p style={{ fontSize: '14px', fontWeight: 500, color: '#71717a' }}>No accounts found</p>
+                    <div className="p-16 text-center text-slate-400 dark:text-slate-500">
+                        <Users size={32} className="opacity-30 mx-auto mb-2.5 block" />
+                        <p className="text-sm font-medium">No accounts found</p>
                     </div>
                 ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '1px solid #f4f4f5' }}>
-                                {['IDENTITY', 'PRIVILEGE', 'CONTACT', 'REGISTERED', ''].map((h, i) => (
-                                    <th key={i} style={{
-                                        padding: '12px 20px', fontSize: '10px', fontWeight: 600,
-                                        color: '#a1a1aa', textAlign: 'left', letterSpacing: '0.06em',
-                                    }}>{h}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {users.map(user => (
-                                <tr key={user.id} style={{ borderBottom: '1px solid #f9f9f9', transition: 'background 0.1s' }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = '#f9f9f9')}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                    {/* Identity */}
-                                    <td style={{ padding: '14px 20px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ position: 'relative' }}>
-                                                <div style={{
-                                                    width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
-                                                    background: user.admin ? '#3b82f6' : '#e4e4e7',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    fontSize: '14px', fontWeight: 700,
-                                                    color: user.admin ? 'white' : '#52525b',
-                                                }}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="border-b border-slate-100 dark:border-slate-800/60">
+                                    {['IDENTITY', 'PRIVILEGE', 'CONTACT', 'REGISTERED', ''].map((h, i) => (
+                                        <th key={i} className="px-5 py-3 text-[10px] font-semibold text-slate-400 dark:text-slate-500 text-left tracking-wider">
+                                            {h}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {users.map(user => (
+                                    <tr key={user.id} className="border-b border-slate-50 dark:border-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        {/* Identity */}
+                                        <td className="px-5 py-3.5 flex items-center gap-3">
+                                            <div className="relative shrink-0">
+                                                <div className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-sm font-bold ${
+                                                    user.admin 
+                                                        ? 'bg-blue-500 text-white' 
+                                                        : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                                }`}>
                                                     {(user.name || user.email || 'U')[0].toUpperCase()}
                                                 </div>
                                                 <OnlineDot isOnline={(user as any).is_online} />
                                             </div>
                                             <div>
-                                                <p style={{ fontSize: '13px', fontWeight: 600, color: '#18181b', margin: 0 }}>
+                                                <p className="text-[13px] font-semibold text-slate-900 dark:text-white m-0">
                                                     {user.name || 'Unknown'}
                                                 </p>
-                                                <p style={{ fontSize: '11px', color: '#a1a1aa', margin: 0, fontFamily: "'Inter',system-ui", letterSpacing: '0' }}>
+                                                <p className="text-[11px] text-slate-400 dark:text-slate-500 m-0 tracking-tight font-sans">
                                                     ID: {user.id.toString().slice(0, 8)}…
                                                 </p>
                                             </div>
-                                        </div>
-                                    </td>
+                                        </td>
 
-                                    {/* Privilege */}
-                                    <td style={{ padding: '14px 20px' }}>
-                                        <RoleBadge admin={user.admin || false} />
-                                    </td>
+                                        {/* Privilege */}
+                                        <td className="px-5 py-3.5">
+                                            <RoleBadge admin={user.admin || false} />
+                                        </td>
 
-                                    {/* Contact */}
-                                    <td style={{ padding: '14px 20px' }}>
-                                        <p style={{ fontSize: '13px', color: '#52525b', margin: 0 }}>{user.email}</p>
-                                        <p style={{ fontSize: '11px', color: '#a1a1aa', margin: 0 }}>
-                                            {(user as any).phone || '—'}
-                                        </p>
-                                    </td>
+                                        {/* Contact */}
+                                        <td className="px-5 py-3.5">
+                                            <p className="text-[13px] text-slate-600 dark:text-slate-300 m-0 flex items-center gap-1.5">
+                                                {user.email}
+                                                {(user as any).email_bounced && (
+                                                    <span className="text-[9px] font-extrabold text-red-500 bg-red-100 dark:bg-red-500/10 px-1.5 rounded uppercase">
+                                                        Bounced
+                                                    </span>
+                                                )}
+                                            </p>
+                                            <p className="text-[11px] text-slate-400 dark:text-slate-500 m-0">
+                                                {(user as any).phone || '—'}
+                                            </p>
+                                        </td>
 
-                                    {/* Registered */}
-                                    <td style={{ padding: '14px 20px' }}>
-                                        <span style={{ fontSize: '12px', color: '#71717a' }}>
-                                            {user.created_at
-                                                ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                                                : '—'}
-                                        </span>
-                                    </td>
+                                        {/* Registered */}
+                                        <td className="px-5 py-3.5">
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                {user.created_at
+                                                    ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                                    : '—'}
+                                            </span>
+                                        </td>
 
-                                    {/* Actions */}
-                                    <td style={{ padding: '14px 20px' }}>
-                                        <button
-                                            onClick={() => deleteUser(user.id)}
-                                            style={{
-                                                background: 'none', border: 'none', cursor: 'pointer',
-                                                color: '#d4d4d8', padding: '4px', borderRadius: '6px', transition: 'all 0.1s',
-                                            }}
-                                            title="Delete user"
-                                            onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fef2f2'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.color = '#d4d4d8'; e.currentTarget.style.background = 'none'; }}
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                        {/* Actions */}
+                                        <td className="px-5 py-3.5 text-right">
+                                            <button
+                                                onClick={() => deleteUser(user.id)}
+                                                className="bg-transparent border-none cursor-pointer text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 p-1.5 rounded-md transition-colors"
+                                                title="Delete user"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
         </div>

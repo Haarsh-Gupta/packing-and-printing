@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Request, status
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -5,6 +7,8 @@ from app.core.redis import redis_client
 from app.core.config import settings
 from jose import jwt, JWTError
 import asyncio
+
+logger = logging.getLogger("app.core.middleware")
 
 class RateLimitMiddleware:
     """
@@ -60,6 +64,8 @@ class UserActivityMiddleware:
     Middleware to track user online status in Redis.
     No database changes. Updates Redis TTL on every request.
     """
+    _background_tasks: set = set()
+
     def __init__(self, app: ASGIApp):
         self.app = app
 
@@ -79,9 +85,9 @@ class UserActivityMiddleware:
                 payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
                 user_id = payload.get("id")
                 if user_id:
-                    # Update Redis key with 5-minute TTL
-                    # We use a non-blocking task for redis update
-                    asyncio.create_task(self.mark_online(user_id))
+                    task = asyncio.create_task(self.mark_online(user_id))
+                    self._background_tasks.add(task)
+                    task.add_done_callback(self._background_tasks.discard)
             except (JWTError, Exception):
                 pass
         

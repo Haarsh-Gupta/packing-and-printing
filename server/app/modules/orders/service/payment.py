@@ -1,527 +1,161 @@
-"""
-PaymentService — all three payment paths.
-
-Path 1: Online (Razorpay)
-  create_session() → Redis → verify_payment() → Transaction → confirm
-
-Path 2: Admin records offline (cash, bank, cheque)
-  record_admin_payment() → Transaction → confirm
-
-Path 3: User declares UPI → Admin reviews
-  submit_declaration() → PaymentDeclaration(PENDING)
-  review_declaration(approve) → Transaction → confirm
-  review_declaration(reject)  → Declaration(REJECTED), milestone reset
-"""
-
-import asyncio
-import json
-import logging
+from uuid import UUID
 from datetime import datetime, timezone
-from typing import Optional
-from uuid import UUID, uuid4
-
 from fastapi import HTTPException, status
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.config import settings
-from app.core.payment import get_payment_provider
-from app.core.redis import redis_client
-from ..models import (
-    Order, OrderMilestone, Transaction, PaymentDeclaration,
-)
-from ..schemas import (
-    OrderStatus, MilestoneStatus, DeclarationStatus, PaymentMode,
-    CreatePaymentSessionRequest, VerifyPaymentRequest,
-    AdminRecordPaymentRequest, PaymentDeclarationCreate,
-    PaymentDeclarationReview, PaymentSessionResponse,
-)
-from .order import OrderService
-
-logger = logging.getLogger(__name__)
+from app.modules.orders.models import Order, OrderMilestone, Transaction, PaymentDeclaration
+from app.modules.orders.schemas import MilestoneStatus
+from app.modules.orders.schemas import AdminRecordPaymentRequest, PaymentDeclarationReview
 
 
 class PaymentService:
-
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.order_svc = OrderService(db)
 
-    # ── Path 1: Online (Razorpay) ─────────────────────────────────────────────
-
-    async def create_session(
-        self,
-        payload: CreatePaymentSessionRequest,
-        user_id: UUID,
-    ) -> PaymentSessionResponse:
-
-        order = await self.order_svc.get_order(payload.order_id)
-        if not order:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-        if order.user_id != user_id:
+    async def submit_declaration(self, order_id, milestone_id, user_id, utr_number, screenshot_url):
+        order = await self._get_order_locked(order_id)
+        if str(order.user_id) != str(user_id):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your order")
-        if order.status in (
-            OrderStatus.PAID, OrderStatus.COMPLETED, OrderStatus.CANCELLED
-        ):
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                f"Order is {order.status.value} — no payment needed",
-            )
-
-        milestone = self._pick_milestone(order, payload.milestone_id)
-
+        milestone = await self._get_milestone(milestone_id, order_id)
         if milestone.status == MilestoneStatus.PAID:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Milestone already paid")
+            raise HTTPException(status.HTTP_409_CONFLICT, "Milestone already paid")
+        if milestone.status == MilestoneStatus.PENDING:
+            raise HTTPException(status.HTTP_409_CONFLICT, "A declaration is already pending verification for this milestone")
 
-        # Create Razorpay order (sync SDK — wrap in thread)
-        amount_paise = int(milestone.amount * 100)
-        if amount_paise <= 0:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Milestone amount is zero")
-
-        provider = get_payment_provider()
-        try:
-            gw_order = await asyncio.to_thread(
-                provider.create_order,
-                amount_paise=amount_paise,
-                currency="INR",
-                receipt=f"ms_{str(milestone.id)[:8]}",
-                notes={
-                    "order_id": str(order.id),
-                    "milestone_id": str(milestone.id),
-                    "user_id": str(user_id),
-                },
-            )
-        except Exception as e:
-            logger.error(f"Razorpay order creation failed: {e}")
-            raise HTTPException(
-                status.HTTP_502_BAD_GATEWAY,
-                "Payment gateway error. Please try again.",
-            )
-
-        # Store session in Redis — 15 min TTL matches Razorpay expiry
-        session_id = str(uuid4())
-        session_data = {
-            "gateway_order_id": gw_order.gateway_order_id,
-            "order_id": str(order.id),
-            "milestone_id": str(milestone.id),
-            "amount": milestone.amount,
-            "user_id": str(user_id),
-        }
-        await redis_client.setex(
-            f"payment_session:{session_id}",
-            900,
-            json.dumps(session_data),
-        )
-
-        logger.info(
-            f"Payment session created: session={session_id}, "
-            f"milestone={milestone.id}, amount={milestone.amount}"
-        )
-
-        return PaymentSessionResponse(
-            session_id=session_id,
-            gateway_order_id=gw_order.gateway_order_id,
-            amount_paise=amount_paise,
-            razorpay_key_id=settings.razorpay_key_id,
-            order_id=order.id,
-            milestone_id=milestone.id,
-            milestone_label=milestone.label,
-        )
-
-    async def verify_payment(
-        self,
-        payload: VerifyPaymentRequest,
-        user_id: UUID,
-    ) -> dict:
-
-        # Read session from Redis
-        raw = await redis_client.get(f"payment_session:{payload.session_id}")
-        if not raw:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Payment session expired or not found. "
-                "Please start a new payment.",
-            )
-
-        session = json.loads(raw)
-
-        if session["user_id"] != str(user_id):
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your payment session")
-
-        # Verify signature against OUR stored gateway_order_id
-        provider = get_payment_provider()
-        is_valid = await asyncio.to_thread(
-            provider.verify_payment,
-            gateway_order_id=session["gateway_order_id"],  # from Redis, not client
-            gateway_payment_id=payload.gateway_payment_id,
-            gateway_signature=payload.gateway_signature,
-        )
-        if not is_valid:
-            logger.warning(
-                f"Invalid signature for session {payload.session_id}, "
-                f"payment {payload.gateway_payment_id}"
-            )
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Payment verification failed. Invalid signature.",
-            )
-
-        # Idempotency — Razorpay can send duplicate webhooks
-        existing = await self._get_txn_by_gateway_id(payload.gateway_payment_id)
-        if existing:
-            order = await self.order_svc.get_order(UUID(session["order_id"]))
-            return self._payment_result(order, existing)
-
-        # Load order and milestone
-        order = await self.order_svc.get_order(UUID(session["order_id"]))
-        milestone = next(
-            (m for m in order.milestones if str(m.id) == session["milestone_id"]),
-            None,
-        )
-        if not milestone:
-            raise HTTPException(
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "Milestone not found — contact support",
-            )
-
-        # Create immutable transaction
-        txn = Transaction(
-            order_id=order.id,
-            milestone_id=milestone.id,
-            amount=float(session["amount"]),
-            payment_mode=PaymentMode.ONLINE,
-            gateway_payment_id=payload.gateway_payment_id,
-            notes=f"Razorpay: {payload.gateway_payment_id}",
-            recorded_by_admin=None,
-        )
-        self.db.add(txn)
-        await self.db.flush()
-
-        # Delete Redis session — one-time use
-        await redis_client.delete(f"payment_session:{payload.session_id}")
-
-        # Confirm from ledger
-        await self.order_svc.confirm_milestone_payment(milestone, order)
-
-        logger.info(
-            f"Online payment verified: order={order.id}, "
-            f"milestone={milestone.id}, amount={float(session['amount'])}"
-        )
-
-        return self._payment_result(order, txn)
-
-    # ── Path 2: Admin records offline ─────────────────────────────────────────
-
-    async def record_admin_payment(
-        self,
-        order_id: UUID,
-        payload: AdminRecordPaymentRequest,
-        admin_id: UUID,
-    ) -> Order:
-
-        order = await self.order_svc.get_order(order_id)
-        if not order:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-        if order.status == OrderStatus.CANCELLED:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Order is cancelled")
-
-        milestone = next(
-            (m for m in order.milestones if m.id == payload.milestone_id), None
-        )
-        if not milestone:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
-        if milestone.status == MilestoneStatus.PAID:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Milestone already paid")
-
-        # Zero amount milestone — mark paid directly, no transaction needed
-        if milestone.amount == 0:
-            milestone.status = MilestoneStatus.PAID
-            milestone.paid_at = datetime.now(timezone.utc)
-            await self.order_svc.confirm_milestone_payment(milestone, order)
-            return order
-
-        # Strict amount enforcement
-        if abs(payload.amount - milestone.amount) > 0.01:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                f"Amount must exactly match milestone amount ₹{milestone.amount:,.2f}. "
-                f"Got ₹{payload.amount:,.2f}.",
-            )
-
-        txn = Transaction(
-            order_id=order.id,
-            milestone_id=milestone.id,
-            amount=milestone.amount,              # ← always milestone.amount
-            payment_mode=payload.payment_mode,
-            gateway_payment_id=None,
-            notes=payload.notes,
-            recorded_by_admin=admin_id,
-        )
-        self.db.add(txn)
-        await self.db.flush()
-
-        await self.order_svc.confirm_milestone_payment(milestone, order)
-    
-
-        logger.info(
-            f"Admin payment recorded: order={order.id}, "
-            f"milestone={milestone.id}, amount={payload.amount}, "
-            f"mode={payload.payment_mode.value}, admin={admin_id}"
-        )
-
-        return order
-
-    # ── Path 3a: User submits declaration ─────────────────────────────────────
-
-    async def submit_declaration(
-        self,
-        order_id: UUID,
-        payload: PaymentDeclarationCreate,
-        user_id: UUID,
-        ) -> PaymentDeclaration:
-
-        order = await self.order_svc.get_order(order_id)
-        if not order:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-        if order.user_id != user_id:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your order")
-        if order.status == OrderStatus.CANCELLED:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Order is cancelled")
-
-        milestone = next(
-            (m for m in order.milestones if m.id == payload.milestone_id), None
-            )
-        if not milestone:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
-        if milestone.status == MilestoneStatus.PAID:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Milestone already paid")
-
-        # Zero amount milestone — nothing to declare
-        if milestone.amount == 0:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "This milestone has zero amount — no payment required.",
-            )
-
-        existing_pending = await self.db.scalar(
-            select(PaymentDeclaration).where(
-                PaymentDeclaration.milestone_id == payload.milestone_id,
-                PaymentDeclaration.status == DeclarationStatus.PENDING,
-            )
-        )
-        if existing_pending:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                "A pending declaration already exists for this milestone.",
-            )
-
-        if payload.utr_number:
+        # UTR duplicate check — both conditions in same if block
+        if utr_number:
             duplicate = await self.db.scalar(
                 select(PaymentDeclaration).where(
-                PaymentDeclaration.utr_number == payload.utr_number
+                    PaymentDeclaration.utr_number == utr_number,
+                    PaymentDeclaration.status == "PENDING",
+                )
             )
-        )
-        if duplicate:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                f"UTR {payload.utr_number} has already been submitted.",
-            )
+            if duplicate:
+                raise HTTPException(status.HTTP_409_CONFLICT, "A pending declaration with this UTR already exists.")
 
         declaration = PaymentDeclaration(
-            order_id=order_id,
-            milestone_id=payload.milestone_id,
-            user_id=user_id,
-            # no amount — milestone.amount is the source of truth
-            payment_mode=payload.payment_mode,
-            utr_number=payload.utr_number,
-            screenshot_url=payload.screenshot_url,
-            status=DeclarationStatus.PENDING,
+            order_id=order_id, milestone_id=milestone_id, user_id=user_id,
+            payment_mode="UPI_MANUAL",
+            utr_number=utr_number, screenshot_url=screenshot_url, status="PENDING",
         )
-        self.db.add(declaration)
         milestone.status = MilestoneStatus.PENDING
-
+        self.db.add(declaration)
+        await self.db.flush()
         return declaration
 
-    # ── Path 3b: Admin reviews declaration ────────────────────────────────────
+    async def review_declaration(self, declaration_id: UUID, payload: PaymentDeclarationReview, admin_id: UUID) -> Order:
+        import logging
+        logger = logging.getLogger(__name__)
 
-    async def review_declaration(
-        self,
-        declaration_id: UUID,
-        payload: PaymentDeclarationReview,
-        admin_id: UUID,
-    ) -> Order:
-        # Schema already validated rejection_reason is present when rejecting
-
-        declaration = await self.db.scalar(
-            select(PaymentDeclaration).where(
-                PaymentDeclaration.id == declaration_id
-            )
-        )
+        declaration = (await self.db.execute(
+            select(PaymentDeclaration).where(PaymentDeclaration.id == declaration_id)
+        )).scalar_one_or_none()
         if not declaration:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Declaration not found")
-        if declaration.status != DeclarationStatus.PENDING:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                f"Declaration is already {declaration.status.value.lower()}.",
-            )
+        if declaration.status != "PENDING":
+            raise HTTPException(status.HTTP_409_CONFLICT, "Declaration already reviewed")
 
-        order = await self.order_svc.get_order(declaration.order_id)
-        milestone = next(
-            (m for m in order.milestones if m.id == declaration.milestone_id), None
-        )
-        if not milestone:
-            raise HTTPException(
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "Milestone not found for this declaration",
-            )
-
-        now = datetime.now(timezone.utc)
+        milestone = await self._get_milestone(declaration.milestone_id, declaration.order_id)
+        order = await self._get_order_locked(declaration.order_id)
 
         if payload.is_approved:
-            declaration.status = DeclarationStatus.APPROVED
+            declaration.status = "APPROVED"
             declaration.reviewed_by = admin_id
-            declaration.reviewed_at = now
+            declaration.reviewed_at = datetime.now(timezone.utc)
+            milestone.status = MilestoneStatus.PAID
+            milestone.paid_at = datetime.now(timezone.utc)
 
-            # Amount comes from milestone — not the declaration
             txn = Transaction(
-                order_id=order.id,
-                milestone_id=milestone.id,
-                amount=milestone.amount,              # ← from milestone
+                order_id=order.id, milestone_id=milestone.id, amount=milestone.amount,
                 payment_mode=declaration.payment_mode,
-                gateway_payment_id=None,
-                notes=f"UTR: {declaration.utr_number}" if declaration.utr_number else None,
-                recorded_by_admin=admin_id,
+                recorded_by_admin=admin_id, notes=f"Declaration {declaration_id} approved. UTR: {declaration.utr_number or 'N/A'}",
             )
             self.db.add(txn)
             await self.db.flush()
+            await self._recalculate_amount_paid(order)
 
-            await self.order_svc.confirm_milestone_payment(milestone, order)
-
-            logger.info(
-                f"Declaration approved: {declaration_id}, "
-                f"milestone={milestone.id}, amount={declaration.amount}, "
-                f"admin={admin_id}"
-            )
-
+            # FIX 2: was declaration.amount (AttributeError) — milestone.amount is correct
+            logger.info(f"Declaration approved: {declaration_id}, milestone={milestone.id}, amount={milestone.amount}")
         else:
-            declaration.status = DeclarationStatus.REJECTED
-            declaration.rejection_reason = payload.rejection_reason
+            if not payload.rejection_reason:
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "rejection_reason is required")
+            declaration.status = "REJECTED"
             declaration.reviewed_by = admin_id
-            declaration.reviewed_at = now
-
-            # Reset milestone — only if no other pending declarations exist
+            declaration.reviewed_at = datetime.now(timezone.utc)
+            declaration.rejection_reason = payload.rejection_reason
+            
+            # Check if there are any other pending declarations for this milestone.
+            # If not, revert milestone status to UNPAID.
             other_pending = await self.db.scalar(
                 select(PaymentDeclaration).where(
                     PaymentDeclaration.milestone_id == milestone.id,
-                    PaymentDeclaration.status == DeclarationStatus.PENDING,
-                    PaymentDeclaration.id != declaration_id,
+                    PaymentDeclaration.id != declaration.id,
+                    PaymentDeclaration.status == "PENDING"
                 )
             )
             if not other_pending:
                 milestone.status = MilestoneStatus.UNPAID
 
-            logger.info(
-                f"Declaration rejected: {declaration_id}, "
-                f"reason={payload.rejection_reason}, admin={admin_id}"
-            )
-
         return order
 
-    # ── Helpers ───────────────────────────────────────────────────────────────
-
-    def _pick_milestone(
-        self, order: Order, milestone_id: Optional[UUID]
-    ) -> OrderMilestone:
-        """Return specified milestone or next unpaid one."""
-        if milestone_id:
-            m = next((m for m in order.milestones if m.id == milestone_id), None)
-            if not m:
-                raise HTTPException(
-                    status.HTTP_404_NOT_FOUND,
-                    "Milestone not found in this order",
-                )
-            return m
-
-        unpaid = sorted(
-            [m for m in order.milestones if m.status != MilestoneStatus.PAID],
-            key=lambda m: m.order_index,
-        )
-        if not unpaid:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, "All milestones are already paid"
-            )
-        return unpaid[0]
-
-    async def _get_txn_by_gateway_id(
-        self, gateway_payment_id: str
-    ) -> Optional[Transaction]:
-        return await self.db.scalar(
-            select(Transaction).where(
-                Transaction.gateway_payment_id == gateway_payment_id
-            )
-        )
-
-    def _payment_result(self, order: Order, txn: Transaction) -> dict:
-        return {
-            "message": "Payment verified and recorded",
-            "order_id": str(order.id),
-            "milestone_id": str(txn.milestone_id),
-            "amount": txn.amount,
-            "amount_paid": order.amount_paid,
-            "balance_due": round(order.total_amount - order.amount_paid, 2),
-            "order_status": order.status.value,
-        }
-
-    async def issue_refund(
-        self,
-        order_id: UUID,
-        milestone_id: UUID,
-        amount: float,
-        reason: str,
-        admin_id: UUID,
-    ) -> Order:
-        """
-        Admin issues a refund against a paid milestone.
-        Creates a negative Transaction.
-        confirm_milestone_payment recomputes — milestone may revert to UNPAID.
-        """
-        order = await self.order_svc.get_order(order_id)
-        if not order:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-
-        milestone = next(
-            (m for m in order.milestones if m.id == milestone_id), None
-        )
-        if not milestone:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
-
-        # Cannot refund more than what was paid on this milestone
-        paid_on_milestone = float(await self.db.scalar(
-            select(func.coalesce(func.sum(Transaction.amount), 0.0))
-            .where(Transaction.milestone_id == milestone_id)
-        ))
-
-        if amount > paid_on_milestone + 0.01:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                f"Refund amount ₹{amount:,.2f} exceeds "
-                f"amount paid on this milestone ₹{paid_on_milestone:,.2f}.",
-            )
-
-        # Negative transaction — immutable fact of refund
+    async def record_admin_payment(self, order_id: UUID, payload: AdminRecordPaymentRequest, admin_id: UUID) -> Order:
+        order = await self._get_order_locked(order_id)
+        if payload.milestone_id:
+            milestone = await self._get_milestone(payload.milestone_id, order_id)
+            milestone.status = MilestoneStatus.PAID
+            milestone.paid_at = datetime.now(timezone.utc)
         txn = Transaction(
-            order_id=order.id,
-            milestone_id=milestone.id,
-            amount=-round(amount, 2),             # negative
-            payment_mode=PaymentMode.BANK_TRANSFER,
-            gateway_payment_id=None,
-            notes=f"REFUND: {reason}",
-            recorded_by_admin=admin_id,
+            order_id=order_id, milestone_id=payload.milestone_id, amount=payload.amount,
+            payment_mode=payload.payment_mode,
+            recorded_by_admin=admin_id, notes=payload.notes,
         )
         self.db.add(txn)
         await self.db.flush()
+        await self._recalculate_amount_paid(order)
+        return order
 
-        # Recompute — milestone may revert to UNPAID if fully refunded
-        await self.order_svc.confirm_milestone_payment(milestone, order)
+    async def issue_refund(self, order_id, milestone_id, amount, reason, admin_id) -> Order:
+        order = await self._get_order_locked(order_id)
+        milestone = await self._get_milestone(milestone_id, order_id)
 
-        return order
+        txn = Transaction(
+            order_id=order_id, milestone_id=milestone_id,
+            amount=-abs(amount), payment_mode="REFUND",
+            recorded_by_admin=admin_id, notes=f"Refund: {reason}",
+        )
+        self.db.add(txn)
+        await self.db.flush()
+        await self._recalculate_amount_paid(order)
+
+        # FIX 4: revert PAID → WAITING_PAYMENT when refund underpays
+        if order.amount_paid < order.total_amount and order.status == "PAID":
+            order.status = "WAITING_PAYMENT"
+
+        return order
+
+    async def _get_order_locked(self, order_id: UUID) -> Order:
+        # FIX 3: SELECT FOR UPDATE prevents race condition on concurrent webhooks
+        order = (await self.db.execute(
+            select(Order).where(Order.id == order_id).with_for_update()
+        )).scalar_one_or_none()
+        if not order:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+        return order
+
+    async def _get_milestone(self, milestone_id, order_id) -> OrderMilestone:
+        m = (await self.db.execute(
+            select(OrderMilestone).where(OrderMilestone.id == milestone_id, OrderMilestone.order_id == order_id)
+        )).scalar_one_or_none()
+        if not m:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
+        return m
+
+    async def _recalculate_amount_paid(self, order: Order) -> None:
+        from sqlalchemy import func
+        total = await self.db.scalar(
+            select(func.coalesce(func.sum(Transaction.amount), 0))
+            .where(Transaction.order_id == order.id)
+        )
+        order.amount_paid = float(total or 0)
+        if order.amount_paid >= order.total_amount:
+            order.status = "PAID"

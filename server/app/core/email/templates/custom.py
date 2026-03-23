@@ -4,7 +4,7 @@ Custom promotional / greeting email template.
 Use this for festival wishes, announcements, marketing campaigns,
 or any custom message with an optional banner image.
 """
-from .base import wrap_in_base
+from app.core.email.templates.base import wrap_in_base
 
 
 def render_custom_email(

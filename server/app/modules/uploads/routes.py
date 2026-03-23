@@ -1,15 +1,19 @@
+import logging
+
 from fastapi import APIRouter, UploadFile, File, Query, Depends, HTTPException
 from typing import Literal
 from app.core.file_upload import upload_file_to_cloud
 from app.modules.auth.auth import get_current_user
 from app.modules.users.schemas import UserOut
 
+logger = logging.getLogger("app.modules.uploads")
+
 router = APIRouter()
 
 @router.post("/", response_model=dict, status_code=201)
 async def upload_file(
     file: UploadFile = File(...),
-    purpose: Literal["profile", "product", "inquiry"] = Query(..., description="Type of upload: profile, product, or inquiry"),
+    purpose: Literal["profile", "product", "inquiry", "payment"] = Query(..., description="Type of upload: profile, product, inquiry, or payment"),
     current_user: UserOut = Depends(get_current_user)
 ):
     """

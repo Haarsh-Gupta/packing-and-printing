@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -10,6 +12,8 @@ from app.modules.products.schemas import (
     ProductResponse,
     SubProductResponse
 )
+
+logger = logging.getLogger("app.modules.products")
 
 router = APIRouter()
 

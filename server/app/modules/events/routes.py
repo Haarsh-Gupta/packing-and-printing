@@ -5,6 +5,8 @@ GET /events/stream        — authenticated user's real-time event stream
 GET /admin/events/stream  — admin-only real-time event stream
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
@@ -12,6 +14,8 @@ from app.modules.auth.auth import get_current_user, get_current_admin_user
 from app.modules.auth.schemas import TokenData
 from app.modules.users.models import User
 from app.core.sse import sse_manager
+
+logger = logging.getLogger("app.modules.events")
 
 router = APIRouter()
 
