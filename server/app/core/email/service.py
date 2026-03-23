@@ -202,12 +202,14 @@ def get_email_service() -> BaseEmailService:
     return BrevoEmailService()
 
 
+from app.core.colors import color_print, GREEN, RED, YELLOW
+
 async def check_smtp_connection():
     """
     Verifies connection by checking Brevo Account via REST API.
     """
     if not settings.brevo_api_key:
-        logger.warning("Brevo (REST): API Key missing")
+        color_print("Brevo (REST): API Key missing", YELLOW)
         return False
         
     try:
@@ -217,11 +219,11 @@ async def check_smtp_connection():
                 headers={"api-key": settings.brevo_api_key}
             )
             if response.status_code == 200:
-                logger.info("Brevo (REST): API Key Valid")
+                color_print("Brevo (REST): API Key Valid", GREEN)
                 return True
             else:
-                logger.error("Brevo (REST): API Key Invalid (%s)", response.status_code)
+                color_print(f"Brevo (REST): API Key Invalid ({response.status_code})", RED)
                 return False
     except Exception as e:
-        logger.error("Brevo (REST): Connection Failed - %s", e)
+        color_print(f"Brevo (REST): Connection Failed - {e}", RED)
         return False

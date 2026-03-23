@@ -60,14 +60,15 @@ logger = logging.getLogger("app.main")
 async def lifespan(app: FastAPI):
     setup_logging()
 
-    # logger.info("--------- STARTUP CHECKS ---------")
-    print("--------- STARTUP CHECKS ---------")
+    from app.core.colors import color_print, BLUE, GREEN, RED, BOLD
+
+    color_print("--------- STARTUP CHECKS ---------", BLUE, bold=True)
     await check_db_connection()
     await check_redis_connection()
     await check_smtp_connection()
     
-    print(f"🟢 Server PID: {os.getpid()}")
-    print("--------- STARTUP COMPLETE ---------")
+    color_print(f"🟢 Server PID: {os.getpid()}", GREEN, bold=True)
+    color_print("--------- STARTUP COMPLETE ---------", BLUE, bold=True)
     
     yield
     
@@ -174,3 +175,7 @@ async def root():
 @app.get("/health")
 async def health():
     return {"message" : "I am alive"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, port=8000, host='0.0.0.0')
