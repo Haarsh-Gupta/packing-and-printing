@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.task_registry import fire
-from app.modules.auth.auth import get_current_user
+from app.modules.auth.auth import get_current_user, get_current_user_ws
 from app.modules.auth.schemas import TokenData
 from app.modules.orders.models import Order, OrderMilestone
 from app.modules.orders.schemas import OrderResponse
@@ -39,18 +39,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.websocket("/ws/{group_id}")
-async def websocket_inquiry_endpoint(websocket: WebSocket, group_id: str, token: str = Query(...)):
+async def websocket_inquiry_endpoint(
+    websocket: WebSocket, 
+    group_id: str, 
+    token_data: TokenData = Depends(get_current_user_ws)
+):
     """WebSocket endpoint for real-time inquiry messaging & typing indicators."""
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        token_data = TokenData(**payload)
-        user_id = str(token_data.id)
-        is_admin = token_data.admin
-        logger.info(f"WS auth OK: user={user_id}, admin={is_admin}, group={group_id}")
-    except Exception as e:
-        logger.warning(f"WS auth FAILED for group={group_id}: {e}")
-        await websocket.close(code=1008)
-        return
+    user_id = str(token_data.id)
+    is_admin = token_data.admin
+    logger.info(f"WS auth OK: user={user_id}, admin={is_admin}, group={group_id}")
 
     await ws_manager.connect(websocket, group_id, user_id)
     try:

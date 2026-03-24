@@ -203,7 +203,7 @@ export default function InquiryDetail() {
         const activeToken = localStorage.getItem("admin_token") || "";
         const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
         const wsBase = apiBase.replace(/^http/, "ws");
-        const wsUrl = `${wsBase}/inquiries/ws/${id}?token=${activeToken}`;
+        const wsUrl = `${wsBase}/inquiries/ws/${id}`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 

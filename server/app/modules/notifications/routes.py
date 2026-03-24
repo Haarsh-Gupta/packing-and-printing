@@ -30,18 +30,17 @@ router = APIRouter()
 
 
 @router.get("/stream")
-async def sse_stream(request: Request, token: str = Query(..., description="JWT access token")):
+async def sse_stream(
+    request: Request,
+    current_user: TokenData = Depends(get_current_user)
+):
     """
     SSE stream for real-time push notifications.
-    Accepts ?token= because EventSource cannot set Authorization headers.
+    Now uses HttpOnly cookies for authentication.
     Events: inquiry_status_changed, inquiry_quoted, inquiry_new_message, connected
     """
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        token_data = TokenData(**payload)
-        user_id = str(token_data.id)
-    except (JWTError, Exception):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    user_id = str(current_user.id)
+    is_admin = current_user.admin
 
     async def event_stream():
         # Create a queue to merge multiple generators
@@ -58,7 +57,7 @@ async def sse_stream(request: Request, token: str = Query(..., description="JWT 
         tasks = [asyncio.create_task(producer(sse_manager.subscribe(user_id, request)))]
         
         # If admin, also start admin stream
-        if payload.get("admin"):
+        if is_admin:
             tasks.append(asyncio.create_task(producer(sse_manager.subscribe_admin(request))))
 
         try:

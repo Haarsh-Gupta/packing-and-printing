@@ -12,6 +12,7 @@ export interface InquiryItem {
     estimatedPrice: number;
     imageUrl?: string;          // first image of the product/service
     pricePerUnit?: number;      // stored for edit recalculation
+    slug?: string;              // stored for re-customization
 }
 
 export interface InquiryState {

@@ -34,7 +34,7 @@ export async function fetchWithAuth(
         method: options.method || "GET",
         headers: mergedHeaders,
         body: options.body,
-        credentials: "include",
+        credentials: "include", // Ensure cookies are sent
     });
 
     // On 401, try refreshing token once
@@ -43,7 +43,7 @@ export async function fetchWithAuth(
         try {
             const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
                 method: "POST",
-                credentials: "include",
+                credentials: "include", // Ensure cookies are sent for refresh
             });
 
             if (refreshRes.ok) {

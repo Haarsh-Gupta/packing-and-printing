@@ -269,13 +269,16 @@ export default function CartPage() {
                                                     <h3 className="font-bold text-lg leading-tight line-clamp-2">{item.name}</h3>
                                                 </div>
                                                 <div className="flex gap-1 shrink-0">
-                                                    <button
-                                                        onClick={() => setEditingItem(item)}
-                                                        className="p-2 hover:bg-[#fdf567] border border-transparent hover:border-black transition-colors"
-                                                        title="Edit item"
+                                                    <Link
+                                                        href={item.serviceId
+                                                            ? `/services/request/${item.slug}?edit=${item.id}`
+                                                            : `/products/customize/${item.slug}?edit=${item.id}`
+                                                        }
+                                                        className="p-2 hover:bg-[#fdf567] border border-transparent hover:border-black transition-colors rounded-none"
+                                                        title="Customize options"
                                                     >
                                                         <Pencil className="w-4 h-4" />
-                                                    </button>
+                                                    </Link>
                                                     <button
                                                         onClick={() => handleRemove(item.id)}
                                                         className="p-2 hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-200 transition-colors"

@@ -1,15 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, UploadCloud, ShoppingCart, Plus, Minus } from "lucide-react";
+import { Loader2, UploadCloud, ShoppingCart, Plus, Minus, Check } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
-import { useAppDispatch } from "@/lib/store/hooks";
-import { addToInquiry } from "@/lib/store/inquirySlice";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { addToInquiry, updateOptions, updateQuantity } from "@/lib/store/inquirySlice";
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -32,6 +32,7 @@ interface SchemaSection {
 interface ProductSchema {
     id: number;
     name: string;
+    slug: string;
     base_price: number;
     minimum_quantity: number;
     config_schema: {
@@ -72,6 +73,9 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
     const { showAlert } = useAlert();
     const dispatch = useAppDispatch();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const editId = searchParams?.get("edit");
+    const { items } = useAppSelector(s => s.inquiry);
 
     const [isLoading, setIsLoading] = useState(false);
     const [quantity, setQuantity] = useState<number>(product.minimum_quantity);
@@ -89,6 +93,17 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         });
         return initialAnswers;
     });
+    
+    // Populate data if in edit mode
+    useEffect(() => {
+        if (editId) {
+            const item = items.find(i => i.id === editId);
+            if (item) {
+                setAnswers(item.options);
+                setQuantity(item.quantity);
+            }
+        }
+    }, [editId, items]);
 
     const handleAnswerChange = (key: string, value: any) => {
         setAnswers((prev) => ({ ...prev, [key]: value }));
@@ -131,16 +146,34 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         e.preventDefault();
         setIsLoading(true);
 
-        dispatch(addToInquiry({
-            id: generateId(),
-            productId: product.id,
-            name: product.name,
-            quantity: quantity,
-            options: answers,
-            estimatedPrice: totalPrice
-        }));
-
-        showAlert(`${product.name} added to cart!`, "success");
+        if (editId) {
+            dispatch(updateOptions({
+                id: editId,
+                options: answers as any,
+                estimatedPrice: totalPrice
+            }));
+            // also update quantity if it changed
+            dispatch(updateQuantity({
+                id: editId,
+                quantity: quantity,
+                pricePerUnit: unitPrice
+            }));
+            showAlert(`${product.name} updated!`, "success");
+            router.push("/cart");
+        } else {
+            dispatch(addToInquiry({
+                id: generateId(),
+                productId: product.id,
+                name: product.name,
+                slug: product.slug,
+                quantity: quantity,
+                options: answers,
+                estimatedPrice: totalPrice,
+                imageUrl: (product as any).images?.[0] ?? undefined,
+                pricePerUnit: unitPrice
+            }));
+            showAlert(`${product.name} added to cart!`, "success");
+        }
         setIsLoading(false);
     };
 
@@ -290,8 +323,8 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                         <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
                         <>
-                            Add to Cart
-                            <ShoppingCart className="h-4 w-4" />
+                            {editId ? "Update Item" : "Add to Cart"}
+                            {editId ? <Check className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
                         </>
                     )}
                 </Button>

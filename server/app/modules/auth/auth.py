@@ -3,7 +3,7 @@ from passlib.context import CryptContext
 from app.modules.auth.schemas import TokenData
 from jose import JWTError , jwt
 from datetime import datetime , timedelta , timezone
-from fastapi import HTTPException , Depends , status, Request
+from fastapi import HTTPException , Depends , status, Request, WebSocket
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -64,7 +64,8 @@ async def get_current_user(request: Request, token : str = Depends(oauth2_scheme
         headers={"WWW-Authenticate" : "Bearer"} 
     )
     
-    # If token is not in header or is string "undefined"/"null", check cookies
+    # 1. Try header first (FastAPI's oauth2_scheme handles this)
+    # 2. Fallback to cookies if header is missing or invalid
     if not token or token in ["undefined", "null"]:
         token = request.cookies.get("access_token")
         
@@ -73,6 +74,26 @@ async def get_current_user(request: Request, token : str = Depends(oauth2_scheme
 
     token_data = await verify_token(token , credintials_exception) 
     return token_data
+
+
+async def get_current_user_ws(websocket: WebSocket) -> TokenData:
+    """Authentication dependency for WebSockets using cookies."""
+    token = websocket.cookies.get("access_token")
+    if not token:
+        # Check refresh_token as a last resort or just fail
+        token = websocket.cookies.get("refresh_token")
+    
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        # We manually decode here to avoid complex dependency chains in WS
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return TokenData(**payload)
+    except JWTError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
 
 async def get_current_admin_user(current_user: TokenData = Depends(get_current_user) , db : AsyncSession = Depends(get_db)) -> User:

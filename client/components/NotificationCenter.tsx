@@ -35,6 +35,7 @@ export default function NotificationCenter() {
         try {
             const res = await fetch(`${apiUrl}/notifications/?limit=10`, {
                 headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             if (res.ok) {
                 const data = await res.json();
@@ -55,11 +56,14 @@ export default function NotificationCenter() {
         // Initial unread count
         fetch(`${apiUrl}/notifications/unread-count`, {
             headers: { Authorization: `Bearer ${token}` },
+            credentials: "include",
         }).then(r => r.ok ? r.json() : null)
           .then(d => d && setUnreadCount(d.unread || 0))
           .catch(() => {});
 
-        const eventSource = new EventSource(`${apiUrl}/notifications/stream?token=${token}`);
+        const eventSource = new EventSource(`${apiUrl}/notifications/stream`, {
+            withCredentials: true,
+        });
 
         const handleEvent = (event: MessageEvent) => {
             try {
@@ -94,6 +98,7 @@ export default function NotificationCenter() {
             const res = await fetch(`${apiUrl}/notifications/${id}/read`, {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             if (res.ok) {
                 setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
@@ -110,6 +115,7 @@ export default function NotificationCenter() {
             const res = await fetch(`${apiUrl}/notifications/read-all`, {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             if (res.ok) {
                 setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
@@ -126,6 +132,7 @@ export default function NotificationCenter() {
             const res = await fetch(`${apiUrl}/notifications/all`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             if (res.ok) {
                 setNotifications([]);
@@ -144,6 +151,7 @@ export default function NotificationCenter() {
             const res = await fetch(`${apiUrl}/notifications/${id}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             if (res.ok) {
                 setNotifications(prev => prev.filter(n => n.id !== id));

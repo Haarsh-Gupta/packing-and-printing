@@ -21,6 +21,7 @@ export async function api<T = unknown>(
             ...authHeaders(),
             ...(options.headers || {}),
         },
+        credentials: "include", // Ensure cookies are sent
     });
 
     if (res.status === 401) {
@@ -52,6 +53,7 @@ export async function apiFormData<T = unknown>(
         method: "POST",
         headers: authHeaders(),
         body: formData,
+        credentials: "include",
     });
 
     if (res.status === 401) {
@@ -71,6 +73,7 @@ export async function apiFormData<T = unknown>(
 export async function apiBlob(path: string): Promise<Blob> {
     const res = await fetch(`${API_URL}${path}`, {
         headers: authHeaders(),
+        credentials: "include",
     });
 
     if (!res.ok) throw new Error(`Failed to fetch file`);

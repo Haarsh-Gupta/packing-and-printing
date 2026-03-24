@@ -65,7 +65,8 @@ export default function InquiryDetailPage() {
             if (!token) { router.push("/auth/login"); return; }
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include", // Ensure cookies are sent
             });
 
             if (res.ok) {
@@ -91,7 +92,7 @@ export default function InquiryDetailPage() {
 
         const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
         const wsBase = apiBase.replace(/^http/, "ws");
-        const wsUrl = `${wsBase}/inquiries/ws/${inquiryId}?token=${token}`;
+        const wsUrl = `${wsBase}/inquiries/ws/${inquiryId}`;
 
         setWsStatus("connecting");
         const ws = new WebSocket(wsUrl);
@@ -165,6 +166,7 @@ export default function InquiryDetailPage() {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}` },
                 body: formData,
+                credentials: "include",
             });
 
             if (res.ok) {
@@ -205,7 +207,8 @@ export default function InquiryDetailPage() {
                 body: JSON.stringify({
                     content: newMessage,
                     file_urls: attachmentUrl ? [attachmentUrl] : []
-                })
+                }),
+                credentials: "include",
             });
 
             if (res.ok) {
@@ -247,7 +250,8 @@ export default function InquiryDetailPage() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ status })
+                body: JSON.stringify({ status }),
+                credentials: "include",
             });
 
             if (res.ok) {

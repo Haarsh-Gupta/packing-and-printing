@@ -35,7 +35,9 @@ export default function NotificationsBell() {
         if (!token) return;
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-        const eventSource = new EventSource(`${apiUrl}/notifications/stream?token=${token}`);
+        const eventSource = new EventSource(`${apiUrl}/notifications/stream`, {
+            withCredentials: true,
+        });
 
         // Initial count
         fetch(`${apiUrl}/notifications/unread-count`, {

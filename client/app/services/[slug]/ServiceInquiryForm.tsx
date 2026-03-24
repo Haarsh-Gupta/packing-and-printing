@@ -1,17 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, UploadCloud, Info, Plus, Minus, ArrowRight } from "lucide-react";
+import { Loader2, UploadCloud, Info, Plus, Minus, ArrowRight, Check } from "lucide-react";
 import { ServiceItem } from "@/types/service";
 import { useAlert } from "@/components/CustomAlert";
-import { useAppDispatch } from "@/lib/store/hooks";
-import { addToInquiry } from "@/lib/store/inquirySlice";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { addToInquiry, updateOptions, updateQuantity } from "@/lib/store/inquirySlice";
 import { SubService } from "@/types/service";
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -20,8 +20,13 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
     const router = useRouter();
     const { showAlert } = useAlert();
     const dispatch = useAppDispatch();
+    const searchParams = useSearchParams();
+    const editId = searchParams?.get("edit");
+    const { items } = useAppSelector(s => s.inquiry);
+
     const [isLoading, setIsLoading] = useState(false);
     const [quantity, setQuantity] = useState<number>(activeVariant?.minimum_quantity || 1);
+    const [notes, setNotes] = useState("");
 
     // Update quantity minimum when variant changes
     useEffect(() => {
@@ -30,7 +35,16 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
         }
     }, [activeVariant, quantity]);
 
-    const [notes, setNotes] = useState("");
+    // Populate data if in edit mode
+    useEffect(() => {
+        if (editId) {
+            const item = items.find(i => i.id === editId);
+            if (item) {
+                setNotes(String(item.options?.notes ?? ""));
+                setQuantity(item.quantity);
+            }
+        }
+    }, [editId, items]);
 
     const { totalPrice } = useMemo(() => {
         if (!activeVariant) return { totalPrice: 0 };
@@ -58,24 +72,43 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
             return;
         }
 
-        dispatch(addToInquiry({
-            id: generateId(),
-            serviceId: service.id,
-            subserviceId: activeVariant.id,
-            name: `${service.name} — ${activeVariant.name}`,
-            quantity: quantity,
-            options: {
-                // stored for display only — NOT sent to the API for services
-                variant_name: activeVariant.name,
-                service_slug: service.slug,
-                notes: notes,
-            },
-            estimatedPrice: totalPrice,
-            imageUrl: (activeVariant.images?.[0] || service.cover_image) ?? undefined,
-            pricePerUnit: activeVariant.price_per_unit,
-        }));
-
-        showAlert(`${service.name} added to cart!`, "success");
+        if (editId) {
+            dispatch(updateOptions({
+                id: editId,
+                options: {
+                    variant_name: activeVariant.name,
+                    service_slug: service.slug,
+                    notes: notes,
+                },
+                estimatedPrice: totalPrice,
+            }));
+            dispatch(updateQuantity({
+                id: editId,
+                quantity: quantity,
+                pricePerUnit: activeVariant.price_per_unit,
+            }));
+            showAlert(`${service.name} updated!`, "success");
+            router.push("/cart");
+        } else {
+            dispatch(addToInquiry({
+                id: generateId(),
+                serviceId: service.id,
+                subserviceId: activeVariant.id,
+                name: `${service.name} — ${activeVariant.name}`,
+                slug: activeVariant.slug, // Use variant slug for routing
+                quantity: quantity,
+                options: {
+                    // stored for display only — NOT sent to the API for services
+                    variant_name: activeVariant.name,
+                    service_slug: service.slug,
+                    notes: notes,
+                },
+                estimatedPrice: totalPrice,
+                imageUrl: (activeVariant.images?.[0] || service.cover_image) ?? undefined,
+                pricePerUnit: activeVariant.price_per_unit,
+            }));
+            showAlert(`${service.name} added to cart!`, "success");
+        }
         setIsLoading(false);
     };
 
@@ -154,8 +187,8 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
                         <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
                         <>
-                            Request Quote
-                            <ArrowRight className="h-4 w-4" />
+                            {editId ? "Update Item" : "Request Quote"}
+                            {editId ? <Check className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
                         </>
                     )}
                 </Button>

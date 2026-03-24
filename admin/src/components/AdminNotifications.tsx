@@ -29,8 +29,10 @@ export function AdminNotifications() {
     if (!token) return;
 
     if (sourceRef.current) sourceRef.current.close(); // FIX: close previous before new
-
-    const source = new EventSource(`${import.meta.env.VITE_API_URL}/notifications/stream?token=${token}`);
+    
+    const source = new EventSource(`${import.meta.env.VITE_API_URL}/notifications/stream`, {
+      withCredentials: true
+    });
     sourceRef.current = source;
 
     source.addEventListener("new_notification", (e) => {
