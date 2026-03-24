@@ -199,7 +199,9 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
     # Redirect to frontend
     # We still keep the token in the URL for the frontend success page to catch it
     # until the frontend is fully migrated to use cookies.
-    frontend_url = f"http://localhost:3000/auth/success?access_token={access_token}"
+    import os
+    frontend_url_base = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = f"{frontend_url_base}/auth/success?access_token={access_token}"
     response = RedirectResponse(url=frontend_url)
 
     response.set_cookie(
