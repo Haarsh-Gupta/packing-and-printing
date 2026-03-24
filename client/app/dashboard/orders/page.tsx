@@ -77,6 +77,28 @@ export default function OrdersPage() {
         { label: "Cancelled", value: "CANCELLED" }
     ];
 
+    const handleExportCSV = () => {
+        if (!filteredOrders.length) return;
+        const headers = ["ID", "Status", "Product", "Total Amount", "Amount Paid", "Created Date"];
+        const rows = filteredOrders.map(o => [
+            o.order_number || o.id,
+            o.status,
+            o.product_name ? `"${o.product_name.replace(/"/g, '""')}"` : "N/A",
+            o.total_amount,
+            o.amount_paid,
+            new Date(o.created_at).toLocaleDateString()
+        ]);
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `orders_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (isLoading) return (
         <div className="space-y-10 max-w-7xl mx-auto pb-20">
             <DashboardHeader title="Orders" description="Loading your orders..." />
@@ -86,10 +108,19 @@ export default function OrdersPage() {
 
     return (
         <div className="space-y-10 max-w-7xl mx-auto pb-20">
-            <DashboardHeader
-                title="Orders"
-                description="Manage your purchases and track shipments."
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <DashboardHeader
+                    title="Orders"
+                    description="Manage your purchases and track shipments."
+                />
+                <Button 
+                    onClick={handleExportCSV} 
+                    className="bg-black text-white hover:bg-zinc-800 border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase font-black self-start sm:self-center"
+                    disabled={filteredOrders.length === 0}
+                >
+                    Export CSV
+                </Button>
+            </div>
 
             <DashboardSearch
                 searchQuery={searchQuery}

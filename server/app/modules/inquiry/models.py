@@ -75,7 +75,20 @@ class InquiryItem(Base):
     def service_name(self): return self.service.name if self.service else None
     @property
     def subservice_name(self): return self.sub_service.name if self.sub_service else None
-
+    
+    @property
+    def display_images(self):
+        if self.images and len(self.images) > 0:
+            return self.images
+        if self.sub_product and self.sub_product.images and len(self.sub_product.images) > 0:
+            return self.sub_product.images
+        if self.product and getattr(self.product, 'cover_image', None):
+            return [self.product.cover_image]
+        if self.sub_service and self.sub_service.images and len(self.sub_service.images) > 0:
+            return self.sub_service.images
+        if self.service and getattr(self.service, 'cover_image', None):
+            return [self.service.cover_image]
+        return []
 
 class InquiryMessage(Base):
     __tablename__ = "inquiry_messages"

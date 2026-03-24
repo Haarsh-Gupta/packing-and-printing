@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,7 +78,9 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
     const { items } = useAppSelector(s => s.inquiry);
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [quantity, setQuantity] = useState<number>(product.minimum_quantity);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [answers, setAnswers] = useState<Record<string, any>>(() => {
         const initialAnswers: Record<string, any> = {};
@@ -141,6 +143,41 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
             totalPrice: currentUnitPrice * quantity,
         };
     }, [answers, quantity, product]);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            showAlert("File must be under 5MB size limit", "error");
+            return;
+        }
+        setIsUploading(true);
+        try {
+            const token = localStorage.getItem("access_token");
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=inquiry`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                handleAnswerChange("uploaded_files", [data.url]);
+                handleAnswerChange("uploaded_file_name", data.filename || file.name);
+                showAlert("File attached successfully!", "success");
+            } else {
+                showAlert("Failed to upload file.", "error");
+            }
+        } catch {
+            showAlert("Upload error.", "error");
+        } finally {
+            setIsUploading(false);
+            if (e.target) e.target.value = "";
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -284,10 +321,28 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label className="text-sm font-black uppercase tracking-widest text-zinc-800">Design File</Label>
-                        <div className="border-2 border-dashed border-black bg-white h-12 flex items-center justify-center hover:bg-[#fdf567] hover:border-solid transition-colors cursor-pointer group rounded-md">
-                            <span className="text-xs font-bold uppercase tracking-wide text-black flex items-center gap-2">
-                                <UploadCloud className="h-4 w-4" /> Upload
-                            </span>
+                        <input
+                            type="file"
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleFileUpload}
+                            accept="image/*,.pdf,.ai,.psd,.eps,.zip"
+                        />
+                        <div 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="border-2 border-dashed border-black bg-white h-12 flex items-center justify-center hover:bg-[#fdf567] hover:border-solid transition-colors cursor-pointer group rounded-md overflow-hidden relative px-4"
+                        >
+                            {isUploading ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-black" />
+                            ) : answers["uploaded_file_name"] ? (
+                                <span className="text-xs font-bold uppercase tracking-wide text-green-600 flex items-center gap-2 truncate">
+                                    <Check className="h-4 w-4 shrink-0" /> {answers["uploaded_file_name"]}
+                                </span>
+                            ) : (
+                                <span className="text-xs font-bold uppercase tracking-wide text-black flex items-center gap-2 shrink-0">
+                                    <UploadCloud className="h-4 w-4" /> Upload
+                                </span>
+                            )}
                         </div>
                     </div>
 

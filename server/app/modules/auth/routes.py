@@ -36,6 +36,7 @@ async def login(request: Request, response : Response , db : AsyncSession = Depe
     user = result.scalar_one_or_none() 
 
     if not user:
+        logger.warning(f"Login failed: User with email {username} not found.")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Incorrect email or password")
 
     if user.password is None:
@@ -45,6 +46,7 @@ async def login(request: Request, response : Response , db : AsyncSession = Depe
         )
 
     if not await verify_password(password , user.password):
+        logger.warning(f"Login failed: Incorrect password for user {username}.")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Incorrect email or password")
     
     payload = TokenData(id=user.id, email=user.email, admin=user.admin, token_version=user.token_version)
@@ -155,8 +157,12 @@ async def google_login(request: Request):
 @router.get("/google/callback", name = "auth_google_callback")
 async def google_callback(request: Request, db : AsyncSession = Depends(get_db)):
     try:
-        token = await oauth.google.authorize_access_token(request)
+        # Large leeway to tolerate system clock drift
+        token = await oauth.google.authorize_access_token(request, leeway=300)
     except OAuthError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google authentication failed")
+    except Exception as e:
+        logger.error(f"Google auth token error: {e}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google authentication failed")
 
     is_secure = request.url.scheme == "https" and "localhost" not in request.url.hostname

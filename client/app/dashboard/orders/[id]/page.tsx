@@ -387,9 +387,9 @@ export default function OrderDetailPage() {
                         <div className="space-y-8">
                             {inquiry.items.map((item: any, i: number) => (
                                 <div key={item.id || i} className="flex flex-col sm:flex-row gap-6 pb-8 last:pb-0 border-b-2 border-zinc-100 last:border-b-0">
-                                    {item.images && item.images.length > 0 ? (
+                                    {item.display_images && item.display_images.length > 0 ? (
                                         <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg overflow-hidden bg-zinc-100">
-                                            <img src={item.images[0]} alt="Product" className="w-full h-full object-cover" />
+                                            <img src={item.display_images[0]} alt="Product" className="w-full h-full object-cover" />
                                         </div>
                                     ) : (
                                         <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg bg-zinc-100 flex items-center justify-center">

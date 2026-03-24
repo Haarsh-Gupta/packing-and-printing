@@ -142,7 +142,9 @@ async def get_my_inquiries(
     """
     stmt = (
         select(InquiryGroup)
-        .options(selectinload(InquiryGroup.items), selectinload(InquiryGroup.quote_versions), selectinload(InquiryGroup.active_quote))
+        .options(
+            selectinload(InquiryGroup.items)
+        )
         .where(InquiryGroup.user_id == current_user.id)
         .order_by(InquiryGroup.created_at.desc())
         .offset(skip)

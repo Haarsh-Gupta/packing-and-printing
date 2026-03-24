@@ -39,10 +39,7 @@ class OTPService:
         otp = self._generate_otp()
         expire_minutes = settings.otp_expire_seconds // 60
 
-        # print(f"\n{'='*50}")
-        # print(f"📧 OTP for {email}: {otp}")
-        # print(f"⏱️  Expires in {expire_minutes} minutes")
-        # print(f"{'='*50}\n")
+        logger.info(f"\n{'='*50}\n📧 OTP for {email}: {otp}\n⏱️  Expires in {expire_minutes} minutes\n{'='*50}\n")
 
         await self.store.store_otp(email, otp)
 
@@ -83,18 +80,11 @@ class OTPService:
         If consume=False, keeps the OTP (for pre-verification checks).
         """
         stored = await self.store.get_otp(email)
-        # print(f"\n{'='*50}")
-        # print(f"🔍 Verifying OTP for {email}")
-        # print(f"   Stored OTP : {stored!r} (type: {type(stored).__name__})")
-        # print(f"   Received OTP: {otp!r} (type: {type(otp).__name__})")
-        
         if stored is not None:
             stored = stored.decode() if isinstance(stored, bytes) else str(stored)
             
         match = stored and stored == otp
-        # print(f"   Match: {match}")
-        # print(f"   Consume: {consume}")
-        # print(f"{'='*50}\n")
+        logger.info(f"\n{'='*50}\n🔍 Verifying OTP for {email}\n   Stored OTP : {stored!r}\n   Received OTP: {otp!r}\n   Match: {match}\n{'='*50}\n")
 
         if match and consume:
             await self.store.delete_otp(email)

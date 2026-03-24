@@ -18,13 +18,14 @@ import { Inquiry } from "@/types/dashboard";
 function buildPayload(items: InquiryItem[]) {
     return items.map(item => {
         if (item.productId != null) {
-            const { notes: _n, ...productOptions } = item.options as any;
+            const { notes: _n, uploaded_files: _u, uploaded_file_name: _un, ...productOptions } = item.options as any;
             return {
                 product_id: Number(item.productId),
                 subproduct_id: item.subproductId != null ? Number(item.subproductId) : undefined,
                 quantity: Number(item.quantity),
                 selected_options: Object.keys(productOptions).length > 0 ? productOptions : { _default: "true" },
                 notes: (item.options?.notes as string) || null,
+                images: item.options?.uploaded_files || undefined,
             };
         } else if (item.serviceId != null) {
             return {
@@ -32,6 +33,7 @@ function buildPayload(items: InquiryItem[]) {
                 subservice_id: item.subserviceId != null ? Number(item.subserviceId) : null,
                 quantity: Number(item.quantity),
                 notes: (item.options?.notes as string) || null,
+                images: item.options?.uploaded_files || undefined,
             };
         }
         return null;

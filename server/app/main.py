@@ -78,7 +78,7 @@ async def lifespan(app: FastAPI):
     if sys.platform == "win32":
         def _watchdog():
             import time
-            time.sleep(8)
+            time.sleep(5)
             print("💀 Shutdown watchdog: force killing process")
             os._exit(1)
         threading.Thread(target=_watchdog, daemon=True).start()

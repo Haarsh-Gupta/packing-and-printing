@@ -21,6 +21,7 @@ export interface InquiryItem {
     selected_options: Record<string, any>;
     notes?: string | null;
     images?: string[];
+    display_images?: string[];
     line_item_price?: number;
     template_name?: string;
     service_name?: string;

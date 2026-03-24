@@ -8,7 +8,7 @@ export interface InquiryItem {
     subserviceId?: number;      // required when serviceId is set
     name: string;
     quantity: number;
-    options: Record<string, string | number | boolean>; // only for products
+    options: Record<string, string | number | boolean | string[] | null>; // allows arrays for uploaded files
     estimatedPrice: number;
     imageUrl?: string;          // first image of the product/service
     pricePerUnit?: number;      // stored for edit recalculation
@@ -25,10 +25,30 @@ const initialState: InquiryState = {
     totalEstimate: 0,
 };
 
+const saveToStorage = (state: InquiryState) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('bookbind_cart', JSON.stringify(state));
+    }
+};
+
 export const inquirySlice = createSlice({
     name: 'inquiry',
     initialState,
     reducers: {
+        hydrateInquiry: (state) => {
+            if (typeof window !== 'undefined') {
+                const saved = localStorage.getItem('bookbind_cart');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        state.items = parsed.items || [];
+                        state.totalEstimate = parsed.totalEstimate || 0;
+                    } catch (e) {
+                        console.error("Failed to parse cart from storage", e);
+                    }
+                }
+            }
+        },
         addToInquiry: (state, action: PayloadAction<InquiryItem>) => {
             // Prevent exact duplicate (same subproduct/subservice & same options)
             const existing = state.items.find(i =>
@@ -40,10 +60,11 @@ export const inquirySlice = createSlice({
                 existing.quantity += action.payload.quantity;
                 existing.estimatedPrice += action.payload.estimatedPrice;
                 state.totalEstimate += action.payload.estimatedPrice;
-                return;
+            } else {
+                state.items.push(action.payload);
+                state.totalEstimate += action.payload.estimatedPrice;
             }
-            state.items.push(action.payload);
-            state.totalEstimate += action.payload.estimatedPrice;
+            saveToStorage(state);
         },
         removeFromInquiry: (state, action: PayloadAction<string>) => {
             const index = state.items.findIndex(item => item.id === action.payload);
@@ -51,6 +72,7 @@ export const inquirySlice = createSlice({
                 state.totalEstimate -= state.items[index].estimatedPrice;
                 state.items.splice(index, 1);
             }
+            saveToStorage(state);
         },
         updateQuantity: (state, action: PayloadAction<{ id: string; quantity: number; pricePerUnit: number }>) => {
             const item = state.items.find(i => i.id === action.payload.id);
@@ -61,8 +83,9 @@ export const inquirySlice = createSlice({
                 item.pricePerUnit = action.payload.pricePerUnit;
                 state.totalEstimate = state.totalEstimate - oldEst + item.estimatedPrice;
             }
+            saveToStorage(state);
         },
-        updateOptions: (state, action: PayloadAction<{ id: string; options: Record<string, string | number | boolean>; estimatedPrice: number }>) => {
+        updateOptions: (state, action: PayloadAction<{ id: string; options: Record<string, string | number | boolean | string[] | null>; estimatedPrice: number }>) => {
             const item = state.items.find(i => i.id === action.payload.id);
             if (item) {
                 const oldEst = item.estimatedPrice;
@@ -71,14 +94,16 @@ export const inquirySlice = createSlice({
                 item.pricePerUnit = item.quantity > 0 ? action.payload.estimatedPrice / item.quantity : 0;
                 state.totalEstimate = state.totalEstimate - oldEst + action.payload.estimatedPrice;
             }
+            saveToStorage(state);
         },
         clearInquiry: (state) => {
             state.items = [];
             state.totalEstimate = 0;
+            saveToStorage(state);
         },
     },
 });
 
-export const { addToInquiry, removeFromInquiry, clearInquiry, updateQuantity, updateOptions } = inquirySlice.actions;
+export const { addToInquiry, removeFromInquiry, clearInquiry, updateQuantity, updateOptions, hydrateInquiry } = inquirySlice.actions;
 
 export default inquirySlice.reducer;

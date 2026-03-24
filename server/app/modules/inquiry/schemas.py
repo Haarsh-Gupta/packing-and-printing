@@ -135,6 +135,7 @@ class InquiryItemResponse(InquiryItemBase):
     line_item_price: Optional[float] = None; estimated_price: float = 0.0
     product_name: Optional[str] = None; subproduct_name: Optional[str] = None
     service_name: Optional[str] = None; subservice_name: Optional[str] = None
+    display_images: List[str] = []
 
     @computed_field
     @property
@@ -158,4 +159,5 @@ class InquiryGroupListResponse(BaseModel):
     quote_email_status: Optional[str] = None
     admin_notes: Optional[str] = None
     created_at: datetime; item_count: int = 0
+    items: List[InquiryItemResponse] = []
     model_config = ConfigDict(from_attributes=True)

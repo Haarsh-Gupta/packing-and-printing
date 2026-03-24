@@ -374,6 +374,11 @@ export default function InquiryDetailPage() {
                     </CardHeader>
                     <div className="grow p-5 overflow-y-auto">
                         <div className="space-y-5">
+                            {item?.display_images && item.display_images.length > 0 && (
+                                <div className="w-full h-48 border-2 border-black shrink-0 relative overflow-hidden bg-zinc-100 rounded-lg">
+                                    <img src={item.display_images[0]} alt="Selected Product" className="w-full h-full object-cover" />
+                                </div>
+                            )}
                             <div>
                                 <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-1">Status</span>
                                 <div className="font-black text-sm uppercase">{inquiry.status.replace("_", " ")}</div>

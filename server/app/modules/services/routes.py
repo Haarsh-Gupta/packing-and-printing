@@ -15,7 +15,7 @@ router = APIRouter()
 @router.get("/", response_model=List[ServiceResponse])
 async def get_services(
     skip: int = 0, 
-    limit: int = 10,
+    limit: int = 100,
     db: AsyncSession = Depends(get_db)
 ):
     # selectinload is handled automatically by the model's lazy="selectin"

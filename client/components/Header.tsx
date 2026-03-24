@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { User, Menu, X, ShoppingCart, ChevronDown } from "lucide-react";
+import { User, Menu, X, ShoppingCart } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
 import InquiryCartSidebar from "@/components/InquiryCartSidebar";
 import MegaMenu from "@/components/MegaMenu";
@@ -16,35 +16,38 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   
-  // Dynamic navigation data
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
-  const [expandedMobile, setExpandedMobile] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
     window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
-    // Fetch data for mega menu
-    const controller = new AbortController();
+  const fetchMenuData = async () => {
+    if (hasFetched || isLoading) return;
     
-    Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?_t=${Date.now()}`, { signal: controller.signal }).then(r => r.ok ? r.json() : []),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/services?_t=${Date.now()}`, { signal: controller.signal }).then(r => r.ok ? r.json() : [])
-    ]).then(([p, s]) => {
+    setIsLoading(true);
+    try {
+        const [p, s] = await Promise.all([
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?_t=${Date.now()}`).then(r => r.ok ? r.json() : []),
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/services?_t=${Date.now()}`).then(r => r.ok ? r.json() : [])
+        ]);
         setProducts(p);
         setServices(s);
-    }).catch(err => {
-        if (err.name !== 'AbortError') console.error("Header fetch error", err);
-    });
+        setHasFetched(true);
+    } catch (err) {
+        console.error("Header fetch error", err);
+    } finally {
+        setIsLoading(false);
+    }
+  };
 
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      controller.abort();
-    };
-  }, []);
 
   if (pathname && pathname.startsWith("/dashboard")) {
     return null;
@@ -66,7 +69,10 @@ export default function Header() {
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex gap-10 font-bold text-[13px] uppercase tracking-widest text-white/70 h-full items-center">
+        <nav 
+            className="hidden md:flex gap-10 font-bold text-[13px] uppercase tracking-widest text-white/70 h-full items-center"
+            onMouseEnter={fetchMenuData}
+        >
           <MegaMenu title="Catalog" href="/products" items={products} type="product" />
           <MegaMenu title="Services" href="/services" items={services} type="service" />
           <Link href="/quote" className="hover:text-[#FF90E8] transition-colors">Quote</Link>
@@ -126,47 +132,13 @@ export default function Header() {
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-white/10 bg-black p-6 flex flex-col gap-4 absolute w-full left-0 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.5)] max-h-[80vh] overflow-y-auto">
           
-          {/* Catalog Accordion */}
-          <div>
-              <button 
-                onClick={() => setExpandedMobile(expandedMobile === 'products' ? null : 'products')}
-                className="w-full flex justify-between items-center text-lg font-bold uppercase tracking-wider text-white/80 py-2"
-              >
-                Catalog
-                <ChevronDown className={`h-5 w-5 transition-transform ${expandedMobile === 'products' ? 'rotate-180 text-[#FF90E8]' : ''}`} />
-              </button>
-              <div className={`overflow-hidden transition-all duration-300 ${expandedMobile === 'products' ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="pl-4 py-2 flex flex-col gap-3">
-                   {products.slice(0, 10).map(p => (
-                       <Link key={p.id} href={`/products/customize/${p.sub_products?.[0]?.slug || p.slug}`} className="text-sm font-bold text-white/50 hover:text-[#FF90E8]" onClick={() => setIsMobileMenuOpen(false)}>
-                           {p.name}
-                       </Link>
-                   ))}
-                   <Link href="/products" className="text-xs font-black uppercase text-[#FF90E8]" onClick={() => setIsMobileMenuOpen(false)}>View All Products</Link>
-                </div>
-              </div>
-          </div>
+          <Link href="/products" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80 py-2 border-b border-white/5" onClick={() => setIsMobileMenuOpen(false)}>
+            Catalog
+          </Link>
 
-          {/* Services Accordion */}
-          <div>
-              <button 
-                onClick={() => setExpandedMobile(expandedMobile === 'services' ? null : 'services')}
-                className="w-full flex justify-between items-center text-lg font-bold uppercase tracking-wider text-white/80 py-2"
-              >
-                Services
-                <ChevronDown className={`h-5 w-5 transition-transform ${expandedMobile === 'services' ? 'rotate-180 text-[#FF90E8]' : ''}`} />
-              </button>
-              <div className={`overflow-hidden transition-all duration-300 ${expandedMobile === 'services' ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="pl-4 py-2 flex flex-col gap-3">
-                   {services.slice(0, 10).map(s => (
-                       <Link key={s.id} href={`/services/request/${s.sub_services?.[0]?.slug || s.slug}`} className="text-sm font-bold text-white/50 hover:text-[#FF90E8]" onClick={() => setIsMobileMenuOpen(false)}>
-                           {s.name}
-                       </Link>
-                   ))}
-                   <Link href="/services" className="text-xs font-black uppercase text-[#FF90E8]" onClick={() => setIsMobileMenuOpen(false)}>View All Services</Link>
-                </div>
-              </div>
-          </div>
+          <Link href="/services" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80 py-2 border-b border-white/5" onClick={() => setIsMobileMenuOpen(false)}>
+            Services
+          </Link>
 
           <Link href="/quote" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>Quote</Link>
           <Link href="/#how-it-works" className="text-lg font-bold uppercase tracking-wider hover:text-[#FF90E8] text-white/80" onClick={() => setIsMobileMenuOpen(false)}>How it works</Link>

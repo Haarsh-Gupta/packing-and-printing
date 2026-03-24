@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,10 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
     const { items } = useAppSelector(s => s.inquiry);
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+    const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [quantity, setQuantity] = useState<number>(activeVariant?.minimum_quantity || 1);
     const [notes, setNotes] = useState("");
 
@@ -42,6 +46,10 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
             if (item) {
                 setNotes(String(item.options?.notes ?? ""));
                 setQuantity(item.quantity);
+                if (item.options?.uploaded_files) {
+                    setUploadedFiles(item.options.uploaded_files as string[]);
+                    setUploadedFileName((item.options.uploaded_file_name as string) || "Attached File");
+                }
             }
         }
     }, [editId, items]);
@@ -62,6 +70,41 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
         });
     };
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            showAlert("File must be under 5MB size limit", "error");
+            return;
+        }
+        setIsUploading(true);
+        try {
+            const token = localStorage.getItem("access_token");
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=inquiry`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setUploadedFiles([data.url]);
+                setUploadedFileName(data.filename || file.name);
+                showAlert("Brief attached successfully!", "success");
+            } else {
+                showAlert("Failed to upload file.", "error");
+            }
+        } catch {
+            showAlert("Upload error.", "error");
+        } finally {
+            setIsUploading(false);
+            if (e.target) e.target.value = "";
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
@@ -79,7 +122,9 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
                     variant_name: activeVariant.name,
                     service_slug: service.slug,
                     notes: notes,
-                },
+                    uploaded_files: uploadedFiles,
+                    uploaded_file_name: uploadedFileName,
+                } as any,
                 estimatedPrice: totalPrice,
             }));
             dispatch(updateQuantity({
@@ -102,7 +147,9 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
                     variant_name: activeVariant.name,
                     service_slug: service.slug,
                     notes: notes,
-                },
+                    uploaded_files: uploadedFiles,
+                    uploaded_file_name: uploadedFileName,
+                } as any,
                 estimatedPrice: totalPrice,
                 imageUrl: (activeVariant.images?.[0] || service.cover_image) ?? undefined,
                 pricePerUnit: activeVariant.price_per_unit,
@@ -152,10 +199,28 @@ export default function ServiceInquiryForm({ service, activeVariant }: { service
                 {/* Reference Material */}
                 <div className="space-y-2">
                     <Label className="text-sm font-black uppercase tracking-widest text-zinc-800">Reference Material</Label>
-                    <div className="border-2 border-dashed border-black bg-white h-16 flex items-center justify-center hover:bg-[#fdf567] hover:border-solid transition-colors cursor-pointer group rounded-md">
-                        <span className="text-xs font-black uppercase tracking-widest text-black flex items-center gap-2">
-                            <UploadCloud className="h-5 w-5" /> Upload Brief
-                        </span>
+                    <input
+                        type="file"
+                        className="hidden"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        accept="image/*,.pdf,.ai,.psd,.eps,.zip"
+                    />
+                    <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-black bg-white h-16 flex items-center justify-center hover:bg-[#fdf567] hover:border-solid transition-colors cursor-pointer group rounded-md overflow-hidden relative px-4 text-center"
+                    >
+                        {isUploading ? (
+                            <Loader2 className="w-5 h-5 animate-spin text-black" />
+                        ) : uploadedFileName ? (
+                            <span className="text-xs font-black uppercase tracking-widest text-green-600 flex items-center gap-2 truncate flex-col justify-center">
+                                <Check className="h-4 w-4 shrink-0 mx-auto mb-0.5" /> <span className="truncate w-full max-w-[200px] block">{uploadedFileName}</span>
+                            </span>
+                        ) : (
+                            <span className="text-xs font-black uppercase tracking-widest text-black flex items-center gap-2 shrink-0">
+                                <UploadCloud className="h-5 w-5" /> Upload Brief
+                            </span>
+                        )}
                     </div>
                 </div>
 

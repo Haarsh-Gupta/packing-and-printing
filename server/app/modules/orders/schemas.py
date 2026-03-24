@@ -402,6 +402,8 @@ class OrderResponse(BaseModel):
     user_id: UUID
     user_name: Optional[str] = None
     user_email: Optional[str] = None
+    product_name: Optional[str] = None
+    image_url: Optional[str] = None
     total_amount: float
     tax_amount: Optional[float] = 0.0
     shipping_amount: Optional[float] = 0.0
@@ -425,6 +427,8 @@ class OrderListResponse(BaseModel):
     user_id: UUID
     user_name: Optional[str] = None
     user_email: Optional[str] = None
+    product_name: Optional[str] = None
+    image_url: Optional[str] = None
     total_amount: float
     tax_amount: Optional[float] = 0.0
     shipping_amount: Optional[float] = 0.0

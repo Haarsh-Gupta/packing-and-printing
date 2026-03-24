@@ -114,6 +114,26 @@ export default function MyInquiriesPage() {
         }
     };
 
+    const handleExportCSV = () => {
+        if (!filteredInquiries.length) return;
+        const headers = ["ID", "Status", "Total Estimate", "Created Date"];
+        const rows = filteredInquiries.map(inq => [
+            inq.display_id || inq.id,
+            inq.status,
+            inq.active_quote?.total_price || 0,
+            new Date(inq.created_at).toLocaleDateString()
+        ]);
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `inquiries_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (isLoading) {
         return (
             <div className="space-y-8 max-w-5xl mx-auto">
@@ -125,10 +145,19 @@ export default function MyInquiriesPage() {
 
     return (
         <div className="space-y-8 max-w-5xl mx-auto">
-            <DashboardHeader
-                title="My Inquiries"
-                description="Request custom quotes and manage specifications."
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <DashboardHeader
+                    title="My Inquiries"
+                    description="Request custom quotes and manage specifications."
+                />
+                <Button 
+                    onClick={handleExportCSV} 
+                    className="bg-black text-white hover:bg-zinc-800 border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase font-black self-start sm:self-center"
+                    disabled={filteredInquiries.length === 0}
+                >
+                    Export CSV
+                </Button>
+            </div>
 
             <DashboardSearch
                 searchQuery={searchQuery}

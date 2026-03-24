@@ -65,7 +65,7 @@ export default function MegaMenu({ title, href, items, type }: MegaMenuProps) {
                              </Link>
                         </div>
                         <div className="space-y-1">
-                            {items.slice(0, 8).map((item) => (
+                            {items.map((item) => (
                                 <button
                                     key={item.id}
                                     onMouseEnter={() => setActiveItem(item)}

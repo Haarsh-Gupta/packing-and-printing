@@ -14,7 +14,9 @@ class OrderService:
 
     async def get_order(self, order_id: UUID) -> Optional[Order]:
         from sqlalchemy.orm import selectinload
-        return (await self.db.execute(
+        from app.modules.inquiry.models import InquiryGroup, InquiryItem
+
+        order = (await self.db.execute(
             select(Order)
             .options(
                 selectinload(Order.milestones),
@@ -24,6 +26,10 @@ class OrderService:
             )
             .where(Order.id == order_id)
         )).scalar_one_or_none()
+
+        if order:
+            await self._populate_order_details([order])
+        return order
 
     async def get_all_orders(self, status_filter=None, skip=0, limit=50):
         from sqlalchemy.orm import selectinload
@@ -35,7 +41,10 @@ class OrderService:
         )
         if status_filter:
             stmt = stmt.where(Order.status == status_filter.value)
-        return list((await self.db.execute(stmt)).scalars().all())
+        
+        orders = list((await self.db.execute(stmt)).scalars().all())
+        await self._populate_order_details(orders)
+        return orders
 
     async def get_user_orders(self, user_id: UUID, status_filter=None, skip=0, limit=50):
         from sqlalchemy.orm import selectinload
@@ -48,7 +57,48 @@ class OrderService:
         )
         if status_filter:
             stmt = stmt.where(Order.status == status_filter.value)
-        return list((await self.db.execute(stmt)).scalars().all())
+        
+        orders = list((await self.db.execute(stmt)).scalars().all())
+        await self._populate_order_details(orders)
+        return orders
+
+    async def _populate_order_details(self, orders: list[Order]):
+        from sqlalchemy.orm import selectinload
+        from app.modules.inquiry.models import InquiryGroup, InquiryItem
+
+        if not orders:
+            return
+
+        inquiry_ids = [o.inquiry_id for o in orders]
+        inquiries = (await self.db.execute(
+            select(InquiryGroup)
+            .options(selectinload(InquiryGroup.items))
+            .where(InquiryGroup.id.in_(inquiry_ids))
+        )).scalars().all()
+
+        inquiry_map = {i.id: i for i in inquiries}
+
+        for order in orders:
+            inquiry = inquiry_map.get(order.inquiry_id)
+            if inquiry and inquiry.items:
+                first_item = inquiry.items[0]
+                # Populate dynamic fields (these are NOT columns, but the schema will pick them up)
+                order.product_name = first_item.service_name or first_item.subproduct_name or first_item.product_name or "Custom Order"
+                
+                # Check custom user uploads first, then fall back to catalog images
+                if first_item.images and len(first_item.images) > 0:
+                    order.image_url = first_item.images[0]
+                elif first_item.sub_product and first_item.sub_product.images and len(first_item.sub_product.images) > 0:
+                    order.image_url = first_item.sub_product.images[0]
+                elif first_item.product and getattr(first_item.product, 'cover_image', None):
+                    order.image_url = first_item.product.cover_image
+                elif first_item.sub_service and first_item.sub_service.images and len(first_item.sub_service.images) > 0:
+                    order.image_url = first_item.sub_service.images[0]
+                elif first_item.service and getattr(first_item.service, 'cover_image', None):
+                    order.image_url = first_item.service.cover_image
+                else:
+                    order.image_url = None
+
 
     async def regenerate_milestones(self, order: Order, payload: AdminMilestoneCreateRequest) -> None:
         if order.amount_paid and order.amount_paid > 0:

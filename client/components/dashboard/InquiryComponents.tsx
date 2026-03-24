@@ -18,7 +18,18 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
     const item = inquiry.items && inquiry.items.length > 0 ? inquiry.items[0] : null;
 
     return (
-        <Card key={inquiry.id} className="border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden bg-white">
+        <Card key={inquiry.id} className="border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden bg-white group">
+            <div className="flex flex-col md:flex-row">
+                {item?.display_images && item.display_images.length > 0 && (
+                    <div className="w-full md:w-48 h-48 md:h-auto bg-zinc-100 relative shrink-0 flex items-center justify-center overflow-hidden border-b-2 md:border-b-0 md:border-r-2 border-black">
+                        <img
+                            src={item.display_images[0]}
+                            alt={item.service_name || item.template_name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                    </div>
+                )}
+                <div className="flex-1">
             <CardHeader className="bg-zinc-50 border-b-2 border-black pb-4 flex flex-row items-center justify-between">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -122,6 +133,8 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                     </div>
                 )}
             </CardFooter>
+                </div>
+            </div>
         </Card>
     );
 }
@@ -132,8 +145,14 @@ export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: I
     return (
         <div className="bg-white border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-xl">
             <div className="flex items-center gap-4 flex-1">
-                <div className="w-12 h-12 bg-zinc-100 border border-black flex items-center justify-center shrink-0 rounded-lg">
-                    {item?.service_id ? (
+                <div className="w-12 h-12 bg-zinc-100 border border-black flex items-center justify-center shrink-0 rounded-lg overflow-hidden">
+                    {item?.display_images && item.display_images.length > 0 ? (
+                        <img
+                            src={item.display_images[0]}
+                            alt={item.service_name || item.template_name}
+                            className="w-full h-full object-cover"
+                        />
+                    ) : item?.service_id ? (
                         <Layers className="w-6 h-6 text-[#ff90e8]" />
                     ) : (
                         <Box className="w-6 h-6 text-[#90e8ff]" />

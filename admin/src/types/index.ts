@@ -248,6 +248,9 @@ export interface SubProduct {
     minimum_quantity: number;
     images?: string[];
     is_active: boolean;
+    hsn_code?: string;
+    cgst_rate?: number;
+    sgst_rate?: number;
     config_schema: { sections: FormSection[] };
     created_at: string;
 }
@@ -274,6 +277,9 @@ export interface SubService {
     description?: string;
     images?: string[];
     is_active: boolean;
+    hsn_code?: string;
+    cgst_rate?: number;
+    sgst_rate?: number;
 }
 
 export interface Service {
