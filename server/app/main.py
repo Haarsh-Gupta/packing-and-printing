@@ -172,6 +172,10 @@ app.include_router(events_router, prefix="/events", tags=["SSE Events"])
 async def root():
     return {"message" : "Hello World"}
 
+@app.get("/ping")
+async def ping():
+    return {"message" : "pong"}
+
 @app.get("/health")
 async def health():
     return {"message" : "I am alive"}
