@@ -1,5 +1,6 @@
 import os
 import logging
+from urllib.parse import urlencode
 
 from app.modules.auth import get_current_user
 from fastapi import APIRouter , Depends, status, HTTPException
@@ -226,7 +227,10 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
     # Ensure no trailing slash for consistency
     frontend_url_base = frontend_url_base.rstrip("/")
     
-    frontend_url = f"{frontend_url_base}/auth/success"
+    # Build the redirect URL with tokens as query params so the frontend
+    # can read them and persist in localStorage (bridging the cross-domain gap)
+    query = urlencode({"access_token": access_token, "refresh_token": refresh_token})
+    frontend_url = f"{frontend_url_base}/auth/success?{query}"
     response = RedirectResponse(url=frontend_url)
 
     # Detect if we are in production (https) or local (http)

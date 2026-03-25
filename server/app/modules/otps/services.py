@@ -6,6 +6,7 @@ email delivery (via BaseEmailService). Business logic is fully
 decoupled from vendors — swap Redis or Brevo without touching this file.
 """
 
+import logging
 import secrets
 import string
 from app.core.config import settings
@@ -13,6 +14,8 @@ from app.core.otp_store import BaseOTPStore, get_otp_store
 from app.core.email.service import BaseEmailService, get_email_service
 from app.core.email.templates.otp import render_otp_email
 from app.core.email.templates.password_reset import render_password_reset_email
+
+logger = logging.getLogger("app.modules.otps")
 
 
 class OTPService:
