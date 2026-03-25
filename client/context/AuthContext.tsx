@@ -34,25 +34,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const fetchUser = useCallback(async () => {
         const token = localStorage.getItem("access_token");
-        if (!token) {
-            setUser(null);
-            setIsLoading(false);
-            return;
-        }
-
+        // Even if no token in localStorage, we attempt fetch to let cookies authenticate us
+        
         try {
+            const headers: Record<string, string> = {};
+            if (token) {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-                headers: { Authorization: `Bearer ${token}` },
+                headers,
                 credentials: "include",
             });
 
             if (res.ok) {
-                const data = await res.ok ? await res.json() : null;
+                const data = await res.json();
                 setUser(data);
-                // Trigger wishlist sync now that we are authenticated
                 dispatch(syncGuestWishlist());
-            } else if (res.status === 401) {
-                localStorage.removeItem("access_token");
+            } else {
+                // If 401 and we had a token, it's definitely invalid
+                if (res.status === 401 && token) {
+                    localStorage.removeItem("access_token");
+                }
                 setUser(null);
             }
         } catch (error) {
@@ -60,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [dispatch]);
 
     useEffect(() => {
         fetchUser();

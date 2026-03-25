@@ -6,6 +6,7 @@ interface AuthContextType {
   admin: Admin | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
+  googleLogin: () => void;
   logout: () => void;
   isLoading: boolean;
 }
@@ -22,17 +23,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem(TOKEN_KEY);
-    if (stored) { setToken(stored); fetchMe(stored); }
-    else setIsLoading(false);
+    fetchMe(stored || null);
   }, []);
 
-  const fetchMe = async (tok: string) => {
+  const fetchMe = async (tok: string | null) => {
     try {
-      const data = await api<Admin>("/users/me", { headers: { Authorization: `Bearer ${tok}` } });
+      const headers: Record<string, string> = {};
+      if (tok) {
+        headers["Authorization"] = `Bearer ${tok}`;
+        setToken(tok);
+      }
+      
+      const data = await api<Admin>("/users/me", { headers });
       setAdmin(data);
     } catch {
       localStorage.removeItem(TOKEN_KEY);
       setToken(null);
+      setAdmin(null);
     } finally {
       setIsLoading(false);
     }
@@ -54,6 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     navigate("/");
   };
 
+  const googleLogin = () => {
+    const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    const adminUrl = window.location.origin;
+    window.location.href = `${backendUrl}/auth/google/login?redirect_to=${adminUrl}`;
+  };
+
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null); setAdmin(null);
@@ -61,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ admin, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ admin, token, login, googleLogin, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

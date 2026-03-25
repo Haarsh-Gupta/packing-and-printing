@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import Login from "@/components/Login";
+import AuthSuccess from "@/pages/AuthSuccess";
 import Dashboard from "@/pages/Dashboard";
 import Orders from "@/pages/Orders";
 import Declarations from "@/pages/Declarations";
@@ -30,6 +31,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/auth/success" element={<AuthSuccess />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/orders" element={<Orders />} />

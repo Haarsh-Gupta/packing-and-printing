@@ -31,6 +31,9 @@ async def login(request: Request, response : Response , db : AsyncSession = Depe
 
     # Determine if we should use secure cookies (False for localhost)
     is_secure = request.url.scheme == "https" and "localhost" not in request.url.hostname
+
+    # Set cookie domain dynamically or use None (works for separate frontend/backend domains)
+    cookie_domain = os.getenv("COOKIE_DOMAIN", None)
     
     result = await db.execute(select(User).where(User.email == username))
     user = result.scalar_one_or_none() 
@@ -63,7 +66,8 @@ async def login(request: Request, response : Response , db : AsyncSession = Depe
         value = access_token,
         httponly = True,
         secure = is_secure,
-        samesite = "lax",
+        domain = cookie_domain,
+        samesite = "none" if is_secure else "lax",
         max_age = ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
     response.set_cookie(
@@ -71,7 +75,8 @@ async def login(request: Request, response : Response , db : AsyncSession = Depe
         value = refresh_token,
         httponly = True,
         secure = is_secure,
-        samesite = "lax",
+        domain = cookie_domain,
+        samesite = "none" if is_secure else "lax",
         max_age = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
 
@@ -86,6 +91,8 @@ async def refresh(response: Response, request: Request, db : AsyncSession = Depe
     #get the refresh token from cookies
     refresh_token = request.cookies.get("refresh_token")
     is_secure = request.url.scheme == "https" and "localhost" not in request.url.hostname
+    # Set cookie domain dynamically
+    cookie_domain = os.getenv("COOKIE_DOMAIN", None)
 
     if not refresh_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not found")
@@ -120,7 +127,8 @@ async def refresh(response: Response, request: Request, db : AsyncSession = Depe
         value = access_token,
         httponly = True,
         secure = is_secure,
-        samesite = "lax",
+        domain = cookie_domain,
+        samesite = "none" if is_secure else "lax",
         max_age = ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
 
@@ -128,10 +136,13 @@ async def refresh(response: Response, request: Request, db : AsyncSession = Depe
 
 
 @router.post("/logout")
-async def logout(response: Response, db : AsyncSession = Depends(get_db), current_user : TokenData = Depends(get_current_user)):
+async def logout(request: Request, response: Response, db : AsyncSession = Depends(get_db), current_user : TokenData = Depends(get_current_user)):
 
     result = await db.execute(select(User).where(User.id == current_user.id))
     user = result.scalar_one_or_none()
+    
+    # Set cookie domain to .navart.in if on production, otherwise None (localhost)
+    cookie_domain = ".navart.in" if "navart.in" in request.url.hostname else None
 
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
@@ -143,16 +154,21 @@ async def logout(response: Response, db : AsyncSession = Depends(get_db), curren
         
     await db.commit()
 
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token")
+    response.delete_cookie("access_token", domain = cookie_domain)
+    response.delete_cookie("refresh_token", domain = cookie_domain)
     return {"message" : "Logged out successfully"}
 
 
 @router.get("/google/login")
-async def google_login(request: Request):
-
-    redirect_uri = request.url_for("auth_google_callback")
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+async def google_login(request: Request, redirect_to: str = None):
+    redirect_uri = str(request.url_for("auth_google_callback"))
+    if "localhost" not in redirect_uri:
+        redirect_uri = redirect_uri.replace("http://", "https://")
+    
+    if not redirect_to:
+        redirect_to = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        
+    return await oauth.google.authorize_redirect(request, redirect_uri, state=redirect_to)
 
 @router.get("/google/callback", name = "auth_google_callback")
 async def google_callback(request: Request, db : AsyncSession = Depends(get_db)):
@@ -166,6 +182,10 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google authentication failed")
 
     is_secure = request.url.scheme == "https" and "localhost" not in request.url.hostname
+    
+    # Set cookie domain dynamically
+    cookie_domain = os.getenv("COOKIE_DOMAIN", None)
+    
     user_info = token.get("userinfo")
 
     if not user_info:
@@ -197,11 +217,15 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
     refresh_token = await create_refresh_token(data = payload.model_dump())
 
     # Redirect to frontend
-    # We still keep the token in the URL for the frontend success page to catch it
-    # until the frontend is fully migrated to use cookies.
-    import os
-    frontend_url_base = os.getenv("FRONTEND_URL", "http://localhost:3000")
-    frontend_url = f"{frontend_url_base}/auth/success?access_token={access_token}"
+    # Get destination from OAuth state
+    frontend_url_base = request.query_params.get("state")
+    if not frontend_url_base:
+        frontend_url_base = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+    # Ensure no trailing slash for consistency
+    frontend_url_base = frontend_url_base.rstrip("/")
+    
+    frontend_url = f"{frontend_url_base}/auth/success"
     response = RedirectResponse(url=frontend_url)
 
     response.set_cookie(
@@ -209,7 +233,8 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
         value = access_token,
         httponly = True,
         secure = is_secure,
-        samesite = "lax",
+        domain = cookie_domain,
+        samesite = "none" if is_secure else "lax",
         max_age = ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
     response.set_cookie(
@@ -217,7 +242,8 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
         value = refresh_token,
         httponly = True,
         secure = is_secure, 
-        samesite = "lax",
+        domain = cookie_domain,
+        samesite = "none" if is_secure else "lax",
         max_age = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
 

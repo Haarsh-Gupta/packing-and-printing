@@ -9,19 +9,17 @@ import { useAuth } from "@/context/AuthContext";
 
 function AuthSuccessContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { isLoggedIn, isLoading } = useAuth();
 
   useEffect(() => {
-    const accessToken = searchParams.get("access_token");
-
-    if (accessToken) {
-      // Use AuthContext login — fetches user data before navigating
-      login(accessToken);
-    } else {
-      router.replace("/login?error=GoogleAuthFailed");
+    if (!isLoading) {
+      if (isLoggedIn) {
+        router.replace("/dashboard");
+      } else {
+        router.replace("/login?error=GoogleAuthFailed");
+      }
     }
-  }, [router, searchParams, login]);
+  }, [router, isLoggedIn, isLoading]);
 
   return (
     <div className="flex min-h-screen items-center justify-center flex-col gap-4">
