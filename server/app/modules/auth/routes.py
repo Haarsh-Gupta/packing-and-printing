@@ -1,3 +1,4 @@
+import os
 import logging
 
 from app.modules.auth import get_current_user
@@ -227,6 +228,10 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
     
     frontend_url = f"{frontend_url_base}/auth/success"
     response = RedirectResponse(url=frontend_url)
+
+    # Detect if we are in production (https) or local (http)
+    is_secure = request.url.scheme == "https" and "localhost" not in request.url.hostname
+    cookie_domain = os.getenv("COOKIE_DOMAIN", None)
 
     response.set_cookie(
         key = "access_token",

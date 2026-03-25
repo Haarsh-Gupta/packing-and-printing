@@ -26,7 +26,6 @@ export async function api<T = unknown>(
 
     if (res.status === 401) {
         localStorage.removeItem("admin_token");
-        window.location.href = "/login";
         throw new Error("Unauthorized");
     }
 
@@ -58,7 +57,6 @@ export async function apiFormData<T = unknown>(
 
     if (res.status === 401) {
         localStorage.removeItem("admin_token");
-        window.location.href = "/login";
         throw new Error("Unauthorized");
     }
 
