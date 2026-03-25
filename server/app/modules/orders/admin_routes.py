@@ -188,6 +188,41 @@ async def record_payment(
 
 # ── Declaration management ────────────────────────────────────────────────────
 
+@router.get("/declarations/{declaration_id}", response_model=PaymentDeclarationResponse)
+async def get_declaration(
+    declaration_id: UUID,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve details of a single payment declaration."""
+    stmt = select(PaymentDeclaration).where(PaymentDeclaration.id == declaration_id)
+    declaration = (await db.execute(stmt)).scalar_one_or_none()
+    if not declaration:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Declaration not found")
+    return declaration
+
+
+@router.get("/declarations/all", response_model=list[PaymentDeclarationResponse])
+async def list_all_declarations(
+    status_filter: Optional[DeclarationStatus] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List all payment declarations across all orders with optional status filter.
+    """
+    stmt = select(PaymentDeclaration)
+    if status_filter:
+        stmt = stmt.where(PaymentDeclaration.status == status_filter)
+    
+    stmt = stmt.order_by(PaymentDeclaration.created_at.desc()).offset(skip).limit(limit)
+    
+    declarations = list((await db.execute(stmt)).scalars().all())
+    return declarations
+
+
 @router.get("/declarations/pending", response_model=list[PaymentDeclarationResponse])
 async def get_pending_declarations(
     skip: int = Query(0, ge=0),

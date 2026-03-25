@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import ImageCropper from "@/components/ImageCropper";
 
 export default function SubServices() {
     const navigate = useNavigate();
@@ -33,6 +34,42 @@ export default function SubServices() {
         sgst_rate: "0"
     });
     const [newImageUrl, setNewImageUrl] = useState("");
+
+    // Cropper State
+    const [croppingImage, setCroppingImage] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => setCroppingImage(reader.result as string);
+        reader.readAsDataURL(file);
+    };
+
+    const handleCropComplete = async (blob: Blob) => {
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", blob, "subservice.jpg");
+            
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/uploads/?purpose=product`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+                body: formData
+            });
+            
+            if (!response.ok) throw new Error("Upload failed");
+            const data = await response.json();
+            setFormState(prev => ({ ...prev, images: [...prev.images, data.url] }));
+            setCroppingImage(null);
+        } catch (e) {
+            console.error(e);
+            alert("Error uploading image");
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const fetchService = async () => {
         setLoading(true);
@@ -374,8 +411,29 @@ export default function SubServices() {
                                 <div className="space-y-4">
                                     <div className="flex gap-2">
                                         <Input className="h-10 text-sm font-mono bg-slate-50 dark:bg-[#0b1326] border-slate-200 dark:border-[#434655]/40 text-slate-500 dark:text-[#8d90a1] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" placeholder="Paste secure image URL (https://...)" value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImage() } }} />
-                                        <Button type="button" onClick={addImage} className="h-10 px-6 font-bold text-[10px] uppercase tracking-widest bg-[#434655]/30 text-slate-600 dark:text-[#c3c5d8] hover:bg-[#434655]/50 hover:text-white border border-slate-200 dark:border-[#434655]/50">Add Image</Button>
+                                        <Button type="button" onClick={addImage} className="h-10 px-6 font-bold text-[10px] uppercase tracking-widest bg-[#434655]/30 text-slate-600 dark:text-[#c3c5d8] hover:bg-[#434655]/50 hover:text-white border border-slate-200 dark:border-[#434655]/50 flex items-center gap-1.5"><PlusCircle size={14} className="mr-1.5" />Link Image</Button>
+                                        
+                                        <label className="h-10 px-6 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-600/30 rounded-lg flex items-center justify-center cursor-pointer transition-colors group">
+                                            <input type="file" className="hidden" accept="image/*" onChange={handleFileSelect} />
+                                            <div className="flex items-center gap-2">
+                                                {uploading ? (
+                                                    <div className="animate-spin h-3 w-3 border-2 border-blue-400 border-t-transparent rounded-full" />
+                                                ) : (
+                                                    <UploadCloud size={14} className="text-blue-600" />
+                                                )}
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-[#adc6ff] group-hover:text-white transition-colors">Frame & Add</span>
+                                            </div>
+                                        </label>
                                     </div>
+
+                                    {croppingImage && (
+                                        <ImageCropper 
+                                            image={croppingImage} 
+                                            onCropComplete={handleCropComplete} 
+                                            onCancel={() => setCroppingImage(null)} 
+                                            aspect={1}
+                                        />
+                                    )}
 
                                     {formState.images.length > 0 ? (
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">

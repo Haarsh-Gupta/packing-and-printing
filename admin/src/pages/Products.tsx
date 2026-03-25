@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import ImageCropper from "@/components/ImageCropper";
 
 export default function Products() {
     const navigate = useNavigate();
@@ -18,6 +19,42 @@ export default function Products() {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [formState, setFormState] = useState({ name: "", description: "", cover_image: "", is_active: true, slug: "" });
     const [saving, setSaving] = useState(false);
+    
+    // Cropper State
+    const [croppingImage, setCroppingImage] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => setCroppingImage(reader.result as string);
+        reader.readAsDataURL(file);
+    };
+
+    const handleCropComplete = async (blob: Blob) => {
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", blob, "product.jpg");
+            
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/uploads/?purpose=product`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+                body: formData
+            });
+            
+            if (!response.ok) throw new Error("Upload failed");
+            const data = await response.json();
+            setFormState(prev => ({ ...prev, cover_image: data.url }));
+            setCroppingImage(null);
+        } catch (e) {
+            console.error(e);
+            alert("Error uploading image");
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const fetchProducts = async () => {
         setLoading(true);
@@ -261,10 +298,28 @@ export default function Products() {
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest flex items-center justify-between">
                                 <span>Cover Image URL</span>
-                                <span className="text-[9px] bg-[#434655]/30 text-slate-500 dark:text-[#8d90a1] px-1.5 py-0.5 rounded">OPT</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] bg-[#434655]/30 text-slate-500 dark:text-[#8d90a1] px-1.5 py-0.5 rounded">OPT</span>
+                                    {uploading && <div className="animate-spin h-3 w-3 border-2 border-blue-400 border-t-transparent rounded-full" />}
+                                </div>
                             </label>
-                            <Input className="h-10 text-sm font-mono text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.cover_image} onChange={e => setFormState({ ...formState, cover_image: e.target.value })} placeholder="https://..." />
+                            <div className="flex gap-2">
+                                <Input className="h-10 text-sm font-mono text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.cover_image} onChange={e => setFormState({ ...formState, cover_image: e.target.value })} placeholder="https://..." />
+                                <label className="shrink-0 h-10 px-4 bg-[#1f70e3]/10 hover:bg-[#1f70e3]/20 border border-[#1f70e3]/30 rounded-lg flex items-center justify-center cursor-pointer transition-colors group">
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleFileSelect} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-[#adc6ff] group-hover:text-white transition-colors">Frame</span>
+                                </label>
+                            </div>
                         </div>
+
+                        {croppingImage && (
+                            <ImageCropper 
+                                image={croppingImage} 
+                                onCropComplete={handleCropComplete} 
+                                onCancel={() => setCroppingImage(null)} 
+                                aspect={1.5} 
+                            />
+                        )}
 
                         <div className="flex items-center justify-between border border-slate-200 dark:border-[#434655]/30 p-4 rounded-xl bg-white dark:bg-[#131b2e]">
                             <div>

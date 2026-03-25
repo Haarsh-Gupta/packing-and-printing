@@ -347,6 +347,10 @@ async def update_inquiry_status(
     target_status = status_update.status.value
         
     group.status = target_status
+
+    if target_status == 'ACCEPTED':
+        from app.modules.inquiry.service import convert_inquiry_to_order
+        await convert_inquiry_to_order(db, group)
     
     # Notify the user persistently
     notif = Notification(

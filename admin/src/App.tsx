@@ -24,6 +24,7 @@ import SubProducts from "@/pages/SubProducts";
 import SubServices from "@/pages/SubServices";
 import PricingCalculator from "@/pages/PricingCalculator";
 import OfflinePayment from "@/pages/OfflinePayment";
+import DeclarationDetail from "@/pages/DeclarationDetail";
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/declarations" element={<Declarations />} />
+            <Route path="/declarations/:id" element={<DeclarationDetail />} />
             <Route path="/inquiries" element={<Inquiries />} />
             <Route path="/inquiries/:id" element={<InquiryDetail />} />
             <Route path="/products" element={<Products />} />

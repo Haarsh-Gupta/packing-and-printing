@@ -518,54 +518,9 @@ async def update_inquiry_status_user(
             message=f"{username} accepted the quote for Inquiry #{str(group.id)[:8].upper()}.",
             metadata={"type": "quote_accepted", "id": str(group.id)}
         )
-        # Ensure order doesn't already exist to be safe
-        existing_stmt = select(Order).where(Order.inquiry_id == group.id)
-        existing_order = (await db.execute(existing_stmt)).scalar_one_or_none()
-        
-        if not existing_order:
-            # Get total from the active quote
-            if not group.active_quote:
-                raise HTTPException(status_code=400, detail="No active quote found on this inquiry")
-            quoted_total = group.active_quote.total_price
-
-            # Enforce split_type: default to HALF
-            split_type = PaymentSplitType.HALF
-
-            new_order = Order(
-                inquiry_id=group.id,
-                user_id=group.user_id,
-                total_amount=quoted_total,
-                tax_amount=group.active_quote.tax_amount or 0.0,
-                shipping_amount=group.active_quote.shipping_amount or 0.0,
-                discount_amount=group.active_quote.discount_amount or 0.0,
-                status="WAITING_PAYMENT"
-            )
-            db.add(new_order)
-            await db.flush()
-            
-            total = quoted_total
-            milestones = []
-            
-            if total == 0:
-                new_order.status = "PAID"
-                milestones.append(OrderMilestone(
-                    order_id=new_order.id, label="Zero Cost Order (100%)", amount=0.0, percentage=100.0, order_index=1, is_paid=True
-                ))
-            else:
-                if split_type == PaymentSplitType.FULL:
-                    milestones.append(OrderMilestone(
-                        order_id=new_order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
-                    ))
-                elif split_type == PaymentSplitType.HALF:
-                    milestones.append(OrderMilestone(
-                        order_id=new_order.id, label="Advance Payment (50%)", amount=total * 0.5, percentage=50.0, order_index=1
-                    ))
-                    milestones.append(OrderMilestone(
-                        order_id=new_order.id, label="Balance Before Dispatch (50%)", amount=total * 0.5, percentage=50.0, order_index=2
-                    ))
-            
-            db.add_all(milestones)
-            await db.commit()
+        from app.modules.inquiry.service import convert_inquiry_to_order
+        await convert_inquiry_to_order(db, group)
+        await db.commit()
     
     return refreshed_group
     

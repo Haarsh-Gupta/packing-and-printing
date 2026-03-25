@@ -1,16 +1,78 @@
 import logging
+import time
+import uuid
 
 from fastapi import Request, status
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from app.core.redis import redis_client
 from app.core.config import settings
+from app.core.logging_config import correlation_id
 from jose import jwt, JWTError
 import asyncio
 from user_agents import parse
 from datetime import datetime, timezone
 
-logger = logging.getLogger("app.core.middleware")
+logger = logging.getLogger(__name__)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Component 6:  Correlation / Request-ID Middleware
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class CorrelationMiddleware:
+    """
+    Pure ASGI middleware that:
+      1. Generates a uuid4 for every incoming HTTP request.
+      2. Sets it in the `correlation_id` contextvar (visible to all loggers).
+      3. Injects it into the response as `X-Request-ID`.
+      4. Logs ONE structured JSON line at the end of the request with
+         method, path, status_code, and process_time_ms.
+
+    Non-HTTP scopes (WebSocket, lifespan) are passed through untouched.
+    """
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # ── Generate & bind correlation ID ────────────────────────────────
+        request_id = uuid.uuid4().hex
+        token = correlation_id.set(request_id)
+
+        request = Request(scope, receive)
+        start = time.perf_counter()
+
+        status_code: int = 500  # default in case of unhandled crash
+
+        async def send_with_request_id(message):
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message.get("status", 500)
+                # Inject X-Request-ID header
+                headers = list(message.get("headers", []))
+                headers.append((b"x-request-id", request_id.encode()))
+                message["headers"] = headers
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_request_id)
+        finally:
+            process_ms = round((time.perf_counter() - start) * 1000, 2)
+            logger.info(
+                "request completed",
+                extra={
+                    "http_method": request.method,
+                    "path": request.url.path,
+                    "status_code": status_code,
+                    "process_time_ms": process_ms,
+                },
+            )
+            # Reset the contextvar so the token doesn't leak
+            correlation_id.reset(token)
 
 class RateLimitMiddleware:
     """

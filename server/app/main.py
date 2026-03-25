@@ -9,9 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import settings
-from app.core.logging_config import setup_logging
+from app.core.logging_config import setup_logging, shutdown_logging
 from app.core.database import engine, check_db_connection
-from app.core.middleware import RateLimitMiddleware, UserActivityMiddleware
+from app.core.middleware import RateLimitMiddleware, UserActivityMiddleware, CorrelationMiddleware
 from app.core.redis import check_redis_connection, redis_client
 from app.core.email.service import check_smtp_connection
 from app.core.sse import sse_manager
@@ -114,6 +114,7 @@ async def lifespan(app: FastAPI):
         logger.warning("DB engine dispose error: %s", e)
     
     logger.info("--------- SHUTDOWN COMPLETE ---------")
+    shutdown_logging()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -129,7 +130,8 @@ app.add_middleware(
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 app.add_middleware(UserActivityMiddleware)
 app.add_middleware(RateLimitMiddleware, limit=200, window=60)
-# RateLimitMiddleware is now the outermost — runs first on every request
+app.add_middleware(CorrelationMiddleware)
+# CorrelationMiddleware is the outermost — every request gets a correlation_id
 
 app.include_router(user_router , prefix="/users" , tags=["Users"])
 app.include_router(admin_user_router, prefix="/admin/users", tags=["Admin Users"])

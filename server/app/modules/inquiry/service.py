@@ -57,3 +57,85 @@ async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSessi
         estimated_price = base_price * item.quantity
 
     return estimated_price
+
+
+import logging
+from app.modules.orders.models import Order, OrderMilestone
+from app.modules.inquiry.models import InquiryGroup
+
+logger = logging.getLogger(__name__)
+
+async def convert_inquiry_to_order(db: AsyncSession, group: InquiryGroup) -> Order | None:
+    """
+    Centralized service to convert an accepted inquiry to an order.
+    Idempotent: returns the existing order if it's already converted.
+    """
+    logger.info(f"Attempting to convert Inquiry {group.id} to Order")
+
+    # 1. Check if Order already exists
+    existing_stmt = select(Order).where(Order.inquiry_id == group.id)
+    existing_order = (await db.execute(existing_stmt)).scalar_one_or_none()
+        
+    if existing_order:
+        logger.info(f"Order {existing_order.id} already exists for Inquiry {group.id}")
+        return existing_order
+
+    # 2. Validate active quote
+    if not group.active_quote:
+        logger.error(f"Cannot convert Inquiry {group.id}: No active quote found")
+        raise HTTPException(status_code=400, detail="No active quote found on this inquiry")
+    
+    quoted_total = group.active_quote.total_price
+
+    # 3. Create Order
+    new_order = Order(
+        inquiry_id=group.id,
+        user_id=group.user_id,
+        total_amount=quoted_total,
+        tax_amount=group.active_quote.tax_amount or 0.0,
+        shipping_amount=group.active_quote.shipping_amount or 0.0,
+        discount_amount=group.active_quote.discount_amount or 0.0,
+        status="WAITING_PAYMENT"
+    )
+    db.add(new_order)
+    await db.flush()  # To generate order.id
+    
+    # 4. Create Milestones based on quote configuration
+    quote_milestones = group.active_quote.milestones or []
+    
+    if quoted_total == 0:
+        new_order.status = "PAID"
+        milestone = OrderMilestone(
+            order_id=new_order.id, 
+            label="Zero Cost Order (100%)", 
+            amount=0.0, 
+            percentage=100.0, 
+            order_index=1,
+            status="PAID"
+        )
+        db.add(milestone)
+    else:
+        # Fallback if no milestones exist in quote
+        if not quote_milestones:
+            quote_milestones = [
+                {"label": "Advance Payment (50%)", "percentage": 50.0},
+                {"label": "Balance Before Dispatch (50%)", "percentage": 50.0}
+            ]
+            
+        for idx, m_def in enumerate(quote_milestones, start=1):
+            pct = float(m_def.get("percentage", 100.0))
+            amt = quoted_total * (pct / 100.0)
+            
+            milestone = OrderMilestone(
+                order_id=new_order.id, 
+                label=m_def.get("label", f"Payment {idx}"), 
+                amount=amt, 
+                percentage=pct, 
+                order_index=idx,
+                status="UNPAID"
+            )
+            db.add(milestone)
+            
+    await db.flush()
+    logger.info(f"Successfully converted Inquiry {group.id} to Order {new_order.id}")
+    return new_order

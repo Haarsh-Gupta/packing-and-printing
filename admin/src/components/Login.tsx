@@ -113,30 +113,30 @@ export default function Login() {
 
                 {tab === 'password' ? (
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        {/* Email */}
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#3f3f46', marginBottom: '6px' }}>
                                 Email
                             </label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                placeholder="admin@navart.com"
-                                required
-                                style={{
-                                    width: '100%', height: '40px', padding: '0 12px',
-                                    border: '1px solid #e4e4e7', borderRadius: '10px',
-                                    fontSize: '14px', color: '#18181b', background: 'white',
-                                    fontFamily: "'Inter', system-ui", outline: 'none',
-                                    boxSizing: 'border-box', transition: 'border-color 0.15s',
-                                }}
-                                onFocus={e => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
-                                onBlur={e => { e.target.style.borderColor = '#e4e4e7'; e.target.style.boxShadow = 'none'; }}
-                            />
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    placeholder="admin@navart.com"
+                                    required
+                                    style={{
+                                        width: '100%', height: '40px', padding: '0 12px',
+                                        border: '1px solid #e4e4e7', borderRadius: '10px',
+                                        fontSize: '14px', color: '#18181b', background: 'white',
+                                        fontFamily: "'Inter', system-ui", outline: 'none',
+                                        boxSizing: 'border-box', transition: 'all 0.15s',
+                                    }}
+                                    onFocus={e => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                                    onBlur={e => { e.target.style.borderColor = '#e4e4e7'; e.target.style.boxShadow = 'none'; }}
+                                />
+                            </div>
                         </div>
 
-                        {/* Password */}
                         <div>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#3f3f46', marginBottom: '6px' }}>
                                 Password
@@ -153,7 +153,7 @@ export default function Login() {
                                         border: '1px solid #e4e4e7', borderRadius: '10px',
                                         fontSize: '14px', color: '#18181b', background: 'white',
                                         fontFamily: "'Inter', system-ui", outline: 'none',
-                                        boxSizing: 'border-box', transition: 'border-color 0.15s',
+                                        boxSizing: 'border-box', transition: 'all 0.15s',
                                     }}
                                     onFocus={e => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
                                     onBlur={e => { e.target.style.borderColor = '#e4e4e7'; e.target.style.boxShadow = 'none'; }}
@@ -209,17 +209,21 @@ export default function Login() {
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#3f3f46', marginBottom: '6px' }}>
                                 Email
                             </label>
-                            <input
-                                type="email"
-                                placeholder="admin@navart.com"
-                                style={{
-                                    width: '100%', height: '40px', padding: '0 12px',
-                                    border: '1px solid #e4e4e7', borderRadius: '10px',
-                                    fontSize: '14px', color: '#18181b', background: 'white',
-                                    fontFamily: "'Inter', system-ui", outline: 'none',
-                                    boxSizing: 'border-box',
-                                }}
-                            />
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="email"
+                                    placeholder="admin@navart.com"
+                                    style={{
+                                        width: '100%', height: '40px', padding: '0 12px',
+                                        border: '1px solid #e4e4e7', borderRadius: '10px',
+                                        fontSize: '14px', color: '#18181b', background: 'white',
+                                        fontFamily: "'Inter', system-ui", outline: 'none',
+                                        boxSizing: 'border-box', transition: 'all 0.15s',
+                                    }}
+                                    onFocus={e => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                                    onBlur={e => { e.target.style.borderColor = '#e4e4e7'; e.target.style.boxShadow = 'none'; }}
+                                />
+                            </div>
                         </div>
                         <button
                             style={{
