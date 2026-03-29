@@ -161,16 +161,22 @@ export interface AdminOfflineOrderCreateRequest {
 export interface InquiryItem {
     id: string;
     inquiry_group_id?: string;
-    template_id?: number;
+    product_id?: number;
+    subproduct_id?: number;
     service_id?: number;
-    variant_id?: number;
+    subservice_id?: number;
     quantity: number;
     selected_options: Record<string, unknown>;
     notes?: string;
     images?: string[];
+    display_images?: string[];
     line_item_price?: number;
-    template_name?: string;
+    estimated_price?: number;
+    total_estimated_price?: number;
+    product_name?: string;
+    subproduct_name?: string;
     service_name?: string;
+    subservice_name?: string;
     variant_name?: string;
 }
 
@@ -186,7 +192,7 @@ export interface InquiryMessage {
 export interface QuoteVersion {
     id: string;
     inquiry_id: string;
-    version_number: number;
+    version: number;
     total_price: number;
     valid_until: string;
     admin_notes?: string;

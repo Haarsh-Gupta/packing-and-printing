@@ -1,5 +1,6 @@
 export interface SubProduct {
     id: number;
+    product_id: number;
     slug: string;
     name: string;
     description?: string;

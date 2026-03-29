@@ -64,10 +64,42 @@ export default function HeroSection() {
             {/* Background pattern */}
             <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(circle,#000_1px,transparent_1px)] bg-size-[24px_24px]" />
 
+            {/* Scattered Illustrations (Gumroad Style) - FULL WIDTH - COMMENTED OUT TO HIDE */}
+            {/* 
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                {[
+                    { pos: "top-[5%] left-[-2%] md:left-[2%]", rotate: "-15deg", size: "w-32 md:w-64", delay: "0s" },
+                    { pos: "bottom-[15%] right-[-3%] md:right-[3%]", rotate: "18deg", size: "w-40 md:w-80", delay: "1.5s" },
+                    { pos: "top-[25%] right-[-2%] md:right-[5%]", rotate: "-10deg", size: "w-24 md:w-48", delay: "3s" },
+                    { pos: "bottom-[20%] left-[-2%] md:left-[5%]", rotate: "12deg", size: "w-36 md:w-64", delay: "0.8s" },
+                    { pos: "top-[50%] left-[-4%] md:left-[-1%]", rotate: "-25deg", size: "w-20 md:w-40", delay: "2.2s" },
+                    { pos: "top-[60%] right-[-4%] md:right-[-1%]", rotate: "14deg", size: "w-28 md:w-52", delay: "4s" },
+                ].map((item, idx) => (
+                    <div
+                        key={idx}
+                        className={`absolute ${item.pos} transition-all duration-1000 ${mounted ? 'opacity-80 hover:opacity-100 scale-100' : 'opacity-0 scale-50'} z-0`}
+                        style={{ 
+                            animationDelay: item.delay,
+                            transform: mounted ? `rotate(${item.rotate})` : 'none'
+                            }}
+                    >
+                        <img
+                            src="/cardboard-box.png"
+                            alt=""
+                            className={`${item.size} h-auto drop-shadow-2xl animate-float`}
+                            style={{
+                                ['--tw-rotate' as any]: item.rotate
+                            }}
+                        />
+                    </div>
+                ))}
+            </div>
+            */}
+
             <div className="max-w-6xl mx-auto px-6 pt-20 pb-32 md:pt-32 md:pb-48 relative z-10">
 
                 {/* Main Hero Content */}
-                <div className="text-center space-y-8">
+                <div className="text-center space-y-8 relative z-10">
 
                     {/* Giant headline */}
                     <h1

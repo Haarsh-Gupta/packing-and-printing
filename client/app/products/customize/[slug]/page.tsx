@@ -3,7 +3,12 @@ import { FileText, CheckCircle2 } from "lucide-react";
 import ProductInquiryForm from "../../[id]/ProductInquiryForm";
 import ProductReviews from "../../[id]/ProductReviews";
 import ProductImageCarousel from "@/components/products/ProductImageCarousel";
+import sanitizeHtml from 'sanitize-html';
 
+const sanitizeOptions = {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([ 'img', 'h1', 'h2', 'h3', 'h4', 'span' ]),
+    allowedAttributes: { ...sanitizeHtml.defaults.allowedAttributes, img: ['src', 'alt', 'width', 'height'], span: ['style'] }
+};
 async function getSubProduct(slug: string) {
     try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/sub-products/${slug}`, {
@@ -60,23 +65,14 @@ export default async function CustomizeProductPage({
                             <h3 className="text-xl font-black uppercase mb-4 flex items-center gap-2">
                                 <FileText className="h-5 w-5" /> Product Details
                             </h3>
-                            <p className="text-zinc-600 font-medium mb-6 leading-relaxed">
-                                {subProduct.description || "Our Eco-Kraft Mailer Boxes are the perfect sustainable packaging solution for e-commerce brands. Made from 90% recycled material and fully recyclable, these boxes don't just protect your products—they protect the planet."}
-                            </p>
-                            <ul className="space-y-3">
-                                <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
-                                    <CheckCircle2 className="h-5 w-5 text-pink-500 shrink-0" />
-                                    Sturdy E-flute corrugated cardboard (1.5mm thick)
-                                </li>
-                                <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
-                                    <CheckCircle2 className="h-5 w-5 text-pink-500 shrink-0" />
-                                    Water-based ink printing (Eco-friendly)
-                                </li>
-                                <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
-                                    <CheckCircle2 className="h-5 w-5 text-pink-500 shrink-0" />
-                                    Instant self-sealing adhesive strip available
-                                </li>
-                            </ul>
+                            {subProduct.description ? (
+                                <div 
+                                    className="prose prose-zinc prose-a:text-pink-500 max-w-none text-zinc-600 font-medium leading-relaxed" 
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(subProduct.description, sanitizeOptions) }} 
+                                />
+                            ) : (
+                                <p className="text-zinc-500 italic">No details provided.</p>
+                            )}
                         </div>
 
                         {/* Customer Reviews Section */}

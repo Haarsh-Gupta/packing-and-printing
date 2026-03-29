@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import useSWR from "swr";
 import { Bell, CheckCircle2, Info, Loader2, X, CheckCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -29,6 +30,20 @@ export default function NotificationCenter() {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
+    const fetcher = (url: string) => fetch(url, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null);
+
+    useSWR(
+        token ? `${apiUrl}/notifications/unread-count` : null,
+        fetcher,
+        {
+            onSuccess: (data: { unread: number } | null) => {
+                if (data) setUnreadCount(data.unread || 0);
+            },
+            revalidateOnFocus: false,
+            dedupingInterval: 10000
+        }
+    );
+
     const fetchNotifications = async () => {
         if (!token) return;
         setLoading(true);
@@ -52,14 +67,6 @@ export default function NotificationCenter() {
     // SSE for real-time updates
     useEffect(() => {
         if (!token) return;
-
-        // Initial unread count
-        fetch(`${apiUrl}/notifications/unread-count`, {
-            headers: { Authorization: `Bearer ${token}` },
-            credentials: "include",
-        }).then(r => r.ok ? r.json() : null)
-          .then(d => d && setUnreadCount(d.unread || 0))
-          .catch(() => {});
 
         const eventSource = new EventSource(`${apiUrl}/notifications/stream`, {
             withCredentials: true,

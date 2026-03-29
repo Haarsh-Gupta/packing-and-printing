@@ -7,7 +7,7 @@ import { OrderSkeleton } from "./OrderSkeleton";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardSearch } from "@/components/dashboard/DashboardSearch";
 import { OrderCard, OrderListRow } from "@/components/dashboard/OrderComponents";
-import { Box } from "lucide-react";
+import { Box, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -101,26 +101,28 @@ export default function OrdersPage() {
 
     if (isLoading) return (
         <div className="space-y-10 max-w-7xl mx-auto pb-20">
-            <DashboardHeader title="Orders" description="Loading your orders..." />
+            <DashboardHeader title="My Orders" description="Loading your orders..." badge="Orders" icon={<Package className="w-6 h-6" />} accent="#ff90e8" />
             <OrderSkeleton />
         </div>
     );
 
     return (
         <div className="space-y-10 max-w-7xl mx-auto pb-20">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <DashboardHeader
-                    title="Orders"
-                    description="Manage your purchases and track shipments."
-                />
+            <DashboardHeader
+                title="My Orders"
+                description="Track your purchases, manage payments, and monitor shipments."
+                badge="Orders"
+                icon={<Package className="w-6 h-6" />}
+                accent="#ff90e8"
+            >
                 <Button 
                     onClick={handleExportCSV} 
-                    className="bg-black text-white hover:bg-zinc-800 border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase font-black self-start sm:self-center"
+                    className="bg-black text-white hover:bg-zinc-800 border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all uppercase font-black h-10 px-5"
                     disabled={filteredOrders.length === 0}
                 >
                     Export CSV
                 </Button>
-            </div>
+            </DashboardHeader>
 
             <DashboardSearch
                 searchQuery={searchQuery}

@@ -71,7 +71,7 @@ function InfoCard({ label, icon: Icon, value, sub }: { label: string; icon: type
     );
 }
 
-function ItemCalculator({ item, subProducts, subServices }: { item: any, subProducts: any[], subServices: any[] }) {
+function ItemCalculator({ item, subProducts, subServices, onApplyPrice }: { item: any, subProducts: any[], subServices: any[], onApplyPrice?: (p: number) => void }) {
     const [open, setOpen] = useState(false);
     const [basePrice, setBasePrice] = useState<number>(0);
     const [options, setOptions] = useState<any[]>([]);
@@ -154,7 +154,17 @@ function ItemCalculator({ item, subProducts, subServices }: { item: any, subProd
                 ))}
                 <div className="pt-3 flex justify-between items-center mt-3 border-t border-slate-100 dark:border-[#434655]/20">
                     <p className="text-[10px] font-bold text-slate-400 dark:text-[#c3c5d8] uppercase tracking-wider">Unit: ₹{unitTotal.toLocaleString()} × {item.quantity || 1}</p>
-                    <p className="text-lg font-black text-blue-600 dark:text-[#adc6ff] transition-colors">₹{finalTotal.toLocaleString()}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="text-lg font-black text-blue-600 dark:text-[#adc6ff] transition-colors">₹{finalTotal.toLocaleString()}</p>
+                        {onApplyPrice && (
+                            <button
+                                onClick={() => { onApplyPrice(finalTotal); setOpen(false); }}
+                                className="ml-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold uppercase tracking-widest transition-colors shadow-sm"
+                            >
+                                Apply
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -169,10 +179,15 @@ export default function InquiryDetail() {
     const [reply, setReply] = useState("");
     const [sending, setSending] = useState(false);
     const [quoteForm, setQuoteForm] = useState({ amount: "", notes: "", validDays: "7" });
+    const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
+    const [taxRate, setTaxRate] = useState<number>(18);
+    const [discountPercentage, setDiscountPercentage] = useState<number>(0);
+    const [showWarning, setShowWarning] = useState(false);
 
     const [subProducts, setSubProducts] = useState<any[]>([]);
     const [subServices, setSubServices] = useState<any[]>([]);
     const [userDetails, setUserDetails] = useState<any>(null);
+    const [adminMe, setAdminMe] = useState<any>(null);
     const [remoteTyping, setRemoteTyping] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
     const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -184,16 +199,41 @@ export default function InquiryDetail() {
     }, [selected?.messages]);
 
     useEffect(() => {
+        if (!selected || Object.keys(itemPrices).length === 0) return;
+        const totalItems = Object.values(itemPrices).reduce((a, b) => a + b, 0);
+        const discountAmt = totalItems * (discountPercentage / 100);
+        const subtotal = totalItems - discountAmt;
+        const taxAmt = subtotal * (taxRate / 100);
+        const finalAmount = subtotal + taxAmt;
+        setQuoteForm(prev => ({ ...prev, amount: finalAmount.toFixed(2) }));
+    }, [itemPrices, taxRate, discountPercentage, selected]);
+
+    useEffect(() => {
+        if (!selected || !quoteForm.amount) {
+            setShowWarning(false);
+            return;
+        }
+        const sysTotal = selected.items.reduce((sum, item) => sum + ((item as any).total_estimated_price || 0), 0);
+        if (parseFloat(quoteForm.amount) < sysTotal && sysTotal > 0) {
+            setShowWarning(true);
+        } else {
+            setShowWarning(false);
+        }
+    }, [quoteForm.amount, selected]);
+
+    useEffect(() => {
         if (!id) return;
         setDetailLoading(true);
         Promise.all([
             api<InquiryGroup>(`/admin/inquiries/${id}`),
             api<any[]>("/admin/products/subproducts").catch(() => []),
-            api<any[]>("/admin/services/subservices").catch(() => [])
-        ]).then(([inquiry, prods, servs]) => {
+            api<any[]>("/admin/services/subservices").catch(() => []),
+            api<any>("/users/me").catch(() => null)
+        ]).then(([inquiry, prods, servs, me]) => {
             setSelected(inquiry);
             setSubProducts(prods);
             setSubServices(servs);
+            setAdminMe(me);
             api<any>(`/admin/users/${inquiry.user_id}`).then(setUserDetails).catch(console.warn);
         }).catch(console.error).finally(() => setDetailLoading(false));
     }, [id]);
@@ -219,7 +259,10 @@ export default function InquiryDetail() {
                     });
                     setRemoteTyping(false);
                 } else if (data.type === "typing") {
-                    if (!data.is_admin) setRemoteTyping(data.is_typing);
+                    const isFromMe = String(data.user_id) === String(adminMe?.id);
+                    if (!isFromMe && !data.is_admin) {
+                        setRemoteTyping(data.is_typing);
+                    }
                 }
             } catch (e) {
                 console.error("WS Parse Error", e);
@@ -227,7 +270,7 @@ export default function InquiryDetail() {
         };
         ws.onerror = () => console.warn("WS error for inquiry", id);
         return () => { ws.close(); wsRef.current = null; };
-    }, [id]);
+    }, [id, adminMe]);
 
     const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
         setReply(e.target.value);
@@ -257,11 +300,26 @@ export default function InquiryDetail() {
         if (!selected || !quoteForm.amount) return;
         setSending(true);
         try {
+            const lineItems = Object.entries(itemPrices).map(([id, price]) => ({ item_id: id, line_item_price: price }));
+            
+            const totalItems = Object.values(itemPrices).reduce((a, b) => a + b, 0) || parseFloat(quoteForm.amount);
+            const discountAmt = Object.keys(itemPrices).length > 0 ? totalItems * (discountPercentage / 100) : 0;
+            const subtotal = totalItems - discountAmt;
+            const taxAmt = Object.keys(itemPrices).length > 0 ? subtotal * (taxRate / 100) : 0;
+
             await api(`/admin/inquiries/${selected.id}/quote`, {
                 method: "PATCH",
-                body: JSON.stringify({ total_price: parseFloat(quoteForm.amount), admin_notes: quoteForm.notes || null, valid_days: parseInt(quoteForm.validDays) || 7 }),
+                body: JSON.stringify({ 
+                    total_price: parseFloat(quoteForm.amount), 
+                    admin_notes: quoteForm.notes || null, 
+                    valid_days: parseInt(quoteForm.validDays) || 7,
+                    tax_amount: taxAmt,
+                    discount_amount: discountAmt,
+                    line_items: lineItems.length > 0 ? lineItems : undefined
+                }),
             });
             setQuoteForm({ amount: "", notes: "", validDays: "7" });
+            setItemPrices({});
             const data = await api<InquiryGroup>(`/admin/inquiries/${selected.id}`);
             setSelected(data);
         } catch (e) { console.error(e); } finally { setSending(false); }
@@ -318,15 +376,12 @@ export default function InquiryDetail() {
                         <span className="text-[#424754] dark:text-[#c3c5d8] text-sm font-medium">INQ-{selected.id.slice(0, 8)}</span>
                     </div>
                     <h2 className="text-3xl font-bold tracking-tight text-[#191c1e] dark:text-[#dae2fd] font-headline">
-                        {selected.items[0]?.template_name || selected.items[0]?.service_name || "Project Inquiry"}
+                        {selected.items[0]?.subproduct_name || selected.items[0]?.product_name || selected.items[0]?.subservice_name || selected.items[0]?.service_name || "Project Inquiry"}
                     </h2>
                 </div>
                 <div className="flex gap-3">
                     <button onClick={() => navigate('/inquiries')} className="flex items-center gap-2 px-4 py-2 bg-[#eceef0] dark:bg-slate-800 text-[#191c1e] dark:text-[#dae2fd] rounded-lg text-sm font-semibold hover:bg-[#e0e3e5] dark:hover:bg-slate-700 transition-all hover:-translate-y-px">
                         <ArrowLeft size={18} /> Back
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-[#eceef0] dark:bg-slate-800 text-[#191c1e] dark:text-[#dae2fd] rounded-lg text-sm font-semibold hover:bg-[#e0e3e5] dark:hover:bg-slate-700 transition-all hover:-translate-y-px">
-                        <FileText size={18} /> Print PDF
                     </button>
                 </div>
             </header>
@@ -364,30 +419,60 @@ export default function InquiryDetail() {
                             <span className="text-xs font-bold text-[#0058be] dark:text-[#adc6ff] tracking-tight">{selected.items.length} ITEMS TOTAL</span>
                         </div>
                         <div className="space-y-6">
-                            {selected.items.map((item) => (
-                                <div key={item.id} className="flex items-center justify-between group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-[#f7f9fb] dark:bg-[#060e20] rounded-lg flex items-center justify-center border border-[#eceef0] dark:border-[#434655]/20 group-hover:border-[#0058be]/30 transition-colors">
-                                            {item.service_id ? <Layers size={20} className="text-[#0058be] dark:text-[#adc6ff]" /> : <Package size={20} className="text-[#0058be] dark:text-[#adc6ff]" />}
+                            {selected.items.map((item) => {
+                                const itemImage = item.display_images?.[0] || item.images?.[0];
+                                return (
+                                <div key={item.id} className="p-4 rounded-xl border border-[#eceef0] dark:border-[#434655]/20 bg-[#f7f9fb] dark:bg-[#060e20] group hover:border-[#0058be]/30 transition-colors">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-14 h-14 rounded-lg overflow-hidden border border-[#eceef0] dark:border-[#434655]/20 shrink-0 bg-white dark:bg-[#131b2e]">
+                                                {itemImage ? (
+                                                    <img src={itemImage} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        {item.service_id ? <Layers size={22} className="text-[#0058be] dark:text-[#adc6ff]" /> : <Package size={22} className="text-[#0058be] dark:text-[#adc6ff]" />}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-[#191c1e] dark:text-[#dae2fd] text-sm">{item.subproduct_name || item.product_name || item.subservice_name || item.service_name || "Custom Item"}</h4>
+                                                {item.variant_name && <p className="text-[11px] text-[#424754] dark:text-[#c3c5d8] font-medium opacity-70 mt-0.5">{item.variant_name}</p>}
+                                                <div className="flex items-center gap-3 mt-1.5">
+                                                    <span className="text-[10px] font-bold text-[#424754]/60 dark:text-[#c3c5d8]/60 uppercase tracking-wider">Qty: {item.quantity}</span>
+                                                    {(item.estimated_price || 0) > 0 && (
+                                                        <span className="text-[10px] font-bold text-slate-400 dark:text-[#c3c5d8]/40 uppercase tracking-wider">Unit Est: ₹{(item.estimated_price || 0).toLocaleString()}</span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className="font-bold text-[#191c1e] dark:text-[#dae2fd] text-sm">{item.template_name || item.service_name || "Custom Configuration"}</h4>
-                                            <p className="text-[11px] text-[#424754] dark:text-[#c3c5d8] font-medium opacity-70">{item.variant_name || "Standard Selection"}</p>
+                                        <div className="text-right shrink-0">
+                                            <span className="block font-bold text-lg text-[#191c1e] dark:text-[#dae2fd]">
+                                                {itemPrices[item.id] ? `₹${itemPrices[item.id].toLocaleString()}` : (item.line_item_price ? `₹${item.line_item_price.toLocaleString()}` : "—")}
+                                            </span>
+                                            {(item.total_estimated_price || 0) > 0 && (
+                                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">Est Total: ₹{(item.total_estimated_price || 0).toLocaleString()}</span>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <span className="block font-bold text-lg text-[#191c1e] dark:text-[#dae2fd]">
-                                            {item.line_item_price ? `₹${item.line_item_price.toLocaleString()}` : "Price TBD"}
-                                        </span>
-                                        <span className="text-[0.65rem] font-bold text-[#424754]/60 dark:text-[#c3c5d8]/60 uppercase tracking-wider">Qty: {item.quantity}</span>
-                                        {!item.line_item_price && (
-                                            <div className="mt-1">
-                                                <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} />
-                                            </div>
+                                    {/* Item-level pricing controls */}
+                                    <div className="mt-3 flex items-center justify-end gap-2">
+                                        {!item.line_item_price && !itemPrices[item.id] && (
+                                            <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} onApplyPrice={(p) => setItemPrices(prev => ({ ...prev, [item.id]: p }))} />
+                                        )}
+                                        {!item.line_item_price && itemPrices[item.id] && (
+                                            <button onClick={() => { const newP = {...itemPrices}; delete newP[item.id]; setItemPrices(newP); }} className="text-[9px] font-bold uppercase text-slate-400 hover:text-red-500 transition-colors">Reset Price</button>
                                         )}
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
+                            {/* Total Summary Row */}
+                            <div className="flex items-center justify-between pt-4 border-t border-[#eceef0] dark:border-[#434655]/20">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#424754] dark:text-[#c3c5d8]">Total Estimated Value</span>
+                                <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                                    ₹{selected.items.reduce((sum, i) => sum + (i.total_estimated_price || 0), 0).toLocaleString()}
+                                </span>
+                            </div>
                         </div>
                     </section>
 
@@ -395,22 +480,19 @@ export default function InquiryDetail() {
                     <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 shadow-sm border border-[#eceef0] dark:border-[#434655]/20 transition-colors">
                         <div className="flex items-center justify-between mb-8">
                             <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#424754] dark:text-[#c3c5d8]">Quote History</h3>
-                            <div className="flex gap-2">
-                                <span className={`w-2 h-2 rounded-full ${selected.active_quote_id ? 'bg-[#2170e4]' : 'bg-[#e6e8ea] dark:bg-slate-700'}`}></span>
-                                <span className="w-2 h-2 rounded-full bg-[#e6e8ea] dark:bg-slate-700"></span>
-                            </div>
+                            <span className="text-xs font-bold text-[#0058be] dark:text-[#adc6ff] tracking-tight">{selected.quote_versions?.length || 0} VERSIONS</span>
                         </div>
                         <div className="border-l-2 border-[#eceef0] dark:border-[#434655]/20 ml-4 space-y-12">
                             {(selected.quote_versions?.length || 0) > 0 ? (
-                                [...(selected.quote_versions || [])].sort((a,b) => b.version_number - a.version_number).map((vq, idx) => (
+                                [...(selected.quote_versions || [])].sort((a,b) => b.version - a.version).map((vq, idx) => (
                                     <div key={vq.id} className={`relative pl-10 ${idx !== 0 ? 'opacity-60 grayscale-[0.5]' : ''}`}>
                                         <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full ring-4 ring-white dark:ring-[#131b2e] transition-all ${idx === 0 ? 'bg-[#0058be] scale-110 shadow-[0_0_10px_rgba(0,88,190,0.3)]' : 'bg-[#d8dadc] dark:bg-slate-700'}`}></div>
                                         <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
                                             <div>
                                                 <span className={`text-[10px] font-bold uppercase tracking-widest ${idx === 0 ? 'text-[#0058be] dark:text-[#adc6ff]' : 'text-[#424754] dark:text-[#c3c5d8]'}`}>
-                                                    {idx === 0 ? 'Current Version' : `Archive - V.${vq.version_number}`}
+                                                    {idx === 0 ? 'Current Version' : `Archive - V.${vq.version}`}
                                                 </span>
-                                                <h4 className="text-xl font-bold text-[#191c1e] dark:text-[#dae2fd] mt-1">V.{String(vq.version_number).padStart(2, '0')} - {idx === 0 ? 'Final Revision' : 'Previous Proposal'}</h4>
+                                                <h4 className="text-xl font-bold text-[#191c1e] dark:text-[#dae2fd] mt-1">V.{String(vq.version).padStart(2, '0')} - {idx === 0 ? 'Final Revision' : 'Previous Proposal'}</h4>
                                                 {idx !== 0 && <p className="text-[11px] font-medium text-[#424754] dark:text-[#c3c5d8] mt-1">Status: Superseded</p>}
                                             </div>
                                             <div className="text-right mt-2 md:mt-0">
@@ -448,9 +530,10 @@ export default function InquiryDetail() {
                         </div>
                         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-[#0b1326]/50 shadow-inner custom-scrollbar transition-colors">
                             {selected.messages?.map((m) => {
+                                const isMe = String(m.sender_id) === String(adminMe?.id);
                                 const isAdmin = m.sender_id !== selected.user_id;
                                 return (
-                                    <div key={m.id} className={`flex items-start gap-4 max-w-[85%] ${isAdmin ? 'ml-auto flex-row-reverse text-right' : ''}`}>
+                                    <div key={m.id} className={`flex items-start gap-4 max-w-[85%] ${isMe ? 'ml-auto flex-row-reverse text-right' : ''}`}>
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm ${isAdmin ? 'bg-blue-600 text-white ring-2 ring-blue-500/10' : 'bg-blue-100 dark:bg-[#d8e2ff] text-blue-900 dark:text-[#001a42] ring-2 ring-blue-100/20 dark:ring-[#d8e2ff]/20'}`}>
                                             {isAdmin ? 'AD' : (userDetails?.name?.[0]?.toUpperCase() || 'CL')}
                                         </div>
@@ -499,7 +582,6 @@ export default function InquiryDetail() {
                 {/* Right Column (5/12) */}
                 <div className="col-span-12 lg:col-span-5 space-y-8">
                     {/* Action Controls */}
-                    {/* Action Controls */}
                     <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 shadow-sm border border-slate-200 dark:border-[#434655]/20 transition-colors">
                         <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-[#c3c5d8] mb-8">Inquiry Workflow</h3>
                         <div className="space-y-6">
@@ -515,18 +597,48 @@ export default function InquiryDetail() {
                                     </div>
                                 </div>
                                 <div className="space-y-5 relative z-10">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">GST Rate (%)</label>
+                                            <select 
+                                                className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-500 dark:focus:border-blue-400 dark:border-[#adc6ff] transition-colors appearance-none h-[48px]"
+                                                value={taxRate}
+                                                onChange={e => setTaxRate(parseFloat(e.target.value))}
+                                            >
+                                                <option value="0">0% (Exempt)</option>
+                                                <option value="5">5% (Printed Books)</option>
+                                                <option value="12">12% (Standard)</option>
+                                                <option value="18">18% (Custom Services)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">Discount (%)</label>
+                                            <input 
+                                                className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-500 dark:focus:border-blue-400 dark:border-[#adc6ff] transition-colors h-[48px]" 
+                                                type="number" 
+                                                min="0" max="100"
+                                                value={discountPercentage}
+                                                onChange={e => setDiscountPercentage(parseFloat(e.target.value) || 0)}
+                                            />
+                                        </div>
+                                    </div>
                                     <div className="group/field">
                                         <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2 group-focus-within/field:text-blue-600 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff] transition-colors">Total Contract Value (INR)</label>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300 dark:text-[#424754]/30 group-focus-within/field:text-blue-600/50 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff]/50 transition-colors">₹</span>
                                             <input 
-                                                className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl pl-9 pr-4 py-3.5 font-black text-lg focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-blue-400 dark:border-[#adc6ff] text-slate-900 dark:text-[#dae2fd] transition-all outline-none" 
+                                                className={`w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl pl-9 pr-4 py-3.5 font-black text-lg focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-blue-400 dark:border-[#adc6ff] ${showWarning ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-[#dae2fd]'} transition-all outline-none`}
                                                 type="number" 
                                                 value={quoteForm.amount}
                                                 onChange={e => setQuoteForm({ ...quoteForm, amount: e.target.value })}
                                                 placeholder="0.00"
                                             />
                                         </div>
+                                        {showWarning && (
+                                            <div className="flex items-center gap-1.5 mt-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest">
+                                                <AlertCircle size={12} /> Value below system cost estimates
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
@@ -595,24 +707,7 @@ export default function InquiryDetail() {
                                 {selected.admin_notes || "No internal strategic intelligence recorded for this inquiry. Recording preferences or negotiation leverage here is recommended."}
                             </p>
                         </div>
-                        <button className="mt-6 w-full py-3 border border-dashed border-slate-200 dark:border-[#434655]/40 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-[#adc6ff] hover:bg-blue-50 dark:hover:bg-[#0058be]/5 transition-all flex items-center justify-center gap-2">
-                            <Layers size={14} /> Update Strategic Note
-                        </button>
                     </section>
-
-                    {/* Danger Zone */}
-                    {/* Danger Zone */}
-                    <div className="pt-4 border-t border-slate-200 dark:border-[#eceef0]/20 transition-colors">
-                         <div className="flex items-center justify-between opacity-40 hover:opacity-100 transition-opacity">
-                            <div>
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-[#ba1a1a]">Archive Protocol</h4>
-                                <p className="text-[9px] font-bold text-slate-500 dark:text-[#c3c5d8] uppercase tracking-wider mt-1">Irreversible sequence</p>
-                            </div>
-                            <button className="px-4 py-2 border border-red-600/20 dark:border-[#ba1a1a]/20 text-red-600 dark:text-[#ba1a1a] text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-red-600 dark:hover:bg-[#ba1a1a] hover:text-white transition-all">
-                                Purge Record
-                            </button>
-                         </div>
-                    </div>
                 </div>
             </div>
         </main>

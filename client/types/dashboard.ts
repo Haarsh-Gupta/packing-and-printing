@@ -41,7 +41,7 @@ export interface QuoteVersion {
     id: string;
     display_id?: string;
     inquiry_id: string;
-    version_number: number;
+    version: number;
     total_price: number;
     admin_notes?: string;
     valid_until: string;

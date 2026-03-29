@@ -103,6 +103,9 @@ export default function SupportPage() {
             <DashboardHeader
                 title="Support Tickets"
                 description="Get help from our team. Open a ticket and we'll respond shortly."
+                badge="Support"
+                icon={<MessageSquare className="w-6 h-6" />}
+                accent="#4be794"
             />
 
             {/* New Ticket Button */}

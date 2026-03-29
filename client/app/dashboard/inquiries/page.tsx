@@ -7,13 +7,15 @@ import { InquirySkeleton } from "./InquirySkeleton";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardSearch } from "@/components/dashboard/DashboardSearch";
 import { InquiryCard, InquiryListRow } from "@/components/dashboard/InquiryComponents";
-import { FileText } from "lucide-react";
+import { FileText, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAlert } from "@/components/CustomAlert";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export default function MyInquiriesPage() {
     const router = useRouter();
     const { showAlert } = useAlert();
+    const { confirm } = useConfirm();
     const [inquiries, setInquiries] = useState<Inquiry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -114,6 +116,39 @@ export default function MyInquiriesPage() {
         }
     };
 
+    const handleReorder = async (id: string) => {
+        const confirmed = await confirm({
+            title: "Reorder Inquiry?",
+            message: "This will create a new draft inquiry with the same items and specifications. You can review and edit it before submitting.",
+            confirmText: "Yes, Reorder",
+            cancelText: "Cancel",
+        });
+        if (!confirmed) return;
+
+        setActionLoading(id);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${id}/reorder`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("access_token")}`
+                }
+            });
+
+            if (res.ok) {
+                const newInquiry = await res.json();
+                showAlert("Inquiry cloned as a new draft! Redirecting...", "success");
+                setTimeout(() => router.push(`/dashboard/inquiries/${newInquiry.id}`), 1200);
+            } else {
+                showAlert("Failed to reorder inquiry.", "error");
+            }
+        } catch (error) {
+            console.error(error);
+            showAlert("Network error while reordering.", "error");
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
     const handleExportCSV = () => {
         if (!filteredInquiries.length) return;
         const headers = ["ID", "Status", "Total Estimate", "Created Date"];
@@ -137,7 +172,7 @@ export default function MyInquiriesPage() {
     if (isLoading) {
         return (
             <div className="space-y-8 max-w-5xl mx-auto">
-                <DashboardHeader title="My Inquiries" description="Loading your inquiries..." />
+                <DashboardHeader title="My Inquiries" description="Loading your inquiries..." badge="Inquiries" icon={<FileText className="w-6 h-6" />} accent="#90e8ff" />
                 <InquirySkeleton />
             </div>
         );
@@ -145,19 +180,21 @@ export default function MyInquiriesPage() {
 
     return (
         <div className="space-y-8 max-w-5xl mx-auto">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <DashboardHeader
-                    title="My Inquiries"
-                    description="Request custom quotes and manage specifications."
-                />
+            <DashboardHeader
+                title="My Inquiries"
+                description="Request custom quotes, manage specifications, and track progress."
+                badge="Inquiries"
+                icon={<FileText className="w-6 h-6" />}
+                accent="#90e8ff"
+            >
                 <Button 
                     onClick={handleExportCSV} 
-                    className="bg-black text-white hover:bg-zinc-800 border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase font-black self-start sm:self-center"
+                    className="bg-black text-white hover:bg-zinc-800 border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all uppercase font-black h-10 px-5"
                     disabled={filteredInquiries.length === 0}
                 >
                     Export CSV
                 </Button>
-            </div>
+            </DashboardHeader>
 
             <DashboardSearch
                 searchQuery={searchQuery}
@@ -190,6 +227,7 @@ export default function MyInquiriesPage() {
                             inquiry={inquiry}
                             actionLoading={actionLoading}
                             handleStatusUpdate={handleStatusUpdate}
+                            handleReorder={handleReorder}
                         />
                     ))}
                 </div>
@@ -201,6 +239,7 @@ export default function MyInquiriesPage() {
                             inquiry={inquiry}
                             actionLoading={actionLoading}
                             handleStatusUpdate={handleStatusUpdate}
+                            handleReorder={handleReorder}
                         />
                     ))}
                 </div>

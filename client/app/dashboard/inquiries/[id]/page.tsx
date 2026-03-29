@@ -20,11 +20,13 @@ import {
     Loader2,
     X,
     FileText,
+    RotateCcw,
 } from "lucide-react";
 
 import Link from "next/link";
 import { Inquiry, InquiryMessage } from "@/types/dashboard";
 import { useAlert } from "@/components/CustomAlert";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 type WsStatus = "connecting" | "connected" | "disconnected";
 
@@ -32,6 +34,7 @@ export default function InquiryDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { showAlert } = useAlert();
+    const { confirm } = useConfirm();
     const inquiryId = params.id as string;
 
     const [inquiry, setInquiry] = useState<Inquiry | null>(null);
@@ -43,6 +46,7 @@ export default function InquiryDetailPage() {
     const [attachmentName, setAttachmentName] = useState<string | null>(null);
     const [wsStatus, setWsStatus] = useState<WsStatus>("disconnected");
     const [adminTyping, setAdminTyping] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -80,9 +84,26 @@ export default function InquiryDetailPage() {
         }
     }, [inquiryId, router]);
 
+    const fetchCurrentUser = useCallback(async () => {
+        try {
+            const token = localStorage.getItem("access_token");
+            if (!token) return;
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const user = await res.json();
+                setCurrentUserId(String(user.id));
+            }
+        } catch { /* ignore */ }
+    }, []);
+
     useEffect(() => {
-        if (inquiryId) fetchInquiryDetails();
-    }, [inquiryId, fetchInquiryDetails]);
+        if (inquiryId) {
+            fetchInquiryDetails();
+            fetchCurrentUser();
+        }
+    }, [inquiryId, fetchInquiryDetails, fetchCurrentUser]);
 
     // ── WebSocket ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -117,8 +138,12 @@ export default function InquiryDetailPage() {
                         return { ...prev, messages: [...(prev.messages || []), msg] };
                     });
                     setAdminTyping(false);
-                } else if (data.type === "typing" && data.is_admin) {
-                    setAdminTyping(data.is_typing);
+                } else if (data.type === "typing") {
+                    // Only show typing if it's NOT from us
+                    const isFromMe = String(data.user_id) === String(currentUserId);
+                    if (!isFromMe && data.is_admin) {
+                        setAdminTyping(data.is_typing);
+                    }
                 }
             } catch { /* ignore */ }
         };
@@ -127,7 +152,7 @@ export default function InquiryDetailPage() {
             ws.close();
             wsRef.current = null;
         };
-    }, [inquiryId]);
+    }, [inquiryId, currentUserId]);
 
     // ── Typing events ────────────────────────────────────────────────────
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -274,6 +299,38 @@ export default function InquiryDetailPage() {
         }
     };
 
+    const handleReorder = async () => {
+        const confirmed = await confirm({
+            title: "Reorder This Inquiry?",
+            message: "A new draft inquiry will be created with the same items and specifications. You can modify it before submitting.",
+            confirmText: "Yes, Reorder",
+            cancelText: "Cancel",
+        });
+        if (!confirmed) return;
+
+        setIsLoading(true);
+        try {
+            const token = localStorage.getItem("access_token");
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}/reorder`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
+            });
+
+            if (res.ok) {
+                const newInquiry = await res.json();
+                showAlert("Inquiry cloned as a new draft! Redirecting...", "success");
+                setTimeout(() => router.push(`/dashboard/inquiries/${newInquiry.id}`), 1200);
+            } else {
+                showAlert("Failed to reorder inquiry.", "error");
+            }
+        } catch {
+            showAlert("An error occurred while reordering.", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // ── Status badge ─────────────────────────────────────────────────────
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -288,7 +345,7 @@ export default function InquiryDetailPage() {
             case "QUOTED":
                 return <Badge className="bg-[#ff90e8] text-black border-2 border-black rounded-none animate-pulse"><AlertCircle className="w-3 h-3 mr-1" /> Quote Ready!</Badge>;
             case "ACCEPTED":
-                return <Badge className="bg-[#4be794] text-black border-2 border-black rounded-none"><CheckCircle2 className="w-3 h-3 mr-1" /> Accepted</Badge>;
+                return <Badge className="bg-accent-green text-black border-2 border-black rounded-none"><CheckCircle2 className="w-3 h-3 mr-1" /> Accepted</Badge>;
             case "REJECTED":
                 return <Badge className="bg-zinc-200 text-zinc-500 border-2 border-zinc-500 rounded-none"><XCircle className="w-3 h-3 mr-1" /> Rejected</Badge>;
             case "CANCELLED":
@@ -342,7 +399,7 @@ export default function InquiryDetailPage() {
                 <div className="flex items-center gap-3 flex-wrap justify-end">
                     {getStatusBadge(inquiry.status)}
                     {inquiry.active_quote?.total_price != null && (
-                        <div className="text-xl font-black bg-[#4be794] text-black border-2 border-black px-4 py-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <div className="text-xl font-black bg-accent-green text-black border-2 border-black px-4 py-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                             ₹{inquiry.active_quote.total_price.toLocaleString()}
                         </div>
                     )}
@@ -353,13 +410,21 @@ export default function InquiryDetailPage() {
                     )}
                     {inquiry.status === "QUOTED" && (
                         <div className="flex gap-2">
-                            <Button onClick={() => handleStatusUpdate("ACCEPTED")} className="bg-[#4be794] text-black border-2 border-black rounded-none hover:bg-[#3bc27b] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase font-black">
+                            <Button onClick={() => handleStatusUpdate("ACCEPTED")} className="bg-accent-green text-black border-2 border-black rounded-none hover:bg-[#3bc27b] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase font-black">
                                 <CheckCircle2 className="w-4 h-4 mr-2" /> Accept
                             </Button>
                             <Button onClick={() => handleStatusUpdate("REJECTED")} variant="outline" className="border-2 border-black rounded-none uppercase font-black">
                                 <XCircle className="w-4 h-4 mr-2" /> Reject
                             </Button>
                         </div>
+                    )}
+                    {["ACCEPTED", "REJECTED", "CANCELLED", "EXPIRED"].includes(inquiry.status) && (
+                        <Button
+                            onClick={handleReorder}
+                            className="bg-white text-black hover:bg-zinc-100 border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all uppercase font-black"
+                        >
+                            <RotateCcw className="w-4 h-4 mr-2" /> Reorder
+                        </Button>
                     )}
                 </div>
             </div>
@@ -446,10 +511,10 @@ export default function InquiryDetailPage() {
                                 <div className="mt-6 border-t-2 border-dashed border-zinc-200 pt-4">
                                     <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Quote History</div>
                                     <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
-                                        {[...inquiry.quote_versions].sort((a, b) => b.version_number - a.version_number).map(vq => (
-                                            <div key={vq.id} className={`p-3 border-2 border-black flex items-center justify-between ${vq.id === inquiry.active_quote_id ? "bg-[#4be794]" : "bg-zinc-50"}`}>
+                                        {[...inquiry.quote_versions].sort((a, b) => b.version - a.version).map(vq => (
+                                            <div key={vq.id} className={`p-3 border-2 border-black flex items-center justify-between ${vq.id === inquiry.active_quote_id ? "bg-accent-green" : "bg-zinc-50"}`}>
                                                 <div>
-                                                    <div className="text-xs font-black uppercase tracking-tighter">v{vq.version_number} {vq.id === inquiry.active_quote_id && "(Active)"}</div>
+                                                    <div className="text-xs font-black uppercase tracking-tighter">v{vq.version} {vq.id === inquiry.active_quote_id && "(Active)"}</div>
                                                     <div className="text-[10px] font-bold text-zinc-500 uppercase">{new Date(vq.created_at).toLocaleDateString()}</div>
                                                 </div>
                                                 <div className="font-black text-sm">₹{vq.total_price.toLocaleString()}</div>
@@ -483,7 +548,7 @@ export default function InquiryDetailPage() {
                             </div>
                         ) : (
                             inquiry.messages.map((msg) => {
-                                const isMe = msg.sender_id === inquiry.user_id;
+                                const isMe = String(msg.sender_id) === String(currentUserId);
                                 return (
                                     <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                                         <div className={`max-w-[80%] flex gap-2.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}>

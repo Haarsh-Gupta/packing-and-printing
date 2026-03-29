@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DashboardSkeleton } from "./DashboardSkeleton";
@@ -45,42 +46,34 @@ function formatCurrency(amount: number) {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
+
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+
+  const fetcher = async (url: string) => {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+      if (res.status === 401) router.replace("/auth/login");
+      throw new Error("Failed to fetch dashboard stats");
+    }
+    return res.json();
+  };
+
+  const { data, isLoading } = useSWR(
+    token && !authLoading ? `${apiUrl}/users/dashboard-stats` : null,
+    fetcher,
+    { dedupingInterval: 10000 }
+  );
+
+  const stats: DashboardStats = data?.stats || {
     totalInquiries: 0, pendingInquiries: 0,
     totalOrders: 0, activeOrders: 0, completedOrders: 0,
     totalExpenditure: 0, totalPaid: 0, totalRemaining: 0, upcomingPayments: 0,
-  });
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [recentInquiries, setRecentInquiries] = useState<Inquiry[]>([]);
-  const [loading, setLoading] = useState(true);
+  };
+  const recentOrders: Order[] = data?.recentOrders || [];
+  const recentInquiries: Inquiry[] = data?.recentInquiries || [];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const token = localStorage.getItem("access_token");
-      if (!token) { router.replace("/auth/login"); return; }
-
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/dashboard-stats`, {
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: "include",
-        });
-
-        if (!res.ok) throw new Error("Failed to fetch dashboard stats");
-        const data = await res.json();
-
-        setStats(data.stats);
-        setRecentOrders(data.recentOrders);
-        setRecentInquiries(data.recentInquiries);
-      } catch (error) {
-        console.error("Dashboard fetch error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  if (authLoading || loading) return <DashboardSkeleton />;
+  if (authLoading || (!data && isLoading)) return <DashboardSkeleton />;
 
   const avatarUrl = user?.profile_picture
     ? user.profile_picture
@@ -143,20 +136,30 @@ export default function DashboardPage() {
     <div className="space-y-10 max-w-6xl mx-auto pb-16">
 
       {/* ── Header ── */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-4 border-black pb-8">
-        <div>
-          <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-2">
-            Hello, <span className="text-zinc-400 decoration-4 underline decoration-[#fdf567] underline-offset-8">{user?.name?.split(" ")[0]}</span>
-          </h1>
-          <p className="text-xl font-bold text-zinc-500 max-w-xl leading-relaxed">
-            Manage your orders, track shipments, and keep an eye on your finances.
-          </p>
+      <header className="relative overflow-hidden rounded-2xl bg-[#FF90E8] border border-black/10 shadow-sm">
+        {/* Dot pattern background */}
+        <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(circle,#000_1px,transparent_1px)] bg-size-[24px_24px]" />
+        
+        <div className="relative z-10 p-6 sm:p-8 md:p-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <div className="space-y-3">
+              <div className="inline-block bg-white text-black px-3 py-1.5 font-black text-xs uppercase tracking-widest border-3 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -rotate-1">
+                Dashboard
+              </div>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter text-black leading-[0.9]">
+                Hello, <span className="text-black/40">{user?.name?.split(" ")[0]}</span>
+              </h1>
+              <p className="text-base text-black/60 font-medium max-w-xl leading-relaxed">
+                Manage your orders, track shipments, and keep an eye on your finances.
+              </p>
+            </div>
+            <Button asChild className="h-12 px-8 text-base font-black uppercase border-3 border-black bg-black text-white hover:bg-white hover:text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,0.3)] transition-all rounded-full">
+              <Link href="/products">
+                <Package className="mr-2 h-5 w-5" /> New Order
+              </Link>
+            </Button>
+          </div>
         </div>
-        <Button asChild className="h-14 px-8 text-lg font-black uppercase border-4 border-black bg-[#fdf567] text-black hover:bg-black hover:text-white hover:border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all rounded-xl">
-          <Link href="/products">
-            <Package className="mr-3 h-5 w-5" /> New Order
-          </Link>
-        </Button>
       </header>
 
       {/* ── Stat Cards Grid ── */}

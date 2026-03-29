@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import ImageCropper from "@/components/ImageCropper";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 
 export default function SubServices() {
     const navigate = useNavigate();
@@ -363,7 +365,9 @@ export default function SubServices() {
 
                                 <div className="space-y-2 mb-6">
                                     <label className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest">Description</label>
-                                    <Textarea className="h-24 text-sm bg-slate-50 dark:bg-[#0b1326] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="Elaborate on the specific physical tolerances, material capabilities..." />
+                                    <div className="bg-white text-black min-h-[200px] border border-slate-200 dark:border-[#434655]/40 rounded-md overflow-hidden">
+                                        <ReactQuill theme="snow" value={formState.description} onChange={val => setFormState({ ...formState, description: val })} placeholder="Elaborate on the specific physical tolerances, material capabilities, and included services..." className="h-[150px] border-none" />
+                                    </div>
                                 </div>
 
                                 <div className="flex items-center justify-between border border-slate-200 dark:border-[#434655]/30 bg-slate-50 dark:bg-[#0b1326] p-4 rounded-xl">

@@ -1,12 +1,15 @@
 import logging
+import json
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, case
+from redis.asyncio import Redis
 
 from app.modules.users.schemas import UserCreate, UserOut, UserUpdate
 from app.modules.users.models import User
 from app.core.database import get_db
+from app.core.redis import get_redis
 from app.modules.auth.auth import get_password_hash
 from app.modules.auth import get_current_user
 from app.modules.auth.schemas import TokenData
@@ -73,12 +76,18 @@ async def user_detail(current_user : TokenData = Depends(get_current_user), db :
 async def get_dashboard_stats(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis_client: Redis = Depends(get_redis),
 ):
     """
-    Returns all dashboard metrics in a single response using efficient SQL aggregation.
-    2 aggregate queries + 2 LIMIT 3 queries instead of fetching all rows.
+    Returns all dashboard metrics. Uses Redis caching to minimize latent DB queries.
     """
     uid = current_user.id
+    cache_key = f"dashboard_stats:{uid}"
+
+    # Try hitting Redis cache first
+    cached_data = await redis_client.get(cache_key)
+    if cached_data:
+        return json.loads(cached_data)
 
     # ── 1. Order stats (single aggregate query) ──
     order_stats = (await db.execute(
@@ -159,7 +168,7 @@ async def get_dashboard_stats(
     total_exp = float(order_stats.total_expenditure)
     total_paid = float(order_stats.total_paid)
 
-    return {
+    response_data = {
         "stats": {
             "totalInquiries": inquiry_stats.total_inquiries,
             "pendingInquiries": inquiry_stats.pending_inquiries,
@@ -174,6 +183,11 @@ async def get_dashboard_stats(
         "recentOrders": recent_orders,
         "recentInquiries": recent_inquiries,
     }
+
+    # Set cache for 60 seconds
+    await redis_client.setex(cache_key, 60, json.dumps(response_data))
+
+    return response_data
 
 
 # ── User by ID (MUST be after all named routes like /dashboard-stats) ──

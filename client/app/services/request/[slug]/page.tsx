@@ -3,7 +3,12 @@ import { FileText, CheckCircle2 } from "lucide-react";
 import ServiceInquiryForm from "../../[slug]/ServiceInquiryForm";
 import ProductImageCarousel from "@/components/products/ProductImageCarousel";
 import ServiceReviews from "./ServiceReviews";
+import sanitizeHtml from 'sanitize-html';
 
+const sanitizeOptions = {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([ 'img', 'h1', 'h2', 'h3', 'h4', 'span' ]),
+    allowedAttributes: { ...sanitizeHtml.defaults.allowedAttributes, img: ['src', 'alt', 'width', 'height'], span: ['style'] }
+};
 async function getSubService(slug: string) {
     try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services/subservices/${slug}`, {
@@ -78,23 +83,14 @@ export default async function ServiceRequestPage({
                             <h3 className="text-xl font-black uppercase mb-4 flex items-center gap-2">
                                 <FileText className="h-5 w-5" /> Service Details
                             </h3>
-                            <p className="text-zinc-600 font-medium mb-6 leading-relaxed">
-                                {subService.description || "Our professional studio services provide expert review and quality assurance to meet your project specifications."}
-                            </p>
-                            <ul className="space-y-3">
-                                <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
-                                    <CheckCircle2 className="h-5 w-5 text-[#4be794] shrink-0" />
-                                    Expert technician review
-                                </li>
-                                <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
-                                    <CheckCircle2 className="h-5 w-5 text-[#4be794] shrink-0" />
-                                    Guaranteed industry standards
-                                </li>
-                                <li className="flex items-start gap-3 text-sm font-medium text-zinc-700">
-                                    <CheckCircle2 className="h-5 w-5 text-[#4be794] shrink-0" />
-                                    Timely delivery and professional support
-                                </li>
-                            </ul>
+                            {subService.description ? (
+                                <div 
+                                    className="prose prose-zinc prose-a:text-accent-green max-w-none text-zinc-600 font-medium leading-relaxed" 
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(subService.description, sanitizeOptions) }} 
+                                />
+                            ) : (
+                                <p className="text-zinc-500 italic">No details provided.</p>
+                            )}
                         </div>
 
                         {/* Customer Reviews Section */}

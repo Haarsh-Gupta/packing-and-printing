@@ -31,6 +31,7 @@ interface SchemaSection {
 
 interface ProductSchema {
     id: number;
+    product_id: number;
     name: string;
     slug: string;
     base_price: number;
@@ -200,7 +201,8 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         } else {
             dispatch(addToInquiry({
                 id: generateId(),
-                productId: product.id,
+                productId: product.product_id,
+                subproductId: product.id,
                 name: product.name,
                 slug: product.slug,
                 quantity: quantity,
@@ -251,7 +253,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                                                         relative h-10 w-12 cursor-pointer transition-all rounded-[2px] border-2 border-black block
                                                         ${isSelected
                                                             ? "shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-[2px] -translate-x-[2px] ring-2 ring-white ring-inset"
-                                                            : "hover:-translate-y-[1px] hover:-translate-x-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                                                            : "hover:-translate-y-px hover:-translate-x-px hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                                                         }
                                                     `}
                                                     title={`${cleanLabelText(option.label)} ${option.price_mod ? `(+₹${option.price_mod})` : ''}`}
@@ -371,7 +373,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                 {/* Rounded Pill Button matching the reference image */}
                 <Button
                     type="submit"
-                    className="h-14 px-8 bg-[#4be794] text-black font-black uppercase text-sm border-2 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex items-center gap-2"
+                    className="h-14 px-8 bg-accent-green text-black font-black uppercase text-sm border-2 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex items-center gap-2"
                     disabled={isLoading}
                 >
                     {isLoading ? (

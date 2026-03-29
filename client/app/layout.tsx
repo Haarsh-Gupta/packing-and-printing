@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { AlertProvider } from "@/components/CustomAlert";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { AuthProvider } from "@/context/AuthContext";
 import { StoreProvider } from "@/lib/store/StoreProvider";
 
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
       >
         <AlertProvider>
+          <ConfirmProvider>
           <StoreProvider>
             <AuthProvider>
               <Header />
@@ -31,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Footer />
             </AuthProvider>
           </StoreProvider>
+          </ConfirmProvider>
         </AlertProvider>
       </body>
     </html>
