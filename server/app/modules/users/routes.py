@@ -113,17 +113,24 @@ async def get_dashboard_stats(
         .limit(3)
     )).scalars().all()
 
-    # Populate product names for the 3 recent orders
+    # BUG-021 FIX: Batch-fetch product names instead of N+1 loop
+    inquiry_ids = [o.inquiry_id for o in recent_orders_result]
+    items_by_group = {}
+    if inquiry_ids:
+        items_result = (await db.execute(
+            select(InquiryItem)
+            .where(InquiryItem.group_id.in_(inquiry_ids))
+        )).scalars().all()
+        for item in items_result:
+            if item.group_id not in items_by_group:
+                items_by_group[item.group_id] = item
+
     recent_orders = []
     for o in recent_orders_result:
+        item = items_by_group.get(o.inquiry_id)
         product_name = "Custom Order"
-        item = (await db.execute(
-            select(InquiryItem)
-            .where(InquiryItem.group_id == o.inquiry_id)
-            .limit(1)
-        )).scalar_one_or_none()
         if item:
-            product_name = item.service_name or item.subproduct_name or item.product_name or "Custom Order"
+            product_name = item.service_name or getattr(item, 'subproduct_name', None) or getattr(item, 'product_name', None) or "Custom Order"
         recent_orders.append({
             "id": str(o.id),
             "order_number": o.order_number,

@@ -473,18 +473,15 @@ async def update_inquiry_status_user(
     
     group.status = status_update.status.value
 
-    # Run DB query if we need user's name
-    from app.modules.users.models import User
-    user_obj = (await db.execute(select(User).where(User.id == current_user.id))).scalar_one_or_none()
-    username = getattr(user_obj, 'name', None) or getattr(user_obj, 'email', 'A user')
-
     # Notify admins if status became SUBMITTED, and fire SSE
     if status_update.status == InquiryStatus.SUBMITTED:
         await NotificationService.notify_admins(
             db,
             title="New Inquiry Submitted",
-            message=f"{username} submitted an inquiry with {len(group.items)} items.",
-            metadata={"type": "new_inquiry", "id": str(group.id)}
+            message=f"Submitted an inquiry with {len(group.items)} items.",
+            metadata={"type": "new_inquiry", "id": str(group.id)},
+            sender_name=current_user.name,
+            is_admin=current_user.admin
         )
         
         # Admin SSE
@@ -515,8 +512,10 @@ async def update_inquiry_status_user(
         await NotificationService.notify_admins(
             db,
             title="Quote Accepted",
-            message=f"{username} accepted the quote for Inquiry #{str(group.id)[:8].upper()}.",
-            metadata={"type": "quote_accepted", "id": str(group.id)}
+            message=f"Accepted the quote for Inquiry #{str(group.id)[:8].upper()}.",
+            metadata={"type": "quote_accepted", "id": str(group.id)},
+            sender_name=current_user.name,
+            is_admin=current_user.admin
         )
         from app.modules.inquiry.service import convert_inquiry_to_order
         await convert_inquiry_to_order(db, group)
@@ -588,8 +587,10 @@ async def send_inquiry_message(
     await NotificationService.notify_admins(
         db,
         title="New User Message",
-        message=f"User sent a message in inquiry #{str(group_id)[:8].upper()}",
-        metadata={"type": "inquiry_message", "id": str(group_id)}
+        message=f"Sent a message in inquiry #{str(group_id)[:8].upper()}",
+        metadata={"type": "inquiry_message", "id": str(group.id)},
+        sender_name=current_user.name,
+        is_admin=current_user.admin
     )
 
     await db.commit()

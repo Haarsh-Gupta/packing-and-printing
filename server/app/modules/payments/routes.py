@@ -167,6 +167,16 @@ async def verify_payment(
             detail="Payment verification failed. Invalid signature.",
         )
 
+    # BUG-018 FIX: Prevent replay attacks — reject if gateway_payment_id already recorded
+    existing_txn = (await db.execute(
+        select(Transaction).where(Transaction.gateway_payment_id == payload.gateway_payment_id)
+    )).scalar_one_or_none()
+    if existing_txn:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Payment already processed",
+        )
+
     # 3. Find the milestone
     milestone = None
     if payload.milestone_id:
@@ -340,12 +350,13 @@ async def razorpay_webhook_event(
         await db.commit()
         
         from app.modules.notifications.service import NotificationService
-        username = getattr(order.user, 'name', None) or getattr(order.user, 'email', 'A user')
         await NotificationService.notify_admins(
             db,
             title="Online Payment Received",
-            message=f"{username} successfully paid ₹{paid_amount:,.2f} for Order #{str(order.id)[:8].upper()} (Webhook).",
-            metadata={"type": "payment_received", "id": str(order.id)}
+            message=f"Successfully paid ₹{paid_amount:,.2f} for Order #{str(order.id)[:8].upper()} (Webhook).",
+            metadata={"type": "payment_received", "id": str(order.id)},
+            sender_name=getattr(order.user, 'name', None) or getattr(order.user, 'email', 'User'),
+            is_admin=getattr(order.user, 'admin', False)
         )
         
         # Fire SSE + messaging (fire-and-forget)

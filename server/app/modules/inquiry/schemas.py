@@ -96,10 +96,16 @@ class InquiryItemBase(BaseModel):
 
     @model_validator(mode="after")
     def check_product_or_service(self):
-        if not self.product_id and not self.service_id:
+        has_product = self.product_id is not None
+        has_service = self.service_id is not None
+        if not has_product and not has_service:
             raise ValueError("Either product_id or service_id must be provided")
-        if self.service_id and self.subservice_id is None:
+        if has_product and has_service:
+            raise ValueError("Cannot provide both product_id and service_id — choose one")
+        if has_service and self.subservice_id is None:
             raise ValueError(f"subservice_id is required for service_id {self.service_id}")
+        if has_product and self.subproduct_id is None:
+            raise ValueError(f"subproduct_id is required for product_id {self.product_id}")
         return self
 
 

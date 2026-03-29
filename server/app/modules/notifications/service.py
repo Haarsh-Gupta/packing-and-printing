@@ -12,10 +12,18 @@ class NotificationService:
         db: AsyncSession, 
         title: str, 
         message: str, 
-        metadata: dict = None
+        metadata: dict = None,
+        sender_name: str = None,
+        is_admin: bool = False
     ):
         """Create a persistent notification for all admin users."""
         try:
+            final_message = message
+            # Prepend sender name only if sender is NOT an admin
+            if sender_name and not is_admin:
+                if sender_name not in message:
+                    final_message = f"{sender_name}: {message}"
+
             # Find all admins
             result = await db.execute(select(User).where(User.admin == True))
             admins = result.scalars().all()
@@ -28,7 +36,7 @@ class NotificationService:
                 notif = Notification(
                     user_id=admin.id,
                     title=title,
-                    message=message,
+                    message=final_message,
                     metadata_=metadata
                 )
                 db.add(notif)
@@ -43,14 +51,22 @@ class NotificationService:
         user_id,
         title: str,
         message: str,
-        metadata: dict = None
+        metadata: dict = None,
+        sender_name: str = None,
+        is_admin: bool = False
     ):
         """Create a persistent notification for a specific user."""
         try:
+            final_message = message
+            # Prepend sender name only if sender is NOT an admin
+            if sender_name and not is_admin:
+                if sender_name not in message:
+                    final_message = f"{sender_name}: {message}"
+
             notif = Notification(
                 user_id=user_id,
                 title=title,
-                message=message,
+                message=final_message,
                 metadata_=metadata
             )
             db.add(notif)

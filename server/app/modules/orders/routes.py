@@ -42,6 +42,7 @@ from app.modules.orders.service.order import OrderService
 from app.modules.orders.service.payment import PaymentService
 from app.modules.orders.service.invoice_generator import generate_simple_invoice
 from app.modules.orders.service.qr_generator import generate_upi_qr
+from app.modules.notifications.service import NotificationService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -218,17 +219,13 @@ async def submit_payment_declaration(
         utr_number=payload.utr_number,
         screenshot_url=payload.screenshot_url,
     )
-    from app.modules.notifications.service import NotificationService
-    from app.modules.users.models import User
-    
-    user_obj = (await db.execute(select(User).where(User.id == current_user.id))).scalar_one_or_none()
-    username = getattr(user_obj, 'name', None) or getattr(user_obj, 'email', 'A user')
-
     await NotificationService.notify_admins(
         db,
         title="Payment Declared",
-        message=f"{username} submitted a payment declaration for Order #{str(order_id)[:8].upper()}.",
-        metadata={"type": "payment_declared", "id": str(order_id)}
+        message=f"Submitted a payment declaration for Order #{str(order_id)[:8].upper()}.",
+        metadata={"type": "payment_declared", "id": str(order_id)},
+        sender_name=current_user.name,
+        is_admin=current_user.admin
     )
     await db.commit()
 

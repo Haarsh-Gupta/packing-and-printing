@@ -112,6 +112,105 @@ class OrderService:
         self.db.add_all(milestones)
         await self.db.flush()
         await self.db.refresh(order, ['milestones'])
+
+    async def create_offline_order(self, payload, admin_id) -> Order:
+        """
+        Atomically creates InquiryGroup → InquiryItems → QuoteVersion → Order → Milestones
+        for admin-entered offline orders.
+        """
+        from datetime import datetime, timezone, timedelta
+        from app.modules.inquiry.models import InquiryGroup, InquiryItem, QuoteVersion
+        from app.modules.orders.schemas import PaymentSplitType, AdminMilestoneCreateRequest, MilestoneDefinition
+
+        # 1. Create Inquiry Group (marked as offline)
+        inquiry = InquiryGroup(
+            user_id=payload.user_id,
+            status="ACCEPTED",
+            is_offline=True,
+        )
+        self.db.add(inquiry)
+        await self.db.flush()
+
+        # 2. Create Inquiry Items
+        total_from_items = 0.0
+        for item_data in payload.items:
+            line_total = item_data.unit_price * item_data.quantity
+            total_from_items += line_total
+            item = InquiryItem(
+                group_id=inquiry.id,
+                product_id=item_data.product_id,
+                subproduct_id=item_data.sub_product_id,
+                service_id=item_data.service_id,
+                subservice_id=item_data.sub_service_id,
+                quantity=item_data.quantity,
+                estimated_price=item_data.unit_price,
+                line_item_price=line_total,
+                notes=item_data.name,
+            )
+            self.db.add(item)
+
+        # 3. Calculate total
+        grand_total = total_from_items + payload.tax_amount + payload.shipping_amount - payload.discount_amount
+
+        # 4. Build milestone definitions for the quote
+        if payload.split_type == PaymentSplitType.FULL:
+            ms_defs = [{"label": "Full Payment (100%)", "percentage": 100.0}]
+        elif payload.split_type == PaymentSplitType.HALF:
+            ms_defs = [
+                {"label": "Advance Payment (50%)", "percentage": 50.0},
+                {"label": "Balance Before Dispatch (50%)", "percentage": 50.0},
+            ]
+        else:
+            ms_defs = [{"label": m.label, "percentage": m.percentage} for m in payload.milestones]
+
+        # 5. Create QuoteVersion
+        quote = QuoteVersion(
+            inquiry_id=inquiry.id,
+            version=1,
+            created_by=admin_id,
+            total_price=grand_total,
+            tax_amount=payload.tax_amount,
+            shipping_amount=payload.shipping_amount,
+            discount_amount=payload.discount_amount,
+            valid_until=datetime.now(timezone.utc) + timedelta(days=365),
+            admin_notes="Offline order created by admin",
+            milestones=ms_defs,
+            status="ACCEPTED",
+        )
+        self.db.add(quote)
+        await self.db.flush()
+
+        inquiry.active_quote_id = quote.id
+
+        # 6. Create Order
+        order = Order(
+            inquiry_id=inquiry.id,
+            user_id=payload.user_id,
+            total_amount=grand_total,
+            tax_amount=payload.tax_amount,
+            shipping_amount=payload.shipping_amount,
+            discount_amount=payload.discount_amount,
+            status="WAITING_PAYMENT",
+            is_offline=True,
+        )
+        self.db.add(order)
+        await self.db.flush()
+
+        # 7. Create Milestones
+        milestones = _build_milestones(
+            order.id,
+            grand_total,
+            AdminMilestoneCreateRequest(
+                split_type=payload.split_type,
+                milestones=[MilestoneDefinition(label=m["label"], percentage=m["percentage"]) for m in ms_defs] if payload.split_type == PaymentSplitType.CUSTOM else None,
+            ),
+        )
+        self.db.add_all(milestones)
+        await self.db.flush()
+        await self.db.refresh(order, ['milestones'])
+
+        return order
+
     async def switch_milestones_user(self, order: Order, split_type) -> None:
         """
         Switch user payment schedule between FULL and HALF.

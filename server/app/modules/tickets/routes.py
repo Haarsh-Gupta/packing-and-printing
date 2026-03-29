@@ -54,7 +54,9 @@ async def create_ticket(
         db,
         title="New Support Ticket",
         message=f"New ticket: {payload.subject[:40]}",
-        metadata={"type": "ticket", "id": str(ticket.id)}
+        metadata={"type": "ticket", "id": str(ticket.id)},
+        sender_name=current_user.name,
+        is_admin=current_user.admin
     )
     
     await db.commit()
@@ -158,7 +160,9 @@ async def add_message(
             user_id=ticket.user_id,
             title="Ticket Reply",
             message=f"Admin replied to your ticket: {ticket.subject[:30]}",
-            metadata={"type": "ticket", "id": str(ticket.id)}
+            metadata={"type": "ticket", "id": str(ticket.id)},
+            sender_name=current_user.name,
+            is_admin=current_user.admin
         )
     else:
         # User is replying - notify admins
@@ -166,7 +170,9 @@ async def add_message(
             db,
             title="Ticket Reply",
             message=f"User replied to ticket: {ticket.subject[:30]}",
-            metadata={"type": "ticket", "id": str(ticket.id)}
+            metadata={"type": "ticket", "id": str(ticket.id)},
+            sender_name=current_user.name,
+            is_admin=current_user.admin
         )
     await db.commit()
     await db.refresh(msg)

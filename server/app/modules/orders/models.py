@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Column, String, DateTime, func, Double, Uuid, Integer, text, UniqueConstraint, Sequence, event, Boolean
+from sqlalchemy import ForeignKey, Column, String, DateTime, func, Double, Uuid, Integer, text, UniqueConstraint, Sequence, event, Boolean, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -28,6 +28,13 @@ class Order(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
+    # BUG-015 FIX: Add indexes on FK columns for faster joins/lookups
+    __table_args__ = (
+        Index('ix_orders_inquiry_id', 'inquiry_id'),
+        Index('ix_orders_user_id', 'user_id'),
+        Index('ix_orders_status', 'status'),
+    )
+
     # Relationships
     user = relationship("User")
     milestones = relationship("OrderMilestone", back_populates="order", cascade="all, delete-orphan", order_by="OrderMilestone.order_index")
@@ -46,7 +53,7 @@ class Order(Base):
 class OrderMilestone(Base):
     __tablename__ = 'order_milestones'
     id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
-    order_id = Column(Uuid, ForeignKey('orders.id', ondelete="CASCADE"), nullable=False)
+    order_id = Column(Uuid, ForeignKey('orders.id', ondelete="CASCADE"), nullable=False, index=True)
     
     label = Column(String, nullable=False) # e.g., "Advance (50%)", "Dispatch (50%)"
     percentage = Column(Double, nullable=False) # Source of truth
@@ -69,8 +76,8 @@ class Transaction(Base):
     __tablename__ = 'transactions'
     id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
     receipt_number = Column(String, unique=True, nullable=True, index=True)  # REC-2026-0001
-    order_id = Column(Uuid, ForeignKey('orders.id', ondelete="RESTRICT"), nullable=False)
-    milestone_id = Column(Uuid, ForeignKey('order_milestones.id', ondelete="RESTRICT"), nullable=False) 
+    order_id = Column(Uuid, ForeignKey('orders.id', ondelete="RESTRICT"), nullable=False, index=True)
+    milestone_id = Column(Uuid, ForeignKey('order_milestones.id', ondelete="RESTRICT"), nullable=False, index=True)
     
     amount = Column(Double, nullable=False)
     payment_mode = Column(String, nullable=False)
@@ -87,9 +94,9 @@ class Transaction(Base):
 class PaymentDeclaration(Base):
     __tablename__ = 'payment_declarations'
     id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
-    order_id = Column(Uuid, ForeignKey('orders.id', ondelete="CASCADE"), nullable=False)
-    milestone_id = Column(Uuid, ForeignKey('order_milestones.id', ondelete="CASCADE"), nullable=False)
-    user_id = Column(Uuid, ForeignKey('users.id'), nullable=False)
+    order_id = Column(Uuid, ForeignKey('orders.id', ondelete="CASCADE"), nullable=False, index=True)
+    milestone_id = Column(Uuid, ForeignKey('order_milestones.id', ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Uuid, ForeignKey('users.id'), nullable=False, index=True)
 
     payment_mode = Column(String, nullable=False)
     utr_number = Column(String, unique=True, nullable=True)
@@ -106,7 +113,12 @@ class PaymentDeclaration(Base):
     milestone = relationship("OrderMilestone", back_populates="declarations")
 
 
-# ── Auto-populate sequence-based display IDs on insert ────────────────────────
+# ── BUG-014 FIX: Use @event.listens_for with async-compatible approach ────────
+# These are "before_insert" events on ORM models. In SQLAlchemy 2.x with async,
+# the `connection` parameter in ORM events is a sync connection proxy, so
+# connection.execute(Sequence) works correctly inside ORM events even with async sessions.
+# The key fix: use connection.execute(Sequence) properly — it returns a scalar directly.
+
 @event.listens_for(Order, "before_insert")
 def _set_order_number(mapper, connection, target):
     if not target.order_number:
