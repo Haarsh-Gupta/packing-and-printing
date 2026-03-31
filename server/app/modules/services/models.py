@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float , DateTime , ARRAY, func 
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 from app.core.database import Base
 
 class Service(Base):
@@ -31,6 +32,10 @@ class SubService(Base):
     price_per_unit = Column(Float, default=0.0)
     images = Column(ARRAY(String), nullable=True)
     description = Column(String, nullable=True)
+
+    # Printify-style display content
+    features = Column(JSONB, nullable=True)
+    specifications = Column(JSONB, nullable=True)
 
     # Taxation
     hsn_code  = Column(String, nullable=True)

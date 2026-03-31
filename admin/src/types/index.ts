@@ -257,6 +257,8 @@ export interface SubProduct {
     base_price: number;
     minimum_quantity: number;
     images?: string[];
+    features?: { icon: string; label: string; detail: string }[];
+    specifications?: { label: string; value: string }[];
     is_active: boolean;
     hsn_code?: string;
     cgst_rate?: number;
@@ -286,6 +288,8 @@ export interface SubService {
     price_per_unit: number;
     description?: string;
     images?: string[];
+    features?: { icon: string; label: string; detail: string }[];
+    specifications?: { label: string; value: string }[];
     is_active: boolean;
     hsn_code?: string;
     cgst_rate?: number;

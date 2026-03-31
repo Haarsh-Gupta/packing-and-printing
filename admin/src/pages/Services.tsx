@@ -9,8 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import ImageCropper from "@/components/ImageCropper";
-import ReactQuill from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
 
 export default function Services() {
     const navigate = useNavigate();
@@ -312,14 +310,12 @@ export default function Services() {
                                 <span>Description</span>
                                 <span className="text-[9px] bg-[#434655]/30 text-slate-500 dark:text-[#8d90a1] px-1.5 py-0.5 rounded">OPT</span>
                             </label>
-                            <div className="bg-white dark:bg-[#131b2e] rounded-md overflow-hidden border border-slate-200 dark:border-[#434655]/40 min-h-[150px]">
-                                <ReactQuill 
-                                    theme="snow" 
-                                    value={formState.description} 
-                                    onChange={v => setFormState({ ...formState, description: v })}
-                                    className="text-slate-900 dark:text-[#dae2fd]"
-                                />
-                            </div>
+                            <Textarea
+                                className="min-h-[150px] bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655] resize-y"
+                                value={formState.description}
+                                onChange={e => setFormState({ ...formState, description: e.target.value })}
+                                placeholder="Enter a brief description..."
+                            />
                         </div>
 
                         <div className="space-y-2">

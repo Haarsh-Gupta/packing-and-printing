@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, model_validator
 from slugify import slugify
 from enum import Enum
@@ -96,6 +96,8 @@ class SubProductCreate(BaseModel):
     hsn_code: Optional[str] = None
     cgst_rate: Optional[float] = 0.0
     sgst_rate: Optional[float] = 0.0
+    features: Optional[List[Dict[str, Any]]] = None
+    specifications: Optional[List[Dict[str, Any]]] = None
 
     @model_validator(mode="after")
     def validate_config_schema(self):
@@ -154,6 +156,8 @@ class SubProductUpdate(BaseModel):
     hsn_code: Optional[str] = None
     cgst_rate: Optional[float] = None
     sgst_rate: Optional[float] = None
+    features: Optional[List[Dict[str, Any]]] = None
+    specifications: Optional[List[Dict[str, Any]]] = None
 
     @model_validator(mode="after")
     def validate_update(self):

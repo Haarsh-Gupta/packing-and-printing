@@ -34,7 +34,7 @@ export function VariantCard({
     showWishlist = false
 }: VariantCardProps) {
     const dispatch = useDispatch<AppDispatch>();
-    const isLiked = useSelector((state: RootState) => selectIsProductLiked(state, String(id)));
+    const isLiked = useSelector((state: RootState) => selectIsProductLiked(state, Number(id)));
 
     const isNew = index % 3 === 0;
     const isTrending = index % 3 === 1;
@@ -78,7 +78,7 @@ export function VariantCard({
                 <button
                     onClick={(e) => {
                         e.preventDefault();
-                        dispatch(toggleWishlistItem({ sub_product_id: String(id) }));
+                        dispatch(toggleWishlistItem({ sub_product_id: Number(id) }));
                     }}
                     className={`absolute bottom-[28%] right-4 z-20 flex items-center justify-center w-10 h-10 border-2 border-black rounded-full transition-all group/heart active:scale-95 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]
                         ${isLiked ? 'bg-pink-50' : 'bg-white hover:bg-pink-50'}`}

@@ -16,7 +16,7 @@ logger = logging.getLogger("app.modules.reviews")
 
 router = APIRouter()
 
-@router.post("", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
 async def create_or_update_review(
     review: ReviewCreate, 
     db: AsyncSession = Depends(get_db), 
@@ -61,7 +61,11 @@ async def create_or_update_review(
         await db.commit()
         
         # Needs explicit loading for the Pydantic schema Response
-        stmt_upd = select(Review).options(joinedload(Review.user)).where(Review.id == existing_review.id)
+        stmt_upd = select(Review).options(
+            joinedload(Review.user),
+            joinedload(Review.product),
+            joinedload(Review.service)
+        ).where(Review.id == existing_review.id)
         existing_review_loaded = (await db.execute(stmt_upd)).scalar_one()
         
         return existing_review_loaded
@@ -81,7 +85,11 @@ async def create_or_update_review(
     await db.commit()
     
     # Needs explicit loading for the Pydantic schema Response
-    stmt_new = select(Review).options(joinedload(Review.user)).where(Review.id == new_review.id)
+    stmt_new = select(Review).options(
+        joinedload(Review.user),
+        joinedload(Review.product),
+        joinedload(Review.service)
+    ).where(Review.id == new_review.id)
     new_review_loaded = (await db.execute(stmt_new)).scalar_one()
     
     return new_review_loaded
