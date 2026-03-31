@@ -88,7 +88,13 @@ function ItemCalculator({ item, subProducts, subServices, onApplyPrice }: { item
                     prod.config_schema.sections.forEach((sec: any) => {
                         const userVal = item.selected_options?.[sec.key];
                         if (userVal !== undefined) {
-                            if (sec.type === "dropdown" || sec.type === "radio") {
+                            if (sec.type === "dropdown") {
+                                const arr = Array.isArray(userVal) ? userVal : [userVal];
+                                arr.forEach(val => {
+                                    const matchedOpt = sec.options?.find((o: any) => String(o.value) === String(val));
+                                    initOpts.push({ key: `${sec.key}-${val}`, label: `${sec.label} (${val})`, type: "mod", userChoice: val, val: matchedOpt ? parseFloat(matchedOpt.price_mod || "0") : 0 });
+                                });
+                            } else if (sec.type === "radio") {
                                 const matchedOpt = sec.options?.find((o: any) => String(o.value) === String(userVal));
                                 initOpts.push({ key: sec.key, label: sec.label, type: "mod", userChoice: userVal, val: matchedOpt ? parseFloat(matchedOpt.price_mod || "0") : 0 });
                             } else if (sec.type === "number_input") {
@@ -180,7 +186,7 @@ export default function InquiryDetail() {
     const [sending, setSending] = useState(false);
     const [quoteForm, setQuoteForm] = useState({ amount: "", notes: "", validDays: "7" });
     const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
-    const [taxRate, setTaxRate] = useState<number>(18);
+    const [itemTaxDiscounts, setItemTaxDiscounts] = useState<Record<string, number>>({});
     const [discountPercentage, setDiscountPercentage] = useState<number>(0);
     const [showWarning, setShowWarning] = useState(false);
 
@@ -199,14 +205,36 @@ export default function InquiryDetail() {
     }, [selected?.messages]);
 
     useEffect(() => {
-        if (!selected || Object.keys(itemPrices).length === 0) return;
-        const totalItems = Object.values(itemPrices).reduce((a, b) => a + b, 0);
+        if (!selected) return;
+        if (Object.keys(itemPrices).length === 0 && !quoteForm.amount) return;
+        
+        const totalItems = selected.items.reduce((sum, item) => {
+            const price = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || 0);
+            return sum + price;
+        }, 0);
+            
         const discountAmt = totalItems * (discountPercentage / 100);
         const subtotal = totalItems - discountAmt;
-        const taxAmt = subtotal * (taxRate / 100);
-        const finalAmount = subtotal + taxAmt;
-        setQuoteForm(prev => ({ ...prev, amount: finalAmount.toFixed(2) }));
-    }, [itemPrices, taxRate, discountPercentage, selected]);
+        
+        let calculatedTaxAmt = 0;
+        
+        selected.items.forEach(item => {
+             const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || 0);
+             if (totalItems > 0 && baseItemPrice > 0) {
+                 const postDiscountItemPrice = baseItemPrice - (baseItemPrice * (discountPercentage / 100));
+                 const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
+                 const effectiveRate = itemSysTaxRate;
+                 const waiverPerc = itemTaxDiscounts[item.id] || 0;
+                 calculatedTaxAmt += postDiscountItemPrice * (effectiveRate / 100) * (1 - (waiverPerc / 100));
+             }
+        });
+        
+        const finalAmount = subtotal + calculatedTaxAmt;
+        // Prevent infinite loop by not updating if the value hasn't meaningfully changed
+        if (Math.abs(parseFloat(quoteForm.amount || "0") - finalAmount) > 0.01) {
+             setQuoteForm(prev => ({ ...prev, amount: finalAmount.toFixed(2) }));
+        }
+    }, [itemPrices, itemTaxDiscounts, discountPercentage, selected]);
 
     useEffect(() => {
         if (!selected || !quoteForm.amount) {
@@ -302,10 +330,24 @@ export default function InquiryDetail() {
         try {
             const lineItems = Object.entries(itemPrices).map(([id, price]) => ({ item_id: id, line_item_price: price }));
             
-            const totalItems = Object.values(itemPrices).reduce((a, b) => a + b, 0) || parseFloat(quoteForm.amount);
-            const discountAmt = Object.keys(itemPrices).length > 0 ? totalItems * (discountPercentage / 100) : 0;
+            const totalItems = selected.items.reduce((sum, item) => {
+                const price = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || 0);
+                return sum + price;
+            }, 0);
+            const discountAmt = totalItems * (discountPercentage / 100);
             const subtotal = totalItems - discountAmt;
-            const taxAmt = Object.keys(itemPrices).length > 0 ? subtotal * (taxRate / 100) : 0;
+            
+            let taxAmt = 0;
+            selected.items.forEach(item => {
+                 const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || 0);
+                 if (totalItems > 0 && baseItemPrice > 0) {
+                     const postDiscountItemPrice = baseItemPrice - (baseItemPrice * (discountPercentage / 100));
+                     const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
+                     const effectiveRate = itemSysTaxRate;
+                     const waiverPerc = itemTaxDiscounts[item.id] || 0;
+                     taxAmt += postDiscountItemPrice * (effectiveRate / 100) * (1 - (waiverPerc / 100));
+                 }
+            });
 
             await api(`/admin/inquiries/${selected.id}/quote`, {
                 method: "PATCH",
@@ -421,8 +463,24 @@ export default function InquiryDetail() {
                         <div className="space-y-6">
                             {selected.items.map((item) => {
                                 const itemImage = item.display_images?.[0] || item.images?.[0];
+                                const catalogPrice = (() => {
+                                    if (item.subproduct_id) {
+                                        const p = subProducts.find((sp: any) => sp.id === item.subproduct_id);
+                                        return p?.base_price || 0;
+                                    }
+                                    if (item.subservice_id) {
+                                        const s = subServices.find((ss: any) => ss.id === item.subservice_id);
+                                        return s?.price_per_unit || 0;
+                                    }
+                                    return 0;
+                                })();
+                                const unitPrice = (item.estimated_price || 0) > 0 ? (item.estimated_price || 0) : catalogPrice;
+                                const gstRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
+                                const itemTotal = item.total_estimated_price || (unitPrice * item.quantity);
+                                const itemTax = item.computed_tax_amount || (itemTotal * gstRate / 100);
+                                
                                 return (
-                                <div key={item.id} className="p-4 rounded-xl border border-[#eceef0] dark:border-[#434655]/20 bg-[#f7f9fb] dark:bg-[#060e20] group hover:border-[#0058be]/30 transition-colors">
+                                <div key={item.id} className="p-5 rounded-xl border border-[#eceef0] dark:border-[#434655]/20 bg-[#f7f9fb] dark:bg-[#060e20] group hover:border-[#0058be]/30 transition-colors">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="flex items-start gap-4">
                                             <div className="w-14 h-14 rounded-lg overflow-hidden border border-[#eceef0] dark:border-[#434655]/20 shrink-0 bg-white dark:bg-[#131b2e]">
@@ -436,43 +494,95 @@ export default function InquiryDetail() {
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-[#191c1e] dark:text-[#dae2fd] text-sm">{item.subproduct_name || item.product_name || item.subservice_name || item.service_name || "Custom Item"}</h4>
-                                                {item.variant_name && <p className="text-[11px] text-[#424754] dark:text-[#c3c5d8] font-medium opacity-70 mt-0.5">{item.variant_name}</p>}
-                                                <div className="flex items-center gap-3 mt-1.5">
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    {item.hsn_code && (
+                                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 dark:bg-[#434655]/20 text-slate-500 dark:text-[#c3c5d8] rounded border border-slate-200 dark:border-[#434655]/30">HSN: {item.hsn_code}</span>
+                                                    )}
+                                                    {item.variant_name && <span className="text-[10px] text-[#424754] dark:text-[#c3c5d8] font-medium opacity-70">{item.variant_name}</span>}
+                                                </div>
+                                                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                                                     <span className="text-[10px] font-bold text-[#424754]/60 dark:text-[#c3c5d8]/60 uppercase tracking-wider">Qty: {item.quantity}</span>
-                                                    {(item.estimated_price || 0) > 0 && (
-                                                        <span className="text-[10px] font-bold text-slate-400 dark:text-[#c3c5d8]/40 uppercase tracking-wider">Unit Est: ₹{(item.estimated_price || 0).toLocaleString()}</span>
+                                                    {catalogPrice > 0 && (
+                                                        <span className="text-[10px] font-bold text-slate-400 dark:text-[#c3c5d8]/40 uppercase tracking-wider">Base: ₹{catalogPrice.toLocaleString()}/unit</span>
+                                                    )}
+                                                    {unitPrice > 0 && unitPrice !== catalogPrice && (
+                                                        <span className="text-[10px] font-bold text-blue-500 dark:text-[#adc6ff] uppercase tracking-wider">Calc: ₹{unitPrice.toLocaleString()}/unit</span>
                                                     )}
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="text-right shrink-0">
                                             <span className="block font-bold text-lg text-[#191c1e] dark:text-[#dae2fd]">
-                                                {itemPrices[item.id] ? `₹${itemPrices[item.id].toLocaleString()}` : (item.line_item_price ? `₹${item.line_item_price.toLocaleString()}` : "—")}
+                                                {itemPrices[item.id] ? `₹${itemPrices[item.id].toLocaleString()}` : (item.line_item_price ? `₹${item.line_item_price.toLocaleString()}` : (itemTotal > 0 ? `₹${itemTotal.toLocaleString()}` : "—"))}
                                             </span>
-                                            {(item.total_estimated_price || 0) > 0 && (
-                                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">Est Total: ₹{(item.total_estimated_price || 0).toLocaleString()}</span>
+                                            {item.line_item_price && (
+                                                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 tracking-wider">ADMIN SET</span>
+                                            )}
+                                            {!item.line_item_price && itemTotal > 0 && (
+                                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">SYSTEM EST</span>
                                             )}
                                         </div>
                                     </div>
-                                    {/* Item-level pricing controls */}
-                                    <div className="mt-3 flex items-center justify-end gap-2">
-                                        {!item.line_item_price && !itemPrices[item.id] && (
-                                            <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} onApplyPrice={(p) => setItemPrices(prev => ({ ...prev, [item.id]: p }))} />
-                                        )}
-                                        {!item.line_item_price && itemPrices[item.id] && (
-                                            <button onClick={() => { const newP = {...itemPrices}; delete newP[item.id]; setItemPrices(newP); }} className="text-[9px] font-bold uppercase text-slate-400 hover:text-red-500 transition-colors">Reset Price</button>
-                                        )}
+                                    {/* Tax & pricing info bar */}
+                                    <div className="mt-3 flex items-center justify-between border-t border-[#eceef0] dark:border-[#434655]/20 pt-3">
+                                        <div className="flex items-center gap-3 flex-wrap">
+                                            {gstRate > 0 ? (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8]">
+                                                        CGST: {item.cgst_rate || 0}% + SGST: {item.sgst_rate || 0}%
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                                        Tax: ₹{itemTax.toLocaleString(undefined, {maximumFractionDigits: 2})}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#c3c5d8]/40">GST: Exempt</span>
+                                            )}
+                                            {itemPrices[item.id] !== undefined && (
+                                              <select 
+                                                  className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/30 rounded px-2 py-1 text-[10px] font-bold text-slate-900 dark:text-[#dae2fd] outline-none h-6 uppercase tracking-wider"
+                                                  value={itemTaxDiscounts[item.id] || 0}
+                                                  onChange={e => setItemTaxDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) }))}>
+                                                  <option value="0">Default Tax</option>
+                                                  <option value="100">Waive Tax</option>
+                                              </select>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {!item.line_item_price && itemPrices[item.id] === undefined && (
+                                                <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} onApplyPrice={(p) => setItemPrices(prev => ({ ...prev, [item.id]: p }))} />
+                                            )}
+                                            {!item.line_item_price && itemPrices[item.id] !== undefined && (
+                                                <button onClick={() => { const newP = {...itemPrices}; delete newP[item.id]; setItemPrices(newP); }} className="text-[9px] font-bold uppercase text-slate-400 hover:text-red-500 transition-colors">Reset Price</button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                                 );
                             })}
-                            {/* Total Summary Row */}
-                            <div className="flex items-center justify-between pt-4 border-t border-[#eceef0] dark:border-[#434655]/20">
-                                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#424754] dark:text-[#c3c5d8]">Total Estimated Value</span>
-                                <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
-                                    ₹{selected.items.reduce((sum, i) => sum + (i.total_estimated_price || 0), 0).toLocaleString()}
-                                </span>
-                            </div>
+                            {/* Total Summary */}
+                            {(() => {
+                                const subtotal = selected.items.reduce((sum, i) => sum + (i.total_estimated_price || 0), 0);
+                                const totalTax = selected.items.reduce((sum, i) => sum + (i.computed_tax_amount || 0), 0);
+                                return (
+                                    <div className="pt-4 border-t border-[#eceef0] dark:border-[#434655]/20 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#424754] dark:text-[#c3c5d8]">Subtotal</span>
+                                            <span className="text-sm font-bold text-[#191c1e] dark:text-[#dae2fd]">₹{subtotal.toLocaleString()}</span>
+                                        </div>
+                                        {totalTax > 0 && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-amber-600 dark:text-amber-400">GST (CGST + SGST)</span>
+                                                <span className="text-sm font-bold text-amber-600 dark:text-amber-400">₹{totalTax.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center justify-between pt-2 border-t border-dashed border-[#eceef0] dark:border-[#434655]/20">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#424754] dark:text-[#c3c5d8]">Grand Total (Est)</span>
+                                            <span className="text-base font-black text-emerald-600 dark:text-emerald-400">₹{(subtotal + totalTax).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </section>
 
@@ -597,30 +707,15 @@ export default function InquiryDetail() {
                                     </div>
                                 </div>
                                 <div className="space-y-5 relative z-10">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">GST Rate (%)</label>
-                                            <select 
-                                                className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-500 dark:focus:border-blue-400 dark:border-[#adc6ff] transition-colors appearance-none h-[48px]"
-                                                value={taxRate}
-                                                onChange={e => setTaxRate(parseFloat(e.target.value))}
-                                            >
-                                                <option value="0">0% (Exempt)</option>
-                                                <option value="5">5% (Printed Books)</option>
-                                                <option value="12">12% (Standard)</option>
-                                                <option value="18">18% (Custom Services)</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">Discount (%)</label>
-                                            <input 
-                                                className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-500 dark:focus:border-blue-400 dark:border-[#adc6ff] transition-colors h-[48px]" 
-                                                type="number" 
-                                                min="0" max="100"
-                                                value={discountPercentage}
-                                                onChange={e => setDiscountPercentage(parseFloat(e.target.value) || 0)}
-                                            />
-                                        </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">Discount (%)</label>
+                                        <input 
+                                            className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-500 dark:focus:border-blue-400 dark:border-[#adc6ff] transition-colors h-[48px]" 
+                                            type="number" 
+                                            min="0" max="100"
+                                            value={discountPercentage}
+                                            onChange={e => setDiscountPercentage(parseFloat(e.target.value) || 0)}
+                                        />
                                     </div>
                                     <div className="group/field">
                                         <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2 group-focus-within/field:text-blue-600 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff] transition-colors">Total Contract Value (INR)</label>

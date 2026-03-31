@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import ImageCropper from "@/components/ImageCropper";
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 
 export default function SubProducts() {
     const navigate = useNavigate();
@@ -140,21 +142,61 @@ export default function SubProducts() {
         if (!product) return;
         setSaving(true);
         try {
-            const payload: any = {
-                name: formState.name,
-                description: formState.description || undefined,
-                type: formState.type,
-                base_price: parseFloat(formState.base_price) || 0,
-                minimum_quantity: parseInt(formState.minimum_quantity, 10) || 1,
-                images: formState.images,
-                is_active: formState.is_active,
-                hsn_code: formState.hsn_code || undefined,
-                cgst_rate: parseFloat(formState.cgst_rate) || 0,
-                sgst_rate: parseFloat(formState.sgst_rate) || 0,
-                config_schema: { sections: configSections }
-            };
+            let payload: any = {};
 
-            if (formState.slug) payload.slug = formState.slug;
+            if (editingSubProduct) {
+                // Delta Calculation
+                if (formState.name !== editingSubProduct.name) payload.name = formState.name;
+                if (formState.description !== (editingSubProduct.description || "")) payload.description = formState.description;
+                if (formState.type !== (editingSubProduct.type || "product")) payload.type = formState.type;
+                
+                const bp = parseFloat(formState.base_price) || 0;
+                if (bp !== editingSubProduct.base_price) payload.base_price = bp;
+                
+                const mq = parseInt(formState.minimum_quantity, 10) || 1;
+                if (mq !== editingSubProduct.minimum_quantity) payload.minimum_quantity = mq;
+                
+                if (JSON.stringify(formState.images) !== JSON.stringify(editingSubProduct.images || [])) {
+                    payload.images = formState.images;
+                }
+                
+                if (formState.is_active !== editingSubProduct.is_active) payload.is_active = formState.is_active;
+                if (formState.hsn_code !== (editingSubProduct.hsn_code || "")) payload.hsn_code = formState.hsn_code;
+                
+                const cgst = parseFloat(formState.cgst_rate) || 0;
+                if (cgst !== (editingSubProduct.cgst_rate || 0)) payload.cgst_rate = cgst;
+                
+                const sgst = parseFloat(formState.sgst_rate) || 0;
+                if (sgst !== (editingSubProduct.sgst_rate || 0)) payload.sgst_rate = sgst;
+                
+                if (formState.slug !== editingSubProduct.slug) payload.slug = formState.slug;
+
+                if (JSON.stringify(configSections) !== JSON.stringify(editingSubProduct.config_schema?.sections || [])) {
+                    payload.config_schema = { sections: configSections };
+                }
+
+                if (Object.keys(payload).length === 0) {
+                    setShowForm(false);
+                    setSaving(false);
+                    return;
+                }
+            } else {
+                // Full payload for creation
+                payload = {
+                    name: formState.name,
+                    description: formState.description || undefined,
+                    type: formState.type,
+                    base_price: parseFloat(formState.base_price) || 0,
+                    minimum_quantity: parseInt(formState.minimum_quantity, 10) || 1,
+                    images: formState.images,
+                    is_active: formState.is_active,
+                    hsn_code: formState.hsn_code || undefined,
+                    cgst_rate: parseFloat(formState.cgst_rate) || 0,
+                    sgst_rate: parseFloat(formState.sgst_rate) || 0,
+                    config_schema: { sections: configSections }
+                };
+                if (formState.slug) payload.slug = formState.slug;
+            }
 
             if (editingSubProduct) {
                 await api(`/admin/products/sub-products/${editingSubProduct.id}`, {
@@ -490,7 +532,14 @@ export default function SubProducts() {
                                         <span>Full Description Narrative</span>
                                         <span className="text-[9px] bg-[#434655]/30 text-slate-500 dark:text-[#8d90a1] px-1.5 py-0.5 rounded">OPT</span>
                                     </label>
-                                    <Textarea className="h-24 text-sm bg-slate-50 dark:bg-[#0b1326] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="Summary configuration text..." />
+                                    <div className="bg-white dark:bg-[#131b2e] rounded-md overflow-hidden border border-slate-200 dark:border-[#434655]/40 min-h-[150px]">
+                                        <ReactQuill 
+                                            theme="snow" 
+                                            value={formState.description} 
+                                            onChange={v => setFormState({ ...formState, description: v })}
+                                            className="text-slate-900 dark:text-[#dae2fd]"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="flex items-center justify-between border border-slate-200 dark:border-[#434655]/30 bg-slate-50 dark:bg-[#0b1326] p-4 rounded-xl">

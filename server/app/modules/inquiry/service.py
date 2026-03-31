@@ -19,7 +19,7 @@ async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSessi
             raise HTTPException(400, "This service is currently unavailable")
         if item.quantity < sub_service.minimum_quantity:
             raise HTTPException(400, f"Minimum quantity for '{sub_service.name}' is {sub_service.minimum_quantity}")
-        estimated_price = sub_service.price_per_unit * item.quantity
+        estimated_price = sub_service.price_per_unit
 
     elif item.subproduct_id:
         sub_product = (await db.execute(
@@ -46,15 +46,23 @@ async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSessi
                 section = sections_map[key]
                 if section.get("type") in ["dropdown", "radio"]:
                     opts = {str(o["value"]): float(o.get("price_mod", 0)) for o in section.get("options", []) if isinstance(o, dict)}
-                    if str(val) not in opts:
-                        raise HTTPException(400, f"Invalid value '{val}' for '{key}'")
-                    base_price += opts[str(val)]
+                    
+                    if section.get("type") == "dropdown":
+                        val_list = val if isinstance(val, list) else [val]
+                        for v in val_list:
+                            if str(v) not in opts:
+                                raise HTTPException(400, f"Invalid value '{v}' for '{key}'")
+                            base_price += opts[str(v)]
+                    else:
+                        if str(val) not in opts:
+                            raise HTTPException(400, f"Invalid value '{val}' for '{key}'")
+                        base_price += opts[str(val)]
                 elif section.get("type") == "number_input":
                     try:
                         base_price += float(val or 0) * float(section.get("price_per_unit", 0))
                     except (ValueError, TypeError):
                         pass
-        estimated_price = base_price * item.quantity
+        estimated_price = base_price
 
     return estimated_price
 

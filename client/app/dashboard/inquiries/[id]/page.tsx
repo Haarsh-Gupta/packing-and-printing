@@ -448,22 +448,79 @@ export default function InquiryDetailPage() {
                                 <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-1">Status</span>
                                 <div className="font-black text-sm uppercase">{inquiry.status.replace("_", " ")}</div>
                             </div>
+
+                            {/* ── All Items with pricing ───────────── */}
                             <div>
-                                <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-1">Quantity</span>
-                                <div className="text-xl font-black">{item?.quantity || 0} Units</div>
+                                <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-3">Items ({inquiry.items?.length || 0})</span>
+                                <div className="space-y-4">
+                                    {(inquiry.items || []).map((it, idx) => {
+                                        const unitPrice = (it.estimated_price || 0) > 0 ? (it.estimated_price || 0) / it.quantity : 0;
+                                        const lineTotal = it.total_estimated_price || (unitPrice * it.quantity);
+                                        const gstRate = (it.cgst_rate || 0) + (it.sgst_rate || 0);
+                                        const taxAmt = it.computed_tax_amount || (lineTotal * gstRate / 100);
+                                        const displayPrice = it.line_item_price || lineTotal;
+                                        
+                                        return (
+                                            <div key={it.id} className="bg-zinc-50 border-2 border-zinc-200 p-4 space-y-2">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div>
+                                                        <span className="font-black text-sm">{idx + 1}. {it.subproduct_name || it.product_name || it.subservice_name || it.service_name || it.template_name || "Custom Item"}</span>
+                                                        {it.variant_name && <span className="text-xs text-zinc-500 ml-2">({it.variant_name})</span>}
+                                                    </div>
+                                                    {displayPrice > 0 && (
+                                                        <span className="font-black text-base shrink-0">₹{displayPrice.toLocaleString()}</span>
+                                                    )}
+                                                </div>
+                                                
+                                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
+                                                    <span><span className="font-bold text-zinc-400">Qty:</span> {it.quantity}</span>
+                                                    {unitPrice > 0 && <span><span className="font-bold text-zinc-400">Unit:</span> ₹{unitPrice.toLocaleString()}</span>}
+                                                    {it.hsn_code && <span className="px-1.5 py-0.5 bg-zinc-200 border border-zinc-300 text-[10px] font-bold uppercase">HSN: {it.hsn_code}</span>}
+                                                </div>
+
+                                                {gstRate > 0 && (
+                                                    <div className="flex items-center gap-3 text-[11px]">
+                                                        <span className="text-zinc-500 font-bold">CGST: {it.cgst_rate || 0}% + SGST: {it.sgst_rate || 0}%</span>
+                                                        <span className="font-bold text-amber-700">Tax: ₹{taxAmt.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                                    </div>
+                                                )}
+
+                                                {it.line_item_price && it.line_item_price !== lineTotal && (
+                                                    <div className="text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-1 rounded">
+                                                        Admin Quoted: ₹{it.line_item_price.toLocaleString()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
-                            {/* All items */}
-                            {inquiry.items && inquiry.items.length > 1 && (
-                                <div>
-                                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-2">All Items ({inquiry.items.length})</span>
-                                    <div className="space-y-2">
-                                        {inquiry.items.map((it, idx) => (
-                                            <div key={it.id} className="bg-zinc-50 border border-zinc-200 p-2 text-sm">
-                                                <span className="font-bold">{idx + 1}. {it.template_name || it.service_name}</span>
-                                                <span className="text-zinc-500 ml-2">×{it.quantity}</span>
-                                            </div>
-                                        ))}
+                            {/* ── Quote Breakdown ──────────────── */}
+                            {inquiry.active_quote && (
+                                <div className="bg-[#fdf567] border-2 border-black p-4 space-y-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                                    <span className="font-black uppercase text-xs block">Quote Breakdown</span>
+                                    {(inquiry.active_quote.discount_amount || 0) > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="font-medium">Discount</span>
+                                            <span className="font-bold text-red-700">−₹{(inquiry.active_quote.discount_amount || 0).toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {(inquiry.active_quote.tax_amount || 0) > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="font-medium">GST</span>
+                                            <span className="font-bold">₹{(inquiry.active_quote.tax_amount || 0).toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {(inquiry.active_quote.shipping_amount || 0) > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="font-medium">Shipping</span>
+                                            <span className="font-bold">₹{(inquiry.active_quote.shipping_amount || 0).toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between text-base border-t border-black pt-2 mt-1">
+                                        <span className="font-black">Total</span>
+                                        <span className="font-black">₹{inquiry.active_quote.total_price.toLocaleString()}</span>
                                     </div>
                                 </div>
                             )}

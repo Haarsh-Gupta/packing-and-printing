@@ -43,8 +43,8 @@ async def admin_calculate_custom_price(
     estimated_price = 0.0
     
     if request.is_service:
-        # Service logic: (Price Per Unit * Quantity)
-        estimated_price = request.base_price * request.quantity
+        # Service logic: (Price Per Unit)
+        estimated_price = request.base_price
     else:
         # Product logic: Base Price + Options
         base_item_price = request.base_price
@@ -70,10 +70,19 @@ async def admin_calculate_custom_price(
                         str(opt.get("value")): float(opt.get("price_mod", 0.0))
                         for opt in options if isinstance(opt, dict) and "value" in opt
                     }
-                    val_str = str(selected_val)
-                    if val_str not in options_map:
-                        raise HTTPException(status_code=400, detail=f"Invalid value '{selected_val}' for option '{key}'")
-                    base_item_price += options_map[val_str]
+                    
+                    if s_type == "dropdown":
+                        val_list = selected_val if isinstance(selected_val, list) else [selected_val]
+                        for v in val_list:
+                            v_str = str(v)
+                            if v_str not in options_map:
+                                raise HTTPException(status_code=400, detail=f"Invalid value '{v}' for option '{key}'")
+                            base_item_price += options_map[v_str]
+                    else:
+                        val_str = str(selected_val)
+                        if val_str not in options_map:
+                            raise HTTPException(status_code=400, detail=f"Invalid value '{selected_val}' for option '{key}'")
+                        base_item_price += options_map[val_str]
                 
                 elif s_type == "number_input":
                     try:
@@ -83,7 +92,7 @@ async def admin_calculate_custom_price(
                     except (ValueError, TypeError):
                         pass
 
-        estimated_price = base_item_price * request.quantity
+        estimated_price = base_item_price
 
     return {"estimated_price": estimated_price}
 

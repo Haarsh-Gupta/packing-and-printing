@@ -178,6 +178,10 @@ export interface InquiryItem {
     service_name?: string;
     subservice_name?: string;
     variant_name?: string;
+    cgst_rate?: number;
+    sgst_rate?: number;
+    hsn_code?: string;
+    computed_tax_amount?: number;
 }
 
 export interface InquiryMessage {

@@ -86,8 +86,10 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
     const [answers, setAnswers] = useState<Record<string, any>>(() => {
         const initialAnswers: Record<string, any> = {};
         product.config_schema.sections.forEach((section) => {
-            if ((section.type === "dropdown" || section.type === "radio") && section.options) {
+            if (section.type === "radio" && section.options) {
                 initialAnswers[section.key] = section.options[0].value;
+            } else if (section.type === "dropdown") {
+                initialAnswers[section.key] = [];
             } else if (section.type === "number_input") {
                 initialAnswers[section.key] = section.min_val || 0;
             } else {
@@ -112,6 +114,17 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
         setAnswers((prev) => ({ ...prev, [key]: value }));
     };
 
+    const handleCheckboxToggle = (key: string, value: string) => {
+        setAnswers((prev) => {
+            const currentArr = Array.isArray(prev[key]) ? prev[key] : [];
+            if (currentArr.includes(value)) {
+                return { ...prev, [key]: currentArr.filter((v: string) => v !== value) };
+            } else {
+                return { ...prev, [key]: [...currentArr, value] };
+            }
+        });
+    };
+
     const handleQuantityChange = (type: "inc" | "dec") => {
         setQuantity(prev => {
             if (type === "inc") return prev + 1;
@@ -127,11 +140,21 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
             const answer = answers[section.key];
             if (answer === undefined || answer === "") return;
 
-            if ((section.type === "dropdown" || section.type === "radio") && section.options) {
+            if (section.type === "radio" && section.options) {
                 const selectedOption = section.options.find((opt) => opt.value === answer);
                 if (selectedOption?.price_mod) {
                     currentUnitPrice += selectedOption.price_mod;
                 }
+            }
+
+            if (section.type === "dropdown" && section.options) {
+                const arr = Array.isArray(answer) ? answer : [answer];
+                arr.forEach((val) => {
+                    const selectedOption = section.options!.find((opt) => opt.value === val);
+                    if (selectedOption?.price_mod) {
+                        currentUnitPrice += selectedOption.price_mod;
+                    }
+                });
             }
 
             if (section.type === "number_input" && section.price_per_unit) {
@@ -234,7 +257,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                                 )}
                             </Label>
 
-                            {(section.type === "dropdown" || section.type === "radio") && section.options && (
+                            {section.type === "radio" && section.options && (
                                 <RadioGroup
                                     value={answers[section.key]}
                                     onValueChange={(val) => handleAnswerChange(section.key, val)}
@@ -252,7 +275,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                                                     className={`
                                                         relative h-10 w-12 cursor-pointer transition-all rounded-[2px] border-2 border-black block
                                                         ${isSelected
-                                                            ? "shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-[2px] -translate-x-[2px] ring-2 ring-white ring-inset"
+                                                            ? "shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-[2px] -translate-x-[2px] ring-2 r ring-inset"
                                                             : "hover:-translate-y-px hover:-translate-x-px hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                                                         }
                                                     `}
@@ -293,6 +316,69 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                                         );
                                     })}
                                 </RadioGroup>
+                            )}
+
+                            {/* DROPDOWN - MULTI SELECT (CHECKBOXES) */}
+                            {section.type === "dropdown" && section.options && (
+                                <div className={isColorOption ? "flex flex-wrap gap-2.5" : "flex flex-col gap-3"}>
+                                    {section.options.map((option) => {
+                                        const isSelected = Array.isArray(answers[section.key]) && answers[section.key].includes(option.value);
+
+                                        // SQUARE COLOR BLOCKS
+                                        if (isColorOption) {
+                                            return (
+                                                <div
+                                                    key={option.value}
+                                                    onClick={() => handleCheckboxToggle(section.key, option.value)}
+                                                    style={{ backgroundColor: getColorValue(option.label) }}
+                                                    className={`
+                                                        relative h-10 w-12 cursor-pointer transition-all rounded-[2px] border-2 border-black flex items-center justify-center
+                                                        ${isSelected
+                                                            ? "shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-[2px] -translate-x-[2px] ring-2 ring-white ring-inset"
+                                                            : "hover:-translate-y-px hover:-translate-x-px hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                                                        }
+                                                    `}
+                                                    title={`${cleanLabelText(option.label)} ${option.price_mod ? `(+₹${option.price_mod})` : ''}`}
+                                                >
+                                                    {isSelected && <Check className="h-4 w-4 text-white drop-shadow-md" />}
+                                                </div>
+                                            );
+                                        }
+
+                                        // GUMROAD VERTICAL LIST
+                                        return (
+                                            <div
+                                                key={option.value}
+                                                onClick={() => handleCheckboxToggle(section.key, option.value)}
+                                                className={`
+                                                    relative flex items-center gap-4 p-4 cursor-pointer transition-all border-2 border-black rounded-md w-full
+                                                    ${isSelected
+                                                        ? "bg-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-[2px] -translate-x-[2px]"
+                                                        : "bg-white hover:bg-zinc-50"
+                                                    }
+                                                `}
+                                            >
+                                                {/* Checkbox UI Indicator */}
+                                                <div className={`flex h-6 w-6 shrink-0 items-center justify-center border-2 border-black rounded-sm transition-colors ${isSelected ? "bg-black" : "bg-white"}`}>
+                                                    {isSelected && <Check className="h-4 w-4 text-white" />}
+                                                </div>
+
+                                                {/* Text Content */}
+                                                <div className="flex flex-col flex-1">
+                                                    <span className="font-bold text-sm text-black">{cleanLabelText(option.label)}</span>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${isSelected ? "text-green-600" : "text-zinc-400"}`}>
+                                                        {isSelected ? "Selected" : "Select Option"}
+                                                    </span>
+                                                </div>
+
+                                                {/* Circle Price Badge */}
+                                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-black bg-white font-bold text-xs shadow-sm text-center leading-none">
+                                                    {option.price_mod > 0 ? "+" : (option.price_mod < 0 ? "-" : "")}₹{Math.abs(option.price_mod || 0)}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             )}
 
                             {/* Inputs */}

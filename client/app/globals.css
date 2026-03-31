@@ -193,4 +193,26 @@
   50% {
     transform: translateY(-20px) rotate(calc(var(--tw-rotate, 0deg) + 5deg));
   }
-}
+}
+
+/* Prose / HTML description overflow protection */
+.prose {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+.prose pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.prose table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}

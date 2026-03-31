@@ -60,11 +60,12 @@ export default async function ServiceRequestPage({
                     <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4 uppercase">
                         {subService.name}
                     </h1>
-                    {subService.description && (
-                        <p className="text-lg text-border-black/80 font-medium max-w-2xl">
-                            {subService.description}
-                        </p>
-                    )}
+                    <div className="flex items-center gap-3">
+                        <span className="bg-white text-black px-4 py-1.5 font-black uppercase text-sm border-2 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)] rounded-md">
+                            Base Price: ₹{subService.base_price?.toLocaleString()}
+                        </span>
+                    </div>
+                    {/* Description moved to body */}
                 </div>
             </div>
 
@@ -85,7 +86,8 @@ export default async function ServiceRequestPage({
                             </h3>
                             {subService.description ? (
                                 <div 
-                                    className="prose prose-zinc prose-a:text-accent-green max-w-none text-zinc-600 font-medium leading-relaxed" 
+                                    className="prose prose-zinc prose-a:text-accent-green max-w-none text-zinc-600 font-medium leading-relaxed break-words overflow-hidden [&_img]:max-w-full [&_pre]:overflow-x-auto [&_pre]:max-w-full" 
+                                    style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
                                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(subService.description, sanitizeOptions) }} 
                                 />
                             ) : (
@@ -111,7 +113,7 @@ export default async function ServiceRequestPage({
                     <div className="lg:sticky lg:top-10">
                         <div className="bg-white border-3 border-border-black shadow-neubrutalism p-6 sm:p-8 relative">
                             {/* Decorative ribbon */}
-                            <div className="absolute -top-3 -right-3 bg-[#4be794] border-2 border-border-black px-4 py-1 text-xs font-black shadow-neubrutalism-sm rotate-6">
+                            <div className="absolute -top-3 -right-3 bg-accent-green border-2 border-border-black px-4 py-1 text-xs font-black shadow-neubrutalism-sm rotate-6">
                                 ADD TO CART
                             </div>
                             <h3 className="font-display text-2xl font-black uppercase mb-6 border-b-2 border-border-black pb-3">

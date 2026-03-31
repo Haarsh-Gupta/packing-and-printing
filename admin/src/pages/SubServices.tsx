@@ -137,22 +137,59 @@ export default function SubServices() {
     const handleSave = async () => {
         if (!service) return;
         setSaving(true);
-        const payload: any = {
-            service_id: service.id,
-            name: formState.name,
-            minimum_quantity: Number(formState.minimum_quantity) || 1,
-            price_per_unit: Number(formState.price_per_unit) || 0,
-            is_active: formState.is_active,
-            images: formState.images,
-            hsn_code: formState.hsn_code || undefined,
-            cgst_rate: parseFloat(formState.cgst_rate) || 0,
-            sgst_rate: parseFloat(formState.sgst_rate) || 0,
-        };
-
-        if (formState.slug) payload.slug = formState.slug;
-        if (formState.description) payload.description = formState.description;
-
         try {
+            let payload: any = {};
+
+            if (editingSubService) {
+                // Delta Calculation
+                if (formState.name !== editingSubService.name) payload.name = formState.name;
+                if (formState.description !== (editingSubService.description || "")) payload.description = formState.description;
+                
+                const mq = Number(formState.minimum_quantity) || 1;
+                if (mq !== editingSubService.minimum_quantity) payload.minimum_quantity = mq;
+                
+                const ppu = Number(formState.price_per_unit) || 0;
+                if (ppu !== editingSubService.price_per_unit) payload.price_per_unit = ppu;
+                
+                if (formState.is_active !== editingSubService.is_active) payload.is_active = formState.is_active;
+                
+                if (JSON.stringify(formState.images) !== JSON.stringify(editingSubService.images || [])) {
+                    payload.images = formState.images;
+                }
+                
+                if (formState.hsn_code !== (editingSubService.hsn_code || "")) payload.hsn_code = formState.hsn_code;
+                
+                const cgst = parseFloat(formState.cgst_rate) || 0;
+                if (cgst !== (editingSubService.cgst_rate || 0)) payload.cgst_rate = cgst;
+                
+                const sgst = parseFloat(formState.sgst_rate) || 0;
+                if (sgst !== (editingSubService.sgst_rate || 0)) payload.sgst_rate = sgst;
+                
+                if (formState.slug !== editingSubService.slug) payload.slug = formState.slug;
+
+                if (Object.keys(payload).length === 0) {
+                    setShowForm(false);
+                    setSaving(false);
+                    return;
+                }
+            } else {
+                // Full payload for creation
+                payload = {
+                    service_id: service.id,
+                    name: formState.name,
+                    minimum_quantity: Number(formState.minimum_quantity) || 1,
+                    price_per_unit: Number(formState.price_per_unit) || 0,
+                    is_active: formState.is_active,
+                    images: formState.images,
+                    hsn_code: formState.hsn_code || undefined,
+                    cgst_rate: parseFloat(formState.cgst_rate) || 0,
+                    sgst_rate: parseFloat(formState.sgst_rate) || 0,
+                };
+
+                if (formState.slug) payload.slug = formState.slug;
+                if (formState.description) payload.description = formState.description;
+            }
+
             if (editingSubService) {
                 await api(`/admin/services/subservices/${editingSubService.id}`, {
                     method: "PATCH",

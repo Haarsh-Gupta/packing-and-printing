@@ -91,7 +91,7 @@ class InquiryItemBase(BaseModel):
     product_id: Optional[int] = None; subproduct_id: Optional[int] = None
     service_id: Optional[int] = None; subservice_id: Optional[int] = None
     quantity: Optional[int] = Field(None, gt=0)
-    selected_options: Optional[Dict[str, Union[str, int, float, bool, None]]] = None
+    selected_options: Optional[Dict[str, Union[str, int, float, bool, List[str], None]]] = None
     notes: Optional[str] = None; images: Optional[List[str]] = None
 
     @model_validator(mode="after")
@@ -113,7 +113,7 @@ class InquiryItemCreate(InquiryItemBase): pass
 
 class InquiryItemUpdate(BaseModel):
     quantity: Optional[int] = Field(None, gt=0)
-    selected_options: Optional[Dict[str, Union[str, int, float, bool, None]]] = None
+    selected_options: Optional[Dict[str, Union[str, int, float, bool, List[str], None]]] = None
     notes: Optional[str] = None; images: Optional[List[str]] = None
 
 class InquiryGroupCreate(BaseModel):
@@ -142,11 +142,22 @@ class InquiryItemResponse(InquiryItemBase):
     product_name: Optional[str] = None; subproduct_name: Optional[str] = None
     service_name: Optional[str] = None; subservice_name: Optional[str] = None
     display_images: List[str] = []
+    
+    # Tax & HSN properties mapped from models
+    cgst_rate: float = 0.0
+    sgst_rate: float = 0.0
+    hsn_code: Optional[str] = None
 
     @computed_field
     @property
     def total_estimated_price(self) -> float:
-        return self.quantity * self.estimated_price if self.estimated_price else 0.0
+        return (self.quantity * self.estimated_price) if self.estimated_price else 0.0
+        
+    @computed_field
+    @property
+    def computed_tax_amount(self) -> float:
+        rate = self.cgst_rate + self.sgst_rate
+        return self.total_estimated_price * (rate / 100.0)
     model_config = ConfigDict(from_attributes=True)
 
 class InquiryGroupResponse(BaseModel):

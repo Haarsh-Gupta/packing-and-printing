@@ -134,13 +134,7 @@ export default function ProductDetailView({ product }: { product: Product }) {
                             }
                         </h1>
 
-                        <p
-                            className={`pp-hero-sub transition-all duration-600 ease-out delay-200 ${
-                                mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
-                            }`}
-                        >
-                            {product.description || "Expertly crafted printing and binding solutions tailored for professionals and businesses. Experience unmatched quality and durability."}
-                        </p>
+                        {/* Description moved to page body */}
 
                         {/* Quick stat pills */}
                         <div
@@ -167,6 +161,20 @@ export default function ProductDetailView({ product }: { product: Product }) {
                     </div>
                 </div>
             </section>
+
+            {/* ══════════════════════════════════════════════════════
+                PRODUCT OVERVIEW
+            ══════════════════════════════════════════════════════ */}
+            <div className="pp-content pt-12 pb-4">
+                <div className="border-2 border-black bg-white p-6 sm:p-8 relative">
+                    <h3 className="text-xl font-black uppercase mb-4 flex items-center gap-2">
+                         Product Overview
+                    </h3>
+                    <p className="text-zinc-600 font-medium leading-relaxed max-w-4xl">
+                        {product.description || "Expertly crafted printing and binding solutions tailored for professionals and businesses. Experience unmatched quality and durability."}
+                    </p>
+                </div>
+            </div>
 
             {/* ══════════════════════════════════════════════════════
                 VARIANTS GRID

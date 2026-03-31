@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import ImageCropper from "@/components/ImageCropper";
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 
 export default function Services() {
     const navigate = useNavigate();
@@ -104,10 +106,28 @@ export default function Services() {
 
     const handleSave = async () => {
         setSaving(true);
-        const payload = { ...formState };
-        if (!payload.slug) delete (payload as any).slug; // let backend auto-slugify if empty
-        if (!payload.description) delete (payload as any).description;
-        if (!payload.cover_image) delete (payload as any).cover_image;
+        let payload: any = { ...formState };
+
+        if (editingService) {
+            // Calculate delta
+            payload = {};
+            if (formState.name !== editingService.name) payload.name = formState.name;
+            if (formState.description !== (editingService.description || "")) payload.description = formState.description;
+            if (formState.cover_image !== (editingService.cover_image || "")) payload.cover_image = formState.cover_image;
+            if (formState.is_active !== editingService.is_active) payload.is_active = formState.is_active;
+            if (formState.slug !== editingService.slug) payload.slug = formState.slug;
+
+            // If nothing changed, just close
+            if (Object.keys(payload).length === 0) {
+                setShowForm(false);
+                setSaving(false);
+                return;
+            }
+        } else {
+            if (!payload.slug) delete (payload as any).slug;
+            if (!payload.description) delete (payload as any).description;
+            if (!payload.cover_image) delete (payload as any).cover_image;
+        }
 
         try {
             if (editingService) {
@@ -292,7 +312,14 @@ export default function Services() {
                                 <span>Description</span>
                                 <span className="text-[9px] bg-[#434655]/30 text-slate-500 dark:text-[#8d90a1] px-1.5 py-0.5 rounded">OPT</span>
                             </label>
-                            <Textarea className="resize-none min-h-[80px] text-sm bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="A brief description of this service..." />
+                            <div className="bg-white dark:bg-[#131b2e] rounded-md overflow-hidden border border-slate-200 dark:border-[#434655]/40 min-h-[150px]">
+                                <ReactQuill 
+                                    theme="snow" 
+                                    value={formState.description} 
+                                    onChange={v => setFormState({ ...formState, description: v })}
+                                    className="text-slate-900 dark:text-[#dae2fd]"
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-2">
