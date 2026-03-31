@@ -113,6 +113,7 @@ export interface PaymentDeclaration {
 
 export interface Transaction {
     id: string;
+    display_id?: string;
     order_id: string;
     amount: number;
     payment_mode: string;
@@ -123,6 +124,7 @@ export interface Transaction {
 
 export interface Order {
     id: string;
+    order_number?: string;
     inquiry_id: string;
     user_id: string;
     total_amount: number;
@@ -208,6 +210,7 @@ export interface QuoteVersion {
 
 export interface InquiryGroup {
     id: string;
+    display_id?: string;
     user_id: string;
     status: string;
     active_quote_id?: string;
@@ -223,6 +226,7 @@ export interface InquiryGroup {
 
 export interface InquiryGroupList {
     id: string;
+    display_id?: string;
     user_id: string;
     status: string;
     active_quote?: { total_price: number };
@@ -332,6 +336,7 @@ export interface TicketMessage {
 
 export interface Ticket {
     id: number;
+    display_id?: string;
     user_id: string;
     subject: string;
     description: string;

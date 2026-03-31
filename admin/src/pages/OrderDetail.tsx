@@ -86,7 +86,7 @@ export default function OrderDetail() {
                     <nav className="flex items-center gap-2 text-slate-500 dark:text-[#8d90a1] text-[10px] font-bold uppercase tracking-widest mb-3">
                         <Link to="/orders" className="hover:text-blue-600 dark:hover:text-[#adc6ff] transition-colors">Orders Registry</Link>
                         <ChevronRight size={12} className="opacity-50" />
-                        <span className="text-blue-600 dark:text-[#adc6ff]">ORD-{new Date(order.created_at).getFullYear()}-{order.id.toString().slice(0, 8).toUpperCase()}</span>
+                        <span className="text-blue-600 dark:text-[#adc6ff]">{order.order_number || `ORD-${new Date(order.created_at).getFullYear()}-${order.id.toString().slice(0, 8).toUpperCase()}`}</span>
                     </nav>
                     <div className="flex flex-wrap items-center gap-4">
                         <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd]">Order Profile</h2>
@@ -147,7 +147,7 @@ export default function OrderDetail() {
                         <div className="pt-6 border-t border-slate-200 dark:border-[#434655]/20 mt-6 group">
                             <p className="text-[9px] uppercase font-bold text-slate-500 dark:text-[#8d90a1] tracking-[0.2em] mb-3">Linked Resource</p>
                             <Link to={order.inquiry_id ? `/inquiries/${order.inquiry_id}` : '#'} className="inline-flex items-center gap-2 text-[#1f70e3] hover:text-blue-600 dark:hover:text-[#adc6ff] text-xs font-bold transition-colors">
-                                {linkedInquiry ? `Inquiry Group ${order.inquiry_id.slice(0, 8).toUpperCase()}` : 'Standalone Order'}
+                                {linkedInquiry ? `Inquiry Group ${linkedInquiry.display_id || order.inquiry_id.slice(0, 8).toUpperCase()}` : 'Standalone Order'}
                                 <ExternalLink size={14} />
                             </Link>
                         </div>

@@ -186,6 +186,7 @@ export default function InquiryDetail() {
     const [sending, setSending] = useState(false);
     const [quoteForm, setQuoteForm] = useState({ amount: "", notes: "", validDays: "7" });
     const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
+    const [itemDiscounts, setItemDiscounts] = useState<Record<string, number>>({});
     const [itemTaxDiscounts, setItemTaxDiscounts] = useState<Record<string, number>>({});
     const [discountPercentage, setDiscountPercentage] = useState<number>(0);
     const [showWarning, setShowWarning] = useState(false);
@@ -206,35 +207,33 @@ export default function InquiryDetail() {
 
     useEffect(() => {
         if (!selected) return;
-        if (Object.keys(itemPrices).length === 0 && !quoteForm.amount) return;
-        
-        const totalItems = selected.items.reduce((sum, item) => {
-            const price = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || 0);
-            return sum + price;
-        }, 0);
-            
-        const discountAmt = totalItems * (discountPercentage / 100);
-        const subtotal = totalItems - discountAmt;
+        if (Object.keys(itemPrices).length === 0 && !quoteForm.amount && Object.keys(itemDiscounts).length === 0 && discountPercentage === 0) return;
         
         let calculatedTaxAmt = 0;
+        let subtotal = 0;
         
         selected.items.forEach(item => {
-             const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || 0);
-             if (totalItems > 0 && baseItemPrice > 0) {
-                 const postDiscountItemPrice = baseItemPrice - (baseItemPrice * (discountPercentage / 100));
+             const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
+             if (baseItemPrice > 0) {
                  const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
                  const effectiveRate = itemSysTaxRate;
                  const waiverPerc = itemTaxDiscounts[item.id] || 0;
-                 calculatedTaxAmt += postDiscountItemPrice * (effectiveRate / 100) * (1 - (waiverPerc / 100));
+                 
+                 const localDiscount = itemDiscounts[item.id] || 0;
+                 const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
+                 const itemDiscountAmt = baseItemPrice * (stackedDiscountRate / 100);
+                 const taxableValue = baseItemPrice - itemDiscountAmt;
+                 
+                 subtotal += taxableValue;
+                 calculatedTaxAmt += taxableValue * (effectiveRate / 100) * (1 - (waiverPerc / 100));
              }
         });
         
         const finalAmount = subtotal + calculatedTaxAmt;
-        // Prevent infinite loop by not updating if the value hasn't meaningfully changed
         if (Math.abs(parseFloat(quoteForm.amount || "0") - finalAmount) > 0.01) {
              setQuoteForm(prev => ({ ...prev, amount: finalAmount.toFixed(2) }));
         }
-    }, [itemPrices, itemTaxDiscounts, discountPercentage, selected]);
+    }, [itemPrices, itemTaxDiscounts, itemDiscounts, discountPercentage, selected]);
 
     useEffect(() => {
         if (!selected || !quoteForm.amount) {
@@ -328,25 +327,39 @@ export default function InquiryDetail() {
         if (!selected || !quoteForm.amount) return;
         setSending(true);
         try {
-            const lineItems = Object.entries(itemPrices).map(([id, price]) => ({ item_id: id, line_item_price: price }));
-            
-            const totalItems = selected.items.reduce((sum, item) => {
-                const price = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || 0);
-                return sum + price;
-            }, 0);
-            const discountAmt = totalItems * (discountPercentage / 100);
-            const subtotal = totalItems - discountAmt;
-            
             let taxAmt = 0;
-            selected.items.forEach(item => {
-                 const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || 0);
-                 if (totalItems > 0 && baseItemPrice > 0) {
-                     const postDiscountItemPrice = baseItemPrice - (baseItemPrice * (discountPercentage / 100));
+            let totalDiscountAmt = 0;
+            
+            const lineItems = selected.items.map(item => {
+                 const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
+                 
+                 let itemDiscountAmt = 0;
+                 let itemGstAmt = 0;
+                 let taxableValue = baseItemPrice;
+                 
+                 const localDiscount = itemDiscounts[item.id] || 0;
+                 const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
+
+                 if (baseItemPrice > 0) {
+                     itemDiscountAmt = baseItemPrice * (stackedDiscountRate / 100);
+                     taxableValue = baseItemPrice - itemDiscountAmt;
+                     
                      const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
-                     const effectiveRate = itemSysTaxRate;
                      const waiverPerc = itemTaxDiscounts[item.id] || 0;
-                     taxAmt += postDiscountItemPrice * (effectiveRate / 100) * (1 - (waiverPerc / 100));
+                     itemGstAmt = taxableValue * (itemSysTaxRate / 100) * (1 - (waiverPerc / 100));
+                     taxAmt += itemGstAmt;
+                     totalDiscountAmt += itemDiscountAmt;
                  }
+
+                 return {
+                     item_id: item.id,
+                     line_item_price: baseItemPrice,
+                     discount_type: stackedDiscountRate > 0 ? "percentage" : null,
+                     discount_value: stackedDiscountRate,
+                     discount_amount: itemDiscountAmt,
+                     taxable_value: taxableValue,
+                     gst_amount: itemGstAmt
+                 };
             });
 
             await api(`/admin/inquiries/${selected.id}/quote`, {
@@ -356,8 +369,8 @@ export default function InquiryDetail() {
                     admin_notes: quoteForm.notes || null, 
                     valid_days: parseInt(quoteForm.validDays) || 7,
                     tax_amount: taxAmt,
-                    discount_amount: discountAmt,
-                    line_items: lineItems.length > 0 ? lineItems : undefined
+                    discount_amount: totalDiscountAmt,
+                    line_items: lineItems
                 }),
             });
             setQuoteForm({ amount: "", notes: "", validDays: "7" });
@@ -415,7 +428,7 @@ export default function InquiryDetail() {
                         <span className="bg-[#2170e4]/10 text-[#0058be] dark:text-[#adc6ff] px-3 py-1 rounded text-xs font-bold tracking-wider uppercase font-headline">
                             {selected.status.replace(/_/g, ' ')}
                         </span>
-                        <span className="text-[#424754] dark:text-[#c3c5d8] text-sm font-medium">INQ-{selected.id.slice(0, 8)}</span>
+                        <span className="text-[#424754] dark:text-[#c3c5d8] text-sm font-medium">INQ-{selected.display_id || selected.id.slice(0, 8)}</span>
                     </div>
                     <h2 className="text-3xl font-bold tracking-tight text-[#191c1e] dark:text-[#dae2fd] font-headline">
                         {selected.items[0]?.subproduct_name || selected.items[0]?.product_name || selected.items[0]?.subservice_name || selected.items[0]?.service_name || "Project Inquiry"}
@@ -479,6 +492,14 @@ export default function InquiryDetail() {
                                 const itemTotal = item.total_estimated_price || (unitPrice * item.quantity);
                                 const itemTax = item.computed_tax_amount || (itemTotal * gstRate / 100);
                                 
+                                const currentBase = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || itemTotal || 0);
+                                const currentLocalDisc = itemDiscounts[item.id] || 0;
+                                const currentStackedRate = Math.min(100, discountPercentage + currentLocalDisc);
+                                const currentDiscAmount = currentBase * (currentStackedRate / 100);
+                                const currentTaxable = currentBase - currentDiscAmount;
+                                const currentWaiver = itemTaxDiscounts[item.id] || 0;
+                                const currentGstAmt = currentTaxable * (gstRate / 100) * (1 - (currentWaiver / 100));
+                                
                                 return (
                                 <div key={item.id} className="p-5 rounded-xl border border-[#eceef0] dark:border-[#434655]/20 bg-[#f7f9fb] dark:bg-[#060e20] group hover:border-[#0058be]/30 transition-colors">
                                     <div className="flex items-start justify-between gap-4">
@@ -511,50 +532,59 @@ export default function InquiryDetail() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="text-right shrink-0">
-                                            <span className="block font-bold text-lg text-[#191c1e] dark:text-[#dae2fd]">
-                                                {itemPrices[item.id] ? `₹${itemPrices[item.id].toLocaleString()}` : (item.line_item_price ? `₹${item.line_item_price.toLocaleString()}` : (itemTotal > 0 ? `₹${itemTotal.toLocaleString()}` : "—"))}
-                                            </span>
-                                            {item.line_item_price && (
-                                                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 tracking-wider">ADMIN SET</span>
-                                            )}
-                                            {!item.line_item_price && itemTotal > 0 && (
-                                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">SYSTEM EST</span>
-                                            )}
+                                        <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase">Base (₹)</label>
+                                                <input 
+                                                    type="number"
+                                                    className="w-24 bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/40 rounded p-1.5 text-right text-sm font-bold text-slate-900 dark:text-[#dae2fd] focus:border-blue-500 outline-none"
+                                                    value={currentBase}
+                                                    onChange={e => setItemPrices(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
+                                                />
+                                            </div>
+                                            <div className="flex flex-col items-end w-32 gap-1 mt-1">
+                                                <div className="flex items-center justify-between w-full">
+                                                    <label className="text-[9px] font-bold text-slate-400 uppercase">Item Disc</label>
+                                                    <span className="text-[9px] font-bold text-blue-500">{itemDiscounts[item.id] || 0}%</span>
+                                                </div>
+                                                <input 
+                                                    type="range"
+                                                    className="w-full accent-blue-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                                                    min="0" max="100"
+                                                    value={itemDiscounts[item.id] || 0}
+                                                    onChange={e => setItemDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) }))}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                     {/* Tax & pricing info bar */}
-                                    <div className="mt-3 flex items-center justify-between border-t border-[#eceef0] dark:border-[#434655]/20 pt-3">
+                                    <div className="mt-4 flex items-center justify-between border-t border-[#eceef0] dark:border-[#434655]/20 pt-3">
                                         <div className="flex items-center gap-3 flex-wrap">
+                                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded">
+                                                Taxable: ₹{currentTaxable.toLocaleString(undefined, {maximumFractionDigits: 2})}
+                                            </span>
                                             {gstRate > 0 ? (
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8]">
                                                         CGST: {item.cgst_rate || 0}% + SGST: {item.sgst_rate || 0}%
                                                     </span>
-                                                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                                                        Tax: ₹{itemTax.toLocaleString(undefined, {maximumFractionDigits: 2})}
+                                                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 border border-amber-200/50 bg-amber-50 px-2 py-0.5 rounded">
+                                                        Tax: ₹{currentGstAmt.toLocaleString(undefined, {maximumFractionDigits: 2})}
                                                     </span>
                                                 </div>
                                             ) : (
                                                 <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#c3c5d8]/40">GST: Exempt</span>
                                             )}
-                                            {itemPrices[item.id] !== undefined && (
-                                              <select 
-                                                  className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/30 rounded px-2 py-1 text-[10px] font-bold text-slate-900 dark:text-[#dae2fd] outline-none h-6 uppercase tracking-wider"
-                                                  value={itemTaxDiscounts[item.id] || 0}
-                                                  onChange={e => setItemTaxDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) }))}>
-                                                  <option value="0">Default Tax</option>
-                                                  <option value="100">Waive Tax</option>
-                                              </select>
-                                            )}
+                                            <select 
+                                                className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/30 rounded px-2 py-1 text-[10px] font-bold text-slate-900 dark:text-[#dae2fd] outline-none h-6 uppercase tracking-wider"
+                                                value={itemTaxDiscounts[item.id] || 0}
+                                                onChange={e => setItemTaxDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) }))}>
+                                                <option value="0">Default Tax</option>
+                                                <option value="100">Waive Tax</option>
+                                            </select>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {!item.line_item_price && itemPrices[item.id] === undefined && (
-                                                <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} onApplyPrice={(p) => setItemPrices(prev => ({ ...prev, [item.id]: p }))} />
-                                            )}
-                                            {!item.line_item_price && itemPrices[item.id] !== undefined && (
-                                                <button onClick={() => { const newP = {...itemPrices}; delete newP[item.id]; setItemPrices(newP); }} className="text-[9px] font-bold uppercase text-slate-400 hover:text-red-500 transition-colors">Reset Price</button>
-                                            )}
+                                            <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} onApplyPrice={(p) => setItemPrices(prev => ({ ...prev, [item.id]: p }))} />
                                         </div>
                                     </div>
                                 </div>
@@ -562,23 +592,51 @@ export default function InquiryDetail() {
                             })}
                             {/* Total Summary */}
                             {(() => {
-                                const subtotal = selected.items.reduce((sum, i) => sum + (i.total_estimated_price || 0), 0);
-                                const totalTax = selected.items.reduce((sum, i) => sum + (i.computed_tax_amount || 0), 0);
+                                let totalTaxable = 0;
+                                let totalTax = 0;
+                                let totalBase = 0;
+                                
+                                selected.items.forEach(item => {
+                                    const currentBase = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
+                                    totalBase += currentBase;
+                                    const currentLocalDisc = itemDiscounts[item.id] || 0;
+                                    const currentStackedRate = Math.min(100, discountPercentage + currentLocalDisc);
+                                    const currentDiscAmount = currentBase * (currentStackedRate / 100);
+                                    const currentTaxable = currentBase - currentDiscAmount;
+                                    totalTaxable += currentTaxable;
+                                    
+                                    const gstRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
+                                    const currentWaiver = itemTaxDiscounts[item.id] || 0;
+                                    totalTax += currentTaxable * (gstRate / 100) * (1 - (currentWaiver / 100));
+                                });
+                                
+                                const discountAmt = totalBase - totalTaxable;
+
                                 return (
                                     <div className="pt-4 border-t border-[#eceef0] dark:border-[#434655]/20 space-y-2">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#424754] dark:text-[#c3c5d8]">Subtotal</span>
-                                            <span className="text-sm font-bold text-[#191c1e] dark:text-[#dae2fd]">₹{subtotal.toLocaleString()}</span>
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-[#c3c5d8]">Base Contract</span>
+                                            <span className="text-sm font-bold text-slate-800 dark:text-[#dae2fd]">₹{totalBase.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                        </div>
+                                        {discountAmt > 0 && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-blue-600 dark:text-blue-400">Total Discount</span>
+                                                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">-₹{discountAmt.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400">Taxable Value</span>
+                                            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₹{totalTaxable.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
                                         </div>
                                         {totalTax > 0 && (
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-amber-600 dark:text-amber-400">GST (CGST + SGST)</span>
-                                                <span className="text-sm font-bold text-amber-600 dark:text-amber-400">₹{totalTax.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                                <span className="text-sm font-bold text-amber-600 dark:text-amber-400">+₹{totalTax.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
                                             </div>
                                         )}
-                                        <div className="flex items-center justify-between pt-2 border-t border-dashed border-[#eceef0] dark:border-[#434655]/20">
-                                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#424754] dark:text-[#c3c5d8]">Grand Total (Est)</span>
-                                            <span className="text-base font-black text-emerald-600 dark:text-emerald-400">₹{(subtotal + totalTax).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                        <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-[#434655]/20 mt-2">
+                                            <span className="text-[12px] font-black uppercase tracking-[0.15em] text-slate-800 dark:text-[#dae2fd]">Grand Total (Realtime)</span>
+                                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">₹{(totalTaxable + totalTax).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
                                         </div>
                                     </div>
                                 );
@@ -708,10 +766,13 @@ export default function InquiryDetail() {
                                 </div>
                                 <div className="space-y-5 relative z-10">
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">Discount (%)</label>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50">Global Discount Slider</label>
+                                            <span className="text-[11px] font-black text-blue-600 dark:text-blue-400">{discountPercentage}%</span>
+                                        </div>
                                         <input 
-                                            className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-500 dark:focus:border-blue-400 dark:border-[#adc6ff] transition-colors h-[48px]" 
-                                            type="number" 
+                                            className="w-full h-2 bg-slate-200 dark:bg-slate-700/50 rounded-lg appearance-none cursor-pointer accent-blue-600" 
+                                            type="range" 
                                             min="0" max="100"
                                             value={discountPercentage}
                                             onChange={e => setDiscountPercentage(parseFloat(e.target.value) || 0)}

@@ -84,7 +84,7 @@ export default function TicketDetail() {
                     <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 border border-slate-200 dark:border-transparent shadow-sm transition-colors">
                         <div className="flex justify-between items-start mb-6">
                             <div className="space-y-2">
-                                <span className="text-xs font-bold tracking-widest text-primary uppercase">TICKET #{ticket.id}</span>
+                                <span className="text-xs font-bold tracking-widest text-primary uppercase">TICKET #{ticket.display_id || ticket.id}</span>
                                 <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] leading-tight">
                                     {ticket.subject}
                                 </h2>
