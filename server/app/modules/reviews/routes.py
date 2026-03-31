@@ -82,6 +82,18 @@ async def create_or_update_review(
     
     new_review = Review(**review_data)
     db.add(new_review)
+    
+    # Notify admins of new review
+    from app.modules.notifications.service import NotificationService
+    await NotificationService.notify_admins(
+        db,
+        title="New Review Received",
+        message=f"A new {review.rating}-star review was posted by {current_user.name or 'a user'}.",
+        metadata={"type": "new_review", "id": str(new_review.id)},
+        sender_name=current_user.name,
+        is_admin=current_user.admin
+    )
+    
     await db.commit()
     
     # Needs explicit loading for the Pydantic schema Response

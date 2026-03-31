@@ -219,10 +219,14 @@ async def submit_payment_declaration(
         utr_number=payload.utr_number,
         screenshot_url=payload.screenshot_url,
     )
+    # Fetch order_number for notification
+    order_stmt = select(Order.order_number).where(Order.id == order_id)
+    order_number = (await db.execute(order_stmt)).scalar_one_or_none()
+
     await NotificationService.notify_admins(
         db,
         title="Payment Declared",
-        message=f"Submitted a payment declaration for Order #{str(order_id)[:8].upper()}.",
+        message=f"Submitted a payment declaration for Order #{order_number or str(order_id)[:8].upper()}.",
         metadata={"type": "payment_declared", "id": str(order_id)},
         sender_name=current_user.name,
         is_admin=current_user.admin

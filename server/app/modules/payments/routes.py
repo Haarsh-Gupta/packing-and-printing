@@ -228,6 +228,17 @@ async def verify_payment(
     # 7. Fire SSE + messaging notifications (fire-and-forget)
     try:
         from app.core.messaging import get_dispatcher
+        from app.modules.notifications.service import NotificationService
+
+        # Persistent notification for admins
+        await NotificationService.notify_admins(
+            db,
+            title="Online Payment Received",
+            message=f"Successfully paid ₹{paid_amount:,.2f} for Order #{order.order_number} (Sync).",
+            metadata={"type": "payment_received", "id": str(order.id)},
+            sender_name=getattr(order.user, 'name', None) or getattr(order.user, 'email', 'User'),
+            is_admin=getattr(order.user, 'admin', False)
+        )
 
         dispatcher = get_dispatcher()
         user_obj = order.user
@@ -251,6 +262,7 @@ async def verify_payment(
             sse_event="payment_verified",
             sse_data={
                 "order_id": str(order.id),
+                "order_number": order.order_number,
                 "milestone_id": str(milestone.id),
                 "amount": paid_amount,
                 "status": order.status,
@@ -258,6 +270,7 @@ async def verify_payment(
             sse_admin_event="admin_payment_received",
             sse_admin_data={
                 "order_id": str(order.id),
+                "order_number": order.order_number,
                 "user_id": str(order.user_id),
                 "amount": paid_amount,
                 "milestone": milestone.label,
@@ -353,7 +366,7 @@ async def razorpay_webhook_event(
         await NotificationService.notify_admins(
             db,
             title="Online Payment Received",
-            message=f"Successfully paid ₹{paid_amount:,.2f} for Order #{str(order.id)[:8].upper()} (Webhook).",
+            message=f"Successfully paid ₹{paid_amount:,.2f} for Order #{order.order_number} (Webhook).",
             metadata={"type": "payment_received", "id": str(order.id)},
             sender_name=getattr(order.user, 'name', None) or getattr(order.user, 'email', 'User'),
             is_admin=getattr(order.user, 'admin', False)

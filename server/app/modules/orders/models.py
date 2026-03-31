@@ -113,7 +113,6 @@ class PaymentDeclaration(Base):
     milestone = relationship("OrderMilestone", back_populates="declarations")
 
 
-# ── BUG-014 FIX: Use @event.listens_for with async-compatible approach ────────
 # These are "before_insert" events on ORM models. In SQLAlchemy 2.x with async,
 # the `connection` parameter in ORM events is a sync connection proxy, so
 # connection.execute(Sequence) works correctly inside ORM events even with async sessions.
