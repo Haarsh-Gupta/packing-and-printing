@@ -106,7 +106,7 @@ export function VariantCard({
 
                 <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col gap-3 pointer-events-auto">
                     {description && (
-                        <p className="text-[11px] font-medium leading-normal text-gray-600 line-clamp-2 break-words" style={{ overflowWrap: 'anywhere' }}>
+                        <p className="text-[11px] font-medium leading-normal text-gray-600 line-clamp-2 wrap-break-word">
                             {description.replace(/<[^>]*>/g, '')}
                         </p>
                     )}

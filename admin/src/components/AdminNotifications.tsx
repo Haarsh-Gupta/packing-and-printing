@@ -65,21 +65,23 @@ export function AdminNotifications() {
     const meta = n.metadata || n.metadata_;
     if (meta) {
         const type = meta.type || '';
-        if (type === 'new_order' || type === 'payment_declared') {
-            navigate('/orders');
-        } else if (type === 'ticket_reply') {
-            navigate('/tickets');
+        const id = meta.id || meta.inquiry_id || meta.ticket_id || meta.order_id;
+
+        if (type === 'new_order' || type === 'payment_declared' || type === 'payment_received') {
+            if (id) navigate(`/orders/${id}`);
+            else navigate('/orders');
+        } else if (type === 'ticket' || type === 'ticket_reply') {
+            if (id) navigate(`/tickets/${id}`);
+            else navigate('/tickets');
         } else if (type === 'email_bounce') {
-            navigate('/users');
-        } else if (type.startsWith('inquiry_') || type === 'new_inquiry') {
-            const id = meta.inquiry_id || meta.id;
-            if (id) {
-                navigate(`/inquiries/${id}`);
-            } else {
-                navigate('/inquiries');
-            }
+            const email = meta.email;
+            if (email) navigate(`/users?search=${encodeURIComponent(email)}`);
+            else navigate('/users');
+        } else if (type.startsWith('inquiry_') || type === 'new_inquiry' || type === 'quote_accepted') {
+            if (id) navigate(`/inquiries/${id}`);
+            else navigate('/inquiries');
         } else if (type === 'new_review') {
-            navigate('/');
+            navigate('/reviews'); // App.tsx shows /reviews route exists
         }
     }
   };

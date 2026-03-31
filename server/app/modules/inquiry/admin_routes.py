@@ -209,10 +209,13 @@ async def send_quotation(
         version=next_version,
         created_by=current_user.id,
         total_price=quotation.total_price,
+        tax_amount=quotation.tax_amount,
+        shipping_amount=quotation.shipping_amount,
+        discount_amount=quotation.discount_amount,
         valid_until=datetime.now(timezone.utc) + timedelta(days=quotation.valid_days),
         admin_notes=quotation.admin_notes,
         milestones=[m.model_dump() for m in quotation.milestones],
-        line_items=[li for li in quotation.line_items] if quotation.line_items else None,
+        line_items=[li.model_dump() for li in quotation.line_items] if quotation.line_items else None,
         status="PENDING_REVIEW",
     )
     db.add(new_quote)
@@ -224,7 +227,7 @@ async def send_quotation(
     
     # Update line-item pricing on inquiry items if provided
     if quotation.line_items:
-        prices_map = {li.get("item_id"): li.get("line_item_price") for li in quotation.line_items if li.get("item_id")}
+        prices_map = {li.item_id: li.taxable_value for li in quotation.line_items if li.item_id}
         for item in group.items:
             if str(item.id) in prices_map:
                 item.line_item_price = prices_map[str(item.id)]

@@ -439,11 +439,7 @@ export default function InquiryDetailPage() {
                     </CardHeader>
                     <div className="grow p-5 overflow-y-auto">
                         <div className="space-y-5">
-                            {item?.display_images && item.display_images.length > 0 && (
-                                <div className="w-full h-48 border-2 border-black shrink-0 relative overflow-hidden bg-zinc-100 rounded-lg">
-                                    <img src={item.display_images[0]} alt="Selected Product" className="w-full h-full object-cover" />
-                                </div>
-                            )}
+                            {/* Top-level status */}
                             <div>
                                 <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-1">Status</span>
                                 <div className="font-black text-sm uppercase">{inquiry.status.replace("_", " ")}</div>
@@ -461,35 +457,66 @@ export default function InquiryDetailPage() {
                                         const displayPrice = it.line_item_price || lineTotal;
                                         
                                         return (
-                                            <div key={it.id} className="bg-zinc-50 border-2 border-zinc-200 p-4 space-y-2">
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <div>
-                                                        <span className="font-black text-sm">{idx + 1}. {it.subproduct_name || it.product_name || it.subservice_name || it.service_name || it.template_name || "Custom Item"}</span>
-                                                        {it.variant_name && <span className="text-xs text-zinc-500 ml-2">({it.variant_name})</span>}
+                                            <div key={it.id} className="bg-zinc-50 border-2 border-zinc-200 p-4 space-y-3">
+                                                {/* ITEM HEADER WITH IMAGE */}
+                                                <div className="flex gap-4">
+                                                    {it.display_images && it.display_images.length > 0 && (
+                                                        <div className="w-16 h-16 border-2 border-black shrink-0 relative overflow-hidden bg-white rounded-md">
+                                                            <img src={it.display_images[0]} alt={it.subproduct_name || it.subservice_name || "Item"} className="w-full h-full object-cover" />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1 flex justify-between items-start gap-2">
+                                                        <div>
+                                                            <span className="font-black text-sm block leading-tight">{idx + 1}. {it.subproduct_name || it.product_name || it.subservice_name || it.service_name || it.template_name || "Custom Item"}</span>
+                                                            <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1 text-xs text-zinc-600">
+                                                                <span className="font-bold">Qty: {it.quantity}</span>
+                                                                {unitPrice > 0 && <span>| Unit: ₹{unitPrice.toLocaleString()}</span>}
+                                                                {it.hsn_code && <span>| HSN: {it.hsn_code}</span>}
+                                                            </div>
+                                                        </div>
+                                                        {displayPrice > 0 && (
+                                                            <div className="font-black text-base shrink-0 text-right">
+                                                                ₹{displayPrice.toLocaleString()}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    {displayPrice > 0 && (
-                                                        <span className="font-black text-base shrink-0">₹{displayPrice.toLocaleString()}</span>
+                                                </div>
+
+                                                {/* OPTIONS & SPECIFICATIONS */}
+                                                {(it.variant_name || (it.selected_options && Object.keys(it.selected_options).length > 0)) && (
+                                                    <div className="bg-white border-2 border-zinc-200 p-2.5 rounded-sm">
+                                                        {it.variant_name && (
+                                                            <div className="flex justify-between border-b border-dashed border-zinc-200 pb-1 mb-1">
+                                                                <span className="text-xs font-medium text-zinc-500">Variant</span>
+                                                                <span className="text-xs font-bold capitalize">{it.variant_name}</span>
+                                                            </div>
+                                                        )}
+                                                        {Object.entries(it.selected_options || {}).map(([key, value]) => {
+                                                            if (key === "variant_name") return null;
+                                                            return (
+                                                                <div key={key} className="flex justify-between border-b border-dashed border-zinc-200 pb-1 mb-1 last:border-0 last:pb-0 last:mb-0">
+                                                                    <span className="text-xs font-medium capitalize text-zinc-500">{key.replace(/_/g, " ")}</span>
+                                                                    <span className="text-xs font-bold capitalize truncate max-w-[150px] text-right" title={String(value)}>{String(value)}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {/* TAX & ADMIN OVERRIDE */}
+                                                <div className="flex flex-col gap-1">
+                                                    {gstRate > 0 && (
+                                                        <div className="flex items-center justify-between text-[11px]">
+                                                            <span className="text-zinc-500 font-bold">GST ({gstRate}%)</span>
+                                                            <span className="font-bold text-amber-700">+₹{taxAmt.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                                        </div>
+                                                    )}
+                                                    {it.line_item_price && it.line_item_price !== lineTotal && (
+                                                        <div className="text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-1 rounded w-fit mt-1">
+                                                            Admin Quoted: ₹{it.line_item_price.toLocaleString()}
+                                                        </div>
                                                     )}
                                                 </div>
-                                                
-                                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
-                                                    <span><span className="font-bold text-zinc-400">Qty:</span> {it.quantity}</span>
-                                                    {unitPrice > 0 && <span><span className="font-bold text-zinc-400">Unit:</span> ₹{unitPrice.toLocaleString()}</span>}
-                                                    {it.hsn_code && <span className="px-1.5 py-0.5 bg-zinc-200 border border-zinc-300 text-[10px] font-bold uppercase">HSN: {it.hsn_code}</span>}
-                                                </div>
-
-                                                {gstRate > 0 && (
-                                                    <div className="flex items-center gap-3 text-[11px]">
-                                                        <span className="text-zinc-500 font-bold">CGST: {it.cgst_rate || 0}% + SGST: {it.sgst_rate || 0}%</span>
-                                                        <span className="font-bold text-amber-700">Tax: ₹{taxAmt.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
-                                                    </div>
-                                                )}
-
-                                                {it.line_item_price && it.line_item_price !== lineTotal && (
-                                                    <div className="text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-1 rounded">
-                                                        Admin Quoted: ₹{it.line_item_price.toLocaleString()}
-                                                    </div>
-                                                )}
                                             </div>
                                         );
                                     })}
@@ -525,25 +552,7 @@ export default function InquiryDetailPage() {
                                 </div>
                             )}
 
-                            <div className="space-y-2">
-                                <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-1">Specifications</span>
-                                {item?.variant_name && (
-                                    <div className="flex justify-between border-b border-zinc-100 pb-1">
-                                        <span className="text-sm font-medium capitalize text-zinc-600">Variant</span>
-                                        <span className="text-sm font-bold capitalize">{item.variant_name}</span>
-                                    </div>
-                                )}
-                                {Object.entries(item?.selected_options || {}).map(([key, value]) => {
-                                    if (key === "variant_name") return null;
-                                    return (
-                                        <div key={key} className="flex justify-between border-b border-zinc-100 pb-1">
-                                            <span className="text-sm font-medium capitalize text-zinc-600">{key.replace(/_/g, " ")}</span>
-                                            <span className="text-sm font-bold capitalize">{String(value)}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
+                            {/* My Notes (using item[0] as a fallback or inquiry notes if supported) */}
                             {item?.notes && (
                                 <div>
                                     <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block mb-1">My Notes</span>

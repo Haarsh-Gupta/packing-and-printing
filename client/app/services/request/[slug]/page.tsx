@@ -201,7 +201,7 @@ export default async function ServiceRequestPage({
                                             </div>
                                             <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">{prop.label}</p>
                                             <p className="font-black text-lg leading-tight tracking-tight">{prop.value}</p>
-                                            <p className="text-xs text-zinc-500 font-medium leading-relaxed">{prop.detail}</p>
+                                            <p className="text-xs text-zinc-500 font-medium leading-relaxed wrap-break-word">{prop.detail}</p>
                                         </div>
                                     );
                                 })}

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Union, Optional, List
+from typing import Dict, Union, Optional, List, Literal
 from uuid import UUID
 from enum import Enum
 from pydantic import BaseModel, Field, model_validator, ConfigDict, computed_field
@@ -49,6 +49,16 @@ class ProposedMilestone(BaseModel):
     
 
 
+class QuoteLineItemCreate(BaseModel):
+    item_id: str = Field(..., description="The UUID of the InquiryItem")
+    line_item_price: float = Field(..., description="The original base price before discount")
+    discount_type: Optional[Literal["percentage", "amount"]] = None
+    discount_value: float = Field(default=0.0, description="The raw input, e.g., 5% or ₹200")
+    discount_amount: float = Field(default=0.0, description="The computed ₹ value of the discount")
+    taxable_value: float = Field(..., description="line_item_price - discount_amount")
+    gst_amount: float = Field(..., description="Tax calculated on the taxable_value")
+
+
 class QuoteVersionCreate(BaseModel):
     total_price:     float = Field(..., gt=0)
     tax_amount:      float = Field(0.0, ge=0)
@@ -60,7 +70,7 @@ class QuoteVersionCreate(BaseModel):
         ProposedMilestone(label="Advance payment", percentage=50, description="Due on order confirmation"),
         ProposedMilestone(label="Balance before dispatch", percentage=50, description="Due before dispatch"),
     ])
-    line_items:      Optional[List[Dict]] = None
+    line_items:      Optional[List[QuoteLineItemCreate]] = None
 
     @model_validator(mode="after")
     def validate_milestones(self):
