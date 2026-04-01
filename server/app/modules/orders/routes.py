@@ -140,6 +140,44 @@ async def switch_milestones(
     return await svc.get_order(order_id)
 
 
+@router.post("/my/{order_id}/milestones/request-custom", response_model=OrderResponse)
+async def request_custom_milestone(
+    order_id: UUID,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    User requests a CUSTOM payment schedule from admins.
+    """
+    svc = OrderService(db)
+    order = await svc.get_order(order_id)
+
+    if not order:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    if order.user_id != current_user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your order")
+
+    if order.amount_paid and order.amount_paid > 0:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Cannot request custom payment schedule: ₹{order.amount_paid:,.2f} already paid.")
+
+    order.is_custom_milestone_requested = True
+    await db.commit()
+
+    order_number = order.order_number or str(order_id)[:8].upper()
+    await NotificationService.notify_admins(
+        db,
+        title="Custom Payment Schedule Requested",
+        message=f"User requested a custom payment schedule for Order #{order_number}.",
+        metadata={"type": "custom_milestone_requested", "id": str(order_id)},
+        sender_name=current_user.name,
+        is_admin=current_user.admin
+    )
+    
+    _fire_admin_sse("admin_custom_milestone_requested", {"order_id": str(order_id)})
+
+    return order
+
+
 
 
 # ── UPI QR ────────────────────────────────────────────────────────────────────

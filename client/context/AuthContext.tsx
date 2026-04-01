@@ -13,6 +13,8 @@ interface UserData {
     admin: boolean;
     profile_picture: string | null;
     phone: string | null;
+    address: string | null;
+    created_at: string | null;
 }
 
 interface AuthContextType {

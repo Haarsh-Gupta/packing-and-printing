@@ -248,6 +248,7 @@ export interface FormSection {
     options?: ProductOption[];
     min_val?: number;
     max_val?: number;
+    default_val?: number;
     price_per_unit?: number;
 }
 

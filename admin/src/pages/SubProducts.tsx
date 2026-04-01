@@ -805,6 +805,10 @@ export default function SubProducts() {
                                                                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-[#c3c5d8]">Upper Bound</label>
                                                                     <Input type="number" className="h-8 bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/30 text-slate-900 dark:text-[#dae2fd] text-xs" placeholder="∞" value={sec.max_val ?? ""} onChange={e => updateSectionInfo(secIdx, { max_val: parseInt(e.target.value) || undefined })} />
                                                                 </div>
+                                                                <div className="w-24 space-y-1.5">
+                                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-[#a5b4fc]">Base Value</label>
+                                                                    <Input type="number" className="h-8 bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/30 text-[#6366f1] dark:text-[#a5b4fc] text-xs font-bold" placeholder="0" value={sec.default_val ?? ""} onChange={e => updateSectionInfo(secIdx, { default_val: parseInt(e.target.value) || 0 })} />
+                                                                </div>
                                                                 <div className="w-32 space-y-1.5 border-l border-slate-200 dark:border-[#434655]/30 pl-4 ml-1">
                                                                     <label className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-[#adc6ff]">Unit Multiplier</label>
                                                                     <div className="relative">

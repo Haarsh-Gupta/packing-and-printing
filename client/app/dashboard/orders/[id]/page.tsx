@@ -26,6 +26,7 @@ interface Milestone {
     status: string;
     order_index: number;
     paid_at: string | null;
+    split_type?: string;
 }
 
 interface Declaration {
@@ -44,6 +45,8 @@ interface Order {
     order_number?: string;
     inquiry_id: string;
     status: string;
+    split_type?: string;
+    is_custom_milestone_requested?: boolean;
     total_amount: number;
     amount_paid: number;
     product_name: string | null;
@@ -194,13 +197,12 @@ export default function OrderDetailPage() {
         }
     };
 
-    let currentSplitType = "CUSTOM";
-    if (order.milestones?.length === 1) currentSplitType = "FULL";
-    else if (order.milestones?.length === 2 && order.milestones[0].percentage === 50) currentSplitType = "HALF";
+    const currentSplitType = order.split_type || "CUSTOM";
+    const activeMilestones = order.milestones?.filter(m => (!order.split_type && !m.split_type) || m.split_type === order.split_type) || [];
 
     // Find the next unpaid milestone
-    const nextMilestone = order.milestones
-        ?.slice()
+    const nextMilestone = activeMilestones
+        .slice()
         .sort((a, b) => a.order_index - b.order_index)
         .find((m) => m.status !== "PAID");
 
@@ -511,19 +513,33 @@ export default function OrderDetailPage() {
                         >
                             Half & Half (50%)
                         </Button>
-                        {currentSplitType === "CUSTOM" ? (
+                        {currentSplitType === "CUSTOM" || order.is_custom_milestone_requested ? (
                             <Button
                                 variant="default"
-                                className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg bg-[#fdf567] text-black hover:bg-[#ece459]"
+                                className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg bg-[#fdf567] text-black hover:bg-[#ece459] shadow-[4px_4px_0_0_#000]"
                                 disabled={true}
                             >
-                                Custom Schedule
+                                {order.is_custom_milestone_requested && currentSplitType !== "CUSTOM" ? "Custom Schedule Requested" : "Custom Schedule"}
                             </Button>
                         ) : (
                             <Button
                                 variant="outline"
                                 className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg hover:bg-zinc-100"
-                                onClick={() => showAlert("Please contact support to request a custom payment schedule for this order.", "info")}
+                                onClick={async () => {
+                                    setIsSwitching(true);
+                                    try {
+                                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/milestones/request-custom`, {
+                                            method: "POST",
+                                            headers: { "Authorization": `Bearer ${token}` }
+                                        });
+                                        if (res.ok) {
+                                            showAlert("Custom payment schedule requested!", "success");
+                                            fetchOrder();
+                                        } else {
+                                            showAlert("Failed to request custom schedule.", "error");
+                                        }
+                                    } catch (e) { showAlert("Network error.", "error"); } finally { setIsSwitching(false); }
+                                }}
                                 disabled={isSwitching}
                             >
                                 Custom Schedule
@@ -531,16 +547,15 @@ export default function OrderDetailPage() {
                         )}
                     </div>
                 </div >
-            )
-            }
+            )}
 
             {/* Milestones */}
             {
-                order.milestones && order.milestones.length > 0 && (
+                activeMilestones.length > 0 && (
                     <div className="border-2 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl">
                         <h2 className="text-xl font-black uppercase tracking-tight mb-4">Payment Milestones</h2>
                         <div className="space-y-4">
-                            {order.milestones.slice().sort((a, b) => a.order_index - b.order_index).map((milestone, idx) => (
+                            {activeMilestones.slice().sort((a, b) => a.order_index - b.order_index).map((milestone, idx) => (
                                 <div key={milestone.id} className={`border-2 border-black p-4 rounded-lg flex items-center justify-between ${milestone.status === 'PAID' ? 'bg-[#4be794]/20' : 'bg-zinc-50'}`}>
                                     <div>
                                         <p className="font-bold text-lg">{idx + 1}. {milestone.label} <span className="text-xs text-zinc-500 font-bold ml-2">({milestone.percentage}%)</span></p>

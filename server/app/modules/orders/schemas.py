@@ -88,20 +88,10 @@ class OrderCreate(BaseModel):
 
 class UserMilestoneSwitchRequest(BaseModel):
     """
-    User switches between FULL and HALF only.
+    User switches active milestones.
     No payment must have been made yet.
-    CUSTOM is rejected — admin-only.
     """
     split_type: PaymentSplitType
-
-    @model_validator(mode="after")
-    def user_cannot_switch_to_custom(self) -> "UserMilestoneSwitchRequest":
-        if self.split_type == PaymentSplitType.CUSTOM:
-            raise ValueError(
-                "Users cannot set CUSTOM splits. "
-                "Contact admin to set a custom payment schedule."
-            )
-        return self
 
 
 # ── Admin milestone create / regenerate ──────────────────────────────────────
@@ -375,6 +365,7 @@ class TransactionResponse(BaseModel):
 class OrderMilestoneResponse(BaseModel):
     id: UUID
     order_id: UUID
+    split_type: str
     label: str
     amount: float
     percentage: float
@@ -413,6 +404,7 @@ class OrderResponse(BaseModel):
     amount_paid: float
     status: OrderStatus
     split_type: Optional[str] = None
+    is_custom_milestone_requested: bool = False
     admin_notes: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -439,6 +431,7 @@ class OrderListResponse(BaseModel):
     amount_paid: float
     status: OrderStatus
     split_type: Optional[str] = None
+    is_custom_milestone_requested: bool = False
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

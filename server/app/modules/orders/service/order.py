@@ -104,11 +104,14 @@ class OrderService:
         if order.amount_paid and order.amount_paid > 0:
             raise ValueError(f"Cannot regenerate milestones: ₹{order.amount_paid:,.2f} already paid.")
 
-        # FIX: DELETE + flush first so unique constraint is cleared before INSERT
-        await self.db.execute(delete(OrderMilestone).where(OrderMilestone.order_id == order.id))
+        # Delete existing milestones for exactly the requested split_type
+        await self.db.execute(delete(OrderMilestone).where(
+            OrderMilestone.order_id == order.id,
+            OrderMilestone.split_type == payload.split_type.value
+        ))
         await self.db.flush()  # deletes visible in transaction before inserts
 
-        milestones = _build_milestones(order.id, order.total_amount, payload)
+        milestones = _build_milestones(order.id, order.total_amount, payload, payload.split_type.value)
         self.db.add_all(milestones)
 
         # Track split_type on the order
@@ -209,6 +212,7 @@ class OrderService:
                 split_type=payload.split_type,
                 milestones=[MilestoneDefinition(label=m["label"], percentage=m["percentage"]) for m in ms_defs] if payload.split_type == PaymentSplitType.CUSTOM else None,
             ),
+            payload.split_type.value
         )
         self.db.add_all(milestones)
         await self.db.flush()
@@ -218,11 +222,12 @@ class OrderService:
 
     async def switch_milestones_user(self, order: Order, split_type) -> None:
         """
-        Switch user payment schedule between FULL and HALF.
+        Switch user payment schedule between FULL, HALF, or CUSTOM.
         This must be done before any payments are made.
-        CUSTOM milestones (admin-set) cannot be overwritten by user.
+        If switching to FULL or HALF and they don't exist, generate them.
+        If switching to CUSTOM, it MUST already exist (created by admin).
         """
-        from app.modules.orders.schemas import PaymentSplitType, AdminMilestoneCreateRequest, MilestoneDefinition
+        from app.modules.orders.schemas import PaymentSplitType
 
         if order.amount_paid and order.amount_paid > 0:
             raise ValueError(f"Cannot change payment schedule: ₹{order.amount_paid:,.2f} already paid.")
@@ -230,33 +235,37 @@ class OrderService:
         if order.declarations and len(order.declarations) > 0:
             raise ValueError("Cannot change payment schedule while a payment declaration is pending verification.")
 
+        # Check if requested split type already exists for this order
+        stmt = select(OrderMilestone).where(
+            OrderMilestone.order_id == order.id,
+            OrderMilestone.split_type == split_type.value
+        )
+        existing = (await self.db.execute(stmt)).scalars().all()
+
+        if existing:
+            # Already generated! Just point to it.
+            order.split_type = split_type.value
+            await self.db.flush()
+            await self.db.refresh(order, ['milestones'])
+            return
+
+        # If it doesn't exist, we must generate it (unless it's CUSTOM which requires admin)
         if split_type == PaymentSplitType.CUSTOM:
-            raise ValueError("Users cannot switch to custom milestones. Contact admin.")
-
-        # Guard: block user from overwriting admin-set CUSTOM milestones
-        if getattr(order, 'split_type', None) == "CUSTOM":
-            raise ValueError(
-                "Custom payment schedule was set by admin. "
-                "Contact admin to change your payment schedule."
-            )
-
-        # Delete existing milestones
-        await self.db.execute(delete(OrderMilestone).where(OrderMilestone.order_id == order.id))
-        await self.db.flush()
+            raise ValueError("Custom payment schedule not found. Contact admin to set a custom payment schedule.")
 
         # Generate new milestones based on choice
         total = order.total_amount
         milestones = []
         if split_type == PaymentSplitType.FULL:
             milestones.append(OrderMilestone(
-                order_id=order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
+                order_id=order.id, split_type=split_type.value, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
             ))
         elif split_type == PaymentSplitType.HALF:
             milestones.append(OrderMilestone(
-                order_id=order.id, label="Advance Payment (50%)", amount=round(total * 0.5, 2), percentage=50.0, order_index=1
+                order_id=order.id, split_type=split_type.value, label="Advance Payment (50%)", amount=round(total * 0.5, 2), percentage=50.0, order_index=1
             ))
             milestones.append(OrderMilestone(
-                order_id=order.id, label="Balance Before Dispatch (50%)", amount=round(total - round(total * 0.5, 2), 2), percentage=50.0, order_index=2
+                order_id=order.id, split_type=split_type.value, label="Balance Before Dispatch (50%)", amount=round(total - round(total * 0.5, 2), 2), percentage=50.0, order_index=2
             ))
         else:
             raise ValueError(f"Invalid split_type: {split_type}")
@@ -277,14 +286,14 @@ class OrderService:
             order.admin_notes = admin_notes
 
 
-def _build_milestones(order_id, total_amount, payload):
+def _build_milestones(order_id, total_amount, payload, split_type: str):
     milestones = []
     running = 0.0
     for i, m in enumerate(payload.milestones, start=1):
         amount = round((m.percentage / 100.0) * total_amount, 2)
         running += amount
         milestone = OrderMilestone(
-            order_id=order_id, label=m.label, percentage=m.percentage,
+            order_id=order_id, split_type=split_type, label=m.label, percentage=m.percentage,
             amount=amount, order_index=i, status=MilestoneStatus.UNPAID,
         )
         # Pass through due_date if present

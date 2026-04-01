@@ -26,6 +26,7 @@ interface SchemaSection {
     options?: Option[];
     min_val?: number;
     max_val?: number;
+    default_val?: number;
     price_per_unit?: number;
 }
 
@@ -91,7 +92,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
             } else if (section.type === "dropdown") {
                 initialAnswers[section.key] = [];
             } else if (section.type === "number_input") {
-                initialAnswers[section.key] = section.min_val || 0;
+                initialAnswers[section.key] = section.default_val !== undefined ? section.default_val : (section.min_val || 0);
             } else {
                 initialAnswers[section.key] = "";
             }
@@ -158,7 +159,9 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
             }
 
             if (section.type === "number_input" && section.price_per_unit) {
-                currentUnitPrice += Number(answer) * section.price_per_unit;
+                const userVal = Number(answer) || 0;
+                const defVal = section.default_val || 0;
+                currentUnitPrice += (userVal - defVal) * section.price_per_unit;
             }
         });
 
@@ -393,14 +396,30 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                             )}
 
                             {section.type === "number_input" && (
-                                <Input
-                                    type="number"
-                                    min={section.min_val}
-                                    max={section.max_val}
-                                    value={answers[section.key] || ""}
-                                    onChange={(e) => handleAnswerChange(section.key, e.target.value)}
-                                    className="border-2 border-black rounded-md h-12 font-bold uppercase text-sm focus-visible:ring-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus-visible:translate-x-[2px] focus-visible:translate-y-[2px] focus-visible:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all"
-                                />
+                                <div className="space-y-2">
+                                    <Input
+                                        type="number"
+                                        min={section.min_val}
+                                        max={section.max_val}
+                                        value={answers[section.key] || ""}
+                                        onChange={(e) => handleAnswerChange(section.key, e.target.value)}
+                                        className="border-2 border-black rounded-md h-12 font-bold uppercase text-sm focus-visible:ring-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus-visible:translate-x-[2px] focus-visible:translate-y-[2px] focus-visible:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all"
+                                    />
+                                    <div className="flex justify-between px-1">
+                                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                            {section.min_val !== undefined && section.max_val !== undefined 
+                                                ? `Range: ${section.min_val} - ${section.max_val}`
+                                                : section.min_val !== undefined 
+                                                    ? `Min: ${section.min_val}` 
+                                                    : section.max_val !== undefined 
+                                                        ? `Max: ${section.max_val}` 
+                                                        : "No limits"}
+                                        </p>
+                                        <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">
+                                            Base: {section.default_val || 0}
+                                        </p>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     );

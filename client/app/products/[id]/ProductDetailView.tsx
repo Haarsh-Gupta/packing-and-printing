@@ -163,16 +163,63 @@ export default function ProductDetailView({ product }: { product: Product }) {
             </section>
 
             {/* ══════════════════════════════════════════════════════
-                PRODUCT OVERVIEW
+                PRODUCT OVERVIEW — Rich Two-Column
             ══════════════════════════════════════════════════════ */}
             <div className="pp-content pt-12 pb-4">
-                <div className="border-2 border-black bg-white p-6 sm:p-8 relative">
-                    <h3 className="text-xl font-black uppercase mb-4 flex items-center gap-2">
-                         Product Overview
-                    </h3>
-                    <p className="text-zinc-600 font-medium leading-relaxed max-w-4xl">
-                        {product.description || "Expertly crafted printing and binding solutions tailored for professionals and businesses. Experience unmatched quality and durability."}
-                    </p>
+                <div className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl overflow-hidden">
+                    <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] items-stretch">
+
+                        {/* Cover Image */}
+                        <div className="relative h-56 md:h-auto bg-zinc-100 border-b-2 md:border-b-0 md:border-r-2 border-black overflow-hidden">
+                            {product.cover_image ? (
+                                <img
+                                    src={product.cover_image}
+                                    alt={product.name}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-[#FF90E8]/20 to-accent-purple/20">
+                                    <span className="text-zinc-300 font-black text-4xl uppercase tracking-tighter opacity-50">
+                                        {product.name.charAt(0)}
+                                    </span>
+                                </div>
+                            )}
+                            {/* Accent corner */}
+                            <div className="absolute top-3 left-3">
+                                <span className="bg-[#fdf567] text-black text-[9px] font-black uppercase tracking-widest px-3 py-1.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                    Overview
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Description + Highlights */}
+                        <div className="p-6 sm:p-8 flex flex-col justify-center">
+                            <h3 className="text-2xl font-black uppercase tracking-tight mb-4 flex items-center gap-3">
+                                <span className="w-8 h-8 bg-[#FF90E8] border-2 border-black rounded-lg flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] shrink-0">
+                                    <span className="material-symbols-outlined text-[16px]">description</span>
+                                </span>
+                                About This Product
+                            </h3>
+
+                            <p className="text-zinc-600 font-medium leading-relaxed text-[15px] mb-6">
+                                {product.description || "Expertly crafted printing and binding solutions tailored for professionals and businesses. Experience unmatched quality and durability with every order."}
+                            </p>
+
+                            {/* Feature highlights */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                {[
+                                    { icon: "verified", label: "Premium Quality", color: "bg-[#4be794]" },
+                                    { icon: "tune", label: "Custom Options", color: "bg-[#a788fa]" },
+                                    { icon: "local_shipping", label: "Fast Delivery", color: "bg-[#90e8ff]" },
+                                ].map(feat => (
+                                    <div key={feat.label} className={`flex items-center gap-2.5 px-3 py-2.5 ${feat.color} border-2 border-black rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
+                                        <span className="material-symbols-outlined text-[16px]">{feat.icon}</span>
+                                        <span className="text-xs font-black uppercase tracking-wider">{feat.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

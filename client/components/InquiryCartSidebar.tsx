@@ -9,6 +9,8 @@ import { useState, useRef, useEffect } from "react";
 import { useAlert } from "@/components/CustomAlert";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
+import { ContactDetailsModal } from "@/components/ContactDetailsModal";
 
 /* ── Confetti burst on add-to-cart ─────────────────────────────────────────── */
 function ConfettiBurst({ trigger }: { trigger: number }) {
@@ -75,9 +77,11 @@ export default function InquiryCartSidebar() {
     const { items, totalEstimate } = useAppSelector((state) => state.inquiry);
     const { showAlert } = useAlert();
     const router = useRouter();
+    const { user, refreshUser } = useAuth();
 
     const [isOpen, setIsOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showContactModal, setShowContactModal] = useState(false);
     const [confettiKey, setConfettiKey] = useState(0);
     const [removingId, setRemovingId] = useState<string | null>(null);
     const prevCountRef = useRef(items.length);
@@ -108,18 +112,9 @@ export default function InquiryCartSidebar() {
         dispatch(updateQuantity({ id, quantity: next, pricePerUnit }));
     };
 
-    const handleSubmitInquiry = async () => {
-        if (items.length === 0) return;
-
+    const doSubmit = async () => {
         setIsSubmitting(true);
         const token = localStorage.getItem("access_token");
-        if (!token) {
-            showAlert("Please login to submit your inquiry.", "error");
-            setIsSubmitting(false);
-            setIsOpen(false);
-            router.push("/auth/login");
-            return;
-        }
 
         const payloadItems = items.map(item => {
             if (item.productId != null) {
@@ -177,10 +172,46 @@ export default function InquiryCartSidebar() {
         }
     };
 
+    const handleSubmitInquiry = async () => {
+        if (items.length === 0) return;
+
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+            showAlert("Please login to submit your inquiry.", "error");
+            setIsOpen(false);
+            router.push("/auth/login");
+            return;
+        }
+
+        const needsPhone = !user?.phone;
+        const needsAddress = !user?.address;
+
+        if (needsPhone || needsAddress) {
+            setShowContactModal(true);
+            return;
+        }
+
+        await doSubmit();
+    };
+
+    const handleContactSaved = async () => {
+        setShowContactModal(false);
+        await refreshUser();
+        await doSubmit();
+    };
+
     const itemCount = items.reduce((total, item) => total + item.quantity, 0);
 
     return (
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            {showContactModal && (
+                <ContactDetailsModal
+                    existingPhone={user?.phone || null}
+                    existingAddress={user?.address || null}
+                    onSave={handleContactSaved}
+                    onClose={() => setShowContactModal(false)}
+                />
+            )}
             {/* ── Trigger Button ──────────────────────────────────────────── */}
             <SheetTrigger asChild>
                 <Button
@@ -352,9 +383,9 @@ export default function InquiryCartSidebar() {
 
                 {/* ── Footer / Checkout ───────────────────────────────────── */}
                 {items.length > 0 && (
-                    <div className="border-t-4 border-black bg-white px-5 py-5 space-y-4 shrink-0">
+                    <div className="border-t-4 border-black bg-white px-5 py-5 shrink-0">
                         {/* Price breakdown */}
-                        <div className="space-y-2">
+                        <div className="space-y-2 mb-5">
                             <div className="flex justify-between items-center text-sm">
                                 <span className="font-medium text-zinc-500">Subtotal ({itemCount} items)</span>
                                 <span className="font-bold">₹{totalEstimate.toLocaleString()}</span>
@@ -369,33 +400,36 @@ export default function InquiryCartSidebar() {
                             </div>
                         </div>
 
-                        {/* View Full Cart */}
-                        <button
-                            onClick={() => { setIsOpen(false); router.push("/cart"); }}
-                            className="w-full py-2.5 bg-white border-2 border-black rounded-xl font-bold text-xs uppercase tracking-wider text-zinc-600 hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]"
-                        >
-                            <LayoutList className="w-4 h-4" /> View Full Cart
-                        </button>
+                        {/* Action Buttons — clear spacing */}
+                        <div className="space-y-3">
+                            {/* Submit CTA — primary */}
+                            <button
+                                onClick={handleSubmitInquiry}
+                                disabled={items.length === 0 || isSubmitting}
+                                className="w-full py-4 bg-[#4be794] text-black border-2 border-black rounded-xl font-black text-sm uppercase tracking-wider shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isSubmitting ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-4 h-4" />
+                                        Submit Inquiry
+                                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    </>
+                                )}
+                            </button>
 
-                        {/* Submit CTA */}
-                        <button
-                            onClick={handleSubmitInquiry}
-                            disabled={items.length === 0 || isSubmitting}
-                            className="w-full py-3.5 bg-[#4be794] text-black border-2 border-black rounded-xl font-black text-sm uppercase tracking-wider shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSubmitting ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <>
-                                    <Sparkles className="w-4 h-4" />
-                                    Submit Inquiry
-                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                </>
-                            )}
-                        </button>
+                            {/* View Full Cart — secondary */}
+                            <button
+                                onClick={() => { setIsOpen(false); router.push("/cart"); }}
+                                className="w-full py-3 bg-white border-2 border-black rounded-xl font-bold text-xs uppercase tracking-wider text-zinc-600 hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]"
+                            >
+                                <LayoutList className="w-4 h-4" /> View Full Cart
+                            </button>
+                        </div>
 
                         {/* Trust text */}
-                        <p className="text-center text-[9px] font-bold text-zinc-400 uppercase tracking-widest leading-relaxed">
+                        <p className="text-center text-[9px] font-bold text-zinc-400 uppercase tracking-widest leading-relaxed mt-4">
                             Final pricing confirmed after studio review.
                             <br />No payment required at this stage.
                         </p>

@@ -24,14 +24,14 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; dot: string; ic
 };
 
 const ADMIN_ALLOWED_TRANSITIONS: Record<string, string[]> = {
-    SUBMITTED:    ['UNDER_REVIEW', 'REJECTED', 'CANCELLED'],
+    SUBMITTED: ['UNDER_REVIEW', 'REJECTED', 'CANCELLED'],
     UNDER_REVIEW: ['NEGOTIATING', 'REJECTED', 'CANCELLED'],
-    NEGOTIATING:  ['REJECTED', 'CANCELLED'],
-    QUOTED:       ['NEGOTIATING', 'CANCELLED', 'EXPIRED'],
-    EXPIRED:      ['NEGOTIATING', 'CANCELLED'],
-    ACCEPTED:     ['CANCELLED'],
-    REJECTED:     ['NEGOTIATING'],
-    CANCELLED:    ['NEGOTIATING'],
+    NEGOTIATING: ['REJECTED', 'CANCELLED'],
+    QUOTED: ['NEGOTIATING', 'CANCELLED', 'EXPIRED'],
+    EXPIRED: ['NEGOTIATING', 'CANCELLED'],
+    ACCEPTED: ['CANCELLED'],
+    REJECTED: ['NEGOTIATING'],
+    CANCELLED: ['NEGOTIATING'],
 };
 
 const UserStatusIndicator = ({ isOnline }: { isOnline: boolean }) => {
@@ -98,7 +98,14 @@ function ItemCalculator({ item, subProducts, subServices, onApplyPrice }: { item
                                 const matchedOpt = sec.options?.find((o: any) => String(o.value) === String(userVal));
                                 initOpts.push({ key: sec.key, label: sec.label, type: "mod", userChoice: userVal, val: matchedOpt ? parseFloat(matchedOpt.price_mod || "0") : 0 });
                             } else if (sec.type === "number_input") {
-                                initOpts.push({ key: sec.key, label: sec.label, type: "ppu", userChoice: userVal, val: parseFloat(sec.price_per_unit || "0") });
+                                initOpts.push({
+                                    key: sec.key,
+                                    label: sec.label,
+                                    type: "ppu",
+                                    userChoice: userVal,
+                                    val: parseFloat(sec.price_per_unit || "0"),
+                                    defaultVal: parseFloat(sec.default_val || "0")
+                                });
                             }
                         }
                     });
@@ -131,7 +138,11 @@ function ItemCalculator({ item, subProducts, subServices, onApplyPrice }: { item
     let unitTotal = basePrice;
     options.forEach(o => {
         if (o.type === "mod") unitTotal += (o.val || 0);
-        else if (o.type === "ppu") unitTotal += (parseFloat(String(o.userChoice) || "0") * (o.val || 0));
+        else if (o.type === "ppu") {
+            const userChoiceNum = parseFloat(String(o.userChoice) || "0");
+            const defVal = (o as any).defaultVal || 0;
+            unitTotal += ((userChoiceNum - defVal) * (o.val || 0));
+        }
     });
     const finalTotal = unitTotal * (item.quantity || 1);
 
@@ -208,30 +219,30 @@ export default function InquiryDetail() {
     useEffect(() => {
         if (!selected) return;
         if (Object.keys(itemPrices).length === 0 && !quoteForm.amount && Object.keys(itemDiscounts).length === 0 && discountPercentage === 0) return;
-        
+
         let calculatedTaxAmt = 0;
         let subtotal = 0;
-        
+
         selected.items.forEach(item => {
-             const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
-             if (baseItemPrice > 0) {
-                 const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
-                 const effectiveRate = itemSysTaxRate;
-                 const waiverPerc = itemTaxDiscounts[item.id] || 0;
-                 
-                 const localDiscount = itemDiscounts[item.id] || 0;
-                 const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
-                 const itemDiscountAmt = baseItemPrice * (stackedDiscountRate / 100);
-                 const taxableValue = baseItemPrice - itemDiscountAmt;
-                 
-                 subtotal += taxableValue;
-                 calculatedTaxAmt += taxableValue * (effectiveRate / 100) * (1 - (waiverPerc / 100));
-             }
+            const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
+            if (baseItemPrice > 0) {
+                const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
+                const effectiveRate = itemSysTaxRate;
+                const waiverPerc = itemTaxDiscounts[item.id] || 0;
+
+                const localDiscount = itemDiscounts[item.id] || 0;
+                const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
+                const itemDiscountAmt = baseItemPrice * (stackedDiscountRate / 100);
+                const taxableValue = baseItemPrice - itemDiscountAmt;
+
+                subtotal += taxableValue;
+                calculatedTaxAmt += taxableValue * (effectiveRate / 100) * (1 - (waiverPerc / 100));
+            }
         });
-        
+
         const finalAmount = subtotal + calculatedTaxAmt;
         if (Math.abs(parseFloat(quoteForm.amount || "0") - finalAmount) > 0.01) {
-             setQuoteForm(prev => ({ ...prev, amount: finalAmount.toFixed(2) }));
+            setQuoteForm(prev => ({ ...prev, amount: finalAmount.toFixed(2) }));
         }
     }, [itemPrices, itemTaxDiscounts, itemDiscounts, discountPercentage, selected]);
 
@@ -329,44 +340,44 @@ export default function InquiryDetail() {
         try {
             let taxAmt = 0;
             let totalDiscountAmt = 0;
-            
+
             const lineItems = selected.items.map(item => {
-                 const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
-                 
-                 let itemDiscountAmt = 0;
-                 let itemGstAmt = 0;
-                 let taxableValue = baseItemPrice;
-                 
-                 const localDiscount = itemDiscounts[item.id] || 0;
-                 const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
+                const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
 
-                 if (baseItemPrice > 0) {
-                     itemDiscountAmt = baseItemPrice * (stackedDiscountRate / 100);
-                     taxableValue = baseItemPrice - itemDiscountAmt;
-                     
-                     const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
-                     const waiverPerc = itemTaxDiscounts[item.id] || 0;
-                     itemGstAmt = taxableValue * (itemSysTaxRate / 100) * (1 - (waiverPerc / 100));
-                     taxAmt += itemGstAmt;
-                     totalDiscountAmt += itemDiscountAmt;
-                 }
+                let itemDiscountAmt = 0;
+                let itemGstAmt = 0;
+                let taxableValue = baseItemPrice;
 
-                 return {
-                     item_id: item.id,
-                     line_item_price: baseItemPrice,
-                     discount_type: stackedDiscountRate > 0 ? "percentage" : null,
-                     discount_value: stackedDiscountRate,
-                     discount_amount: itemDiscountAmt,
-                     taxable_value: taxableValue,
-                     gst_amount: itemGstAmt
-                 };
+                const localDiscount = itemDiscounts[item.id] || 0;
+                const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
+
+                if (baseItemPrice > 0) {
+                    itemDiscountAmt = baseItemPrice * (stackedDiscountRate / 100);
+                    taxableValue = baseItemPrice - itemDiscountAmt;
+
+                    const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
+                    const waiverPerc = itemTaxDiscounts[item.id] || 0;
+                    itemGstAmt = taxableValue * (itemSysTaxRate / 100) * (1 - (waiverPerc / 100));
+                    taxAmt += itemGstAmt;
+                    totalDiscountAmt += itemDiscountAmt;
+                }
+
+                return {
+                    item_id: item.id,
+                    line_item_price: baseItemPrice,
+                    discount_type: stackedDiscountRate > 0 ? "percentage" : null,
+                    discount_value: stackedDiscountRate,
+                    discount_amount: itemDiscountAmt,
+                    taxable_value: taxableValue,
+                    gst_amount: itemGstAmt
+                };
             });
 
             await api(`/admin/inquiries/${selected.id}/quote`, {
                 method: "PATCH",
-                body: JSON.stringify({ 
-                    total_price: parseFloat(quoteForm.amount), 
-                    admin_notes: quoteForm.notes || null, 
+                body: JSON.stringify({
+                    total_price: parseFloat(quoteForm.amount),
+                    admin_notes: quoteForm.notes || null,
                     valid_days: parseInt(quoteForm.validDays) || 7,
                     tax_amount: taxAmt,
                     discount_amount: totalDiscountAmt,
@@ -444,7 +455,7 @@ export default function InquiryDetail() {
             <div className="grid grid-cols-12 gap-10">
                 {/* Left Column (7/12) */}
                 <div className="col-span-12 lg:col-span-7 space-y-8">
-                    
+
                     {/* User Information Card */}
                     <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 shadow-sm border border-[#eceef0] dark:border-[#434655]/20 transition-colors">
                         <div className="flex items-center justify-between mb-6">
@@ -491,7 +502,7 @@ export default function InquiryDetail() {
                                 const gstRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
                                 const itemTotal = item.total_estimated_price || (unitPrice * item.quantity);
                                 const itemTax = item.computed_tax_amount || (itemTotal * gstRate / 100);
-                                
+
                                 const currentBase = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || itemTotal || 0);
                                 const currentLocalDisc = itemDiscounts[item.id] || 0;
                                 const currentStackedRate = Math.min(100, discountPercentage + currentLocalDisc);
@@ -499,95 +510,95 @@ export default function InquiryDetail() {
                                 const currentTaxable = currentBase - currentDiscAmount;
                                 const currentWaiver = itemTaxDiscounts[item.id] || 0;
                                 const currentGstAmt = currentTaxable * (gstRate / 100) * (1 - (currentWaiver / 100));
-                                
+
                                 return (
-                                <div key={item.id} className="p-5 rounded-xl border border-[#eceef0] dark:border-[#434655]/20 bg-[#f7f9fb] dark:bg-[#060e20] group hover:border-[#0058be]/30 transition-colors">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-14 h-14 rounded-lg overflow-hidden border border-[#eceef0] dark:border-[#434655]/20 shrink-0 bg-white dark:bg-[#131b2e]">
-                                                {itemImage ? (
-                                                    <img src={itemImage} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center">
-                                                        {item.service_id ? <Layers size={22} className="text-[#0058be] dark:text-[#adc6ff]" /> : <Package size={22} className="text-[#0058be] dark:text-[#adc6ff]" />}
+                                    <div key={item.id} className="p-5 rounded-xl border border-[#eceef0] dark:border-[#434655]/20 bg-[#f7f9fb] dark:bg-[#060e20] group hover:border-[#0058be]/30 transition-colors">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-14 h-14 rounded-lg overflow-hidden border border-[#eceef0] dark:border-[#434655]/20 shrink-0 bg-white dark:bg-[#131b2e]">
+                                                    {itemImage ? (
+                                                        <img src={itemImage} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            {item.service_id ? <Layers size={22} className="text-[#0058be] dark:text-[#adc6ff]" /> : <Package size={22} className="text-[#0058be] dark:text-[#adc6ff]" />}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-[#191c1e] dark:text-[#dae2fd] text-sm">{item.subproduct_name || item.product_name || item.subservice_name || item.service_name || "Custom Item"}</h4>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        {item.hsn_code && (
+                                                            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 dark:bg-[#434655]/20 text-slate-500 dark:text-[#c3c5d8] rounded border border-slate-200 dark:border-[#434655]/30">HSN: {item.hsn_code}</span>
+                                                        )}
+                                                        {item.variant_name && <span className="text-[10px] text-[#424754] dark:text-[#c3c5d8] font-medium opacity-70">{item.variant_name}</span>}
                                                     </div>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-[#191c1e] dark:text-[#dae2fd] text-sm">{item.subproduct_name || item.product_name || item.subservice_name || item.service_name || "Custom Item"}</h4>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    {item.hsn_code && (
-                                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 dark:bg-[#434655]/20 text-slate-500 dark:text-[#c3c5d8] rounded border border-slate-200 dark:border-[#434655]/30">HSN: {item.hsn_code}</span>
-                                                    )}
-                                                    {item.variant_name && <span className="text-[10px] text-[#424754] dark:text-[#c3c5d8] font-medium opacity-70">{item.variant_name}</span>}
-                                                </div>
-                                                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                                                    <span className="text-[10px] font-bold text-[#424754]/60 dark:text-[#c3c5d8]/60 uppercase tracking-wider">Qty: {item.quantity}</span>
-                                                    {catalogPrice > 0 && (
-                                                        <span className="text-[10px] font-bold text-slate-400 dark:text-[#c3c5d8]/40 uppercase tracking-wider">Base: ₹{catalogPrice.toLocaleString()}/unit</span>
-                                                    )}
-                                                    {unitPrice > 0 && unitPrice !== catalogPrice && (
-                                                        <span className="text-[10px] font-bold text-blue-500 dark:text-[#adc6ff] uppercase tracking-wider">Calc: ₹{unitPrice.toLocaleString()}/unit</span>
-                                                    )}
+                                                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                                        <span className="text-[10px] font-bold text-[#424754]/60 dark:text-[#c3c5d8]/60 uppercase tracking-wider">Qty: {item.quantity}</span>
+                                                        {catalogPrice > 0 && (
+                                                            <span className="text-[10px] font-bold text-slate-400 dark:text-[#c3c5d8]/40 uppercase tracking-wider">Base: ₹{catalogPrice.toLocaleString()}/unit</span>
+                                                        )}
+                                                        {unitPrice > 0 && unitPrice !== catalogPrice && (
+                                                            <span className="text-[10px] font-bold text-blue-500 dark:text-[#adc6ff] uppercase tracking-wider">Calc: ₹{unitPrice.toLocaleString()}/unit</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase">Base (₹)</label>
-                                                <input 
-                                                    type="number"
-                                                    className="w-24 bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/40 rounded p-1.5 text-right text-sm font-bold text-slate-900 dark:text-[#dae2fd] focus:border-blue-500 outline-none"
-                                                    value={currentBase}
-                                                    onChange={e => setItemPrices(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
-                                                />
-                                            </div>
-                                            <div className="flex flex-col items-end w-32 gap-1 mt-1">
-                                                <div className="flex items-center justify-between w-full">
-                                                    <label className="text-[9px] font-bold text-slate-400 uppercase">Item Disc</label>
-                                                    <span className="text-[9px] font-bold text-blue-500">{itemDiscounts[item.id] || 0}%</span>
-                                                </div>
-                                                <input 
-                                                    type="range"
-                                                    className="w-full accent-blue-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                                                    min="0" max="100"
-                                                    value={itemDiscounts[item.id] || 0}
-                                                    onChange={e => setItemDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) }))}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {/* Tax & pricing info bar */}
-                                    <div className="mt-4 flex items-center justify-between border-t border-[#eceef0] dark:border-[#434655]/20 pt-3">
-                                        <div className="flex items-center gap-3 flex-wrap">
-                                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded">
-                                                Taxable: ₹{currentTaxable.toLocaleString(undefined, {maximumFractionDigits: 2})}
-                                            </span>
-                                            {gstRate > 0 ? (
+                                            <div className="text-right shrink-0 flex flex-col items-end gap-2">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8]">
-                                                        CGST: {item.cgst_rate || 0}% + SGST: {item.sgst_rate || 0}%
-                                                    </span>
-                                                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 border border-amber-200/50 bg-amber-50 px-2 py-0.5 rounded">
-                                                        Tax: ₹{currentGstAmt.toLocaleString(undefined, {maximumFractionDigits: 2})}
-                                                    </span>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Base (₹)</label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-24 bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/40 rounded p-1.5 text-right text-sm font-bold text-slate-900 dark:text-[#dae2fd] focus:border-blue-500 outline-none"
+                                                        value={currentBase}
+                                                        onChange={e => setItemPrices(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
+                                                    />
                                                 </div>
-                                            ) : (
-                                                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#c3c5d8]/40">GST: Exempt</span>
-                                            )}
-                                            <select 
-                                                className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/30 rounded px-2 py-1 text-[10px] font-bold text-slate-900 dark:text-[#dae2fd] outline-none h-6 uppercase tracking-wider"
-                                                value={itemTaxDiscounts[item.id] || 0}
-                                                onChange={e => setItemTaxDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) }))}>
-                                                <option value="0">Default Tax</option>
-                                                <option value="100">Waive Tax</option>
-                                            </select>
+                                                <div className="flex flex-col items-end w-32 gap-1 mt-1">
+                                                    <div className="flex items-center justify-between w-full">
+                                                        <label className="text-[9px] font-bold text-slate-400 uppercase">Item Disc</label>
+                                                        <span className="text-[9px] font-bold text-blue-500">{itemDiscounts[item.id] || 0}%</span>
+                                                    </div>
+                                                    <input
+                                                        type="range"
+                                                        className="w-full accent-blue-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                                                        min="0" max="100"
+                                                        value={itemDiscounts[item.id] || 0}
+                                                        onChange={e => setItemDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) }))}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} onApplyPrice={(p) => setItemPrices(prev => ({ ...prev, [item.id]: p }))} />
+                                        {/* Tax & pricing info bar */}
+                                        <div className="mt-4 flex items-center justify-between border-t border-[#eceef0] dark:border-[#434655]/20 pt-3">
+                                            <div className="flex items-center gap-3 flex-wrap">
+                                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded">
+                                                    Taxable: ₹{currentTaxable.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                                </span>
+                                                {gstRate > 0 ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8]">
+                                                            CGST: {item.cgst_rate || 0}% + SGST: {item.sgst_rate || 0}%
+                                                        </span>
+                                                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 border border-amber-200/50 bg-amber-50 px-2 py-0.5 rounded">
+                                                            Tax: ₹{currentGstAmt.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#c3c5d8]/40">GST: Exempt</span>
+                                                )}
+                                                <select
+                                                    className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/30 rounded px-2 py-1 text-[10px] font-bold text-slate-900 dark:text-[#dae2fd] outline-none h-6 uppercase tracking-wider"
+                                                    value={itemTaxDiscounts[item.id] || 0}
+                                                    onChange={e => setItemTaxDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) }))}>
+                                                    <option value="0">Default Tax</option>
+                                                    <option value="100">Waive Tax</option>
+                                                </select>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <ItemCalculator item={item} subProducts={subProducts} subServices={subServices} onApplyPrice={(p) => setItemPrices(prev => ({ ...prev, [item.id]: p }))} />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
                                 );
                             })}
                             {/* Total Summary */}
@@ -595,7 +606,7 @@ export default function InquiryDetail() {
                                 let totalTaxable = 0;
                                 let totalTax = 0;
                                 let totalBase = 0;
-                                
+
                                 selected.items.forEach(item => {
                                     const currentBase = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
                                     totalBase += currentBase;
@@ -604,39 +615,39 @@ export default function InquiryDetail() {
                                     const currentDiscAmount = currentBase * (currentStackedRate / 100);
                                     const currentTaxable = currentBase - currentDiscAmount;
                                     totalTaxable += currentTaxable;
-                                    
+
                                     const gstRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
                                     const currentWaiver = itemTaxDiscounts[item.id] || 0;
                                     totalTax += currentTaxable * (gstRate / 100) * (1 - (currentWaiver / 100));
                                 });
-                                
+
                                 const discountAmt = totalBase - totalTaxable;
 
                                 return (
                                     <div className="pt-4 border-t border-[#eceef0] dark:border-[#434655]/20 space-y-2">
                                         <div className="flex items-center justify-between">
                                             <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-[#c3c5d8]">Base Contract</span>
-                                            <span className="text-sm font-bold text-slate-800 dark:text-[#dae2fd]">₹{totalBase.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                            <span className="text-sm font-bold text-slate-800 dark:text-[#dae2fd]">₹{totalBase.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                         </div>
                                         {discountAmt > 0 && (
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-blue-600 dark:text-blue-400">Total Discount</span>
-                                                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">-₹{discountAmt.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">-₹{discountAmt.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between">
                                             <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400">Taxable Value</span>
-                                            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₹{totalTaxable.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₹{totalTaxable.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                         </div>
                                         {totalTax > 0 && (
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-amber-600 dark:text-amber-400">GST (CGST + SGST)</span>
-                                                <span className="text-sm font-bold text-amber-600 dark:text-amber-400">+₹{totalTax.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                                <span className="text-sm font-bold text-amber-600 dark:text-amber-400">+₹{totalTax.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-[#434655]/20 mt-2">
                                             <span className="text-[12px] font-black uppercase tracking-[0.15em] text-slate-800 dark:text-[#dae2fd]">Grand Total (Realtime)</span>
-                                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">₹{(totalTaxable + totalTax).toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">₹{(totalTaxable + totalTax).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                         </div>
                                     </div>
                                 );
@@ -652,7 +663,7 @@ export default function InquiryDetail() {
                         </div>
                         <div className="border-l-2 border-[#eceef0] dark:border-[#434655]/20 ml-4 space-y-12">
                             {(selected.quote_versions?.length || 0) > 0 ? (
-                                [...(selected.quote_versions || [])].sort((a,b) => b.version - a.version).map((vq, idx) => (
+                                [...(selected.quote_versions || [])].sort((a, b) => b.version - a.version).map((vq, idx) => (
                                     <div key={vq.id} className={`relative pl-10 ${idx !== 0 ? 'opacity-60 grayscale-[0.5]' : ''}`}>
                                         <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full ring-4 ring-white dark:ring-[#131b2e] transition-all ${idx === 0 ? 'bg-[#0058be] scale-110 shadow-[0_0_10px_rgba(0,88,190,0.3)]' : 'bg-[#d8dadc] dark:bg-slate-700'}`}></div>
                                         <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
@@ -716,7 +727,7 @@ export default function InquiryDetail() {
                             })}
                             <div ref={messagesEndRef} />
                         </div>
-                        
+
                         {remoteTyping && (
                             <div className="px-6 py-2 bg-slate-50 dark:bg-[#0b1326]/50 border-t border-slate-200/50 dark:border-[#434655]/10 shrink-0">
                                 <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 px-3 py-2 w-fit rounded-xl rounded-bl-none flex items-center shadow-sm">
@@ -730,8 +741,8 @@ export default function InquiryDetail() {
                         )}
                         <div className="p-6 bg-white dark:bg-[#131b2e] border-t border-slate-100 dark:border-[#434655]/20 transition-colors">
                             <div className="relative group">
-                                <textarea 
-                                    className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/20 rounded-xl p-4 pr-16 text-sm dark:text-[#dae2fd] focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24 resize-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 dark:text-[#c3c5d8]/30" 
+                                <textarea
+                                    className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/20 rounded-xl p-4 pr-16 text-sm dark:text-[#dae2fd] focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24 resize-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 dark:text-[#c3c5d8]/30"
                                     placeholder="Draft a message to the client..."
                                     value={reply}
                                     onChange={handleTyping}
@@ -770,9 +781,9 @@ export default function InquiryDetail() {
                                             <label className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50">Global Discount Slider</label>
                                             <span className="text-[11px] font-black text-blue-600 dark:text-blue-400">{discountPercentage}%</span>
                                         </div>
-                                        <input 
-                                            className="w-full h-2 bg-slate-200 dark:bg-slate-700/50 rounded-lg appearance-none cursor-pointer accent-blue-600" 
-                                            type="range" 
+                                        <input
+                                            className="w-full h-2 bg-slate-200 dark:bg-slate-700/50 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                            type="range"
                                             min="0" max="100"
                                             value={discountPercentage}
                                             onChange={e => setDiscountPercentage(parseFloat(e.target.value) || 0)}
@@ -782,9 +793,9 @@ export default function InquiryDetail() {
                                         <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2 group-focus-within/field:text-blue-600 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff] transition-colors">Total Contract Value (INR)</label>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300 dark:text-[#424754]/30 group-focus-within/field:text-blue-600/50 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff]/50 transition-colors">₹</span>
-                                            <input 
+                                            <input
                                                 className={`w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl pl-9 pr-4 py-3.5 font-black text-lg focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-blue-400 dark:border-[#adc6ff] ${showWarning ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-[#dae2fd]'} transition-all outline-none`}
-                                                type="number" 
+                                                type="number"
                                                 value={quoteForm.amount}
                                                 onChange={e => setQuoteForm({ ...quoteForm, amount: e.target.value })}
                                                 placeholder="0.00"
@@ -799,15 +810,15 @@ export default function InquiryDetail() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">Validity Days</label>
-                                            <input 
-                                                className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl px-4 py-3 text-sm font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-blue-400 dark:border-[#adc6ff] text-slate-900 dark:text-[#dae2fd] transition-all outline-none" 
-                                                type="number" 
+                                            <input
+                                                className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl px-4 py-3 text-sm font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-blue-400 dark:border-[#adc6ff] text-slate-900 dark:text-[#dae2fd] transition-all outline-none"
+                                                type="number"
                                                 value={quoteForm.validDays}
                                                 onChange={e => setQuoteForm({ ...quoteForm, validDays: e.target.value })}
                                             />
                                         </div>
                                         <div className="flex items-end">
-                                            <button 
+                                            <button
                                                 onClick={sendQuote}
                                                 disabled={sending || !quoteForm.amount}
                                                 className="w-full h-[46px] bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
@@ -818,9 +829,9 @@ export default function InquiryDetail() {
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2">Proposal Narrative</label>
-                                        <Textarea 
-                                            placeholder="Outline the core logic for the client..." 
-                                            value={quoteForm.notes} 
+                                        <Textarea
+                                            placeholder="Outline the core logic for the client..."
+                                            value={quoteForm.notes}
                                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setQuoteForm({ ...quoteForm, notes: e.target.value })}
                                             className="min-h-[100px] text-xs bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/20 focus:ring-2 focus:ring-blue-500 dark:text-[#dae2fd] p-4 font-medium leading-relaxed transition-all"
                                         />
@@ -830,10 +841,10 @@ export default function InquiryDetail() {
 
                             <div className="flex flex-col gap-2">
                                 <label className="text-[10px] font-bold text-slate-500 dark:text-[#c3c5d8] uppercase tracking-[0.2em]">Manual State Override</label>
-                                <select 
+                                <select
                                     className="w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-500 dark:focus:border-blue-400 dark:border-[#adc6ff] transition-colors appearance-none"
                                     onChange={(e) => {
-                                        if(window.confirm(`Are you sure you want to change status to ${e.target.value}?`)) {
+                                        if (window.confirm(`Are you sure you want to change status to ${e.target.value}?`)) {
                                             transitionStatus(e.target.value);
                                         }
                                     }}
@@ -849,7 +860,7 @@ export default function InquiryDetail() {
                         </div>
                     </section>
 
-                     {/* Internal Notes */}
+                    {/* Internal Notes */}
                     <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 shadow-sm border border-slate-200 dark:border-[#434655]/20 transition-colors">
                         <div className="flex items-center justify-between mb-8">
                             <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-[#c3c5d8]">Internal Intelligence</h3>

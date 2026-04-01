@@ -431,7 +431,7 @@ export default async function CustomizeProductPage({
                                                         : section.type === 'radio' && optionCount > 0
                                                             ? `${optionCount} variants to choose from.`
                                                             : section.type === 'number_input'
-                                                                ? `Custom quantity${section.min_val !== undefined ? ` (min: ${section.min_val})` : ''}${section.max_val !== undefined ? ` (max: ${section.max_val})` : ''}.${section.price_per_unit ? ` ₹${section.price_per_unit}/unit.` : ''}`
+                                                                ? `Custom quantity${section.min_val !== undefined ? ` (min: ${section.min_val})` : ''}${section.max_val !== undefined ? ` (max: ${section.max_val})` : ''}.${section.default_val !== undefined ? ` Base: ${section.default_val}.` : ''}${section.price_per_unit ? ` ₹${section.price_per_unit}/unit delta.` : ''}`
                                                                 : 'Enter your custom value.'
                                                     }
                                                 </p>

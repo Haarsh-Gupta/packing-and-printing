@@ -455,7 +455,7 @@ export default function InquiryDetailPage() {
                                         const gstRate = (it.cgst_rate || 0) + (it.sgst_rate || 0);
                                         const taxAmt = it.computed_tax_amount || (lineTotal * gstRate / 100);
                                         const displayPrice = it.line_item_price || lineTotal;
-                                        
+
                                         return (
                                             <div key={it.id} className="bg-zinc-50 border-2 border-zinc-200 p-4 space-y-3">
                                                 {/* ITEM HEADER WITH IMAGE */}
@@ -508,7 +508,7 @@ export default function InquiryDetailPage() {
                                                     {gstRate > 0 && (
                                                         <div className="flex items-center justify-between text-[11px]">
                                                             <span className="text-zinc-500 font-bold">GST ({gstRate}%)</span>
-                                                            <span className="font-bold text-amber-700">+₹{taxAmt.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                                            <span className="font-bold text-amber-700">+₹{taxAmt.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
                                                     {it.line_item_price && it.line_item_price !== lineTotal && (

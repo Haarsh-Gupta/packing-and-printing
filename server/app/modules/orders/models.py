@@ -22,6 +22,7 @@ class Order(Base):
     amount_paid = Column(Double, default=0.0) # Cache: Sum of related Transactions
     status = Column(String, default='WAITING_PAYMENT')
     split_type = Column(String, default='HALF')  # FULL, HALF, CUSTOM — prevents accidental overwrite
+    is_custom_milestone_requested = Column(Boolean, default=False, nullable=False)
     payment_gateway_order_id = Column(String, nullable=True, unique=True, index=True)
     admin_notes = Column(String, nullable=True)
     is_offline = Column(Boolean, default=False, nullable=False)
@@ -55,6 +56,7 @@ class OrderMilestone(Base):
     __tablename__ = 'order_milestones'
     id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
     order_id = Column(Uuid, ForeignKey('orders.id', ondelete="CASCADE"), nullable=False, index=True)
+    split_type = Column(String, nullable=False, default='HALF')
     
     label = Column(String, nullable=False) # e.g., "Advance (50%)", "Dispatch (50%)"
     percentage = Column(Double, nullable=False) # Source of truth
@@ -65,8 +67,8 @@ class OrderMilestone(Base):
     paid_at = Column(DateTime(timezone=True), nullable=True)
     due_date = Column(DateTime(timezone=True), nullable=True)  # Optional scheduled payment date
     
-    # Ensure milestone sequence is unique per order
-    __table_args__ = (UniqueConstraint('order_id', 'order_index', name='uix_order_milestone_index'),)
+    # Ensure milestone sequence is unique per order and split_type
+    __table_args__ = (UniqueConstraint('order_id', 'split_type', 'order_index', name='uix_order_milestone_split_index'),)
     
     order = relationship("Order", back_populates="milestones")
     transactions = relationship("Transaction", back_populates="milestone")
