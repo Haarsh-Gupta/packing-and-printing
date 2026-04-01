@@ -110,6 +110,10 @@ class OrderService:
 
         milestones = _build_milestones(order.id, order.total_amount, payload)
         self.db.add_all(milestones)
+
+        # Track split_type on the order
+        order.split_type = payload.split_type.value
+
         await self.db.flush()
         await self.db.refresh(order, ['milestones'])
 
@@ -191,6 +195,7 @@ class OrderService:
             shipping_amount=payload.shipping_amount,
             discount_amount=payload.discount_amount,
             status="WAITING_PAYMENT",
+            split_type=payload.split_type.value,
             is_offline=True,
         )
         self.db.add(order)
@@ -215,6 +220,7 @@ class OrderService:
         """
         Switch user payment schedule between FULL and HALF.
         This must be done before any payments are made.
+        CUSTOM milestones (admin-set) cannot be overwritten by user.
         """
         from app.modules.orders.schemas import PaymentSplitType, AdminMilestoneCreateRequest, MilestoneDefinition
 
@@ -226,6 +232,13 @@ class OrderService:
 
         if split_type == PaymentSplitType.CUSTOM:
             raise ValueError("Users cannot switch to custom milestones. Contact admin.")
+
+        # Guard: block user from overwriting admin-set CUSTOM milestones
+        if getattr(order, 'split_type', None) == "CUSTOM":
+            raise ValueError(
+                "Custom payment schedule was set by admin. "
+                "Contact admin to change your payment schedule."
+            )
 
         # Delete existing milestones
         await self.db.execute(delete(OrderMilestone).where(OrderMilestone.order_id == order.id))
@@ -247,6 +260,10 @@ class OrderService:
             ))
         else:
             raise ValueError(f"Invalid split_type: {split_type}")
+
+        # Track split_type on the order
+        order.split_type = split_type.value
+
         self.db.add_all(milestones)
         await self.db.flush()
         await self.db.refresh(order, ['milestones'])
@@ -266,10 +283,14 @@ def _build_milestones(order_id, total_amount, payload):
     for i, m in enumerate(payload.milestones, start=1):
         amount = round((m.percentage / 100.0) * total_amount, 2)
         running += amount
-        milestones.append(OrderMilestone(
+        milestone = OrderMilestone(
             order_id=order_id, label=m.label, percentage=m.percentage,
             amount=amount, order_index=i, status=MilestoneStatus.UNPAID,
-        ))
+        )
+        # Pass through due_date if present
+        if hasattr(m, 'due_date') and m.due_date is not None:
+            milestone.due_date = m.due_date
+        milestones.append(milestone)
     if milestones:
         diff = round(total_amount - running, 2)
         if diff != 0:

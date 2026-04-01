@@ -61,6 +61,7 @@ class MilestoneDefinition(BaseModel):
     """One milestone in a CUSTOM split."""
     label: str = Field(..., min_length=2, max_length=80)
     percentage: float = Field(..., gt=0, le=100)
+    due_date: Optional[datetime] = None
 
 
 # ── Order creation ────────────────────────────────────────────────────────────
@@ -380,6 +381,7 @@ class OrderMilestoneResponse(BaseModel):
     order_index: int
     status: MilestoneStatus
     paid_at: Optional[datetime]
+    due_date: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -410,6 +412,7 @@ class OrderResponse(BaseModel):
     discount_amount: Optional[float] = 0.0
     amount_paid: float
     status: OrderStatus
+    split_type: Optional[str] = None
     admin_notes: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -435,6 +438,7 @@ class OrderListResponse(BaseModel):
     discount_amount: Optional[float] = 0.0
     amount_paid: float
     status: OrderStatus
+    split_type: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

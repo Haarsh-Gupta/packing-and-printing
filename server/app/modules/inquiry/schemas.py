@@ -46,6 +46,7 @@ class ProposedMilestone(BaseModel):
     percentage:  float = Field(..., gt=0, le=100)
     description: Optional[str] = Field(None, max_length=200)
     trigger:     Optional[str] = None
+    due_date:    Optional[datetime] = None
     
 
 
@@ -57,6 +58,22 @@ class QuoteLineItemCreate(BaseModel):
     discount_amount: float = Field(default=0.0, description="The computed ₹ value of the discount")
     taxable_value: float = Field(..., description="line_item_price - discount_amount")
     gst_amount: float = Field(..., description="Tax calculated on the taxable_value")
+
+    @model_validator(mode="after")
+    def validate_line_item_pricing(self):
+        if self.discount_type not in ["percentage", "amount"]:
+            raise ValueError("discount_type must be 'percentage' or 'amount'")
+        if self.discount_type == "percentage":
+            if not (0 <= self.discount_value <= 100):
+                raise ValueError("discount_value must be between 0 and 100 for percentage discount")
+        # else:
+        #     if self.discount_value < 0:
+        #         raise ValueError("discount_value must be non-negative for amount discount")
+        # if self.taxable_value != self.line_item_price - self.discount_amount:
+        #     raise ValueError("taxable_value must be equal to line_item_price - discount_amount")
+        # if self.gst_amount != self.taxable_value * (self.cgst_rate + self.sgst_rate) / 100:
+        #     raise ValueError("gst_amount must be equal to taxable_value * (cgst_rate + sgst_rate) / 100")
+        # return self
 
 
 class QuoteVersionCreate(BaseModel):

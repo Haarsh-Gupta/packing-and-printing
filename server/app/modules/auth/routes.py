@@ -164,7 +164,7 @@ async def logout(request: Request, response: Response, db : AsyncSession = Depen
 @router.get("/google/login")
 async def google_login(request: Request, redirect_to: str = None):
     redirect_uri = str(request.url_for("auth_google_callback"))
-    if "localhost" not in redirect_uri:
+    if "localhost" not in redirect_uri and "127.0.0.1" not in redirect_uri:
         redirect_uri = redirect_uri.replace("http://", "https://")
     
     if not redirect_to:

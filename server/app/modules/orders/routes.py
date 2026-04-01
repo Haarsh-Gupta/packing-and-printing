@@ -297,7 +297,11 @@ async def get_invoice(
     inquiry_stmt = (
         select(InquiryGroup)
         .options(
-            selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_product)
+            selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_product),
+            selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_service),
+            selectinload(InquiryGroup.items).selectinload(InquiryItem.product),
+            selectinload(InquiryGroup.items).selectinload(InquiryItem.service),
+            selectinload(InquiryGroup.active_quote),
         )
         .where(InquiryGroup.id == order.inquiry_id)
     )
@@ -305,6 +309,12 @@ async def get_invoice(
 
     items = []
     if inquiry:
+        # Build discount map from QuoteVersion line_items
+        discount_map = {}
+        if inquiry.active_quote and inquiry.active_quote.line_items:
+            for li in inquiry.active_quote.line_items:
+                discount_map[str(li.get("item_id"))] = li
+
         for itm in inquiry.items:
             # Determine the source entity (sub_product or sub_service) for HSN/GST
             sp = itm.sub_product
@@ -324,6 +334,9 @@ async def get_invoice(
                     if v not in (None, "", False):
                         specs_parts.append(f"{k}: {v}")
             specs = " · ".join(specs_parts) if specs_parts else ""
+            
+            # Fetch precision quote discount overrides
+            disc_info = discount_map.get(str(itm.id), {})
 
             items.append({
                 "description": name,
@@ -336,6 +349,10 @@ async def get_invoice(
                 "cgst_rate": float(getattr(source, "cgst_rate", 0) or 0),
                 "sgst_rate": float(getattr(source, "sgst_rate", 0) or 0),
                 "igst_rate": float(getattr(source, "cgst_rate", 0) or 0) + float(getattr(source, "sgst_rate", 0) or 0),
+                "discount_amount": float(disc_info.get("discount_amount") or 0.0),
+                "discount_type": disc_info.get("discount_type"),
+                "discount_value": float(disc_info.get("discount_value") or 0.0),
+                "taxable_value": float(disc_info.get("taxable_value")) if disc_info.get("taxable_value") is not None else None,
             })
 
     # Logo path: configurable via env or placed in server/static/logo.png
@@ -359,6 +376,15 @@ async def get_invoice(
                 "shipping_amount": float(order.shipping_amount or 0),
                 "order_discount": float(order.discount_amount or 0),
                 "amount_paid": float(order.amount_paid or 0),
+                "milestones": [
+                    {
+                        "label": m.label,
+                        "percentage": float(m.percentage),
+                        "amount": float(m.amount),
+                        "status": m.status,
+                    }
+                    for m in sorted(order.milestones, key=lambda x: x.order_index)
+                ] if getattr(order, 'milestones', None) else [],
             },
             "company_info": {
                 "name": settings.company_name,

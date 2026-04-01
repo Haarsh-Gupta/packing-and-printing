@@ -63,10 +63,18 @@ HP, RP, SP = 5, 5, 2   # header / regular / summary
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def _grand_total(items: List[Dict], order_data: Dict) -> float:
     """Compute invoice grand total from line items + shipping - order discount."""
-    line_total = lambda i: float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
-    subtotal = sum(line_total(i) for i in items)
+    def line_taxable(i):
+        # Use explicit taxable_value if provided, otherwise fallback to (rate*qty - discount)
+        val = i.get("taxable_value")
+        if val is not None:
+            return float(val)
+        net = float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
+        disc = float(i.get("discount_amount", 0))
+        return max(0.0, net - disc)
+
+    subtotal = sum(line_taxable(i) for i in items)
     tax = sum(
-        line_total(i) * (
+        line_taxable(i) * (
             float(i.get("cgst_rate", 0)) +
             float(i.get("sgst_rate", 0)) +
             float(i.get("igst_rate", 0))
@@ -74,7 +82,8 @@ def _grand_total(items: List[Dict], order_data: Dict) -> float:
         for i in items
     )
     shipping   = float(order_data.get("shipping_amount", 0) or 0)
-    order_disc = float(order_data.get("order_discount",  0) or 0)
+    # Order discounts ignored if line items have explicit discounts to avoid double dipping
+    order_disc = float(order_data.get("order_discount",  0) or 0) if not any("discount_amount" in i for i in items) else 0.0
     return round(subtotal + tax + shipping - order_disc, 2)
 
 
@@ -181,6 +190,8 @@ class TaxInvoiceGenerator:
         s += self._taxes_table(items, U)
         s.append(Spacer(1, 4))
         s += self._financial_summary(items, order_data, U)
+        s.append(Spacer(1, 4))
+        s += self._milestones_table(order_data, U)
         s.append(Spacer(1, 4))
         s += self._declaration_block(items, order_data, U)
         s.append(Spacer(1, 3))
@@ -289,31 +300,46 @@ class TaxInvoiceGenerator:
         return [box]
 
     # ── S3: Items table ────────────────────────────────────────────────────────
-    # Cols: S.No | Description + Specs | HSN/SAC | Quantity | Rate | Amount
+    # Cols: S.No | Description + Specs | HSN/SAC | Quantity | Base Rate | Discount | Taxable Value
     def _items_table(self, items, U):
         elems = [Paragraph("Items", self.styles["SecHdr"])]
 
         NUM  = 0.28*inch
-        HSN  = 0.78*inch
-        QTY  = 0.72*inch
-        RATE = 0.80*inch
-        AMT  = 1.05*inch          # shared with taxes table
-        DESC = U - NUM - HSN - QTY - RATE - AMT
-        cw   = [NUM, DESC, HSN, QTY, RATE, AMT]
+        HSN  = 0.60*inch
+        QTY  = 0.45*inch
+        RATE = 0.70*inch
+        DISC = 0.70*inch
+        TVAL = 0.75*inch
+        DESC = U - NUM - HSN - QTY - RATE - DISC - TVAL
+        cw   = [NUM, DESC, HSN, QTY, RATE, DISC, TVAL]
 
         def _h(txt, al=TA_CENTER):
             return Paragraph(txt, ParagraphStyle("_ih", parent=self.styles["Normal"],
                 fontName=BLD, fontSize=7.5, textColor=WHITE, alignment=al, leading=10))
 
         data = [[_h("S.No"), _h("Description of Goods", TA_LEFT),
-                 _h("HSN/SAC"), _h("Quantity"), _h("Rate"), _h("Amount")]]
+                 _h("HSN/SAC"), _h("Qty"), _h("Base Rate"), _h("Discount"), _h("Taxable Value")]]
 
-        subtotal = 0.0
+        subtotal_taxable = 0.0
+        subtotal_discount = 0.0
+        
         for idx, item in enumerate(items, 1):
             qty  = float(item.get("quantity", 1))
             rate = float(item.get("unit_price", 0))
             net  = rate * qty
-            subtotal += net
+            
+            disc_amt = float(item.get("discount_amount", 0))
+            disc_type = item.get("discount_type")
+            disc_val = float(item.get("discount_value", 0))
+            
+            tax_val = item.get("taxable_value")
+            if tax_val is not None:
+                taxable = float(tax_val)
+            else:
+                taxable = max(0.0, net - disc_amt)
+
+            subtotal_taxable += taxable
+            subtotal_discount += disc_amt
 
             desc = item.get("description", "Item")
             if item.get("variant"): desc += f" ({item['variant']})"
@@ -332,38 +358,50 @@ class TaxInvoiceGenerator:
                 desc_cell = Paragraph(desc, self.styles["TC"])
 
             qty_str = f"{qty:.0f}" + (f" {item['unit']}" if item.get("unit") else " Nos")
+            
+            if disc_amt > 0:
+                if disc_type == "percentage" and disc_val > 0:
+                    disc_str = f"{disc_val:g}% (-₹{disc_amt:,.2f})"
+                else:
+                    disc_str = f"-₹{disc_amt:,.2f}"
+            else:
+                disc_str = "—"
+
             data.append([
                 Paragraph(str(idx),         self.styles["TCC"]),
                 desc_cell,
                 Paragraph(str(item.get("hsn_sac", "")), self.styles["TCC"]),
                 Paragraph(qty_str,          self.styles["TCC"]),
-                Paragraph(f"\u20b9{rate:,.2f}",  self.styles["TCR"]),
-                Paragraph(f"\u20b9{net:,.2f}",   self.styles["TBR"]),
+                Paragraph(f"\u20b9{net:,.2f}",   self.styles["TCR"]),
+                Paragraph(disc_str,         self.styles["TCR"]),
+                Paragraph(f"\u20b9{taxable:,.2f}", self.styles["TBR"]),
             ])
 
         n = len(data)   # rows so far (header + items)
 
-        # Summary rows below items: cols 0-4 span as label, col 5 = value
+        # Summary rows below items: cols 0-5 span as label, col 6 = value
         cgst_r = max((float(i.get("cgst_rate", 0)) for i in items), default=0)
         sgst_r = max((float(i.get("sgst_rate", 0)) for i in items), default=0)
         igst_r = max((float(i.get("igst_rate", 0)) for i in items), default=0)
-        cgst_a = subtotal * cgst_r / 100
-        sgst_a = subtotal * sgst_r / 100
-        igst_a = subtotal * igst_r / 100
-        grand  = subtotal + cgst_a + sgst_a + igst_a
+        cgst_a = subtotal_taxable * cgst_r / 100
+        sgst_a = subtotal_taxable * sgst_r / 100
+        igst_a = subtotal_taxable * igst_r / 100
+        grand  = subtotal_taxable + cgst_a + sgst_a + igst_a
 
         def _sr(lbl, val, bold=False):
             ls = "TBR" if bold else "TCR"
-            return [Paragraph(lbl, self.styles[ls]), "", "", "", "",
+            return [Paragraph(lbl, self.styles[ls]), "", "", "", "", "",
                     Paragraph(val, self.styles[ls])]
 
-        data.append(_sr("Subtotal:", f"\u20b9{subtotal:,.2f}"))
+        if subtotal_discount > 0:
+            data.append(_sr("Total Disc:", f"-₹{subtotal_discount:,.2f}"))
+        data.append(_sr("Subtotal (Taxable):", f"\u20b9{subtotal_taxable:,.2f}"))
         if cgst_r: data.append(_sr(f"CGST @ {cgst_r:.0f}%:", f"\u20b9{cgst_a:,.2f}"))
         if sgst_r: data.append(_sr(f"SGST @ {sgst_r:.0f}%:", f"\u20b9{sgst_a:,.2f}"))
         if igst_r: data.append(_sr(f"IGST @ {igst_r:.0f}%:", f"\u20b9{igst_a:,.2f}"))
         data.append(_sr("Total Amount Due:", f"\u20b9{grand:,.2f}", bold=True))
 
-        span_cmds = [("SPAN", (0, r), (4, r)) for r in range(n, len(data))]
+        span_cmds = [("SPAN", (0, r), (5, r)) for r in range(n, len(data))]
 
         t = Table(data, colWidths=cw, repeatRows=1)
         t.setStyle(TableStyle([
@@ -414,7 +452,16 @@ class TaxInvoiceGenerator:
         groups: Dict[str, dict] = {}
         for item in items:
             hsn = str(item.get("hsn_sac", "—"))
-            tv  = float(item.get("unit_price", 0)) * float(item.get("quantity", 1))
+            
+            qty = float(item.get("quantity", 1))
+            rate = float(item.get("unit_price", 0))
+            disc_amt = float(item.get("discount_amount", 0))
+            tax_val = item.get("taxable_value")
+            if tax_val is not None:
+                tv = float(tax_val)
+            else:
+                tv = max(0.0, (rate * qty) - disc_amt)
+                
             if hsn not in groups:
                 groups[hsn] = {"tv": 0,
                                "cgst": float(item.get("cgst_rate", 0)),
@@ -462,15 +509,18 @@ class TaxInvoiceGenerator:
     # ── S5: Financial summary (horizontal row) ─────────────────────────────────
     # Three equal cells side-by-side: Grand Total | Amount Paid | Balance Due
     def _financial_summary(self, items, order_data, U):
-        subtotal = sum(
-            float(i.get("unit_price", 0)) * float(i.get("quantity", 1)) for i in items)
+        def line_taxable(i):
+            val = i.get("taxable_value")
+            if val is not None:
+                return float(val)
+            return max(0.0, (float(i.get("unit_price", 0)) * float(i.get("quantity", 1))) - float(i.get("discount_amount", 0)))
+        
+        subtotal = sum(line_taxable(i) for i in items)
         tax = sum(
-            float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
-            * (float(i.get("cgst_rate", 0)) + float(i.get("sgst_rate", 0))
-               + float(i.get("igst_rate", 0))) / 100
+            line_taxable(i) * (float(i.get("cgst_rate", 0)) + float(i.get("sgst_rate", 0)) + float(i.get("igst_rate", 0))) / 100
             for i in items)
         shipping   = float(order_data.get("shipping_amount", 0) or 0)
-        order_disc = float(order_data.get("order_discount",  0) or 0)
+        order_disc = float(order_data.get("order_discount",  0) or 0) if not any("discount_amount" in i for i in items) else 0.0
         gross      = round(subtotal + tax + shipping - order_disc, 2)
         amount_paid= float(order_data.get("amount_paid", 0) or 0)
         balance    = max(0.0, round(gross - amount_paid, 2))
@@ -512,6 +562,86 @@ class TaxInvoiceGenerator:
             ("BOX",          (0,0),(-1,-1), 0.75, BORDER),   # same as all other tables
         ]))
         return [t]
+
+    # ── S5.5: Milestones table ─────────────────────────────────────────────────
+    def _milestones_table(self, order_data, U):
+        milestones = order_data.get("milestones", [])
+        if not milestones:
+            return []
+            
+        elems = [Paragraph("Payment Milestones", self.styles["SecHdr"])]
+        
+        M_LBL = U * 0.40
+        M_PCT = U * 0.15
+        M_DUE = U * 0.15
+        M_AMT = U * 0.15
+        M_STS = U - M_LBL - M_PCT - M_DUE - M_AMT
+        cw = [M_LBL, M_PCT, M_DUE, M_AMT, M_STS]
+
+        def _h(txt, al=TA_CENTER):
+            return Paragraph(txt, ParagraphStyle("_mh", parent=self.styles["Normal"],
+                fontName=BLD, fontSize=7.5, textColor=WHITE, alignment=al, leading=10))
+
+        data = [[_h("Milestone Description", TA_LEFT), _h("Split (%)"), 
+                 _h("Due Date"), _h("Amount"), _h("Status")]]
+                 
+        for idx, m in enumerate(milestones, 1):
+            label = m.get("label", f"Milestone {idx}")
+            pct = f"{float(m.get('percentage', 0)):g}%"
+            amt = f"₹{float(m.get('amount', 0)):,.2f}"
+            
+            # Formats the status beautifully
+            raw_status = str(m.get("status", "UNPAID")).upper()
+            if raw_status == "PAID":
+                sts_color = colors.HexColor("#065f46")  # Green
+                sts_bg = colors.HexColor("#d1fae5")
+            elif raw_status == "PENDING":
+                sts_color = colors.HexColor("#92400e")  # Amber
+                sts_bg = colors.HexColor("#fef3c7")
+            else:
+                sts_color = MUTED
+                sts_bg = colors.HexColor("#f3f4f6") # Gray
+                
+            status_p = Paragraph(raw_status, ParagraphStyle("_ms", parent=self.styles["Normal"],
+                fontName=BLD, fontSize=7, textColor=sts_color, alignment=TA_CENTER))
+
+            data.append([
+                Paragraph(label, self.styles["TC"]),
+                Paragraph(pct, self.styles["TCC"]),
+                Paragraph("Immediate", self.styles["TCC"]),  # Simplified for B2B standard
+                Paragraph(amt, self.styles["TBR"]),
+                status_p
+            ])
+
+        t = Table(data, colWidths=cw, repeatRows=1)
+        
+        # Color specific cell backgrounds for status
+        styles = [
+            ("BACKGROUND",    (0,0),(-1,0),   NAVY),
+            ("TEXTCOLOR",     (0,0),(-1,0),   WHITE),
+            ("TOPPADDING",    (0,0),(-1,0),   HP), ("BOTTOMPADDING",(0,0),(-1,0),   HP),
+            ("TOPPADDING",    (0,1),(-1,-1),  RP), ("BOTTOMPADDING",(0,1),(-1,-1),  RP),
+            ("ROWBACKGROUNDS",(0,1),(-1,-1),  [WHITE, LIGHT_BG]),
+            ("LINEBELOW",     (0,1),(-1,-2),  0.3, GRID),
+            ("BOX",           (0,0),(-1,-1),  0.75, BORDER),
+            ("VALIGN",        (0,0),(-1,-1),  "MIDDLE"),
+            ("LEFTPADDING",   (0,0),(-1,-1),  4), ("RIGHTPADDING", (0,0),(-1,-1), 4),
+        ]
+        
+        # Apply strict background colors to the Status column
+        for r, m in enumerate(milestones, 1):
+            raw_status = str(m.get("status", "UNPAID")).upper()
+            if raw_status == "PAID":
+                bg = colors.HexColor("#d1fae5")
+            elif raw_status == "PENDING":
+                bg = colors.HexColor("#fef3c7")
+            else:
+                bg = colors.HexColor("#f3f4f6")
+            styles.append(("BACKGROUND", (4, r), (4, r), bg))
+            
+        t.setStyle(TableStyle(styles))
+        elems.append(t)
+        return elems
 
     # ── S6: Declaration block ──────────────────────────────────────────────────
     # Row 1: Amount in Words (full-width)

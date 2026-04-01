@@ -86,9 +86,10 @@ async def admin_calculate_custom_price(
                 
                 elif s_type == "number_input":
                     try:
-                        qty = float(selected_val)
+                        user_val = float(selected_val)
+                        default_val = float(section.get("default_val", 0.0))
                         ppu = float(section.get("price_per_unit", 0.0))
-                        base_item_price += (qty * ppu)
+                        base_item_price += (user_val - default_val) * ppu
                     except (ValueError, TypeError):
                         pass
 

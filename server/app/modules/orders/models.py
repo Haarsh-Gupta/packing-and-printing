@@ -21,6 +21,7 @@ class Order(Base):
     discount_amount = Column(Double, default=0.0)
     amount_paid = Column(Double, default=0.0) # Cache: Sum of related Transactions
     status = Column(String, default='WAITING_PAYMENT')
+    split_type = Column(String, default='HALF')  # FULL, HALF, CUSTOM — prevents accidental overwrite
     payment_gateway_order_id = Column(String, nullable=True, unique=True, index=True)
     admin_notes = Column(String, nullable=True)
     is_offline = Column(Boolean, default=False, nullable=False)
@@ -62,6 +63,7 @@ class OrderMilestone(Base):
     
     status = Column(String, default='UNPAID') # UNPAID, PENDING (declaration submitted), PAID
     paid_at = Column(DateTime(timezone=True), nullable=True)
+    due_date = Column(DateTime(timezone=True), nullable=True)  # Optional scheduled payment date
     
     # Ensure milestone sequence is unique per order
     __table_args__ = (UniqueConstraint('order_id', 'order_index', name='uix_order_milestone_index'),)
