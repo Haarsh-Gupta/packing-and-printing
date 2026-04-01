@@ -30,7 +30,6 @@ class Order(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    # BUG-015 FIX: Add indexes on FK columns for faster joins/lookups
     __table_args__ = (
         Index('ix_orders_inquiry_id', 'inquiry_id'),
         Index('ix_orders_user_id', 'user_id'),

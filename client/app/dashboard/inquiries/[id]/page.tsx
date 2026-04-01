@@ -42,6 +42,7 @@ export default function InquiryDetailPage() {
     const [newMessage, setNewMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
     const [attachmentName, setAttachmentName] = useState<string | null>(null);
     const [wsStatus, setWsStatus] = useState<WsStatus>("disconnected");
@@ -113,7 +114,7 @@ export default function InquiryDetailPage() {
 
         const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
         const wsBase = apiBase.replace(/^http/, "ws");
-        const wsUrl = `${wsBase}/inquiries/ws/${inquiryId}`;
+        const wsUrl = `${wsBase}/inquiries/ws/${inquiryId}?token=${encodeURIComponent(token)}`;
 
         setWsStatus("connecting");
         const ws = new WebSocket(wsUrl);
@@ -174,38 +175,53 @@ export default function InquiryDetailPage() {
         }, 1500);
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
         if (file.size > 5 * 1024 * 1024) {
             showAlert("File must be under 5MB size limit", "error");
             return;
         }
+
         setIsUploading(true);
-        try {
-            const token = localStorage.getItem("access_token");
-            const formData = new FormData();
-            formData.append("file", file);
+        setUploadProgress(0);
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=inquiry`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData,
-                credentials: "include",
-            });
+        const token = localStorage.getItem("access_token");
+        const formData = new FormData();
+        formData.append("file", file);
 
-            if (res.ok) {
-                const data = await res.json();
-                setAttachmentUrl(data.url);
-                setAttachmentName(data.filename || file.name);
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=inquiry`, true);
+        if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded / event.total) * 100);
+                setUploadProgress(percentComplete);
+            }
+        };
+
+        xhr.onload = () => {
+            setIsUploading(false);
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    setAttachmentUrl(data.url);
+                    setAttachmentName(data.filename || file.name);
+                } catch {
+                    showAlert("Failed to parse upload response.", "error");
+                }
             } else {
                 showAlert("Failed to upload file.", "error");
             }
-        } catch {
-            showAlert("Upload error.", "error");
-        } finally {
+        };
+
+        xhr.onerror = () => {
             setIsUploading(false);
-        }
+            showAlert("Upload network error.", "error");
+        };
+
+        xhr.send(formData);
     };
 
     // ── Send message ─────────────────────────────────────────────────────
@@ -250,6 +266,7 @@ export default function InquiryDetailPage() {
                 setNewMessage("");
                 setAttachmentUrl(null);
                 setAttachmentName(null);
+                setUploadProgress(0);
                 if (fileInputRef.current) fileInputRef.current.value = "";
             } else if (res.status === 401) {
                 localStorage.removeItem("access_token");
@@ -623,14 +640,24 @@ export default function InquiryDetailPage() {
                                             </div>
                                             <div className="space-y-1">
                                                 <div className={`border-2 border-black p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] bg-white ${isMe ? "rounded-tr-none" : "rounded-tl-none"}`}>
-                                                    <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed">{msg.content}</p>
+                                                    {msg.content && <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed">{msg.content}</p>}
                                                     {msg.file_urls && msg.file_urls.length > 0 && (
-                                                        <div className={`mt-2 pt-2 border-t ${isMe ? 'border-zinc-200' : 'border-zinc-200'}`}>
-                                                            {msg.file_urls.map((url, i) => (
-                                                                <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline mt-1">
-                                                                    <FileText className="w-3 h-3" /> Attachment {i + 1}
-                                                                </a>
-                                                            ))}
+                                                        <div className={`mt-2 pt-2 ${msg.content ? 'border-t' : ''} ${isMe ? 'border-zinc-200' : 'border-zinc-200'}`}>
+                                                            {msg.file_urls.map((url, i) => {
+                                                                const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url) || /\/image\//i.test(url);
+                                                                return (
+                                                                    <div key={i} className="flex flex-col gap-1 fade-in">
+                                                                        {isImage ? (
+                                                                            <a href={url} target="_blank" rel="noreferrer" className="block max-w-[220px] overflow-hidden rounded border border-zinc-200 shadow-sm mt-1">
+                                                                                <img src={url} alt={`Attachment ${i + 1}`} className="w-full h-auto object-cover hover:scale-105 transition-transform duration-300" />
+                                                                            </a>
+                                                                        ) : null}
+                                                                        <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline mt-1">
+                                                                            <FileText className="w-3 h-3 shrink-0" /> <span className="truncate max-w-[200px]">Attachment {i + 1}</span>
+                                                                        </a>
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>
@@ -670,47 +697,52 @@ export default function InquiryDetailPage() {
                                 <button type="button" onClick={() => {
                                     setAttachmentUrl(null);
                                     setAttachmentName(null);
+                                    setUploadProgress(0);
                                     if (fileInputRef.current) fileInputRef.current.value = "";
                                 }} className="p-1 hover:text-red-500">
                                     <X className="w-3 h-3" />
                                 </button>
                             </div>
                         )}
+                        {isUploading && (
+                            <div className="w-full bg-zinc-200 border-2 border-black h-4 overflow-hidden mt-1 relative">
+                                <div 
+                                    className="bg-blue-500 h-full transition-all duration-300 ease-out border-r-2 border-black"
+                                    style={{ width: `${uploadProgress}%` }}
+                                />
+                                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black mix-blend-difference text-white tracking-widest">
+                                    UPLOADING {uploadProgress}%
+                                </span>
+                            </div>
+                        )}
                         {canMessage ? (
-                            <form onSubmit={handleSendMessage} className="flex gap-2">
+                            <form onSubmit={handleSendMessage} className="flex bg-zinc-50 border-2 border-black focus-within:ring-2 focus-within:ring-black">
+                                <input
+                                    type="text"
+                                    className="grow bg-transparent p-3 outline-none text-sm font-medium"
+                                    placeholder={isUploading ? "Uploading file..." : "Type your message..."}
+                                    value={newMessage}
+                                    onChange={handleInputChange}
+                                    disabled={isSending || isUploading}
+                                />
+                                {/* Hidden File Input */}
                                 <input
                                     type="file"
                                     className="hidden"
+                                    id="file-upload"
                                     ref={fileInputRef}
                                     onChange={handleFileUpload}
-                                    accept="image/*,application/pdf"
                                 />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    className="border-2 border-black rounded-none shrink-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                    disabled={isSending || isUploading || attachmentUrl !== null}
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
-                                </Button>
-                                <input
-                                    type="text"
-                                    value={newMessage}
-                                    onChange={handleInputChange}
-                                    placeholder="Type a message..."
-                                    className="grow border-2 border-black p-2.5 font-medium focus:outline-none focus:ring-2 focus:ring-[#fdf567] bg-zinc-50 text-sm"
-                                    disabled={isSending}
-                                />
-                                <Button
+                                <label htmlFor="file-upload" className="flex items-center justify-center px-4 border-l-2 border-black hover:bg-zinc-200 cursor-pointer transition-colors" title="Attach File">
+                                    {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
+                                </label>
+                                <button
                                     type="submit"
-                                    size="icon"
-                                    className="bg-black text-white border-2 border-black rounded-none hover:bg-zinc-800 shrink-0 cursor-pointer disabled:cursor-not-allowed"
                                     disabled={isSending || isUploading || (!newMessage.trim() && !attachmentUrl)}
+                                    className="bg-[#b4ff4b] px-6 border-l-2 border-black font-black uppercase text-xs tracking-widest hover:bg-[#a1e643] active:bg-[#92cf3c] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                                 >
-                                    {isSending ? <Clock className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                </Button>
+                                    {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                                </button>
                             </form>
                         ) : (
                             <p className="text-center text-xs font-bold text-zinc-400 uppercase tracking-widest py-1">

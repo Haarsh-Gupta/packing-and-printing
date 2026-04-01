@@ -210,10 +210,13 @@ export default function InquiryDetail() {
     const [isTyping, setIsTyping] = useState(false);
     const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const wsRef = React.useRef<WebSocket | null>(null);
-    const messagesEndRef = React.useRef<HTMLDivElement>(null);
+    const chatScrollRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        // Scroll only within the chat container, not the entire page
+        if (chatScrollRef.current) {
+            chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+        }
     }, [selected?.messages]);
 
     useEffect(() => {
@@ -224,7 +227,7 @@ export default function InquiryDetail() {
         let subtotal = 0;
 
         selected.items.forEach(item => {
-            const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
+            const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || ((item.estimated_price || 0) * item.quantity) || 0);
             if (baseItemPrice > 0) {
                 const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
                 const effectiveRate = itemSysTaxRate;
@@ -279,9 +282,10 @@ export default function InquiryDetail() {
     useEffect(() => {
         if (!id) return;
         const activeToken = localStorage.getItem("admin_token") || "";
+        if (!activeToken) return;
         const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
         const wsBase = apiBase.replace(/^http/, "ws");
-        const wsUrl = `${wsBase}/inquiries/ws/${id}`;
+        const wsUrl = `${wsBase}/inquiries/ws/${id}?token=${encodeURIComponent(activeToken)}`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
@@ -342,7 +346,7 @@ export default function InquiryDetail() {
             let totalDiscountAmt = 0;
 
             const lineItems = selected.items.map(item => {
-                const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
+                const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || ((item.estimated_price || 0) * item.quantity) || 0);
 
                 let itemDiscountAmt = 0;
                 let itemGstAmt = 0;
@@ -608,7 +612,7 @@ export default function InquiryDetail() {
                                 let totalBase = 0;
 
                                 selected.items.forEach(item => {
-                                    const currentBase = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || (item.estimated_price * item.quantity) || 0);
+                                    const currentBase = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || ((item.estimated_price || 0) * item.quantity) || 0);
                                     totalBase += currentBase;
                                     const currentLocalDisc = itemDiscounts[item.id] || 0;
                                     const currentStackedRate = Math.min(100, discountPercentage + currentLocalDisc);
@@ -707,7 +711,7 @@ export default function InquiryDetail() {
                                 {selected.messages?.length || 0} Packets logged
                             </span>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-[#0b1326]/50 shadow-inner custom-scrollbar transition-colors">
+                        <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-[#0b1326]/50 shadow-inner custom-scrollbar transition-colors">
                             {selected.messages?.map((m) => {
                                 const isMe = String(m.sender_id) === String(adminMe?.id);
                                 const isAdmin = m.sender_id !== selected.user_id;
@@ -718,6 +722,25 @@ export default function InquiryDetail() {
                                         </div>
                                         <div className={`p-4 rounded-2xl shadow-sm ${isAdmin ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 text-slate-900 dark:text-[#dae2fd] rounded-tl-none'}`}>
                                             <p className="text-sm leading-relaxed font-medium">{m.content}</p>
+                                            {m.file_urls && m.file_urls.length > 0 && (
+                                                <div className={`mt-2 pt-2 border-t ${isAdmin ? 'border-white/20' : 'border-slate-200 dark:border-[#434655]/20'} space-y-1`}>
+                                                    {m.file_urls.map((url: string, fi: number) => {
+                                                        const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url) || /\/image\//i.test(url);
+                                                        return (
+                                                            <div key={fi}>
+                                                                {isImage && (
+                                                                    <a href={url} target="_blank" rel="noreferrer">
+                                                                        <img src={url} alt={`Attachment ${fi + 1}`} className="max-w-[200px] max-h-[150px] rounded-lg border border-white/10 mt-1 object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                                                                    </a>
+                                                                )}
+                                                                <a href={url} target="_blank" rel="noreferrer" className={`flex items-center gap-1.5 text-[11px] font-bold hover:underline mt-1 ${isAdmin ? 'text-white/80 hover:text-white' : 'text-blue-600 dark:text-[#adc6ff] hover:text-blue-700'}`}>
+                                                                    <FileText size={12} /> Attachment {fi + 1}
+                                                                </a>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                             <span className={`text-[9px] mt-2 block font-black uppercase tracking-widest ${isAdmin ? 'text-white/60' : 'text-slate-400 dark:text-[#c3c5d8]/40'}`}>
                                                 {isAdmin ? 'SYSTEM ADMIN' : (userDetails?.name?.toUpperCase() || 'CLIENT')} • {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
@@ -725,7 +748,6 @@ export default function InquiryDetail() {
                                     </div>
                                 );
                             })}
-                            <div ref={messagesEndRef} />
                         </div>
 
                         {remoteTyping && (

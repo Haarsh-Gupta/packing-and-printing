@@ -395,79 +395,79 @@ export default function OrderDetailPage() {
                                 const finalPrice = item.line_item_price || lineTotal;
 
                                 return (
-                                <div key={item.id || i} className="flex flex-col sm:flex-row gap-6 pb-6 last:pb-0 border-b-2 border-zinc-100 last:border-b-0">
-                                    {item.display_images && item.display_images.length > 0 ? (
-                                        <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg overflow-hidden bg-zinc-100">
-                                            <img src={item.display_images[0]} alt="Product" className="w-full h-full object-cover" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg bg-zinc-100 flex items-center justify-center">
-                                            <Package className="w-8 h-8 text-zinc-400" />
-                                        </div>
-                                    )}
-                                    <div className="flex-1 space-y-3">
-                                        <div>
-                                            <h3 className="text-xl font-black uppercase">
-                                                {item.subproduct_name || item.product_name || item.subservice_name || item.service_name || item.template_name || "Custom Item"}
-                                            </h3>
-                                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                {item.variant_name && (
-                                                    <span className="inline-block px-3 py-1 bg-[#fdf567] border-2 border-black text-black text-xs font-black uppercase rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                                                        {item.variant_name}
-                                                    </span>
-                                                )}
-                                                {item.hsn_code && (
-                                                    <span className="inline-block px-2 py-1 bg-zinc-200 border border-zinc-400 text-[10px] font-black uppercase">
-                                                        HSN: {item.hsn_code}
-                                                    </span>
+                                    <div key={item.id || i} className="flex flex-col sm:flex-row gap-6 pb-6 last:pb-0 border-b-2 border-zinc-100 last:border-b-0">
+                                        {item.display_images && item.display_images.length > 0 ? (
+                                            <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg overflow-hidden bg-zinc-100">
+                                                <img src={item.display_images[0]} alt="Product" className="w-full h-full object-cover" />
+                                            </div>
+                                        ) : (
+                                            <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg bg-zinc-100 flex items-center justify-center">
+                                                <Package className="w-8 h-8 text-zinc-400" />
+                                            </div>
+                                        )}
+                                        <div className="flex-1 space-y-3">
+                                            <div>
+                                                <h3 className="text-xl font-black uppercase">
+                                                    {item.subproduct_name || item.product_name || item.subservice_name || item.service_name || item.template_name || "Custom Item"}
+                                                </h3>
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                    {item.variant_name && (
+                                                        <span className="inline-block px-3 py-1 bg-[#fdf567] border-2 border-black text-black text-xs font-black uppercase rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                                            {item.variant_name}
+                                                        </span>
+                                                    )}
+                                                    {item.hsn_code && (
+                                                        <span className="inline-block px-2 py-1 bg-zinc-200 border border-zinc-400 text-[10px] font-black uppercase">
+                                                            HSN: {item.hsn_code}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                                                <span><span className="font-bold text-zinc-500">Qty:</span> <span className="font-black">{item.quantity}</span></span>
+                                                {unitPrice > 0 && (
+                                                    <span><span className="font-bold text-zinc-500">Unit Price:</span> <span className="font-black">₹{unitPrice.toLocaleString()}</span></span>
                                                 )}
                                             </div>
-                                        </div>
 
-                                        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                                            <span><span className="font-bold text-zinc-500">Qty:</span> <span className="font-black">{item.quantity}</span></span>
-                                            {unitPrice > 0 && (
-                                                <span><span className="font-bold text-zinc-500">Unit Price:</span> <span className="font-black">₹{unitPrice.toLocaleString()}</span></span>
+                                            {gstRate > 0 && (
+                                                <div className="flex items-center gap-3 text-xs">
+                                                    <span className="font-bold text-zinc-500">CGST: {item.cgst_rate || 0}% + SGST: {item.sgst_rate || 0}%</span>
+                                                    <span className="font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">Tax: ₹{taxAmt.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                            )}
+
+                                            {item.selected_options && typeof item.selected_options === 'object' && Object.keys(item.selected_options).length > 0 && (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                                    {Object.entries(item.selected_options).filter(([k]) => k !== 'variant_name').map(([k, v]) => (
+                                                        <div key={k} className="flex flex-col">
+                                                            <span className="text-xs text-zinc-500 font-bold uppercase">{k.replace(/_/g, " ")}</span>
+                                                            <span className="font-medium text-black">{String(v)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {item.notes && (
+                                                <div className="p-4 bg-zinc-50 border-2 border-black rounded-none shadow-[2px_2px_0_0_#000]">
+                                                    <p className="text-xs text-black font-black uppercase mb-1">Notes</p>
+                                                    <p className="text-sm">{item.notes}</p>
+                                                </div>
                                             )}
                                         </div>
-
-                                        {gstRate > 0 && (
-                                            <div className="flex items-center gap-3 text-xs">
-                                                <span className="font-bold text-zinc-500">CGST: {item.cgst_rate || 0}% + SGST: {item.sgst_rate || 0}%</span>
-                                                <span className="font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">Tax: ₹{taxAmt.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
-                                            </div>
-                                        )}
-                                        
-                                        {item.selected_options && typeof item.selected_options === 'object' && Object.keys(item.selected_options).length > 0 && (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                                                {Object.entries(item.selected_options).filter(([k]) => k !== 'variant_name').map(([k, v]) => (
-                                                    <div key={k} className="flex flex-col">
-                                                        <span className="text-xs text-zinc-500 font-bold uppercase">{k.replace(/_/g, " ")}</span>
-                                                        <span className="font-medium text-black">{String(v)}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        
-                                        {item.notes && (
-                                            <div className="p-4 bg-zinc-50 border-2 border-black rounded-none shadow-[2px_2px_0_0_#000]">
-                                                <p className="text-xs text-black font-black uppercase mb-1">Notes</p>
-                                                <p className="text-sm">{item.notes}</p>
-                                            </div>
-                                        )}
+                                        <div className="sm:text-right mt-2 sm:mt-0 shrink-0">
+                                            <p className="text-xs font-black uppercase text-zinc-500">Item Price</p>
+                                            <p className="text-2xl font-black text-black">₹{finalPrice.toLocaleString()}</p>
+                                            {item.line_item_price && (
+                                                <span className="text-[10px] font-black text-purple-700 uppercase">Admin Set</span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="sm:text-right mt-2 sm:mt-0 shrink-0">
-                                        <p className="text-xs font-black uppercase text-zinc-500">Item Price</p>
-                                        <p className="text-2xl font-black text-black">₹{finalPrice.toLocaleString()}</p>
-                                        {item.line_item_price && (
-                                            <span className="text-[10px] font-black text-purple-700 uppercase">Admin Set</span>
-                                        )}
-                                    </div>
-                                </div>
                                 );
                             })}
                         </div>
-                        
+
                         {/* Order Items Summary */}
                         {(() => {
                             const subtotal = inquiry.items.reduce((s: number, it: any) => s + (it.line_item_price || it.total_estimated_price || 0), 0);
@@ -481,7 +481,7 @@ export default function OrderDetailPage() {
                                     {totalTax > 0 && (
                                         <div className="flex justify-between text-sm">
                                             <span className="font-bold text-amber-700 uppercase">GST (CGST + SGST)</span>
-                                            <span className="font-black text-amber-700">₹{totalTax.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                            <span className="font-black text-amber-700">₹{totalTax.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                         </div>
                                     )}
                                 </div>
