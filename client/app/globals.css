@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @import "./animate.css";
 @import "./shadcn.css";
 @import "./pages.css";
@@ -179,4 +180,39 @@
   .neu-card {
     @apply border-2 border-black shadow-[6px_6px_0px_0px_#000000];
   }
+
+  .animate-float {
+    animation: floating 6s ease-in-out infinite;
+  }
+}
+
+@keyframes floating {
+  0%, 100% {
+    transform: translateY(0) rotate(var(--tw-rotate, 0deg));
+  }
+  50% {
+    transform: translateY(-20px) rotate(calc(var(--tw-rotate, 0deg) + 5deg));
+  }
+}
+
+/* Prose / HTML description overflow protection */
+.prose {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+.prose pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.prose table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
 }

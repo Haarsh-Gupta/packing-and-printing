@@ -3,7 +3,7 @@ from passlib.context import CryptContext
 from app.modules.auth.schemas import TokenData
 from jose import JWTError , jwt
 from datetime import datetime , timedelta , timezone
-from fastapi import HTTPException , Depends , status, Request, WebSocket
+from fastapi import HTTPException , Depends , status, Request, WebSocket, WebSocketException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -77,23 +77,24 @@ async def get_current_user(request: Request, token : str = Depends(oauth2_scheme
 
 
 async def get_current_user_ws(websocket: WebSocket) -> TokenData:
-    """Authentication dependency for WebSockets using cookies."""
-    token = websocket.cookies.get("access_token")
+    """Authentication dependency for WebSockets using cookies or query params."""
+    # 1. Try query param first (cross-origin WS can't send cookies)
+    token = websocket.query_params.get("token")
+    
+    # 2. Fallback to cookies
     if not token:
-        # Check refresh_token as a last resort or just fail
+        token = websocket.cookies.get("access_token")
+    if not token:
         token = websocket.cookies.get("refresh_token")
     
     if not token:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
 
     try:
-        # We manually decode here to avoid complex dependency chains in WS
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return TokenData(**payload)
     except JWTError:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
 
 
 async def get_current_admin_user(current_user: TokenData = Depends(get_current_user) , db : AsyncSession = Depends(get_db)) -> User:

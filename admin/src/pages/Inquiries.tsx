@@ -63,6 +63,7 @@ export default function Inquiries() {
 
     const filtered = inquiries.filter(iq =>
         !search ||
+        (iq.display_id && iq.display_id.toLowerCase().includes(search.toLowerCase())) ||
         shortId(iq.id).includes(search.toUpperCase()) ||
         iq.user_id?.includes(search)
     );
@@ -148,7 +149,7 @@ export default function Inquiries() {
                                                 <div className="flex flex-col gap-1">
                                                     <div className="flex items-center gap-1.5 text-[13px] text-blue-600 dark:text-[#adc6ff] font-semibold tracking-wider font-mono">
                                                         <Hash size={11} className="text-slate-400 dark:text-[#c3c5d8]/60" />
-                                                        {shortId(iq.id)}
+                                                        {iq.display_id || shortId(iq.id)}
                                                     </div>
                                                     <div className="font-mono text-[9px] text-slate-500 dark:text-[#8d90a1] select-all" title="Original UUID">
                                                         {iq.id}

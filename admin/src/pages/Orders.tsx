@@ -51,7 +51,9 @@ export default function Orders() {
     useEffect(() => { fetchOrders(); }, [statusFilter]);
 
     const filtered = orders.filter(o =>
-        !search || o.id.toString().includes(search) ||
+        !search || 
+        (o.order_number && o.order_number.toLowerCase().includes(search.toLowerCase())) ||
+        o.id.toString().includes(search) ||
         (o as any).user_name?.toLowerCase().includes(search.toLowerCase()) ||
         (o as any).user_email?.toLowerCase().includes(search.toLowerCase())
     );
@@ -184,9 +186,9 @@ export default function Orders() {
                                         const balance = Number(order.total_amount) - amountPaid;
                                         return (
                                             <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-[#171f33]/80 transition-colors group cursor-pointer" onClick={() => navigate(`/orders/${order.id}`)}>
-                                                <td className="px-6 py-5 min-w-[150px]" title={`BB-${new Date(order.created_at).getFullYear()}-${order.id}`}>
+                                                <td className="px-6 py-5 min-w-[150px]" title={order.order_number || `BB-${new Date(order.created_at).getFullYear()}-${order.id}`}>
                                                     <div className="font-mono text-[13px] font-semibold text-blue-600 dark:text-[#adc6ff]">
-                                                        BB-{new Date(order.created_at).getFullYear()}-{order.id.toString().padStart(5, '0')}
+                                                        {order.order_number || `BB-${new Date(order.created_at).getFullYear()}-${order.id.toString().padStart(5, '0')}`}
                                                     </div>
                                                     <div className="font-mono text-[9px] text-slate-500 dark:text-[#8d90a1] mt-1 select-all" title="Original UUID">
                                                         {order.id}

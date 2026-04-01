@@ -43,8 +43,8 @@ async def admin_calculate_custom_price(
     estimated_price = 0.0
     
     if request.is_service:
-        # Service logic: (Price Per Unit * Quantity)
-        estimated_price = request.base_price * request.quantity
+        # Service logic: (Price Per Unit)
+        estimated_price = request.base_price
     else:
         # Product logic: Base Price + Options
         base_item_price = request.base_price
@@ -70,20 +70,30 @@ async def admin_calculate_custom_price(
                         str(opt.get("value")): float(opt.get("price_mod", 0.0))
                         for opt in options if isinstance(opt, dict) and "value" in opt
                     }
-                    val_str = str(selected_val)
-                    if val_str not in options_map:
-                        raise HTTPException(status_code=400, detail=f"Invalid value '{selected_val}' for option '{key}'")
-                    base_item_price += options_map[val_str]
+                    
+                    if s_type == "dropdown":
+                        val_list = selected_val if isinstance(selected_val, list) else [selected_val]
+                        for v in val_list:
+                            v_str = str(v)
+                            if v_str not in options_map:
+                                raise HTTPException(status_code=400, detail=f"Invalid value '{v}' for option '{key}'")
+                            base_item_price += options_map[v_str]
+                    else:
+                        val_str = str(selected_val)
+                        if val_str not in options_map:
+                            raise HTTPException(status_code=400, detail=f"Invalid value '{selected_val}' for option '{key}'")
+                        base_item_price += options_map[val_str]
                 
                 elif s_type == "number_input":
                     try:
-                        qty = float(selected_val)
+                        user_val = float(selected_val)
+                        default_val = float(section.get("default_val", 0.0))
                         ppu = float(section.get("price_per_unit", 0.0))
-                        base_item_price += (qty * ppu)
+                        base_item_price += (user_val - default_val) * ppu
                     except (ValueError, TypeError):
                         pass
 
-        estimated_price = base_item_price * request.quantity
+        estimated_price = base_item_price
 
     return {"estimated_price": estimated_price}
 
@@ -200,10 +210,13 @@ async def send_quotation(
         version=next_version,
         created_by=current_user.id,
         total_price=quotation.total_price,
+        tax_amount=quotation.tax_amount,
+        shipping_amount=quotation.shipping_amount,
+        discount_amount=quotation.discount_amount,
         valid_until=datetime.now(timezone.utc) + timedelta(days=quotation.valid_days),
         admin_notes=quotation.admin_notes,
         milestones=[m.model_dump() for m in quotation.milestones],
-        line_items=[li for li in quotation.line_items] if quotation.line_items else None,
+        line_items=[li.model_dump() for li in quotation.line_items] if quotation.line_items else None,
         status="PENDING_REVIEW",
     )
     db.add(new_quote)
@@ -215,7 +228,7 @@ async def send_quotation(
     
     # Update line-item pricing on inquiry items if provided
     if quotation.line_items:
-        prices_map = {li.get("item_id"): li.get("line_item_price") for li in quotation.line_items if li.get("item_id")}
+        prices_map = {li.item_id: li.taxable_value for li in quotation.line_items if li.item_id}
         for item in group.items:
             if str(item.id) in prices_map:
                 item.line_item_price = prices_map[str(item.id)]

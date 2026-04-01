@@ -16,6 +16,7 @@ class User(Base):
     email = Column(String , nullable = False , index=True , unique=True)
     password = Column(String , nullable = True)
     phone = Column(String , nullable = True)
+    address = Column(String , nullable = True)
     admin = Column(Boolean , nullable = False , default = False)
     created_at = Column(DateTime(timezone = True) , server_default=func.now())
     token_version = Column(Integer , nullable = False , default = 1)

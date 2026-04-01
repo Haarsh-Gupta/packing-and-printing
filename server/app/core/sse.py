@@ -129,7 +129,11 @@ class SSEManager:
                         last_keepalive = now
                         # Heartbeat for active user tracking
                         try:
-                            await redis_client.zadd("active_users", {str(user_id): time.time()})
+                            current_ts = time.time()
+                            await redis_client.zadd("active_users", {str(user_id): current_ts})
+                            # BUG-016 FIX: Prune users inactive for >5 minutes
+                            stale_cutoff = current_ts - 300
+                            await redis_client.zremrangebyscore("active_users", "-inf", stale_cutoff)
                         except Exception:
                             pass
 

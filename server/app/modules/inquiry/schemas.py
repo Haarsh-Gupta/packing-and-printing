@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Union, Optional, List
+from typing import Dict, Union, Optional, List, Literal
 from uuid import UUID
 from enum import Enum
 from pydantic import BaseModel, Field, model_validator, ConfigDict, computed_field
@@ -46,7 +46,34 @@ class ProposedMilestone(BaseModel):
     percentage:  float = Field(..., gt=0, le=100)
     description: Optional[str] = Field(None, max_length=200)
     trigger:     Optional[str] = None
+    due_date:    Optional[datetime] = None
     
+
+
+class QuoteLineItemCreate(BaseModel):
+    item_id: str = Field(..., description="The UUID of the InquiryItem")
+    line_item_price: float = Field(..., description="The original base price before discount")
+    discount_type: Optional[Literal["percentage", "amount"]] = None
+    discount_value: float = Field(default=0.0, description="The raw input, e.g., 5% or ₹200")
+    discount_amount: float = Field(default=0.0, description="The computed ₹ value of the discount")
+    taxable_value: float = Field(..., description="line_item_price - discount_amount")
+    gst_amount: float = Field(..., description="Tax calculated on the taxable_value")
+
+    @model_validator(mode="after")
+    def validate_line_item_pricing(self):
+        if self.discount_type not in ["percentage", "amount"]:
+            raise ValueError("discount_type must be 'percentage' or 'amount'")
+        if self.discount_type == "percentage":
+            if not (0 <= self.discount_value <= 100):
+                raise ValueError("discount_value must be between 0 and 100 for percentage discount")
+        # else:
+        #     if self.discount_value < 0:
+        #         raise ValueError("discount_value must be non-negative for amount discount")
+        # if self.taxable_value != self.line_item_price - self.discount_amount:
+        #     raise ValueError("taxable_value must be equal to line_item_price - discount_amount")
+        # if self.gst_amount != self.taxable_value * (self.cgst_rate + self.sgst_rate) / 100:
+        #     raise ValueError("gst_amount must be equal to taxable_value * (cgst_rate + sgst_rate) / 100")
+        # return self
 
 
 class QuoteVersionCreate(BaseModel):
@@ -60,7 +87,7 @@ class QuoteVersionCreate(BaseModel):
         ProposedMilestone(label="Advance payment", percentage=50, description="Due on order confirmation"),
         ProposedMilestone(label="Balance before dispatch", percentage=50, description="Due before dispatch"),
     ])
-    line_items:      Optional[List[Dict]] = None
+    line_items:      Optional[List[QuoteLineItemCreate]] = None
 
     @model_validator(mode="after")
     def validate_milestones(self):
@@ -91,15 +118,21 @@ class InquiryItemBase(BaseModel):
     product_id: Optional[int] = None; subproduct_id: Optional[int] = None
     service_id: Optional[int] = None; subservice_id: Optional[int] = None
     quantity: Optional[int] = Field(None, gt=0)
-    selected_options: Optional[Dict[str, Union[str, int, float, bool, None]]] = None
+    selected_options: Optional[Dict[str, Union[str, int, float, bool, List[str], None]]] = None
     notes: Optional[str] = None; images: Optional[List[str]] = None
 
     @model_validator(mode="after")
     def check_product_or_service(self):
-        if not self.product_id and not self.service_id:
+        has_product = self.product_id is not None
+        has_service = self.service_id is not None
+        if not has_product and not has_service:
             raise ValueError("Either product_id or service_id must be provided")
-        if self.service_id and self.subservice_id is None:
+        if has_product and has_service:
+            raise ValueError("Cannot provide both product_id and service_id — choose one")
+        if has_service and self.subservice_id is None:
             raise ValueError(f"subservice_id is required for service_id {self.service_id}")
+        if has_product and self.subproduct_id is None:
+            raise ValueError(f"subproduct_id is required for product_id {self.product_id}")
         return self
 
 
@@ -107,7 +140,7 @@ class InquiryItemCreate(InquiryItemBase): pass
 
 class InquiryItemUpdate(BaseModel):
     quantity: Optional[int] = Field(None, gt=0)
-    selected_options: Optional[Dict[str, Union[str, int, float, bool, None]]] = None
+    selected_options: Optional[Dict[str, Union[str, int, float, bool, List[str], None]]] = None
     notes: Optional[str] = None; images: Optional[List[str]] = None
 
 class InquiryGroupCreate(BaseModel):
@@ -136,11 +169,22 @@ class InquiryItemResponse(InquiryItemBase):
     product_name: Optional[str] = None; subproduct_name: Optional[str] = None
     service_name: Optional[str] = None; subservice_name: Optional[str] = None
     display_images: List[str] = []
+    
+    # Tax & HSN properties mapped from models
+    cgst_rate: float = 0.0
+    sgst_rate: float = 0.0
+    hsn_code: Optional[str] = None
 
     @computed_field
     @property
     def total_estimated_price(self) -> float:
-        return self.quantity * self.estimated_price if self.estimated_price else 0.0
+        return (self.quantity * self.estimated_price) if self.estimated_price else 0.0
+        
+    @computed_field
+    @property
+    def computed_tax_amount(self) -> float:
+        rate = self.cgst_rate + self.sgst_rate
+        return self.total_estimated_price * (rate / 100.0)
     model_config = ConfigDict(from_attributes=True)
 
 class InquiryGroupResponse(BaseModel):

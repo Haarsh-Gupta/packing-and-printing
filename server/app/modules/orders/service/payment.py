@@ -1,11 +1,20 @@
 from uuid import UUID
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.orders.models import Order, OrderMilestone, Transaction, PaymentDeclaration
 from app.modules.orders.schemas import MilestoneStatus
 from app.modules.orders.schemas import AdminRecordPaymentRequest, PaymentDeclarationReview
+
+import logging
+logger = logging.getLogger(__name__)
+
+# ── Helpers for safe money math ──────────────────────────────────────────────
+def _money(val) -> Decimal:
+    """Convert any numeric value to a 2-decimal-place Decimal."""
+    return Decimal(str(val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 class PaymentService:
@@ -16,7 +25,7 @@ class PaymentService:
         order = await self._get_order_locked(order_id)
         if str(order.user_id) != str(user_id):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your order")
-        milestone = await self._get_milestone(milestone_id, order_id)
+        milestone = await self._get_milestone_lock(milestone_id, order_id)
         if milestone.status == MilestoneStatus.PAID:
             raise HTTPException(status.HTTP_409_CONFLICT, "Milestone already paid")
         if milestone.status == MilestoneStatus.PENDING:
@@ -44,18 +53,12 @@ class PaymentService:
         return declaration
 
     async def review_declaration(self, declaration_id: UUID, payload: PaymentDeclarationReview, admin_id: UUID) -> Order:
-        import logging
-        logger = logging.getLogger(__name__)
+        declaration = await self._get_payment_declaration_lock(declaration_id)
 
-        declaration = (await self.db.execute(
-            select(PaymentDeclaration).where(PaymentDeclaration.id == declaration_id)
-        )).scalar_one_or_none()
-        if not declaration:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Declaration not found")
         if declaration.status != "PENDING":
             raise HTTPException(status.HTTP_409_CONFLICT, "Declaration already reviewed")
 
-        milestone = await self._get_milestone(declaration.milestone_id, declaration.order_id)
+        milestone = await self._get_milestone_lock(declaration.milestone_id, declaration.order_id)
         order = await self._get_order_locked(declaration.order_id)
 
         if payload.is_approved:
@@ -74,7 +77,6 @@ class PaymentService:
             await self.db.flush()
             await self._recalculate_amount_paid(order)
 
-            # FIX 2: was declaration.amount (AttributeError) — milestone.amount is correct
             logger.info(f"Declaration approved: {declaration_id}, milestone={milestone.id}, amount={milestone.amount}")
         else:
             if not payload.rejection_reason:
@@ -101,7 +103,7 @@ class PaymentService:
     async def record_admin_payment(self, order_id: UUID, payload: AdminRecordPaymentRequest, admin_id: UUID) -> Order:
         order = await self._get_order_locked(order_id)
         if payload.milestone_id:
-            milestone = await self._get_milestone(payload.milestone_id, order_id)
+            milestone = await self._get_milestone_lock(payload.milestone_id, order_id)
             milestone.status = MilestoneStatus.PAID
             milestone.paid_at = datetime.now(timezone.utc)
         txn = Transaction(
@@ -116,25 +118,54 @@ class PaymentService:
 
     async def issue_refund(self, order_id, milestone_id, amount, reason, admin_id) -> Order:
         order = await self._get_order_locked(order_id)
-        milestone = await self._get_milestone(milestone_id, order_id)
+        milestone = await self._get_milestone_lock(milestone_id, order_id)
+
+        if milestone.status != MilestoneStatus.PAID:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Cannot refund milestone '{milestone.label}' "
+                    f"— current status is {milestone.status}, "
+                    f"expected PAID"
+                )
+            )
+
+        # BUG-007 FIX: Validate refund against net paid amount (payments minus previous refunds)
+        net_paid_on_milestone = await self.db.scalar(
+            select(func.coalesce(func.sum(Transaction.amount), 0))
+            .where(Transaction.milestone_id == milestone_id)
+        )
+        net_paid_on_milestone = float(net_paid_on_milestone or 0)
+
+        if amount > net_paid_on_milestone:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Refund amount ₹{amount:,.2f} exceeds "
+                    f"net amount paid on this milestone "
+                    f"₹{net_paid_on_milestone:,.2f}"
+                )
+            )
 
         txn = Transaction(
             order_id=order_id, milestone_id=milestone_id,
             amount=-abs(amount), payment_mode="REFUND",
-            recorded_by_admin=admin_id, notes=f"Refund: {reason}",
+            recorded_by_admin=admin_id, 
+            notes=f"Refund: {reason}",
         )
         self.db.add(txn)
         await self.db.flush()
         await self._recalculate_amount_paid(order)
 
-        # FIX 4: revert PAID → WAITING_PAYMENT when refund underpays
-        if order.amount_paid < order.total_amount and order.status == "PAID":
-            order.status = "WAITING_PAYMENT"
+        # Revert milestone if fully refunded
+        remaining = net_paid_on_milestone - amount
+        if remaining <= 0:
+            milestone.status = MilestoneStatus.UNPAID
+            milestone.paid_at = None
 
         return order
 
     async def _get_order_locked(self, order_id: UUID) -> Order:
-        # FIX 3: SELECT FOR UPDATE prevents race condition on concurrent webhooks
         order = (await self.db.execute(
             select(Order).where(Order.id == order_id).with_for_update()
         )).scalar_one_or_none()
@@ -150,12 +181,40 @@ class PaymentService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
         return m
 
+    async def _get_milestone_lock(self, milestone_id: UUID, order_id: UUID) -> OrderMilestone:
+        m = (await self.db.execute(
+            select(OrderMilestone).where(OrderMilestone.id == milestone_id, OrderMilestone.order_id == order_id).with_for_update()
+        )).scalar_one_or_none()
+        if not m:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
+        return m
+
+    # BUG-008 FIX: Use Decimal for safe money comparison instead of float >=
     async def _recalculate_amount_paid(self, order: Order) -> None:
-        from sqlalchemy import func
         total = await self.db.scalar(
             select(func.coalesce(func.sum(Transaction.amount), 0))
             .where(Transaction.order_id == order.id)
         )
-        order.amount_paid = float(total or 0)
-        if order.amount_paid >= order.total_amount:
+        paid = _money(total or 0)
+        target = _money(order.total_amount)
+
+        order.amount_paid = float(paid)
+
+        if paid >= target:
             order.status = "PAID"
+        elif paid > 0:
+            order.status = "PARTIALLY_PAID"
+        else:
+            order.status = "WAITING_PAYMENT"
+
+    async def _get_payment_declaration_lock(self, id: UUID) -> PaymentDeclaration:
+        result = await self.db.execute(
+            select(PaymentDeclaration)
+            .where(PaymentDeclaration.id == id)
+            .with_for_update()
+        )
+        decl = result.scalar_one_or_none()
+
+        if not decl:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Declaration not found")
+        return decl

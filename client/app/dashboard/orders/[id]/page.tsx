@@ -26,6 +26,7 @@ interface Milestone {
     status: string;
     order_index: number;
     paid_at: string | null;
+    split_type?: string;
 }
 
 interface Declaration {
@@ -44,6 +45,8 @@ interface Order {
     order_number?: string;
     inquiry_id: string;
     status: string;
+    split_type?: string;
+    is_custom_milestone_requested?: boolean;
     total_amount: number;
     amount_paid: number;
     product_name: string | null;
@@ -194,13 +197,12 @@ export default function OrderDetailPage() {
         }
     };
 
-    let currentSplitType = "CUSTOM";
-    if (order.milestones?.length === 1) currentSplitType = "FULL";
-    else if (order.milestones?.length === 2 && order.milestones[0].percentage === 50) currentSplitType = "HALF";
+    const currentSplitType = order.split_type || "CUSTOM";
+    const activeMilestones = order.milestones?.filter(m => (!order.split_type && !m.split_type) || m.split_type === order.split_type) || [];
 
     // Find the next unpaid milestone
-    const nextMilestone = order.milestones
-        ?.slice()
+    const nextMilestone = activeMilestones
+        .slice()
         .sort((a, b) => a.order_index - b.order_index)
         .find((m) => m.status !== "PAID");
 
@@ -383,57 +385,108 @@ export default function OrderDetailPage() {
                     <div className="border-b-2 border-black p-4 bg-zinc-50">
                         <h2 className="font-black uppercase tracking-tight">Order Items</h2>
                     </div>
-                    <div className="divide-y-2 divide-zinc-100 p-6">
-                        <div className="space-y-8">
-                            {inquiry.items.map((item: any, i: number) => (
-                                <div key={item.id || i} className="flex flex-col sm:flex-row gap-6 pb-8 last:pb-0 border-b-2 border-zinc-100 last:border-b-0">
-                                    {item.display_images && item.display_images.length > 0 ? (
-                                        <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg overflow-hidden bg-zinc-100">
-                                            <img src={item.display_images[0]} alt="Product" className="w-full h-full object-cover" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg bg-zinc-100 flex items-center justify-center">
-                                            <Package className="w-8 h-8 text-zinc-400" />
-                                        </div>
-                                    )}
-                                    <div className="flex-1">
-                                        <h3 className="text-xl font-black uppercase">
-                                            {item.template_name || item.service_name || "Custom Item"}
-                                        </h3>
-                                        {item.variant_name && (
-                                            <span className="inline-block mt-2 px-3 py-1 bg-[#fdf567] border-2 border-black text-black text-xs font-black uppercase rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                                                {item.variant_name}
-                                            </span>
-                                        )}
-                                        <p className="text-sm font-bold text-zinc-500 mt-3">Quantity: <span className="text-black">{item.quantity}</span></p>
-                                        
-                                        {item.selected_options && typeof item.selected_options === 'object' && Object.keys(item.selected_options).length > 0 && (
-                                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                                                {Object.entries(item.selected_options).filter(([k]) => k !== 'variant_name').map(([k, v]) => (
-                                                    <div key={k} className="flex flex-col">
-                                                        <span className="text-xs text-zinc-500 font-bold uppercase">{k.replace(/_/g, " ")}</span>
-                                                        <span className="font-medium text-black">{String(v)}</span>
-                                                    </div>
-                                                ))}
+                    <div className="p-6">
+                        <div className="space-y-6">
+                            {inquiry.items.map((item: any, i: number) => {
+                                const unitPrice = (item.estimated_price || 0) > 0 ? (item.estimated_price || 0) / (item.quantity || 1) : 0;
+                                const lineTotal = item.total_estimated_price || (unitPrice * (item.quantity || 1));
+                                const gstRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
+                                const taxAmt = item.computed_tax_amount || (lineTotal * gstRate / 100);
+                                const finalPrice = item.line_item_price || lineTotal;
+
+                                return (
+                                    <div key={item.id || i} className="flex flex-col sm:flex-row gap-6 pb-6 last:pb-0 border-b-2 border-zinc-100 last:border-b-0">
+                                        {item.display_images && item.display_images.length > 0 ? (
+                                            <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg overflow-hidden bg-zinc-100">
+                                                <img src={item.display_images[0]} alt="Product" className="w-full h-full object-cover" />
+                                            </div>
+                                        ) : (
+                                            <div className="w-full sm:w-32 h-32 shrink-0 border-2 border-black rounded-lg bg-zinc-100 flex items-center justify-center">
+                                                <Package className="w-8 h-8 text-zinc-400" />
                                             </div>
                                         )}
-                                        
-                                        {item.notes && (
-                                            <div className="mt-4 p-4 bg-zinc-50 border-2 border-black rounded-none shadow-[2px_2px_0_0_#000]">
-                                                <p className="text-xs text-black font-black uppercase mb-1">Notes</p>
-                                                <p className="text-sm">{item.notes}</p>
+                                        <div className="flex-1 space-y-3">
+                                            <div>
+                                                <h3 className="text-xl font-black uppercase">
+                                                    {item.subproduct_name || item.product_name || item.subservice_name || item.service_name || item.template_name || "Custom Item"}
+                                                </h3>
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                    {item.variant_name && (
+                                                        <span className="inline-block px-3 py-1 bg-[#fdf567] border-2 border-black text-black text-xs font-black uppercase rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                                            {item.variant_name}
+                                                        </span>
+                                                    )}
+                                                    {item.hsn_code && (
+                                                        <span className="inline-block px-2 py-1 bg-zinc-200 border border-zinc-400 text-[10px] font-black uppercase">
+                                                            HSN: {item.hsn_code}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-                                    {item.line_item_price !== undefined && item.line_item_price > 0 && (
-                                        <div className="sm:text-right mt-4 sm:mt-0">
+
+                                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                                                <span><span className="font-bold text-zinc-500">Qty:</span> <span className="font-black">{item.quantity}</span></span>
+                                                {unitPrice > 0 && (
+                                                    <span><span className="font-bold text-zinc-500">Unit Price:</span> <span className="font-black">₹{unitPrice.toLocaleString()}</span></span>
+                                                )}
+                                            </div>
+
+                                            {gstRate > 0 && (
+                                                <div className="flex items-center gap-3 text-xs">
+                                                    <span className="font-bold text-zinc-500">CGST: {item.cgst_rate || 0}% + SGST: {item.sgst_rate || 0}%</span>
+                                                    <span className="font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">Tax: ₹{taxAmt.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                            )}
+
+                                            {item.selected_options && typeof item.selected_options === 'object' && Object.keys(item.selected_options).length > 0 && (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                                    {Object.entries(item.selected_options).filter(([k]) => k !== 'variant_name').map(([k, v]) => (
+                                                        <div key={k} className="flex flex-col">
+                                                            <span className="text-xs text-zinc-500 font-bold uppercase">{k.replace(/_/g, " ")}</span>
+                                                            <span className="font-medium text-black">{String(v)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {item.notes && (
+                                                <div className="p-4 bg-zinc-50 border-2 border-black rounded-none shadow-[2px_2px_0_0_#000]">
+                                                    <p className="text-xs text-black font-black uppercase mb-1">Notes</p>
+                                                    <p className="text-sm">{item.notes}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="sm:text-right mt-2 sm:mt-0 shrink-0">
                                             <p className="text-xs font-black uppercase text-zinc-500">Item Price</p>
-                                            <p className="text-2xl font-black text-black">₹{(item.line_item_price || item.estimated_price || 0).toLocaleString()}</p>
+                                            <p className="text-2xl font-black text-black">₹{finalPrice.toLocaleString()}</p>
+                                            {item.line_item_price && (
+                                                <span className="text-[10px] font-black text-purple-700 uppercase">Admin Set</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Order Items Summary */}
+                        {(() => {
+                            const subtotal = inquiry.items.reduce((s: number, it: any) => s + (it.line_item_price || it.total_estimated_price || 0), 0);
+                            const totalTax = inquiry.items.reduce((s: number, it: any) => s + (it.computed_tax_amount || 0), 0);
+                            return (
+                                <div className="mt-6 pt-4 border-t-2 border-dashed border-zinc-200 space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="font-bold text-zinc-500 uppercase">Items Subtotal</span>
+                                        <span className="font-black">₹{subtotal.toLocaleString()}</span>
+                                    </div>
+                                    {totalTax > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="font-bold text-amber-700 uppercase">GST (CGST + SGST)</span>
+                                            <span className="font-black text-amber-700">₹{totalTax.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                         </div>
                                     )}
                                 </div>
-                            ))}
-                        </div>
+                            );
+                        })()}
                     </div>
                 </div>
             )}
@@ -460,19 +513,33 @@ export default function OrderDetailPage() {
                         >
                             Half & Half (50%)
                         </Button>
-                        {currentSplitType === "CUSTOM" ? (
+                        {currentSplitType === "CUSTOM" || order.is_custom_milestone_requested ? (
                             <Button
                                 variant="default"
-                                className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg bg-[#fdf567] text-black hover:bg-[#ece459]"
+                                className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg bg-[#fdf567] text-black hover:bg-[#ece459] shadow-[4px_4px_0_0_#000]"
                                 disabled={true}
                             >
-                                Custom Schedule
+                                {order.is_custom_milestone_requested && currentSplitType !== "CUSTOM" ? "Custom Schedule Requested" : "Custom Schedule"}
                             </Button>
                         ) : (
                             <Button
                                 variant="outline"
                                 className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg hover:bg-zinc-100"
-                                onClick={() => showAlert("Please contact support to request a custom payment schedule for this order.", "info")}
+                                onClick={async () => {
+                                    setIsSwitching(true);
+                                    try {
+                                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/milestones/request-custom`, {
+                                            method: "POST",
+                                            headers: { "Authorization": `Bearer ${token}` }
+                                        });
+                                        if (res.ok) {
+                                            showAlert("Custom payment schedule requested!", "success");
+                                            fetchOrder();
+                                        } else {
+                                            showAlert("Failed to request custom schedule.", "error");
+                                        }
+                                    } catch (e) { showAlert("Network error.", "error"); } finally { setIsSwitching(false); }
+                                }}
                                 disabled={isSwitching}
                             >
                                 Custom Schedule
@@ -480,16 +547,15 @@ export default function OrderDetailPage() {
                         )}
                     </div>
                 </div >
-            )
-            }
+            )}
 
             {/* Milestones */}
             {
-                order.milestones && order.milestones.length > 0 && (
+                activeMilestones.length > 0 && (
                     <div className="border-2 border-black p-6 bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl">
                         <h2 className="text-xl font-black uppercase tracking-tight mb-4">Payment Milestones</h2>
                         <div className="space-y-4">
-                            {order.milestones.slice().sort((a, b) => a.order_index - b.order_index).map((milestone, idx) => (
+                            {activeMilestones.slice().sort((a, b) => a.order_index - b.order_index).map((milestone, idx) => (
                                 <div key={milestone.id} className={`border-2 border-black p-4 rounded-lg flex items-center justify-between ${milestone.status === 'PAID' ? 'bg-[#4be794]/20' : 'bg-zinc-50'}`}>
                                     <div>
                                         <p className="font-bold text-lg">{idx + 1}. {milestone.label} <span className="text-xs text-zinc-500 font-bold ml-2">({milestone.percentage}%)</span></p>

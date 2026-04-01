@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field , model_validator, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from slugify import slugify
 
 
@@ -15,6 +15,8 @@ class SubServiceBase(BaseModel):
     hsn_code: Optional[str] = Field(None, description="HSN/SAC code")
     cgst_rate: Optional[float] = Field(0.0, description="CGST percentage")
     sgst_rate: Optional[float] = Field(0.0, description="SGST percentage")
+    features: Optional[List[Dict[str, Any]]] = Field(None, description="Features list with icons")
+    specifications: Optional[List[Dict[str, Any]]] = Field(None, description="Specifications list")
 
     @model_validator(mode="after")
     def generate_slug(self):
@@ -54,6 +56,8 @@ class SubServiceUpdate(BaseModel):
     hsn_code: Optional[str] = None
     cgst_rate: Optional[float] = None
     sgst_rate: Optional[float] = None
+    features: Optional[List[Dict[str, Any]]] = None
+    specifications: Optional[List[Dict[str, Any]]] = None
 
     model_config = ConfigDict(
         json_schema_extra={

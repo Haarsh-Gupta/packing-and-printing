@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, func, Uuid, text, Integer, Text, ARRAY, Float, Boolean
+from sqlalchemy import Column, String, DateTime, ForeignKey, func, Uuid, text, Integer, Text, ARRAY, Float, Boolean, Double
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from app.core.database import Base
@@ -58,8 +58,8 @@ class InquiryItem(Base):
     selected_options = Column(JSONB, nullable=True)
     notes            = Column(Text, nullable=True)
     images           = Column(ARRAY(String), nullable=True)
-    line_item_price  = Column(Integer, nullable=True)
-    estimated_price  = Column(Integer, nullable=True)
+    line_item_price  = Column(Double, nullable=True)
+    estimated_price  = Column(Double, nullable=True)
 
     group            = relationship("InquiryGroup", back_populates="items")
     product          = relationship("Product", lazy="selectin")
@@ -89,6 +89,25 @@ class InquiryItem(Base):
         if self.service and getattr(self.service, 'cover_image', None):
             return [self.service.cover_image]
         return []
+
+    @property
+    def cgst_rate(self) -> float:
+        if self.sub_product: return getattr(self.sub_product, 'cgst_rate', 0.0)
+        if self.sub_service: return getattr(self.sub_service, 'cgst_rate', 0.0)
+        return 0.0
+
+    @property
+    def sgst_rate(self) -> float:
+        if self.sub_product: return getattr(self.sub_product, 'sgst_rate', 0.0)
+        if self.sub_service: return getattr(self.sub_service, 'sgst_rate', 0.0)
+        return 0.0
+
+    @property
+    def hsn_code(self) -> str | None:
+        if self.sub_product: return getattr(self.sub_product, 'hsn_code', None)
+        if self.sub_service: return getattr(self.sub_service, 'hsn_code', None)
+        return None
+
 
 class InquiryMessage(Base):
     __tablename__ = "inquiry_messages"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import useSWR from "swr";
 import { Bell, X, CheckCheck, Loader2, Trash2 } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 
@@ -29,22 +30,29 @@ export default function NotificationsBell() {
     useEffect(() => { openRef.current = open; }, [open]);
 
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+
+    const fetcher = (url: string) => fetch(url, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null);
+    
+    useSWR(
+        token ? `${apiUrl}/notifications/unread-count` : null,
+        fetcher,
+        {
+            onSuccess: (data: { unread: number } | null) => {
+                if (data) setUnread(data.unread || 0);
+            },
+            revalidateOnFocus: false, // SSE handles live updates
+            dedupingInterval: 10000 // deduplicate calls within 10s
+        }
+    );
 
     // ── SSE stream for real-time notifications ──────────────────────────────
     useEffect(() => {
         if (!token) return;
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
         const eventSource = new EventSource(`${apiUrl}/notifications/stream`, {
             withCredentials: true,
         });
-
-        // Initial count
-        fetch(`${apiUrl}/notifications/unread-count`, {
-            headers: { Authorization: `Bearer ${token}` },
-        }).then(r => r.ok ? r.json() : null)
-          .then(d => d && setUnread(d.unread || 0))
-          .catch(() => {});
 
         // Handle incoming events
         const handleEvent = (event: MessageEvent) => {

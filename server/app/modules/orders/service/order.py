@@ -104,20 +104,130 @@ class OrderService:
         if order.amount_paid and order.amount_paid > 0:
             raise ValueError(f"Cannot regenerate milestones: ₹{order.amount_paid:,.2f} already paid.")
 
-        # FIX: DELETE + flush first so unique constraint is cleared before INSERT
-        await self.db.execute(delete(OrderMilestone).where(OrderMilestone.order_id == order.id))
+        # Delete existing milestones for exactly the requested split_type
+        await self.db.execute(delete(OrderMilestone).where(
+            OrderMilestone.order_id == order.id,
+            OrderMilestone.split_type == payload.split_type.value
+        ))
         await self.db.flush()  # deletes visible in transaction before inserts
 
-        milestones = _build_milestones(order.id, order.total_amount, payload)
+        milestones = _build_milestones(order.id, order.total_amount, payload, payload.split_type.value)
+        self.db.add_all(milestones)
+
+        # Track split_type on the order
+        order.split_type = payload.split_type.value
+
+        await self.db.flush()
+        await self.db.refresh(order, ['milestones'])
+
+    async def create_offline_order(self, payload, admin_id) -> Order:
+        """
+        Atomically creates InquiryGroup → InquiryItems → QuoteVersion → Order → Milestones
+        for admin-entered offline orders.
+        """
+        from datetime import datetime, timezone, timedelta
+        from app.modules.inquiry.models import InquiryGroup, InquiryItem, QuoteVersion
+        from app.modules.orders.schemas import PaymentSplitType, AdminMilestoneCreateRequest, MilestoneDefinition
+
+        # 1. Create Inquiry Group (marked as offline)
+        inquiry = InquiryGroup(
+            user_id=payload.user_id,
+            status="ACCEPTED",
+            is_offline=True,
+        )
+        self.db.add(inquiry)
+        await self.db.flush()
+
+        # 2. Create Inquiry Items
+        total_from_items = 0.0
+        for item_data in payload.items:
+            line_total = item_data.unit_price * item_data.quantity
+            total_from_items += line_total
+            item = InquiryItem(
+                group_id=inquiry.id,
+                product_id=item_data.product_id,
+                subproduct_id=item_data.sub_product_id,
+                service_id=item_data.service_id,
+                subservice_id=item_data.sub_service_id,
+                quantity=item_data.quantity,
+                estimated_price=item_data.unit_price,
+                line_item_price=line_total,
+                notes=item_data.name,
+            )
+            self.db.add(item)
+
+        # 3. Calculate total
+        grand_total = total_from_items + payload.tax_amount + payload.shipping_amount - payload.discount_amount
+
+        # 4. Build milestone definitions for the quote
+        if payload.split_type == PaymentSplitType.FULL:
+            ms_defs = [{"label": "Full Payment (100%)", "percentage": 100.0}]
+        elif payload.split_type == PaymentSplitType.HALF:
+            ms_defs = [
+                {"label": "Advance Payment (50%)", "percentage": 50.0},
+                {"label": "Balance Before Dispatch (50%)", "percentage": 50.0},
+            ]
+        else:
+            ms_defs = [{"label": m.label, "percentage": m.percentage} for m in payload.milestones]
+
+        # 5. Create QuoteVersion
+        quote = QuoteVersion(
+            inquiry_id=inquiry.id,
+            version=1,
+            created_by=admin_id,
+            total_price=grand_total,
+            tax_amount=payload.tax_amount,
+            shipping_amount=payload.shipping_amount,
+            discount_amount=payload.discount_amount,
+            valid_until=datetime.now(timezone.utc) + timedelta(days=365),
+            admin_notes="Offline order created by admin",
+            milestones=ms_defs,
+            status="ACCEPTED",
+        )
+        self.db.add(quote)
+        await self.db.flush()
+
+        inquiry.active_quote_id = quote.id
+
+        # 6. Create Order
+        order = Order(
+            inquiry_id=inquiry.id,
+            user_id=payload.user_id,
+            total_amount=grand_total,
+            tax_amount=payload.tax_amount,
+            shipping_amount=payload.shipping_amount,
+            discount_amount=payload.discount_amount,
+            status="WAITING_PAYMENT",
+            split_type=payload.split_type.value,
+            is_offline=True,
+        )
+        self.db.add(order)
+        await self.db.flush()
+
+        # 7. Create Milestones
+        milestones = _build_milestones(
+            order.id,
+            grand_total,
+            AdminMilestoneCreateRequest(
+                split_type=payload.split_type,
+                milestones=[MilestoneDefinition(label=m["label"], percentage=m["percentage"]) for m in ms_defs] if payload.split_type == PaymentSplitType.CUSTOM else None,
+            ),
+            payload.split_type.value
+        )
         self.db.add_all(milestones)
         await self.db.flush()
         await self.db.refresh(order, ['milestones'])
+
+        return order
+
     async def switch_milestones_user(self, order: Order, split_type) -> None:
         """
-        Switch user payment schedule between FULL and HALF.
+        Switch user payment schedule between FULL, HALF, or CUSTOM.
         This must be done before any payments are made.
+        If switching to FULL or HALF and they don't exist, generate them.
+        If switching to CUSTOM, it MUST already exist (created by admin).
         """
-        from app.modules.orders.schemas import PaymentSplitType, AdminMilestoneCreateRequest, MilestoneDefinition
+        from app.modules.orders.schemas import PaymentSplitType
 
         if order.amount_paid and order.amount_paid > 0:
             raise ValueError(f"Cannot change payment schedule: ₹{order.amount_paid:,.2f} already paid.")
@@ -125,29 +235,44 @@ class OrderService:
         if order.declarations and len(order.declarations) > 0:
             raise ValueError("Cannot change payment schedule while a payment declaration is pending verification.")
 
-        if split_type == PaymentSplitType.CUSTOM:
-            raise ValueError("Users cannot switch to custom milestones. Contact admin.")
+        # Check if requested split type already exists for this order
+        stmt = select(OrderMilestone).where(
+            OrderMilestone.order_id == order.id,
+            OrderMilestone.split_type == split_type.value
+        )
+        existing = (await self.db.execute(stmt)).scalars().all()
 
-        # Delete existing milestones
-        await self.db.execute(delete(OrderMilestone).where(OrderMilestone.order_id == order.id))
-        await self.db.flush()
+        if existing:
+            # Already generated! Just point to it.
+            order.split_type = split_type.value
+            await self.db.flush()
+            await self.db.refresh(order, ['milestones'])
+            return
+
+        # If it doesn't exist, we must generate it (unless it's CUSTOM which requires admin)
+        if split_type == PaymentSplitType.CUSTOM:
+            raise ValueError("Custom payment schedule not found. Contact admin to set a custom payment schedule.")
 
         # Generate new milestones based on choice
         total = order.total_amount
         milestones = []
         if split_type == PaymentSplitType.FULL:
             milestones.append(OrderMilestone(
-                order_id=order.id, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
+                order_id=order.id, split_type=split_type.value, label="Full Payment (100%)", amount=total, percentage=100.0, order_index=1
             ))
         elif split_type == PaymentSplitType.HALF:
             milestones.append(OrderMilestone(
-                order_id=order.id, label="Advance Payment (50%)", amount=round(total * 0.5, 2), percentage=50.0, order_index=1
+                order_id=order.id, split_type=split_type.value, label="Advance Payment (50%)", amount=round(total * 0.5, 2), percentage=50.0, order_index=1
             ))
             milestones.append(OrderMilestone(
-                order_id=order.id, label="Balance Before Dispatch (50%)", amount=round(total - round(total * 0.5, 2), 2), percentage=50.0, order_index=2
+                order_id=order.id, split_type=split_type.value, label="Balance Before Dispatch (50%)", amount=round(total - round(total * 0.5, 2), 2), percentage=50.0, order_index=2
             ))
         else:
             raise ValueError(f"Invalid split_type: {split_type}")
+
+        # Track split_type on the order
+        order.split_type = split_type.value
+
         self.db.add_all(milestones)
         await self.db.flush()
         await self.db.refresh(order, ['milestones'])
@@ -161,16 +286,20 @@ class OrderService:
             order.admin_notes = admin_notes
 
 
-def _build_milestones(order_id, total_amount, payload):
+def _build_milestones(order_id, total_amount, payload, split_type: str):
     milestones = []
     running = 0.0
     for i, m in enumerate(payload.milestones, start=1):
         amount = round((m.percentage / 100.0) * total_amount, 2)
         running += amount
-        milestones.append(OrderMilestone(
-            order_id=order_id, label=m.label, percentage=m.percentage,
+        milestone = OrderMilestone(
+            order_id=order_id, split_type=split_type, label=m.label, percentage=m.percentage,
             amount=amount, order_index=i, status=MilestoneStatus.UNPAID,
-        ))
+        )
+        # Pass through due_date if present
+        if hasattr(m, 'due_date') and m.due_date is not None:
+            milestone.due_date = m.due_date
+        milestones.append(milestone)
     if milestones:
         diff = round(total_amount - running, 2)
         if diff != 0:

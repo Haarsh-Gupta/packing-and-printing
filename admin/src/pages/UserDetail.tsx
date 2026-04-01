@@ -238,7 +238,7 @@ export default function UserDetail() {
                                                         </div>
                                                         <div>
                                                             <h4 className="font-bold text-white text-sm">
-                                                                {inq.items?.[0]?.template_name || inq.items?.[0]?.service_name || "Custom Project"}
+                                                                {(inq.items?.[0] as any)?.template_name || (inq.items?.[0] as any)?.service_name || "Custom Project"}
                                                             </h4>
                                                             <p className="text-[10px] text-slate-600 dark:text-[#c3c5d8]/50 uppercase tracking-widest font-bold mt-1">
                                                                 #{inq.id.slice(0, 8).toUpperCase()} • Opened {new Date(inq.created_at).toLocaleDateString()}

@@ -193,7 +193,7 @@ export default function Tickets() {
                                 >
                                     <td className="px-6 py-5 min-w-[150px]">
                                         <div className="font-mono text-xs text-primary font-bold">
-                                            #TKT-{ticket.id}
+                                            {ticket.display_id || `#TKT-${ticket.id}`}
                                         </div>
                                         <div className="font-mono text-[9px] text-slate-400 mt-1 select-all" title="Original UUID">
                                             {ticket.id}

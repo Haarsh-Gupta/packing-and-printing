@@ -3,7 +3,7 @@
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, IndianRupee, MessageSquare, Loader2, Clock, Box, Layers } from "lucide-react";
+import { FileText, IndianRupee, MessageSquare, Loader2, Clock, Box, Layers, RotateCcw } from "lucide-react";
 import { Inquiry } from "@/types/dashboard";
 import { InquiryStatusBadge } from "./InquiryStatusBadge";
 import Link from "next/link";
@@ -12,9 +12,10 @@ interface InquiryActionProps {
     inquiry: Inquiry;
     actionLoading: string | null;
     handleStatusUpdate: (id: string, status: "ACCEPTED" | "REJECTED") => void;
+    handleReorder: (id: string) => void;
 }
 
-export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: InquiryActionProps) {
+export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate, handleReorder }: InquiryActionProps) {
     const item = inquiry.items && inquiry.items.length > 0 ? inquiry.items[0] : null;
 
     return (
@@ -132,6 +133,17 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
                         </Button>
                     </div>
                 )}
+
+                {["ACCEPTED", "REJECTED", "CANCELLED", "EXPIRED"].includes(inquiry.status) && (
+                    <Button
+                        className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all text-black font-bold h-12 px-6 hover:bg-zinc-100"
+                        disabled={actionLoading === inquiry.id}
+                        onClick={() => handleReorder(inquiry.id)}
+                    >
+                        {actionLoading === inquiry.id ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+                        Reorder
+                    </Button>
+                )}
             </CardFooter>
                 </div>
             </div>
@@ -139,7 +151,7 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate }: Inqu
     );
 }
 
-export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: InquiryActionProps) {
+export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate, handleReorder }: InquiryActionProps) {
     const item = inquiry.items && inquiry.items.length > 0 ? inquiry.items[0] : null;
 
     return (
@@ -188,11 +200,23 @@ export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate }: I
 
                     {inquiry.status === "QUOTED" && (
                         <Button
-                            className="bg-[#4be794] text-black border-2 border-black font-bold h-10 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-px"
+                            className="bg-accent-green text-black border-2 border-black font-bold h-10 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-px"
                             disabled={actionLoading === inquiry.id}
                             onClick={() => handleStatusUpdate(inquiry.id, "ACCEPTED")}
                         >
                             {actionLoading === inquiry.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Accept"}
+                        </Button>
+                    )}
+
+                    {["ACCEPTED", "REJECTED", "CANCELLED", "EXPIRED"].includes(inquiry.status) && (
+                        <Button
+                            variant="outline"
+                            className="text-black border-2 border-black font-bold h-10 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-px hover:bg-zinc-100 gap-1.5"
+                            disabled={actionLoading === inquiry.id}
+                            onClick={() => handleReorder(inquiry.id)}
+                        >
+                            {actionLoading === inquiry.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                            Reorder
                         </Button>
                     )}
                 </div>

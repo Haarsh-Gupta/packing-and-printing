@@ -1,5 +1,6 @@
 export interface SubProduct {
     id: number;
+    product_id: number;
     slug: string;
     name: string;
     description?: string;
@@ -8,6 +9,8 @@ export interface SubProduct {
     minimum_quantity: number;
     is_active: boolean;
     images?: string[];
+    features?: { icon: string; label: string; detail: string }[];
+    specifications?: { label: string; value: string }[];
     created_at?: string;
 }
 

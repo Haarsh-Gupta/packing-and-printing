@@ -9,6 +9,7 @@ class TokenData(BaseModel):
     id: UUID
     email: EmailStr
     admin : bool
+    name: str | None = None
     token_version : int = 1
 
     class Config:

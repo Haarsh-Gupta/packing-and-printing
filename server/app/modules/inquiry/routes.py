@@ -473,18 +473,16 @@ async def update_inquiry_status_user(
     
     group.status = status_update.status.value
 
-    # Run DB query if we need user's name
-    from app.modules.users.models import User
-    user_obj = (await db.execute(select(User).where(User.id == current_user.id))).scalar_one_or_none()
-    username = getattr(user_obj, 'name', None) or getattr(user_obj, 'email', 'A user')
-
     # Notify admins if status became SUBMITTED, and fire SSE
     if status_update.status == InquiryStatus.SUBMITTED:
+        user_name = current_user.name or "A user"
         await NotificationService.notify_admins(
             db,
-            title="New Inquiry Submitted",
-            message=f"{username} submitted an inquiry with {len(group.items)} items.",
-            metadata={"type": "new_inquiry", "id": str(group.id)}
+            title=f"New Inquiry from {user_name}",
+            message=f"Submitted inquiry #{group.display_id} with {len(group.items)} items.",
+            metadata={"type": "new_inquiry", "id": str(group.id)},
+            sender_name=user_name,
+            is_admin=current_user.admin
         )
         
         # Admin SSE
@@ -492,9 +490,10 @@ async def update_inquiry_status_user(
         fire(
             sse_manager.publish_to_admins("new_inquiry", {
                 "inquiry_id": str(group.id),
+                "display_id": group.display_id,
                 "user_id": str(current_user.id),
                 "item_count": len(group.items),
-                "message": "New inquiry officially submitted by user"
+                "message": f"New inquiry #{group.display_id} submitted by {user_name}"
             })
         )
     
@@ -515,8 +514,10 @@ async def update_inquiry_status_user(
         await NotificationService.notify_admins(
             db,
             title="Quote Accepted",
-            message=f"{username} accepted the quote for Inquiry #{str(group.id)[:8].upper()}.",
-            metadata={"type": "quote_accepted", "id": str(group.id)}
+            message=f"Accepted quote for Inquiry #{group.display_id}.",
+            metadata={"type": "quote_accepted", "id": str(group.id)},
+            sender_name=current_user.name,
+            is_admin=current_user.admin
         )
         from app.modules.inquiry.service import convert_inquiry_to_order
         await convert_inquiry_to_order(db, group)
@@ -584,12 +585,15 @@ async def send_inquiry_message(
     )
     db.add(new_message)
 
+    user_name = current_user.name or "A user"
     # Create persistent notification for admins
     await NotificationService.notify_admins(
         db,
-        title="New User Message",
-        message=f"User sent a message in inquiry #{str(group_id)[:8].upper()}",
-        metadata={"type": "inquiry_message", "id": str(group_id)}
+        title=f"New Message from {user_name}",
+        message=f"Sent a message in Inquiry thread #{group.display_id}",
+        metadata={"type": "inquiry_message", "id": str(group.id)},
+        sender_name=user_name,
+        is_admin=current_user.admin
     )
 
     await db.commit()
@@ -601,7 +605,7 @@ async def send_inquiry_message(
         sse_manager.publish_to_admins("admin_inquiry_new_message", {
             "inquiry_id": str(group_id),
             "sender_id": str(current_user.id),
-            "message": "New message from user in inquiry thread."
+            "message": f"New message from {user_name} in inquiry thread."
         })
     )
     

@@ -42,7 +42,13 @@ class OTPService:
         otp = self._generate_otp()
         expire_minutes = settings.otp_expire_seconds // 60
 
-        logger.info(f"\n{'='*50}\n📧 OTP for {email}: {otp}\n⏱️  Expires in {expire_minutes} minutes\n{'='*50}\n")
+        logger.info(
+            "OTP generated and queued for delivery",
+            extra={
+                "email_hash": hashlib.sha256(email.encode()).hexdigest()[:8],
+                "expires_in_minutes": expire_minutes,
+            }
+        )
 
         await self.store.store_otp(email, otp)
 
@@ -87,7 +93,16 @@ class OTPService:
             stored = stored.decode() if isinstance(stored, bytes) else str(stored)
             
         match = stored and stored == otp
-        logger.info(f"\n{'='*50}\n🔍 Verifying OTP for {email}\n   Stored OTP : {stored!r}\n   Received OTP: {otp!r}\n   Match: {match}\n{'='*50}\n")
+        logger.info(
+            "OTP verification attempt",
+            extra={
+                "email_hash": hashlib.sha256(
+                    email.encode()
+                ).hexdigest()[:8],
+                "result": "success" if match else "failure",
+                "consume": consume,
+            }
+        )
 
         if match and consume:
             await self.store.delete_otp(email)

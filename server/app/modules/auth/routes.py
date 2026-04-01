@@ -54,7 +54,7 @@ async def login(request: Request, response : Response , db : AsyncSession = Depe
         logger.warning(f"Login failed: Incorrect password for user {username}.")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail="Incorrect email or password")
     
-    payload = TokenData(id=user.id, email=user.email, admin=user.admin, token_version=user.token_version)
+    payload = TokenData(id=user.id, email=user.email, admin=user.admin, name=user.name, token_version=user.token_version)
     
     #create the access token
     access_token = await create_access_token(data = payload.model_dump())
@@ -121,7 +121,7 @@ async def refresh(response: Response, request: Request, db : AsyncSession = Depe
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
     #create the access token
-    new_payload = TokenData(id=user.id, email=user.email, admin=user.admin, token_version=user.token_version)
+    new_payload = TokenData(id=user.id, email=user.email, admin=user.admin, name=user.name, token_version=user.token_version)
     access_token = await create_access_token(data = new_payload.model_dump())
 
     response.set_cookie(
@@ -164,7 +164,7 @@ async def logout(request: Request, response: Response, db : AsyncSession = Depen
 @router.get("/google/login")
 async def google_login(request: Request, redirect_to: str = None):
     redirect_uri = str(request.url_for("auth_google_callback"))
-    if "localhost" not in redirect_uri:
+    if "localhost" not in redirect_uri and "127.0.0.1" not in redirect_uri:
         redirect_uri = redirect_uri.replace("http://", "https://")
     
     if not redirect_to:
@@ -214,7 +214,7 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
         await db.commit()
         await db.refresh(user)
 
-    payload = TokenData(id=user.id, email=user.email, admin=user.admin, token_version=user.token_version)
+    payload = TokenData(id=user.id, email=user.email, admin=user.admin, name=user.name, token_version=user.token_version)
     access_token = await create_access_token(data = payload.model_dump())
     refresh_token = await create_refresh_token(data = payload.model_dump())
 
@@ -268,7 +268,7 @@ from app.modules.otps.services import get_otp_service
 _otp_service = get_otp_service()
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", dependencies=[Depends(RateLimiter(times=3, seconds=60))])
 async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     """
     Send a password-reset OTP to the user's email.

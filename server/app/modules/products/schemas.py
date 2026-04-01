@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, model_validator
 from slugify import slugify
 from enum import Enum
@@ -39,7 +39,23 @@ class FormSection(BaseModel):
     options: Optional[List[Option]] = None
     min_val: Optional[int] = None
     max_val: Optional[int] = None
+    default_val: Optional[int] = None
     price_per_unit: Optional[float] = 0.0
+
+    @model_validator(mode="after")
+    def validate_number_input(self):
+        if self.type == Selection.NUMBER_INPUT:
+            # Only validate if they are present. If missing, logic handles with 0.
+            if self.min_val is not None and self.max_val is not None:
+                if self.min_val > self.max_val:
+                    raise ValueError("Min value must be less than or equal to max value")
+            
+            if self.default_val is not None:
+                min_v = self.min_val if self.min_val is not None else 0
+                max_v = self.max_val if self.max_val is not None else 1000000
+                if not (min_v <= self.default_val <= max_v):
+                    raise ValueError(f"Default value ({self.default_val}) must be within range [{min_v}, {max_v}]")
+        return self
 
     model_config = {
         "json_schema_extra": {
@@ -96,6 +112,8 @@ class SubProductCreate(BaseModel):
     hsn_code: Optional[str] = None
     cgst_rate: Optional[float] = 0.0
     sgst_rate: Optional[float] = 0.0
+    features: Optional[List[Dict[str, Any]]] = None
+    specifications: Optional[List[Dict[str, Any]]] = None
 
     @model_validator(mode="after")
     def validate_config_schema(self):
@@ -154,6 +172,8 @@ class SubProductUpdate(BaseModel):
     hsn_code: Optional[str] = None
     cgst_rate: Optional[float] = None
     sgst_rate: Optional[float] = None
+    features: Optional[List[Dict[str, Any]]] = None
+    specifications: Optional[List[Dict[str, Any]]] = None
 
     @model_validator(mode="after")
     def validate_update(self):
@@ -171,6 +191,7 @@ class SubProductUpdate(BaseModel):
 
 class SubProductResponse(SubProductCreate):
     id: int
+    product_id: int
     created_at: datetime
 
     model_config = {"from_attributes": True}

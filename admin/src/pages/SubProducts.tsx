@@ -9,6 +9,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import ImageCropper from "@/components/ImageCropper";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Star, Box, Scale, Printer, Droplets, Ruler, Globe, ShieldCheck, Zap, Leaf, Sliders, Package, Scissors, Wand2, Shield, FileText, Infinity as InfinityIcon, BookOpen, Book } from "lucide-react";
+
+export const ICON_MAP: Record<string, { icon: any, label: string }> = {
+    star: { icon: Star, label: "Star" },
+    fabric: { icon: Box, label: "Fabric" },
+    weight: { icon: Scale, label: "Weight" },
+    print: { icon: Printer, label: "Print" },
+    wash: { icon: Droplets, label: "Wash" },
+    sizes: { icon: Ruler, label: "Sizes" },
+    origin: { icon: Globe, label: "Origin" },
+    quality: { icon: ShieldCheck, label: "Quality" },
+    speed: { icon: Zap, label: "Speed" },
+    eco: { icon: Leaf, label: "Eco" },
+    custom: { icon: Sliders, label: "Custom" },
+    package: { icon: Package, label: "Package" },
+    ruler: { icon: Ruler, label: "Ruler" },
+    scissors: { icon: Scissors, label: "Scissors" },
+    wand: { icon: Wand2, label: "Wand" },
+    shield: { icon: Shield, label: "Shield" },
+    pages: { icon: FileText, label: "Pages" },
+    spiral: { icon: InfinityIcon, label: "Spiral" },
+    cover: { icon: BookOpen, label: "Cover" },
+    book: { icon: Book, label: "Book" }
+};
 
 export default function SubProducts() {
     const navigate = useNavigate();
@@ -75,6 +100,8 @@ export default function SubProducts() {
         setFormState({ ...formState, images: formState.images.filter((_, i) => i !== index) });
     };
     const [configSections, setConfigSections] = useState<FormSection[]>([]);
+    const [features, setFeatures] = useState<{ icon: string; label: string; detail: string }[]>([]);
+    const [specifications, setSpecifications] = useState<{ label: string; value: string }[]>([]);
 
     const fetchProduct = async () => {
         setLoading(true);
@@ -101,6 +128,8 @@ export default function SubProducts() {
             is_active: true, hsn_code: "", cgst_rate: "0", sgst_rate: "0"
         });
         setConfigSections([]);
+        setFeatures([]);
+        setSpecifications([]);
         setShowForm(true);
     };
 
@@ -113,6 +142,8 @@ export default function SubProducts() {
             is_active: sp.is_active, hsn_code: sp.hsn_code || "", cgst_rate: String(sp.cgst_rate || 0), sgst_rate: String(sp.sgst_rate || 0)
         });
         setConfigSections(sp.config_schema?.sections || []);
+        setFeatures(sp.features || []);
+        setSpecifications(sp.specifications || []);
         setShowForm(true);
     };
 
@@ -140,21 +171,70 @@ export default function SubProducts() {
         if (!product) return;
         setSaving(true);
         try {
-            const payload: any = {
-                name: formState.name,
-                description: formState.description || undefined,
-                type: formState.type,
-                base_price: parseFloat(formState.base_price) || 0,
-                minimum_quantity: parseInt(formState.minimum_quantity, 10) || 1,
-                images: formState.images,
-                is_active: formState.is_active,
-                hsn_code: formState.hsn_code || undefined,
-                cgst_rate: parseFloat(formState.cgst_rate) || 0,
-                sgst_rate: parseFloat(formState.sgst_rate) || 0,
-                config_schema: { sections: configSections }
-            };
+            let payload: any = {};
 
-            if (formState.slug) payload.slug = formState.slug;
+            if (editingSubProduct) {
+                // Delta Calculation
+                if (formState.name !== editingSubProduct.name) payload.name = formState.name;
+                if (formState.description !== (editingSubProduct.description || "")) payload.description = formState.description;
+                if (formState.type !== (editingSubProduct.type || "product")) payload.type = formState.type;
+                
+                const bp = parseFloat(formState.base_price) || 0;
+                if (bp !== editingSubProduct.base_price) payload.base_price = bp;
+                
+                const mq = parseInt(formState.minimum_quantity, 10) || 1;
+                if (mq !== editingSubProduct.minimum_quantity) payload.minimum_quantity = mq;
+                
+                if (JSON.stringify(formState.images) !== JSON.stringify(editingSubProduct.images || [])) {
+                    payload.images = formState.images;
+                }
+                
+                if (formState.is_active !== editingSubProduct.is_active) payload.is_active = formState.is_active;
+                if (formState.hsn_code !== (editingSubProduct.hsn_code || "")) payload.hsn_code = formState.hsn_code;
+                
+                const cgst = parseFloat(formState.cgst_rate) || 0;
+                if (cgst !== (editingSubProduct.cgst_rate || 0)) payload.cgst_rate = cgst;
+                
+                const sgst = parseFloat(formState.sgst_rate) || 0;
+                if (sgst !== (editingSubProduct.sgst_rate || 0)) payload.sgst_rate = sgst;
+                
+                if (formState.slug !== editingSubProduct.slug) payload.slug = formState.slug;
+
+                if (JSON.stringify(configSections) !== JSON.stringify(editingSubProduct.config_schema?.sections || [])) {
+                    payload.config_schema = { sections: configSections };
+                }
+                
+                if (JSON.stringify(features) !== JSON.stringify(editingSubProduct.features || [])) {
+                    payload.features = features.length > 0 ? features : null;
+                }
+                if (JSON.stringify(specifications) !== JSON.stringify(editingSubProduct.specifications || [])) {
+                    payload.specifications = specifications.length > 0 ? specifications : null;
+                }
+
+                if (Object.keys(payload).length === 0) {
+                    setShowForm(false);
+                    setSaving(false);
+                    return;
+                }
+            } else {
+                // Full payload for creation
+                payload = {
+                    name: formState.name,
+                    description: formState.description || undefined,
+                    type: formState.type,
+                    base_price: parseFloat(formState.base_price) || 0,
+                    minimum_quantity: parseInt(formState.minimum_quantity, 10) || 1,
+                    images: formState.images,
+                    is_active: formState.is_active,
+                    hsn_code: formState.hsn_code || undefined,
+                    cgst_rate: parseFloat(formState.cgst_rate) || 0,
+                    sgst_rate: parseFloat(formState.sgst_rate) || 0,
+                    features: features.length > 0 ? features : null,
+                    specifications: specifications.length > 0 ? specifications : null,
+                    config_schema: { sections: configSections }
+                };
+                if (formState.slug) payload.slug = formState.slug;
+            }
 
             if (editingSubProduct) {
                 await api(`/admin/products/sub-products/${editingSubProduct.id}`, {
@@ -490,7 +570,149 @@ export default function SubProducts() {
                                         <span>Full Description Narrative</span>
                                         <span className="text-[9px] bg-[#434655]/30 text-slate-500 dark:text-[#8d90a1] px-1.5 py-0.5 rounded">OPT</span>
                                     </label>
-                                    <Textarea className="h-24 text-sm bg-slate-50 dark:bg-[#0b1326] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="Summary configuration text..." />
+                                    <Textarea
+                                        className="min-h-[150px] bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655] resize-y"
+                                        value={formState.description}
+                                        onChange={e => setFormState({ ...formState, description: e.target.value })}
+                                        placeholder="Elaborate on the specific physical tolerances, material capabilities, and included services..."
+                                    />
+                                </div>
+
+                                {/* FEATURES & SPECIFICATIONS BLOCK */}
+                                <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-2xl p-6 relative overflow-hidden mb-6">
+                                    <div className="absolute top-0 left-0 w-1 h-full bg-[#10b981]"></div>
+                                    
+                                    <div className="flex items-center justify-between mb-8">
+                                        <div>
+                                            <h3 className="text-sm font-bold tracking-widest uppercase text-slate-900 dark:text-[#dae2fd] flex items-center gap-3">
+                                                Display Information (Features & Specs)
+                                            </h3>
+                                            <p className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-1.5 font-medium">Information displayed in tables and lists on the product detail page.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Features Array */}
+                                    <div className="mb-6">
+                                        <div className="flex items-center justify-between mb-3 border-b border-slate-200 dark:border-[#434655]/20 pb-2">
+                                            <label className="text-[10px] uppercase tracking-widest font-bold text-[#10b981] flex items-center gap-2">Key Features ({features.length})</label>
+                                            <Button onClick={() => setFeatures([...features, { icon: "star", label: "", detail: "" }])} size="sm" variant="ghost" className="h-6 text-[9px] font-bold uppercase tracking-widest text-[#10b981] hover:bg-[#10b981]/10 border border-[#10b981]/20">
+                                                <Plus size={10} className="mr-1" /> push feature
+                                            </Button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {features.map((feat, idx) => (
+                                                <div key={`feat_${idx}`} className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30">
+                                                    <div className="w-24 shrink-0">
+                                                        <Select
+                                                            value={feat.icon}
+                                                            onValueChange={(val) => {
+                                                                const cp = [...features];
+                                                                cp[idx].icon = val;
+                                                                setFeatures(cp);
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-7 w-full border-transparent bg-white dark:bg-[#131b2e] px-2 text-xs font-bold text-slate-600 dark:text-[#c3c5d8] focus:ring-0 focus:border-[#434655]">
+                                                                <SelectValue placeholder="Icon" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/30">
+                                                                {Object.entries(ICON_MAP).map(([key, item]) => {
+                                                                    const Icon = item.icon;
+                                                                    return (
+                                                                        <SelectItem key={key} value={key} className="text-xs font-medium cursor-pointer focus:bg-slate-100 dark:focus:bg-[#1f2937]">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Icon size={14} className="text-[#10b981]" />
+                                                                                <span className="text-slate-900 dark:text-[#dae2fd]">{item.label}</span>
+                                                                            </div>
+                                                                        </SelectItem>
+                                                                    );
+                                                                })}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="flex-1 min-w-[150px]">
+                                                        <Input
+                                                            className="h-7 text-xs font-bold bg-white dark:bg-[#131b2e] border-transparent text-slate-900 dark:text-[#dae2fd] focus:border-[#434655] placeholder:text-[#434655]"
+                                                            placeholder="Label (e.g. 100% Cotton)"
+                                                            value={feat.label}
+                                                            onChange={e => {
+                                                                const cp = [...features];
+                                                                cp[idx].label = e.target.value;
+                                                                setFeatures(cp);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 min-w-[200px]">
+                                                        <Input
+                                                            className="h-7 text-[10px] font-mono bg-white dark:bg-[#131b2e] border-transparent text-slate-500 dark:text-[#8d90a1] focus:text-blue-600 dark:text-[#adc6ff] focus:border-[#434655] placeholder:text-[#434655]"
+                                                            placeholder="Detail description..."
+                                                            value={feat.detail}
+                                                            onChange={e => {
+                                                                const cp = [...features];
+                                                                cp[idx].detail = e.target.value;
+                                                                setFeatures(cp);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <button onClick={() => setFeatures(features.filter((_, i) => i !== idx))} className="w-7 h-7 flex items-center justify-center shrink-0 rounded text-[#434655] hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10 transition-colors">
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {features.length === 0 && (
+                                                <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-slate-400 text-xs mt-2">
+                                                    No features added.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Specifications Array */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3 border-b border-slate-200 dark:border-[#434655]/20 pb-2">
+                                            <label className="text-[10px] uppercase tracking-widest font-bold text-[#10b981] flex items-center gap-2">Specifications Table ({specifications.length})</label>
+                                            <Button onClick={() => setSpecifications([...specifications, { label: "", value: "" }])} size="sm" variant="ghost" className="h-6 text-[9px] font-bold uppercase tracking-widest text-[#10b981] hover:bg-[#10b981]/10 border border-[#10b981]/20">
+                                                <Plus size={10} className="mr-1" /> push spec
+                                            </Button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {specifications.map((spec, idx) => (
+                                                <div key={`spec_${idx}`} className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30">
+                                                    <div className="flex-1 min-w-[150px]">
+                                                        <Input
+                                                            className="h-7 text-xs font-bold bg-white dark:bg-[#131b2e] border-transparent text-slate-900 dark:text-[#dae2fd] focus:border-[#434655] placeholder:text-[#434655]"
+                                                            placeholder="Label (e.g. Dimensions)"
+                                                            value={spec.label}
+                                                            onChange={e => {
+                                                                const cp = [...specifications];
+                                                                cp[idx].label = e.target.value;
+                                                                setSpecifications(cp);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 min-w-[200px]">
+                                                        <Input
+                                                            className="h-7 text-xs bg-white dark:bg-[#131b2e] border-transparent text-slate-500 dark:text-[#8d90a1] focus:text-blue-600 dark:text-[#adc6ff] focus:border-[#434655] placeholder:text-[#434655]"
+                                                            placeholder="Value (e.g. 10x10x10 cm)"
+                                                            value={spec.value}
+                                                            onChange={e => {
+                                                                const cp = [...specifications];
+                                                                cp[idx].value = e.target.value;
+                                                                setSpecifications(cp);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <button onClick={() => setSpecifications(specifications.filter((_, i) => i !== idx))} className="w-7 h-7 flex items-center justify-center shrink-0 rounded text-[#434655] hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10 transition-colors">
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {specifications.length === 0 && (
+                                                <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-slate-400 text-xs mt-2">
+                                                    No specifications added.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="flex items-center justify-between border border-slate-200 dark:border-[#434655]/30 bg-slate-50 dark:bg-[#0b1326] p-4 rounded-xl">
@@ -582,6 +804,10 @@ export default function SubProducts() {
                                                                 <div className="w-24 space-y-1.5">
                                                                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-[#c3c5d8]">Upper Bound</label>
                                                                     <Input type="number" className="h-8 bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/30 text-slate-900 dark:text-[#dae2fd] text-xs" placeholder="∞" value={sec.max_val ?? ""} onChange={e => updateSectionInfo(secIdx, { max_val: parseInt(e.target.value) || undefined })} />
+                                                                </div>
+                                                                <div className="w-24 space-y-1.5">
+                                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-[#a5b4fc]">Base Value</label>
+                                                                    <Input type="number" className="h-8 bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/30 text-[#6366f1] dark:text-[#a5b4fc] text-xs font-bold" placeholder="0" value={sec.default_val ?? ""} onChange={e => updateSectionInfo(secIdx, { default_val: parseInt(e.target.value) || 0 })} />
                                                                 </div>
                                                                 <div className="w-32 space-y-1.5 border-l border-slate-200 dark:border-[#434655]/30 pl-4 ml-1">
                                                                     <label className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-[#adc6ff]">Unit Multiplier</label>

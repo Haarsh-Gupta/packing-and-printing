@@ -19,7 +19,7 @@ async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSessi
             raise HTTPException(400, "This service is currently unavailable")
         if item.quantity < sub_service.minimum_quantity:
             raise HTTPException(400, f"Minimum quantity for '{sub_service.name}' is {sub_service.minimum_quantity}")
-        estimated_price = sub_service.price_per_unit * item.quantity
+        estimated_price = sub_service.price_per_unit
 
     elif item.subproduct_id:
         sub_product = (await db.execute(
@@ -46,15 +46,26 @@ async def calculate_item_estimated_price(item: InquiryItemCreate, db: AsyncSessi
                 section = sections_map[key]
                 if section.get("type") in ["dropdown", "radio"]:
                     opts = {str(o["value"]): float(o.get("price_mod", 0)) for o in section.get("options", []) if isinstance(o, dict)}
-                    if str(val) not in opts:
-                        raise HTTPException(400, f"Invalid value '{val}' for '{key}'")
-                    base_price += opts[str(val)]
+                    
+                    if section.get("type") == "dropdown":
+                        val_list = val if isinstance(val, list) else [val]
+                        for v in val_list:
+                            if str(v) not in opts:
+                                raise HTTPException(400, f"Invalid value '{v}' for '{key}'")
+                            base_price += opts[str(v)]
+                    else:
+                        if str(val) not in opts:
+                            raise HTTPException(400, f"Invalid value '{val}' for '{key}'")
+                        base_price += opts[str(val)]
                 elif section.get("type") == "number_input":
                     try:
-                        base_price += float(val or 0) * float(section.get("price_per_unit", 0))
+                        user_val = float(val or 0)
+                        default_val = float(section.get("default_val", 0))
+                        ppu = float(section.get("price_per_unit", 0))
+                        base_price += (user_val - default_val) * ppu
                     except (ValueError, TypeError):
                         pass
-        estimated_price = base_price * item.quantity
+        estimated_price = base_price
 
     return estimated_price
 
@@ -87,7 +98,20 @@ async def convert_inquiry_to_order(db: AsyncSession, group: InquiryGroup) -> Ord
     
     quoted_total = group.active_quote.total_price
 
-    # 3. Create Order
+    # 3. Detect split_type from quote milestones
+    quote_milestones = group.active_quote.milestones or []
+    if len(quote_milestones) == 1 and float(quote_milestones[0].get("percentage", 0)) == 100.0:
+        detected_split = "FULL"
+    elif (
+        len(quote_milestones) == 2
+        and float(quote_milestones[0].get("percentage", 0)) == 50.0
+        and float(quote_milestones[1].get("percentage", 0)) == 50.0
+    ):
+        detected_split = "HALF"
+    else:
+        detected_split = "CUSTOM" if quote_milestones else "HALF"
+
+    # 4. Create Order
     new_order = Order(
         inquiry_id=group.id,
         user_id=group.user_id,
@@ -95,16 +119,16 @@ async def convert_inquiry_to_order(db: AsyncSession, group: InquiryGroup) -> Ord
         tax_amount=group.active_quote.tax_amount or 0.0,
         shipping_amount=group.active_quote.shipping_amount or 0.0,
         discount_amount=group.active_quote.discount_amount or 0.0,
-        status="WAITING_PAYMENT"
+        status="WAITING_PAYMENT",
+        split_type=detected_split,
     )
     db.add(new_order)
     await db.flush()  # To generate order.id
     
-    # 4. Create Milestones based on quote configuration
-    quote_milestones = group.active_quote.milestones or []
-    
+    # 5. Create Milestones based on quote configuration
     if quoted_total == 0:
         new_order.status = "PAID"
+        new_order.split_type = "FULL"
         milestone = OrderMilestone(
             order_id=new_order.id, 
             label="Zero Cost Order (100%)", 
@@ -134,6 +158,9 @@ async def convert_inquiry_to_order(db: AsyncSession, group: InquiryGroup) -> Ord
                 order_index=idx,
                 status="UNPAID"
             )
+            # Pass through due_date if set in quote milestones
+            if m_def.get("due_date"):
+                milestone.due_date = m_def["due_date"]
             db.add(milestone)
             
     await db.flush()

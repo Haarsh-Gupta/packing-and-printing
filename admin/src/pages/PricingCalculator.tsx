@@ -105,9 +105,10 @@ export default function PricingCalculator() {
                     }
                 } else if (section.type === "number_input") {
                     const ppu = parseFloat(section.price_per_unit || "0");
-                    const qty = parseFloat(val || "0");
-                    if (!isNaN(qty)) {
-                        let mod = (qty * ppu);
+                    const userVal = parseFloat(val || "0");
+                    const defaultVal = parseFloat(section.default_val || "0");
+                    if (!isNaN(userVal)) {
+                        let mod = ((userVal - defaultVal) * ppu);
                         mod = mod + (mod * (markupPct / 100)) + markupFixed;
                         unitPrice += mod;
                     }

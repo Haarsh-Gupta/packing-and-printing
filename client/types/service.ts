@@ -7,6 +7,8 @@ export interface SubService {
     price_per_unit: number;
     description: string | null;
     images?: string[];
+    features?: { icon: string; label: string; detail: string }[];
+    specifications?: { label: string; value: string }[];
     is_active?: boolean;
 }
 

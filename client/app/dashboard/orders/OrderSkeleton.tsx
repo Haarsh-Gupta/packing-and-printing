@@ -6,7 +6,7 @@ export function OrderSkeleton() {
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
             {[1, 2, 3, 4].map((i) => (
-                <Card key={i} className="overflow-hidden border-2 border-black shadow-none transition-all duration-300">
+                <Card key={i} className="overflow-hidden border border-black/10 shadow-sm rounded-2xl transition-all duration-300">
                     <div className="flex flex-col sm:flex-row">
                         <Skeleton className="w-full sm:w-48 h-48 sm:h-auto shrink-0" />
                         <div className="flex-1 flex flex-col p-6 space-y-4">

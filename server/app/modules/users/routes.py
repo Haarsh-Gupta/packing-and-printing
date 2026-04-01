@@ -1,12 +1,15 @@
 import logging
+import json
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, case
+from redis.asyncio import Redis
 
 from app.modules.users.schemas import UserCreate, UserOut, UserUpdate
 from app.modules.users.models import User
 from app.core.database import get_db
+from app.core.redis import get_redis
 from app.modules.auth.auth import get_password_hash
 from app.modules.auth import get_current_user
 from app.modules.auth.schemas import TokenData
@@ -73,12 +76,18 @@ async def user_detail(current_user : TokenData = Depends(get_current_user), db :
 async def get_dashboard_stats(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis_client: Redis = Depends(get_redis),
 ):
     """
-    Returns all dashboard metrics in a single response using efficient SQL aggregation.
-    2 aggregate queries + 2 LIMIT 3 queries instead of fetching all rows.
+    Returns all dashboard metrics. Uses Redis caching to minimize latent DB queries.
     """
     uid = current_user.id
+    cache_key = f"dashboard_stats:{uid}"
+
+    # Try hitting Redis cache first
+    cached_data = await redis_client.get(cache_key)
+    if cached_data:
+        return json.loads(cached_data)
 
     # ── 1. Order stats (single aggregate query) ──
     order_stats = (await db.execute(
@@ -113,17 +122,24 @@ async def get_dashboard_stats(
         .limit(3)
     )).scalars().all()
 
-    # Populate product names for the 3 recent orders
+    # BUG-021 FIX: Batch-fetch product names instead of N+1 loop
+    inquiry_ids = [o.inquiry_id for o in recent_orders_result]
+    items_by_group = {}
+    if inquiry_ids:
+        items_result = (await db.execute(
+            select(InquiryItem)
+            .where(InquiryItem.group_id.in_(inquiry_ids))
+        )).scalars().all()
+        for item in items_result:
+            if item.group_id not in items_by_group:
+                items_by_group[item.group_id] = item
+
     recent_orders = []
     for o in recent_orders_result:
+        item = items_by_group.get(o.inquiry_id)
         product_name = "Custom Order"
-        item = (await db.execute(
-            select(InquiryItem)
-            .where(InquiryItem.group_id == o.inquiry_id)
-            .limit(1)
-        )).scalar_one_or_none()
         if item:
-            product_name = item.service_name or item.subproduct_name or item.product_name or "Custom Order"
+            product_name = item.service_name or getattr(item, 'subproduct_name', None) or getattr(item, 'product_name', None) or "Custom Order"
         recent_orders.append({
             "id": str(o.id),
             "order_number": o.order_number,
@@ -152,7 +168,7 @@ async def get_dashboard_stats(
     total_exp = float(order_stats.total_expenditure)
     total_paid = float(order_stats.total_paid)
 
-    return {
+    response_data = {
         "stats": {
             "totalInquiries": inquiry_stats.total_inquiries,
             "pendingInquiries": inquiry_stats.pending_inquiries,
@@ -167,6 +183,11 @@ async def get_dashboard_stats(
         "recentOrders": recent_orders,
         "recentInquiries": recent_inquiries,
     }
+
+    # Set cache for 60 seconds
+    await redis_client.setex(cache_key, 60, json.dumps(response_data))
+
+    return response_data
 
 
 # ── User by ID (MUST be after all named routes like /dashboard-stats) ──

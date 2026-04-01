@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import useSWR from "swr";
 import { useNavigate } from "react-router-dom";
 import api, { TOKEN_KEY } from "@/lib/api";
 
@@ -16,34 +17,28 @@ interface Admin { id: string; email: string; name: string; role: string; }
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [admin, setAdmin] = useState<Admin | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY));
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const stored = localStorage.getItem(TOKEN_KEY);
-    fetchMe(stored || null);
-  }, []);
-
-  const fetchMe = async (tok: string | null) => {
-    try {
-      const headers: Record<string, string> = {};
-      if (tok) {
-        headers["Authorization"] = `Bearer ${tok}`;
-        setToken(tok);
-      }
-      
-      const data = await api<Admin>("/users/me", { headers });
-      setAdmin(data);
-    } catch {
-      localStorage.removeItem(TOKEN_KEY);
-      setToken(null);
-      setAdmin(null);
-    } finally {
-      setIsLoading(false);
-    }
+  const fetcher = async (url: string) => {
+    if (!token) throw new Error("No token");
+    const headers = { "Authorization": `Bearer ${token}` };
+    return api<Admin>(url, { headers });
   };
+
+  const { data: admin, isLoading, mutate } = useSWR<Admin | null>(
+    token ? "/users/me" : null,
+    fetcher,
+    {
+      dedupingInterval: 10000,
+      revalidateOnFocus: false,
+      shouldRetryOnError: false,
+      onError: () => {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken(null);
+      }
+    }
+  );
 
   const login = async (email: string, password: string) => {
     const params = new URLSearchParams();
@@ -57,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const tok = data.access_token;
     localStorage.setItem(TOKEN_KEY, tok);
     setToken(tok);
-    await fetchMe(tok);
+    await mutate(); // Let SWR fetch with new token
     navigate("/");
   };
 
@@ -69,12 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
-    setToken(null); setAdmin(null);
+    setToken(null); 
+    mutate(null, false);
     navigate("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ admin, token, login, googleLogin, logout, isLoading }}>
+    <AuthContext.Provider value={{ admin: admin || null, token, login, googleLogin, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -9,6 +9,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import ImageCropper from "@/components/ImageCropper";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Star, Box, Scale, Printer, Droplets, Ruler, Globe, ShieldCheck, Zap, Leaf, Sliders, Package as PackageIcon, Scissors, Wand2, Shield, FileText, Infinity as InfinityIcon, BookOpen, Book } from "lucide-react";
+
+export const ICON_MAP: Record<string, { icon: any, label: string }> = {
+    star: { icon: Star, label: "Star" },
+    fabric: { icon: Box, label: "Fabric" },
+    weight: { icon: Scale, label: "Weight" },
+    print: { icon: Printer, label: "Print" },
+    wash: { icon: Droplets, label: "Wash" },
+    sizes: { icon: Ruler, label: "Sizes" },
+    origin: { icon: Globe, label: "Origin" },
+    quality: { icon: ShieldCheck, label: "Quality" },
+    speed: { icon: Zap, label: "Speed" },
+    eco: { icon: Leaf, label: "Eco" },
+    custom: { icon: Sliders, label: "Custom" },
+    package: { icon: PackageIcon, label: "Package" },
+    ruler: { icon: Ruler, label: "Ruler" },
+    scissors: { icon: Scissors, label: "Scissors" },
+    wand: { icon: Wand2, label: "Wand" },
+    shield: { icon: Shield, label: "Shield" },
+    pages: { icon: FileText, label: "Pages" },
+    spiral: { icon: InfinityIcon, label: "Spiral" },
+    cover: { icon: BookOpen, label: "Cover" },
+    book: { icon: Book, label: "Book" }
+};
 
 export default function SubServices() {
     const navigate = useNavigate();
@@ -38,6 +63,9 @@ export default function SubServices() {
     // Cropper State
     const [croppingImage, setCroppingImage] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
+
+    const [features, setFeatures] = useState<{ icon: string; label: string; detail: string }[]>([]);
+    const [specifications, setSpecifications] = useState<{ label: string; value: string }[]>([]);
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -102,6 +130,8 @@ export default function SubServices() {
             cgst_rate: "0",
             sgst_rate: "0"
         });
+        setFeatures([]);
+        setSpecifications([]);
         setShowForm(true);
     };
 
@@ -119,6 +149,8 @@ export default function SubServices() {
             cgst_rate: String(sub.cgst_rate || 0),
             sgst_rate: String(sub.sgst_rate || 0)
         });
+        setFeatures(sub.features || []);
+        setSpecifications(sub.specifications || []);
         setShowForm(true);
     };
 
@@ -135,22 +167,68 @@ export default function SubServices() {
     const handleSave = async () => {
         if (!service) return;
         setSaving(true);
-        const payload: any = {
-            service_id: service.id,
-            name: formState.name,
-            minimum_quantity: Number(formState.minimum_quantity) || 1,
-            price_per_unit: Number(formState.price_per_unit) || 0,
-            is_active: formState.is_active,
-            images: formState.images,
-            hsn_code: formState.hsn_code || undefined,
-            cgst_rate: parseFloat(formState.cgst_rate) || 0,
-            sgst_rate: parseFloat(formState.sgst_rate) || 0,
-        };
-
-        if (formState.slug) payload.slug = formState.slug;
-        if (formState.description) payload.description = formState.description;
-
         try {
+            let payload: any = {};
+
+            if (editingSubService) {
+                // Delta Calculation
+                if (formState.name !== editingSubService.name) payload.name = formState.name;
+                if (formState.description !== (editingSubService.description || "")) payload.description = formState.description;
+                
+                const mq = Number(formState.minimum_quantity) || 1;
+                if (mq !== editingSubService.minimum_quantity) payload.minimum_quantity = mq;
+                
+                const ppu = Number(formState.price_per_unit) || 0;
+                if (ppu !== editingSubService.price_per_unit) payload.price_per_unit = ppu;
+                
+                if (formState.is_active !== editingSubService.is_active) payload.is_active = formState.is_active;
+                
+                if (JSON.stringify(formState.images) !== JSON.stringify(editingSubService.images || [])) {
+                    payload.images = formState.images;
+                }
+                
+                if (formState.hsn_code !== (editingSubService.hsn_code || "")) payload.hsn_code = formState.hsn_code;
+                
+                const cgst = parseFloat(formState.cgst_rate) || 0;
+                if (cgst !== (editingSubService.cgst_rate || 0)) payload.cgst_rate = cgst;
+                
+                const sgst = parseFloat(formState.sgst_rate) || 0;
+                if (sgst !== (editingSubService.sgst_rate || 0)) payload.sgst_rate = sgst;
+                
+                if (formState.slug !== editingSubService.slug) payload.slug = formState.slug;
+
+                if (JSON.stringify(features) !== JSON.stringify(editingSubService.features || [])) {
+                    payload.features = features.length > 0 ? features : null;
+                }
+                if (JSON.stringify(specifications) !== JSON.stringify(editingSubService.specifications || [])) {
+                    payload.specifications = specifications.length > 0 ? specifications : null;
+                }
+
+                if (Object.keys(payload).length === 0) {
+                    setShowForm(false);
+                    setSaving(false);
+                    return;
+                }
+            } else {
+                // Full payload for creation
+                payload = {
+                    service_id: service.id,
+                    name: formState.name,
+                    minimum_quantity: Number(formState.minimum_quantity) || 1,
+                    price_per_unit: Number(formState.price_per_unit) || 0,
+                    is_active: formState.is_active,
+                    images: formState.images,
+                    hsn_code: formState.hsn_code || undefined,
+                    cgst_rate: parseFloat(formState.cgst_rate) || 0,
+                    sgst_rate: parseFloat(formState.sgst_rate) || 0,
+                    features: features.length > 0 ? features : null,
+                    specifications: specifications.length > 0 ? specifications : null,
+                };
+
+                if (formState.slug) payload.slug = formState.slug;
+                if (formState.description) payload.description = formState.description;
+            }
+
             if (editingSubService) {
                 await api(`/admin/services/subservices/${editingSubService.id}`, {
                     method: "PATCH",
@@ -363,7 +441,12 @@ export default function SubServices() {
 
                                 <div className="space-y-2 mb-6">
                                     <label className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest">Description</label>
-                                    <Textarea className="h-24 text-sm bg-slate-50 dark:bg-[#0b1326] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655]" value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="Elaborate on the specific physical tolerances, material capabilities..." />
+                                    <Textarea
+                                        className="min-h-[150px] bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-blue-400 dark:border-[#adc6ff] placeholder:text-[#434655] resize-y"
+                                        value={formState.description}
+                                        onChange={e => setFormState({ ...formState, description: e.target.value })}
+                                        placeholder="Elaborate on the specific physical tolerances, material capabilities, and included services..."
+                                    />
                                 </div>
 
                                 <div className="flex items-center justify-between border border-slate-200 dark:border-[#434655]/30 bg-slate-50 dark:bg-[#0b1326] p-4 rounded-xl">
@@ -456,6 +539,143 @@ export default function SubServices() {
                                     )}
                                 </div>
                             </div>
+                            
+                            {/* FEATURES & SPECIFICATIONS BLOCK */}
+                                <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-2xl p-6 relative overflow-hidden mb-6">
+                                    <div className="absolute top-0 left-0 w-1 h-full bg-[#10b981]"></div>
+                                    
+                                    <div className="flex items-center justify-between mb-8">
+                                        <div>
+                                            <h3 className="text-sm font-bold tracking-widest uppercase text-slate-900 dark:text-[#dae2fd] flex items-center gap-3">
+                                                Display Information (Features & Specs)
+                                            </h3>
+                                            <p className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-1.5 font-medium">Information displayed in tables and lists on the service detail page.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Features Array */}
+                                    <div className="mb-6">
+                                        <div className="flex items-center justify-between mb-3 border-b border-slate-200 dark:border-[#434655]/20 pb-2">
+                                            <label className="text-[10px] uppercase tracking-widest font-bold text-[#10b981] flex items-center gap-2">Key Features ({features.length})</label>
+                                            <Button onClick={() => setFeatures([...features, { icon: "star", label: "", detail: "" }])} size="sm" variant="ghost" className="h-6 text-[9px] font-bold uppercase tracking-widest text-[#10b981] hover:bg-[#10b981]/10 border border-[#10b981]/20">
+                                                <PlusCircle size={10} className="mr-1" /> push feature
+                                            </Button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {features.map((feat, idx) => (
+                                                <div key={`feat_${idx}`} className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30">
+                                                    <div className="w-24 shrink-0">
+                                                        <Select
+                                                            value={feat.icon}
+                                                            onValueChange={(val) => {
+                                                                const cp = [...features];
+                                                                cp[idx].icon = val;
+                                                                setFeatures(cp);
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-7 w-full border-transparent bg-white dark:bg-[#131b2e] px-2 text-xs font-bold text-slate-600 dark:text-[#c3c5d8] focus:ring-0 focus:border-[#434655]">
+                                                                <SelectValue placeholder="Icon" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/30">
+                                                                {Object.entries(ICON_MAP).map(([key, item]) => {
+                                                                    const Icon = item.icon;
+                                                                    return (
+                                                                        <SelectItem key={key} value={key} className="text-xs font-medium cursor-pointer focus:bg-slate-100 dark:focus:bg-[#1f2937]">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Icon size={14} className="text-[#10b981]" />
+                                                                                <span className="text-slate-900 dark:text-[#dae2fd]">{item.label}</span>
+                                                                            </div>
+                                                                        </SelectItem>
+                                                                    );
+                                                                })}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="flex-1 min-w-[150px]">
+                                                        <Input
+                                                            className="h-7 text-xs font-bold bg-white dark:bg-[#131b2e] border-transparent text-slate-900 dark:text-[#dae2fd] focus:border-[#434655] placeholder:text-[#434655]"
+                                                            placeholder="Label (e.g. Premium Support)"
+                                                            value={feat.label}
+                                                            onChange={e => {
+                                                                const cp = [...features];
+                                                                cp[idx].label = e.target.value;
+                                                                setFeatures(cp);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 min-w-[200px]">
+                                                        <Input
+                                                            className="h-7 text-[10px] font-mono bg-white dark:bg-[#131b2e] border-transparent text-slate-500 dark:text-[#8d90a1] focus:text-blue-600 dark:text-[#adc6ff] focus:border-[#434655] placeholder:text-[#434655]"
+                                                            placeholder="Detail description..."
+                                                            value={feat.detail}
+                                                            onChange={e => {
+                                                                const cp = [...features];
+                                                                cp[idx].detail = e.target.value;
+                                                                setFeatures(cp);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <button onClick={() => setFeatures(features.filter((_, i) => i !== idx))} className="w-7 h-7 flex items-center justify-center shrink-0 rounded text-[#434655] hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10 transition-colors">
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {features.length === 0 && (
+                                                <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-slate-400 text-xs mt-2">
+                                                    No features added.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Specifications Array */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3 border-b border-slate-200 dark:border-[#434655]/20 pb-2">
+                                            <label className="text-[10px] uppercase tracking-widest font-bold text-[#10b981] flex items-center gap-2">Specifications Table ({specifications.length})</label>
+                                            <Button onClick={() => setSpecifications([...specifications, { label: "", value: "" }])} size="sm" variant="ghost" className="h-6 text-[9px] font-bold uppercase tracking-widest text-[#10b981] hover:bg-[#10b981]/10 border border-[#10b981]/20">
+                                                <PlusCircle size={10} className="mr-1" /> push spec
+                                            </Button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {specifications.map((spec, idx) => (
+                                                <div key={`spec_${idx}`} className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30">
+                                                    <div className="flex-1 min-w-[150px]">
+                                                        <Input
+                                                            className="h-7 text-xs font-bold bg-white dark:bg-[#131b2e] border-transparent text-slate-900 dark:text-[#dae2fd] focus:border-[#434655] placeholder:text-[#434655]"
+                                                            placeholder="Label (e.g. Delivery Time)"
+                                                            value={spec.label}
+                                                            onChange={e => {
+                                                                const cp = [...specifications];
+                                                                cp[idx].label = e.target.value;
+                                                                setSpecifications(cp);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 min-w-[200px]">
+                                                        <Input
+                                                            className="h-7 text-xs bg-white dark:bg-[#131b2e] border-transparent text-slate-500 dark:text-[#8d90a1] focus:text-blue-600 dark:text-[#adc6ff] focus:border-[#434655] placeholder:text-[#434655]"
+                                                            placeholder="Value (e.g. 5-7 Business Days)"
+                                                            value={spec.value}
+                                                            onChange={e => {
+                                                                const cp = [...specifications];
+                                                                cp[idx].value = e.target.value;
+                                                                setSpecifications(cp);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <button onClick={() => setSpecifications(specifications.filter((_, i) => i !== idx))} className="w-7 h-7 flex items-center justify-center shrink-0 rounded text-[#434655] hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10 transition-colors">
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {specifications.length === 0 && (
+                                                <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-slate-400 text-xs mt-2">
+                                                    No specifications added.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                         </div>
                     </div>
                 </DialogContent>

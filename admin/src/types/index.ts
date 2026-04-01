@@ -113,6 +113,7 @@ export interface PaymentDeclaration {
 
 export interface Transaction {
     id: string;
+    display_id?: string;
     order_id: string;
     amount: number;
     payment_mode: string;
@@ -123,6 +124,7 @@ export interface Transaction {
 
 export interface Order {
     id: string;
+    order_number?: string;
     inquiry_id: string;
     user_id: string;
     total_amount: number;
@@ -161,17 +163,27 @@ export interface AdminOfflineOrderCreateRequest {
 export interface InquiryItem {
     id: string;
     inquiry_group_id?: string;
-    template_id?: number;
+    product_id?: number;
+    subproduct_id?: number;
     service_id?: number;
-    variant_id?: number;
+    subservice_id?: number;
     quantity: number;
     selected_options: Record<string, unknown>;
     notes?: string;
     images?: string[];
+    display_images?: string[];
     line_item_price?: number;
-    template_name?: string;
+    estimated_price?: number;
+    total_estimated_price?: number;
+    product_name?: string;
+    subproduct_name?: string;
     service_name?: string;
+    subservice_name?: string;
     variant_name?: string;
+    cgst_rate?: number;
+    sgst_rate?: number;
+    hsn_code?: string;
+    computed_tax_amount?: number;
 }
 
 export interface InquiryMessage {
@@ -186,7 +198,7 @@ export interface InquiryMessage {
 export interface QuoteVersion {
     id: string;
     inquiry_id: string;
-    version_number: number;
+    version: number;
     total_price: number;
     valid_until: string;
     admin_notes?: string;
@@ -198,6 +210,7 @@ export interface QuoteVersion {
 
 export interface InquiryGroup {
     id: string;
+    display_id?: string;
     user_id: string;
     status: string;
     active_quote_id?: string;
@@ -213,6 +226,7 @@ export interface InquiryGroup {
 
 export interface InquiryGroupList {
     id: string;
+    display_id?: string;
     user_id: string;
     status: string;
     active_quote?: { total_price: number };
@@ -234,6 +248,7 @@ export interface FormSection {
     options?: ProductOption[];
     min_val?: number;
     max_val?: number;
+    default_val?: number;
     price_per_unit?: number;
 }
 
@@ -247,6 +262,8 @@ export interface SubProduct {
     base_price: number;
     minimum_quantity: number;
     images?: string[];
+    features?: { icon: string; label: string; detail: string }[];
+    specifications?: { label: string; value: string }[];
     is_active: boolean;
     hsn_code?: string;
     cgst_rate?: number;
@@ -276,6 +293,8 @@ export interface SubService {
     price_per_unit: number;
     description?: string;
     images?: string[];
+    features?: { icon: string; label: string; detail: string }[];
+    specifications?: { label: string; value: string }[];
     is_active: boolean;
     hsn_code?: string;
     cgst_rate?: number;
@@ -318,6 +337,7 @@ export interface TicketMessage {
 
 export interface Ticket {
     id: number;
+    display_id?: string;
     user_id: string;
     subject: string;
     description: string;

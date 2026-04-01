@@ -44,7 +44,6 @@ export default function DashboardLayout({
         { href: "/dashboard/inquiries", label: "Inquiries", icon: FileText, activeColor: "#90e8ff" },
         { href: "/dashboard/support", label: "Support", icon: MessageSquare, activeColor: "#4be794" },
         { href: "/dashboard/settings", label: "Settings", icon: Settings, activeColor: "#ffffff" },
-        ...(user?.admin ? [{ href: "/dashboard/users", label: "Users", icon: Users, activeColor: "#ff0000" }] : []),
     ];
 
     return (

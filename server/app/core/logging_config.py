@@ -184,6 +184,43 @@ def _build_dict_config(level: str) -> dict:
 # PUBLIC  ─  setup + teardown
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+class ColoredFormatter(logging.Formatter):
+    COLORS = {
+        "DEBUG": "\033[36m",    # Cyan
+        "INFO": "\033[32m",     # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",    # Red
+        "CRITICAL": "\033[1;31m",# Bold Red
+    }
+    RESET = "\033[0m"
+
+    def format(self, record: logging.LogRecord) -> str:
+        original_levelname = record.levelname
+        original_msg = record.msg
+
+        # Color the log level
+        color = self.COLORS.get(original_levelname, "")
+        record.levelname = f"{color}{original_levelname:8s}{self.RESET}"
+
+        # If this is the CorrelationMiddleware request log, it has extra data
+        if hasattr(record, "process_time_ms") and hasattr(record, "status_code"):
+            method = getattr(record, "http_method", "REQ")
+            path = getattr(record, "path", "")
+            time_ms = getattr(record, "process_time_ms", 0)
+            status = getattr(record, "status_code", 0)
+            
+            # Change "request completed" into a nice formatted access log with time
+            record.msg = f'{method} {path} - HTTP {status} \033[33m({time_ms}ms)\033[0m'
+
+        result = super().format(record)
+
+        # Restore original values
+        record.levelname = original_levelname
+        record.msg = original_msg
+        
+        return result
+
+
 def setup_logging(level: str = "INFO") -> None:
     """
     Initialise the full logging pipeline.  Call ONCE in the FastAPI lifespan.
@@ -194,14 +231,31 @@ def setup_logging(level: str = "INFO") -> None:
     """
     global _listener
 
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+
     env_level = os.getenv("LOG_LEVEL", level).upper()
+    log_format = os.getenv("LOG_FORMAT", "JSON").upper()
 
     # 1. Apply dict config
     logging.config.dictConfig(_build_dict_config(env_level))
 
     # 2. The real stdout handler (the only thing that actually writes I/O)
     stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setFormatter(JSONFormatter())
+    
+    if log_format == "TEXT":
+        # Include correlation_id if you still want to track requests in normal logs
+        formatter = ColoredFormatter(
+            "\033[90m%(asctime)s\033[0m | %(levelname)s | \033[36m%(name)s\033[0m | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        stdout_handler.setFormatter(formatter)
+    else:
+        stdout_handler.setFormatter(JSONFormatter())
+        
     stdout_handler.setLevel(logging.DEBUG)  # let the loggers decide level
 
     # 3. QueueListener drains the queue on a background thread

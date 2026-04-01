@@ -14,8 +14,11 @@ export interface Order {
 export interface InquiryItem {
     id: string;
     inquiry_group_id?: string;
-    template_id?: number | null;
+    product_id?: number | null;
+    subproduct_id?: number | null;
     service_id?: number | null;
+    subservice_id?: number | null;
+    template_id?: number | null;
     variant_id?: number | null;
     quantity: number;
     selected_options: Record<string, any>;
@@ -23,8 +26,17 @@ export interface InquiryItem {
     images?: string[];
     display_images?: string[];
     line_item_price?: number;
+    estimated_price?: number;
+    total_estimated_price?: number;
+    computed_tax_amount?: number;
+    cgst_rate?: number;
+    sgst_rate?: number;
+    hsn_code?: string | null;
+    product_name?: string;
+    subproduct_name?: string;
     template_name?: string;
     service_name?: string;
+    subservice_name?: string;
     variant_name?: string;
 }
 
@@ -41,11 +53,15 @@ export interface QuoteVersion {
     id: string;
     display_id?: string;
     inquiry_id: string;
-    version_number: number;
+    version: number;
     total_price: number;
+    tax_amount?: number;
+    discount_amount?: number;
+    shipping_amount?: number;
     admin_notes?: string;
     valid_until: string;
     created_at: string;
+    line_items?: Record<string, unknown>[];
 }
 
 export interface Inquiry {

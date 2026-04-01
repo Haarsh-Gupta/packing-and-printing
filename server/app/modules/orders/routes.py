@@ -42,6 +42,7 @@ from app.modules.orders.service.order import OrderService
 from app.modules.orders.service.payment import PaymentService
 from app.modules.orders.service.invoice_generator import generate_simple_invoice
 from app.modules.orders.service.qr_generator import generate_upi_qr
+from app.modules.notifications.service import NotificationService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -139,6 +140,44 @@ async def switch_milestones(
     return await svc.get_order(order_id)
 
 
+@router.post("/my/{order_id}/milestones/request-custom", response_model=OrderResponse)
+async def request_custom_milestone(
+    order_id: UUID,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    User requests a CUSTOM payment schedule from admins.
+    """
+    svc = OrderService(db)
+    order = await svc.get_order(order_id)
+
+    if not order:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    if order.user_id != current_user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your order")
+
+    if order.amount_paid and order.amount_paid > 0:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Cannot request custom payment schedule: ₹{order.amount_paid:,.2f} already paid.")
+
+    order.is_custom_milestone_requested = True
+    await db.commit()
+
+    order_number = order.order_number or str(order_id)[:8].upper()
+    await NotificationService.notify_admins(
+        db,
+        title="Custom Payment Schedule Requested",
+        message=f"User requested a custom payment schedule for Order #{order_number}.",
+        metadata={"type": "custom_milestone_requested", "id": str(order_id)},
+        sender_name=current_user.name,
+        is_admin=current_user.admin
+    )
+    
+    _fire_admin_sse("admin_custom_milestone_requested", {"order_id": str(order_id)})
+
+    return order
+
+
 
 
 # ── UPI QR ────────────────────────────────────────────────────────────────────
@@ -218,17 +257,17 @@ async def submit_payment_declaration(
         utr_number=payload.utr_number,
         screenshot_url=payload.screenshot_url,
     )
-    from app.modules.notifications.service import NotificationService
-    from app.modules.users.models import User
-    
-    user_obj = (await db.execute(select(User).where(User.id == current_user.id))).scalar_one_or_none()
-    username = getattr(user_obj, 'name', None) or getattr(user_obj, 'email', 'A user')
+    # Fetch order_number for notification
+    order_stmt = select(Order.order_number).where(Order.id == order_id)
+    order_number = (await db.execute(order_stmt)).scalar_one_or_none()
 
     await NotificationService.notify_admins(
         db,
         title="Payment Declared",
-        message=f"{username} submitted a payment declaration for Order #{str(order_id)[:8].upper()}.",
-        metadata={"type": "payment_declared", "id": str(order_id)}
+        message=f"Submitted a payment declaration for Order #{order_number or str(order_id)[:8].upper()}.",
+        metadata={"type": "payment_declared", "id": str(order_id)},
+        sender_name=current_user.name,
+        is_admin=current_user.admin
     )
     await db.commit()
 
@@ -296,7 +335,11 @@ async def get_invoice(
     inquiry_stmt = (
         select(InquiryGroup)
         .options(
-            selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_product)
+            selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_product),
+            selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_service),
+            selectinload(InquiryGroup.items).selectinload(InquiryItem.product),
+            selectinload(InquiryGroup.items).selectinload(InquiryItem.service),
+            selectinload(InquiryGroup.active_quote),
         )
         .where(InquiryGroup.id == order.inquiry_id)
     )
@@ -304,6 +347,12 @@ async def get_invoice(
 
     items = []
     if inquiry:
+        # Build discount map from QuoteVersion line_items
+        discount_map = {}
+        if inquiry.active_quote and inquiry.active_quote.line_items:
+            for li in inquiry.active_quote.line_items:
+                discount_map[str(li.get("item_id"))] = li
+
         for itm in inquiry.items:
             # Determine the source entity (sub_product or sub_service) for HSN/GST
             sp = itm.sub_product
@@ -323,6 +372,9 @@ async def get_invoice(
                     if v not in (None, "", False):
                         specs_parts.append(f"{k}: {v}")
             specs = " · ".join(specs_parts) if specs_parts else ""
+            
+            # Fetch precision quote discount overrides
+            disc_info = discount_map.get(str(itm.id), {})
 
             items.append({
                 "description": name,
@@ -335,6 +387,10 @@ async def get_invoice(
                 "cgst_rate": float(getattr(source, "cgst_rate", 0) or 0),
                 "sgst_rate": float(getattr(source, "sgst_rate", 0) or 0),
                 "igst_rate": float(getattr(source, "cgst_rate", 0) or 0) + float(getattr(source, "sgst_rate", 0) or 0),
+                "discount_amount": float(disc_info.get("discount_amount") or 0.0),
+                "discount_type": disc_info.get("discount_type"),
+                "discount_value": float(disc_info.get("discount_value") or 0.0),
+                "taxable_value": float(disc_info.get("taxable_value")) if disc_info.get("taxable_value") is not None else None,
             })
 
     # Logo path: configurable via env or placed in server/static/logo.png
@@ -358,6 +414,15 @@ async def get_invoice(
                 "shipping_amount": float(order.shipping_amount or 0),
                 "order_discount": float(order.discount_amount or 0),
                 "amount_paid": float(order.amount_paid or 0),
+                "milestones": [
+                    {
+                        "label": m.label,
+                        "percentage": float(m.percentage),
+                        "amount": float(m.amount),
+                        "status": m.status,
+                    }
+                    for m in sorted(order.milestones, key=lambda x: x.order_index)
+                ] if getattr(order, 'milestones', None) else [],
             },
             "company_info": {
                 "name": settings.company_name,
