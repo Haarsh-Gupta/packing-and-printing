@@ -165,7 +165,7 @@ export default function CartPage() {
     };
 
     const handleSubmit = async () => {
-        if (items.length === 0) return;        if (!token) {
+        if (items.length === 0) return;        if (!user) {
             showAlert("Please login to submit your inquiry.", "error");
             router.push("/auth/login");
             return;

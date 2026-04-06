@@ -9,6 +9,7 @@ import { useAlert } from "@/components/CustomAlert";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { useAuth } from "@/context/AuthContext";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import OrderDetailSkeleton from "./OrderDetailSkeleton";
 interface Transaction {
     id: string;
     receipt_number?: string;
@@ -155,11 +156,7 @@ export default function OrderDetailPage() {
         day: "numeric", month: "short", year: "numeric"
     });
 
-    if (isLoading) return (
-        <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-10 w-10 animate-spin" />
-        </div>
-    );
+    if (isLoading) return <OrderDetailSkeleton />;
 
     if (!order) return null;
 

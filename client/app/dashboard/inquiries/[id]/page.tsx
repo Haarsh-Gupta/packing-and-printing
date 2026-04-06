@@ -30,6 +30,7 @@ import { Inquiry, InquiryMessage } from "@/types/dashboard";
 import { useAlert } from "@/components/CustomAlert";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import InquiryDetailSkeleton from "./InquiryDetailSkeleton";
 
 type WsStatus = "connecting" | "connected" | "disconnected";
 
@@ -379,7 +380,7 @@ export default function InquiryDetailPage() {
     };
 
     if (isLoading && !inquiry) {
-        return <div className="p-12 text-center text-xl font-bold animate-pulse">Loading inquiry details...</div>;
+        return <InquiryDetailSkeleton />;
     }
     if (!inquiry) {
         return <div className="p-12 text-center">Inquiry not found.</div>;

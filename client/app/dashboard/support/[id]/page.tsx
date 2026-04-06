@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, ArrowLeft, Send, User, ShieldCheck } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import TicketDetailSkeleton from "./TicketDetailSkeleton";
 
 interface Message {
     id: number;
@@ -112,11 +113,7 @@ export default function TicketDetailPage() {
     });
 
     if (isLoading) {
-        return (
-            <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-10 w-10 animate-spin" />
-            </div>
-        );
+        return <TicketDetailSkeleton />;
     }
 
     if (!ticket) return null;

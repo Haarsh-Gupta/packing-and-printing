@@ -11,6 +11,7 @@ import { Loader2, Plus, MessageSquare, X, ChevronRight } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import SupportSkeleton from "./SupportSkeleton";
 
 type Priority = "LOW" | "MEDIUM" | "HIGH";
 
@@ -170,11 +171,7 @@ export default function SupportPage() {
 
             {/* Tickets List */}
             {isLoading ? (
-                <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                        <div key={i} className="border-2 border-black p-6 animate-pulse bg-zinc-100 h-28" />
-                    ))}
-                </div>
+                <SupportSkeleton />
             ) : tickets.length === 0 ? (
                 <div className="border-2 border-dashed border-black p-16 text-center bg-zinc-50">
                     <MessageSquare className="w-12 h-12 mx-auto text-zinc-400 mb-4" />
