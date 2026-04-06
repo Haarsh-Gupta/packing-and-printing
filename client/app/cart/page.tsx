@@ -74,7 +74,7 @@ function EditDrawer({ item, onClose }: { item: InquiryItem; onClose: () => void 
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="w-14 h-14 border-2 border-black rounded-lg overflow-hidden shrink-0 bg-zinc-50">
+                    <div className="w-14 h-14 border-2 border-black rounded-xl overflow-hidden shrink-0 bg-zinc-50">
                         <img
                             src={item.imageUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${item.id}&backgroundColor=ffffff`}
                             alt={item.name}
@@ -137,7 +137,8 @@ export default function CartPage() {
 
     const doSubmit = async () => {
         setIsSubmitting(true);
-        try {            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/`, {
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json"},
                 body: JSON.stringify({ items: buildPayload(items) }),
@@ -165,7 +166,9 @@ export default function CartPage() {
     };
 
     const handleSubmit = async () => {
-        if (items.length === 0) return;        if (!user) {
+        if (items.length === 0) return;
+
+        if (!user) {
             showAlert("Please login to submit your inquiry.", "error");
             router.push("/auth/login");
             return;
