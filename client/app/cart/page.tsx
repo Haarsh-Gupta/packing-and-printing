@@ -137,11 +137,9 @@ export default function CartPage() {
 
     const doSubmit = async () => {
         setIsSubmitting(true);
-        try {
-            const token = localStorage.getItem("access_token");
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/`, {
+        try {            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                headers: { "Content-Type": "application/json"},
                 body: JSON.stringify({ items: buildPayload(items) }),
             });
 
@@ -167,9 +165,7 @@ export default function CartPage() {
     };
 
     const handleSubmit = async () => {
-        if (items.length === 0) return;
-        const token = localStorage.getItem("access_token");
-        if (!token) {
+        if (items.length === 0) return;        if (!token) {
             showAlert("Please login to submit your inquiry.", "error");
             router.push("/auth/login");
             return;

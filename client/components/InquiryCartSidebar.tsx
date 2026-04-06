@@ -114,7 +114,6 @@ export default function InquiryCartSidebar() {
 
     const doSubmit = async () => {
         setIsSubmitting(true);
-        const token = localStorage.getItem("access_token");
 
         const payloadItems = items.map(item => {
             if (item.productId != null) {
@@ -142,10 +141,8 @@ export default function InquiryCartSidebar() {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ items: payloadItems })
             });
 
@@ -175,8 +172,7 @@ export default function InquiryCartSidebar() {
     const handleSubmitInquiry = async () => {
         if (items.length === 0) return;
 
-        const token = localStorage.getItem("access_token");
-        if (!token) {
+        if (!user) {
             showAlert("Please login to submit your inquiry.", "error");
             setIsOpen(false);
             router.push("/auth/login");

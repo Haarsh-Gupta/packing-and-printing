@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { Bell, X, CheckCheck, Loader2, Trash2 } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
+import { useAuth } from "@/context/AuthContext";
 
 interface Notification {
     id: number;
@@ -26,29 +27,30 @@ export default function NotificationsBell() {
     const panelRef = useRef<HTMLDivElement>(null);
     const { showAlert } = useAlert();
 
+    const { isLoggedIn } = useAuth();
+
     // Keep ref in sync
     useEffect(() => { openRef.current = open; }, [open]);
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
-    const fetcher = (url: string) => fetch(url, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null);
+    const fetcher = (url: string) => fetch(url, { credentials: "include" }).then(r => r.ok ? r.json() : null);
     
     useSWR(
-        token ? `${apiUrl}/notifications/unread-count` : null,
+        isLoggedIn ? `${apiUrl}/notifications/unread-count` : null,
         fetcher,
         {
             onSuccess: (data: { unread: number } | null) => {
                 if (data) setUnread(data.unread || 0);
             },
-            revalidateOnFocus: false, // SSE handles live updates
-            dedupingInterval: 10000 // deduplicate calls within 10s
+            revalidateOnFocus: false,
+            dedupingInterval: 10000
         }
     );
 
     // ── SSE stream for real-time notifications ──────────────────────────────
     useEffect(() => {
-        if (!token) return;
+        if (!isLoggedIn) return;
 
         const eventSource = new EventSource(`${apiUrl}/notifications/stream`, {
             withCredentials: true,
@@ -100,7 +102,7 @@ export default function NotificationsBell() {
         };
 
         return () => eventSource.close();
-    }, [token]); 
+    }, [isLoggedIn]); 
 
     // ── Close on outside click ─────────────────────────────────────────────
     useEffect(() => {
@@ -119,7 +121,7 @@ export default function NotificationsBell() {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
             const url = `${apiUrl}/notifications/?limit=15`;
             const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             if (res.ok) {
                 const data = await res.json();
@@ -159,7 +161,7 @@ export default function NotificationsBell() {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
             await fetch(`${apiUrl}/notifications/${id}/read`, {
                 method: "PATCH",
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
             setUnread(prev => Math.max(0, prev - 1));
@@ -171,7 +173,7 @@ export default function NotificationsBell() {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
             await fetch(`${apiUrl}/notifications/read-all`, {
                 method: "PATCH",
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
             setUnread(0);
@@ -183,7 +185,7 @@ export default function NotificationsBell() {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
             await fetch(`${apiUrl}/notifications/all`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             setNotifications([]);
             setUnread(0);
@@ -197,7 +199,7 @@ export default function NotificationsBell() {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
             await fetch(`${apiUrl}/notifications/${id}`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             setNotifications(prev => prev.filter(n => n.id !== id));
             fetchNotifications();
@@ -214,7 +216,7 @@ export default function NotificationsBell() {
         return d.toLocaleDateString();
     };
 
-    if (!token) return null;
+    if (!isLoggedIn) return null;
 
     return (
         <div className="relative" ref={panelRef}>

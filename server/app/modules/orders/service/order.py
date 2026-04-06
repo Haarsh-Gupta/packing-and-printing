@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.modules.orders.models import Order, OrderMilestone
+from app.modules.orders.models import Order, OrderMilestone, PaymentDeclaration
 from app.modules.orders.schemas import MilestoneStatus
 from app.modules.orders.schemas import AdminMilestoneCreateRequest, OrderStatus
 
@@ -22,7 +22,8 @@ class OrderService:
                 selectinload(Order.milestones),
                 selectinload(Order.transactions),
                 selectinload(Order.user),
-                selectinload(Order.declarations)
+                selectinload(Order.declarations).selectinload(PaymentDeclaration.order),
+                selectinload(Order.declarations).selectinload(PaymentDeclaration.milestone)
             )
             .where(Order.id == order_id)
         )).scalar_one_or_none()

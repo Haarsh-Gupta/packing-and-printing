@@ -1,41 +1,38 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode } from "react";
 import useSWR from "swr";
 import { useNavigate } from "react-router-dom";
-import api, { TOKEN_KEY } from "@/lib/api";
+import api, { API_URL } from "@/lib/api";
 
 interface AuthContextType {
   admin: Admin | null;
-  token: string | null;
   login: (email: string, password: string) => Promise<void>;
   googleLogin: () => void;
   logout: () => void;
   isLoading: boolean;
 }
 
-interface Admin { id: string; email: string; name: string; role: string; }
+interface Admin { id: string; email: string; name: string; role: string; admin: boolean; }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY));
+  // Track if user attempted login (to trigger SWR fetch)
+  const [isAuthenticated, setIsAuthenticated] = useState(true); // Optimistic — always try cookies
   const navigate = useNavigate();
 
   const fetcher = async (url: string) => {
-    if (!token) throw new Error("No token");
-    const headers = { "Authorization": `Bearer ${token}` };
-    return api<Admin>(url, { headers });
+    return api<Admin>(url);
   };
 
   const { data: admin, isLoading, mutate } = useSWR<Admin | null>(
-    token ? "/users/me" : null,
+    isAuthenticated ? "/users/me" : null,
     fetcher,
     {
       dedupingInterval: 10000,
       revalidateOnFocus: false,
       shouldRetryOnError: false,
       onError: () => {
-        localStorage.removeItem(TOKEN_KEY);
-        setToken(null);
+        setIsAuthenticated(false);
       }
     }
   );
@@ -44,33 +41,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const params = new URLSearchParams();
     params.append("username", email);
     params.append("password", password);
-    const data = await api<{ access_token: string }>("/auth/login", {
+
+    const res = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
-      body: params,
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params,
+      credentials: "include", // Server sets HttpOnly cookies
     });
-    const tok = data.access_token;
-    localStorage.setItem(TOKEN_KEY, tok);
-    setToken(tok);
-    await mutate(); // Let SWR fetch with new token
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "Login failed");
+    }
+
+    // Cookies are set. Let SWR refetch user.
+    setIsAuthenticated(true);
+    await mutate();
     navigate("/");
   };
 
   const googleLogin = () => {
-    const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
     const adminUrl = window.location.origin;
-    window.location.href = `${backendUrl}/auth/google/login?redirect_to=${adminUrl}`;
+    window.location.href = `${API_URL}/auth/google/login?redirect_to=${adminUrl}`;
   };
 
-  const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
-    setToken(null); 
+  const logout = async () => {
+    try {
+      await fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch { /* ignore */ }
+    setIsAuthenticated(false);
     mutate(null, false);
     navigate("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ admin: admin || null, token, login, googleLogin, logout, isLoading }}>
+    <AuthContext.Provider value={{ admin: admin || null, login, googleLogin, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -11,6 +11,7 @@ import { FileText, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAlert } from "@/components/CustomAlert";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 export default function MyInquiriesPage() {
     const router = useRouter();
@@ -31,16 +32,8 @@ export default function MyInquiriesPage() {
     const fetchInquiries = async () => {
         setIsLoading(true);
         try {
-            const token = localStorage.getItem("access_token");
-            if (!token) {
-                router.push("/auth/login");
-                return;
-            }
-
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my`, {
+                credentials: "include"
             });
 
             if (res.ok) {
@@ -48,7 +41,6 @@ export default function MyInquiriesPage() {
                 setInquiries(data);
                 setFilteredInquiries(data);
             } else if (res.status === 401) {
-                localStorage.removeItem("access_token");
                 router.replace("/auth/login");
             } else {
                 console.error("Failed to fetch inquiries");
@@ -88,11 +80,10 @@ export default function MyInquiriesPage() {
     const handleStatusUpdate = async (id: string, status: "ACCEPTED" | "REJECTED") => {
         setActionLoading(id);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${id}/status`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${id}/status`, {
                 method: "PATCH",
                 headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${localStorage.getItem("access_token")}`
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({ status })
             });
@@ -127,11 +118,9 @@ export default function MyInquiriesPage() {
 
         setActionLoading(id);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${id}/reorder`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${id}/reorder`, {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("access_token")}`
-                }
+                credentials: "include"
             });
 
             if (res.ok) {
@@ -213,7 +202,7 @@ export default function MyInquiriesPage() {
                     <h3 className="text-xl font-bold">No inquiries found</h3>
                     <p className="text-zinc-500 mb-6">Try adjusting your search or browse products.</p>
                     <Button
-                        className="bg-[#4be794] hover:bg-[#3cd083] text-black font-bold border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all h-12 px-8 text-lg"
+                        className="bg-accent-green hover:bg-[#3cd083] text-black font-bold border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all h-12 px-8 text-lg"
                         onClick={() => window.location.href = '/products'}
                     >
                         Browse Products

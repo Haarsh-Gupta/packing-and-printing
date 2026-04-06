@@ -1,4 +1,5 @@
 import asyncio
+from pydantic import ValidationError
 from passlib.context import CryptContext
 from app.modules.auth.schemas import TokenData
 from jose import JWTError , jwt
@@ -19,6 +20,7 @@ SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
+REFRESH_SECRET_KEY = settings.refresh_secret_key
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -46,14 +48,18 @@ async def create_refresh_token(data : dict):
     to_encode = payload.model_dump(mode="json")
     expire = datetime.now(timezone.utc) + timedelta(days = REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp" : expire , "type" : "refresh_token"})
-    encoded_jwt = jwt.encode(to_encode , SECRET_KEY , algorithm = ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode , REFRESH_SECRET_KEY, algorithm = ALGORITHM)
     return encoded_jwt
 
-async def verify_token(token : str, credintials_exception : HTTPException) -> TokenData:
+async def verify_token(token : str, credintials_exception : HTTPException, expected_type: str = "access_token", verify_key: str = SECRET_KEY) -> TokenData:
     try:
-        payload = jwt.decode(token , SECRET_KEY , algorithms = [ALGORITHM])
+        payload = jwt.decode(token , verify_key , algorithms = [ALGORITHM])
+
+        if payload.get("type") != expected_type:
+            raise credintials_exception
+
         token_data = TokenData(**payload)
-    except JWTError:
+    except (JWTError,ValidationError):
         raise credintials_exception
     return token_data
 
@@ -77,15 +83,8 @@ async def get_current_user(request: Request, token : str = Depends(oauth2_scheme
 
 
 async def get_current_user_ws(websocket: WebSocket) -> TokenData:
-    """Authentication dependency for WebSockets using cookies or query params."""
-    # 1. Try query param first (cross-origin WS can't send cookies)
-    token = websocket.query_params.get("token")
-    
-    # 2. Fallback to cookies
-    if not token:
-        token = websocket.cookies.get("access_token")
-    if not token:
-        token = websocket.cookies.get("refresh_token")
+    """Authentication dependency for WebSockets using cookies only (secure)."""
+    token = websocket.cookies.get("access_token")
     
     if not token:
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")

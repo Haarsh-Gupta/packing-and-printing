@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAlert } from "@/components/CustomAlert";
+import { useAuth } from "@/context/AuthContext";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 interface Review {
     id: number;
@@ -40,9 +42,9 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
 
 export default function ServiceReviews({ serviceId, slug }: { serviceId: number, slug: string }) {
     const { showAlert } = useAlert();
+    const { isLoggedIn } = useAuth();
     const [reviews, setReviews] = useState<Review[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [rating, setRating] = useState(5);
     const [comment, setComment] = useState("");
@@ -64,23 +66,17 @@ export default function ServiceReviews({ serviceId, slug }: { serviceId: number,
 
     // Fetch reviews & check login status cleanly on the client side
     useEffect(() => {
-        const checkToken = localStorage.getItem("access_token");
-        setIsLoggedIn(!!checkToken);
         fetchReviews();
     }, [slug]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Grab token fresh when they click submit
-        let currentToken = localStorage.getItem("access_token");
-        if (!currentToken) {
+        // Check login status via context
+        if (!isLoggedIn) {
             showAlert("Please log in to leave a review.", "error");
             return;
         }
-
-        // Ensure literal quotes are stripped since localstorage JSON strings can wrap it
-        currentToken = currentToken.replace(/^"(.*)"$/, '$1');
 
         if (comment.length < 10) {
             showAlert("Comment must be at least 10 characters long.", "error");
@@ -89,9 +85,9 @@ export default function ServiceReviews({ serviceId, slug }: { serviceId: number,
 
         setIsSubmitting(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/reviews`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${currentToken}` },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ service_id: serviceId, rating, comment }),
             });
             if (res.ok) {

@@ -117,7 +117,7 @@ export default function Login() {
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#3f3f46', marginBottom: '6px' }}>
                                 Email
                             </label>
-                            <div style={{ position: 'relative' }}>
+                            <div style={{ position: 'relative', width: '100%' }}>
                                 <input
                                     type="email"
                                     value={email}
@@ -141,7 +141,7 @@ export default function Login() {
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#3f3f46', marginBottom: '6px' }}>
                                 Password
                             </label>
-                            <div style={{ position: 'relative' }}>
+                            <div style={{ position: 'relative', width: '100%' }}>
                                 <input
                                     type={showPw ? 'text' : 'password'}
                                     value={password}
@@ -209,7 +209,7 @@ export default function Login() {
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#3f3f46', marginBottom: '6px' }}>
                                 Email
                             </label>
-                            <div style={{ position: 'relative' }}>
+                            <div style={{ position: 'relative', width: '100%' }}>
                                 <input
                                     type="email"
                                     placeholder="admin@navart.com"

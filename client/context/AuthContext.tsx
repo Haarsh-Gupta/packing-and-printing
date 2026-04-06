@@ -21,12 +21,41 @@ interface AuthContextType {
     user: UserData | null;
     isLoading: boolean;
     isLoggedIn: boolean;
-    login: (token: string) => Promise<void>;
+    login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+/**
+ * Helper: make a fetch to the API with cookies.
+ * On 401, auto-refresh the access_token via POST /auth/refresh and retry once.
+ */
+async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+    const res = await fetch(`${API_URL}${path}`, {
+        ...options,
+        credentials: "include",
+    });
+
+    if (res.status === 401) {
+        // Try refreshing the access_token cookie
+        const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
+            method: "POST",
+            credentials: "include",
+        });
+        if (refreshRes.ok) {
+            // Retry the original request with the new cookie
+            return fetch(`${API_URL}${path}`, {
+                ...options,
+                credentials: "include",
+            });
+        }
+    }
+
+    return res;
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<UserData | null>(null);
@@ -35,29 +64,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const dispatch = useDispatch<AppDispatch>();
 
     const fetchUser = useCallback(async () => {
-        const token = localStorage.getItem("access_token");
-        // Even if no token in localStorage, we attempt fetch to let cookies authenticate us
-        
         try {
-            const headers: Record<string, string> = {};
-            if (token) {
-                headers["Authorization"] = `Bearer ${token}`;
-            }
-
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-                headers,
-                credentials: "include",
-            });
-
+            const res = await apiFetch("/users/me");
             if (res.ok) {
                 const data = await res.json();
                 setUser(data);
                 dispatch(syncGuestWishlist());
             } else {
-                // If 401 and we had a token, it's definitely invalid
-                if (res.status === 401 && token) {
-                    localStorage.removeItem("access_token");
-                }
                 setUser(null);
             }
         } catch (error) {
@@ -71,44 +84,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchUser();
     }, [fetchUser]);
 
-    const login = useCallback(async (token: string) => {
-        localStorage.setItem("access_token", token);
+    const login = useCallback(async (email: string, password: string) => {
+        const formBody = new URLSearchParams();
+        formBody.append("username", email);
+        formBody.append("password", password);
 
-        // Fetch user data immediately so it's available before navigating
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-                headers: { Authorization: `Bearer ${token}` },
-                credentials: "include",
-            });
-            if (res.ok) {
-                const userData = await res.json();
-                setUser(userData);
-            }
-        } catch (error) {
-            console.error("Failed to fetch user after login:", error);
+        const res = await fetch(`${API_URL}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: formBody,
+            credentials: "include", // Server sets HttpOnly cookies
+        });
+
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            const detail = typeof data.detail === "object" ? JSON.stringify(data.detail) : data.detail;
+            throw new Error(detail || "Invalid credentials");
         }
 
-        // Trigger wishlist sync on imperative login
-        dispatch(syncGuestWishlist());
+        // Cookies are now set. Fetch user data.
+        await fetchUser();
         router.push("/dashboard");
-        // Trigger header update if needed
         window.dispatchEvent(new Event("user-updated"));
-    }, [dispatch, router]);
+    }, [fetchUser, router]);
 
     const logout = useCallback(async () => {
         try {
-            const token = localStorage.getItem("access_token");
-            if (token) {
-                await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${token}` },
-                    credentials: "include",
-                });
-            }
+            await fetch(`${API_URL}/auth/logout`, {
+                method: "POST",
+                credentials: "include",
+            });
         } catch (e) {
             console.error("Logout error", e);
         } finally {
-            localStorage.removeItem("access_token");
             setUser(null);
             router.replace("/auth/login");
             window.dispatchEvent(new Event("user-updated"));

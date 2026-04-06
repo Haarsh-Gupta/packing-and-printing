@@ -498,6 +498,52 @@ export default function OrderDetail() {
                 </div>
             </div>
 
+            {/* Payment Declarations Ledger */}
+            {order.declarations && order.declarations.length > 0 && (
+                <div className="bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 shadow-sm overflow-hidden flex flex-col mb-8 mt-8">
+                    <div className="px-8 py-6 border-b border-slate-200 dark:border-[#434655]/20 bg-slate-50 dark:bg-[#0b1326]/30">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-[#dae2fd]">Payment Declarations</h3>
+                        <p className="text-[11px] font-bold text-slate-500 dark:text-[#8d90a1] uppercase tracking-wider mt-1">Offline payments pending verification</p>
+                    </div>
+                    <div className="flex-1 overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50 dark:bg-[#0b1326]/20 border-b border-slate-200 dark:border-[#434655]/10">
+                                    <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1]">Timestamp</th>
+                                    <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1]">Status</th>
+                                    <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1]">Mode</th>
+                                    <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1]">Proof / UTR</th>
+                                    <th className="px-8 py-4 text-right"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#434655]/10">
+                                {order.declarations.map((d: any) => (
+                                    <tr key={d.id} className="hover:bg-slate-50 dark:hover:bg-[#171f33]/40 transition-colors">
+                                        <td className="px-8 py-5 text-xs text-slate-500 dark:text-[#8d90a1] font-medium">{new Date(d.created_at).toLocaleDateString()}</td>
+                                        <td className="px-8 py-5">
+                                            <LocalStatusPill status={d.status} />
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <span className="text-[10px] px-2.5 py-1 bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 rounded-full text-slate-900 dark:text-[#dae2fd] font-bold uppercase tracking-widest">
+                                                {d.payment_mode}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5 text-[11px] font-mono text-slate-600 dark:text-[#c3c5d8] opacity-80">
+                                            {d.utr_number || (d.screenshot_url ? 'SCREENSHOT' : '—')}
+                                        </td>
+                                        <td className="px-8 py-5 text-right">
+                                            <Link to={`/declarations/${d.id}`} className="text-[10px] font-black uppercase tracking-widest text-[#1f70e3] hover:text-blue-600 dark:hover:text-[#adc6ff] transition-colors border border-transparent hover:border-[#1f70e3]/20 px-3 py-1.5 rounded-lg bg-[#1f70e3]/5">
+                                                Review
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {/* Reschedule Modal */}
             {showReschedule && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">

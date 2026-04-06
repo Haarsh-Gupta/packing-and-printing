@@ -1,14 +1,6 @@
-/**
- * useRazorpay
- * A reusable hook that handles the full Razorpay checkout flow:
- * 1. POST /payments/create-order → get gateway_order_id + key
- * 2. Load Razorpay checkout.js if not already loaded
- * 3. Open modal
- * 4. On success → POST /payments/verify
- * 5. Call onSuccess callback with updated order data
- */
-
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 interface RazorpayOptions {
     orderId: string;
@@ -43,6 +35,7 @@ function loadRazorpayScript(): Promise<boolean> {
 
 export function useRazorpay() {
     const [isProcessing, setIsProcessing] = useState(false);
+    const { isLoggedIn } = useAuth();
 
     const initiatePayment = async ({
         orderId,
@@ -53,8 +46,7 @@ export function useRazorpay() {
         onSuccess,
         onError,
     }: RazorpayOptions) => {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
+        if (!isLoggedIn) {
             onError?.("Please log in to make a payment.");
             return;
         }
@@ -71,11 +63,10 @@ export function useRazorpay() {
             }
 
             // Step 2: Create gateway order
-            const createRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/create-order`, {
+            const createRes = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/payments/create-order`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({ order_id: orderId }),
             });
@@ -91,11 +82,10 @@ export function useRazorpay() {
 
             // Mock bypass if no real key is present
             if (!razorpay_key_id || razorpay_key_id.includes("mock") || razorpay_key_id === "test" || String(razorpay_key_id) === "null") {
-                const verifyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/verify`, {
+                const verifyRes = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/payments/verify`, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
                         order_id: orderId,
@@ -139,11 +129,10 @@ export function useRazorpay() {
                 }) => {
                     // Step 4: Verify payment with backend
                     try {
-                        const verifyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/verify`, {
+                        const verifyRes = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/payments/verify`, {
                             method: "POST",
                             headers: {
-                                "Content-Type": "application/json",
-                                Authorization: `Bearer ${token}`,
+                                "Content-Type": "application/json"
                             },
                             body: JSON.stringify({
                                 order_id: orderId,

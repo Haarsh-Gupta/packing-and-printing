@@ -115,6 +115,17 @@ class PaymentDeclaration(Base):
     order = relationship("Order", back_populates="declarations")
     milestone = relationship("OrderMilestone", back_populates="declarations")
 
+    @property
+    def order_number(self):
+        return self.order.order_number if self.order else None
+
+    @property
+    def milestone_label(self):
+        """Include percentage for better context (e.g., 'Advance (50%)')"""
+        if self.milestone:
+            return f"{self.milestone.label} ({self.milestone.percentage}%)"
+        return None
+
 
 # These are "before_insert" events on ORM models. In SQLAlchemy 2.x with async,
 # the `connection` parameter in ORM events is a sync connection proxy, so

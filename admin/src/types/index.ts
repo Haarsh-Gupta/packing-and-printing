@@ -109,6 +109,8 @@ export interface PaymentDeclaration {
     rejection_reason?: string;
     created_at: string;
     reviewed_at?: string;
+    order_number?: string;
+    milestone_label?: string;
 }
 
 export interface Transaction {

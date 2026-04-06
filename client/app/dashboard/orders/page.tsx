@@ -10,6 +10,7 @@ import { OrderCard, OrderListRow } from "@/components/dashboard/OrderComponents"
 import { Box, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 export default function OrdersPage() {
     const router = useRouter();
@@ -27,16 +28,8 @@ export default function OrdersPage() {
     const fetchOrders = async () => {
         setIsLoading(true);
         try {
-            const token = localStorage.getItem("access_token");
-            if (!token) {
-                router.replace("/auth/login");
-                return;
-            }
-
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/my`, {
+                credentials: "include"
             });
 
             if (res.ok) {
@@ -44,7 +37,6 @@ export default function OrdersPage() {
                 setOrders(data);
                 setFilteredOrders(data);
             } else if (res.status === 401) {
-                localStorage.removeItem("access_token");
                 router.replace("/auth/login");
             } else {
                 console.error("Failed to fetch orders");
@@ -144,7 +136,7 @@ export default function OrdersPage() {
                     <p className="text-zinc-500 mb-8 max-w-sm text-center mt-2">
                         Try adjusting your search or browse the catalog.
                     </p>
-                    <Button size="lg" className="bg-[#4be794] text-black font-bold border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all h-12 px-8 text-lg" asChild>
+                    <Button size="lg" className="bg-accent-green text-black font-bold border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all h-12 px-8 text-lg" asChild>
                         <Link href="/products">Browse Catalog</Link>
                     </Button>
                 </div>

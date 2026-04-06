@@ -2,7 +2,7 @@ import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "./Sidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Search, ChevronRight, Loader2 } from "lucide-react";
+import { Search, ChevronRight, Loader2, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { AdminNotifications } from "./AdminNotifications";
 
@@ -38,6 +38,35 @@ export default function Layout() {
 
     if (!user) {
         return <Navigate to="/login" replace />;
+    }
+
+    if (user.admin === false) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 font-sans p-4">
+                <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg border border-red-100 dark:border-red-900 text-center max-w-sm w-full">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <AlertCircle size={32} />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Access Denied</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                        Logged in as <strong className="text-slate-700 dark:text-slate-300">{user.email}</strong>.<br/><br/>
+                        This account does not have administrator privileges.
+                    </p>
+                    <button 
+                        onClick={() => {
+                            // Clear cookies and force reload to login
+                            document.cookie.split(";").forEach(c => {
+                                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                            });
+                            window.location.href = '/login';
+                        }}
+                        className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 font-semibold py-2.5 rounded-lg transition-colors"
+                    >
+                        Sign in with Admin Account
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     // Compute breadcrumb label

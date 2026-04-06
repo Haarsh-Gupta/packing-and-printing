@@ -1,35 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect,  useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 
 function CallbackHandler() {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const { refreshUser } = useAuth();
+    const { refreshUser, isLoggedIn } = useAuth();
+    const hasRun = useRef(false);
 
     useEffect(() => {
-        const access_token = searchParams.get("access_token");
-        const error = searchParams.get("error");
+        if (hasRun.current) return;
+        hasRun.current = true;
 
-        if (error) {
-            router.replace(`/auth/login?error=${encodeURIComponent(error)}`);
-            return;
-        }
+        // This page exists as a legacy fallback for older OAuth flows.
+        // The new flow uses /auth/success with HttpOnly cookies.
+        // If we land here, just try to refresh user from cookies.
+        refreshUser();
+    }, [refreshUser]);
 
-        if (access_token) {
-            localStorage.setItem("access_token", access_token);
-            // Sync the global auth state
-            refreshUser().then(() => {
-                router.replace("/dashboard");
-            });
-        } else {
-            router.replace("/auth/login?error=no_token");
+    useEffect(() => {
+        if (isLoggedIn) {
+            router.replace("/dashboard");
         }
-    }, [searchParams, router, refreshUser]);
+    }, [isLoggedIn, router]);
 
     return (
         <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6">

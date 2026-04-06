@@ -50,7 +50,7 @@ async def _cleanup_stale_drafts():
                     await email_svc.send_email(
                         to=group.user.email,
                         subject="Your saved inquiry draft will expire soon",
-                        body_html=f"<p>Your inquiry draft expires in <strong>{days_left} days</strong>. <a href='https://bookbind.in/inquiries'>Log in to submit it.</a></p>",
+                        body_html=f"<p>Your inquiry draft expires in <strong>{days_left} days</strong>. <a href='https://navart.in/inquiries'>Log in to submit it.</a></p>",
                     )
                 except Exception as e:
                     logger.warning(f"Failed to send expiry warning for {group.id}: {e}")

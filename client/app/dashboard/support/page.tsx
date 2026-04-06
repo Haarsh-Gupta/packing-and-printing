@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Plus, MessageSquare, X, ChevronRight } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 type Priority = "LOW" | "MEDIUM" | "HIGH";
 
@@ -42,22 +43,18 @@ export default function SupportPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [form, setForm] = useState({ subject: "", message: "", priority: "MEDIUM" as Priority });
-
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-
-    useEffect(() => {
-        if (!token) { router.replace("/auth/login"); return; }
+    const [form, setForm] = useState({ subject: "", message: "", priority: "MEDIUM" as Priority });    useEffect(() => {
+        // token check removed
         fetchTickets();
     }, []);
 
     const fetchTickets = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/`, {
-                headers: { Authorization: `Bearer ${token}` },
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/tickets/`, {
+                credentials: "include",
             });
-            if (res.status === 401) { localStorage.removeItem("access_token"); router.replace("/auth/login"); return; }
+            if (res.status === 401) { router.replace("/auth/login"); return; }
             if (res.ok) setTickets(await res.json());
         } catch (e) {
             showAlert("Failed to load tickets.", "error");
@@ -74,9 +71,9 @@ export default function SupportPage() {
         }
         setIsSubmitting(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/tickets/`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                headers: { "Content-Type": "application/json"},
                 body: JSON.stringify(form),
             });
             if (res.ok) {

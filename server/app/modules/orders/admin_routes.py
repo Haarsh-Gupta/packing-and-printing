@@ -188,19 +188,6 @@ async def record_payment(
 
 # ── Declaration management ────────────────────────────────────────────────────
 
-@router.get("/declarations/{declaration_id}", response_model=PaymentDeclarationResponse)
-async def get_declaration(
-    declaration_id: UUID,
-    admin: User = Depends(get_current_admin_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Retrieve details of a single payment declaration."""
-    stmt = select(PaymentDeclaration).where(PaymentDeclaration.id == declaration_id)
-    declaration = (await db.execute(stmt)).scalar_one_or_none()
-    if not declaration:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Declaration not found")
-    return declaration
-
 
 @router.get("/declarations/all", response_model=list[PaymentDeclarationResponse])
 async def list_all_declarations(
@@ -213,7 +200,11 @@ async def list_all_declarations(
     """
     List all payment declarations across all orders with optional status filter.
     """
-    stmt = select(PaymentDeclaration)
+    from sqlalchemy.orm import selectinload
+    stmt = select(PaymentDeclaration).options(
+        selectinload(PaymentDeclaration.order),
+        selectinload(PaymentDeclaration.milestone)
+    )
     if status_filter:
         stmt = stmt.where(PaymentDeclaration.status == status_filter)
     
@@ -234,15 +225,42 @@ async def get_pending_declarations(
     All pending UPI/bank declarations across all orders.
     Oldest first (FIFO) — admin works through the queue in order.
     """
+    from sqlalchemy.orm import selectinload
     declarations = list((await db.execute(
         select(PaymentDeclaration)
+        .options(
+            selectinload(PaymentDeclaration.order),
+            selectinload(PaymentDeclaration.milestone)
+        )
         .where(PaymentDeclaration.status == DeclarationStatus.PENDING)
         .order_by(PaymentDeclaration.created_at.asc())
         .offset(skip)
         .limit(limit)
     )).scalars().all())
-
     return declarations
+
+
+@router.get("/declarations/{declaration_id}", response_model=PaymentDeclarationResponse)
+async def get_declaration(
+    declaration_id: UUID,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve details of a single payment declaration."""
+    from sqlalchemy.orm import selectinload
+    stmt = (
+        select(PaymentDeclaration)
+        .options(
+            selectinload(PaymentDeclaration.order),
+            selectinload(PaymentDeclaration.milestone)
+        )
+        .where(PaymentDeclaration.id == declaration_id)
+    )
+    declaration = (await db.execute(stmt)).scalar_one_or_none()
+    if not declaration:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Declaration not found")
+    return declaration
+
 
 
 @router.get("/{order_id}/declarations", response_model=list[PaymentDeclarationResponse])
@@ -252,8 +270,13 @@ async def get_order_declarations(
     db: AsyncSession = Depends(get_db),
 ):
     """All declarations for a specific order (all statuses)."""
+    from sqlalchemy.orm import selectinload
     declarations = list((await db.execute(
         select(PaymentDeclaration)
+        .options(
+            selectinload(PaymentDeclaration.order),
+            selectinload(PaymentDeclaration.milestone)
+        )
         .where(PaymentDeclaration.order_id == order_id)
         .order_by(PaymentDeclaration.created_at.desc())
     )).scalars().all())

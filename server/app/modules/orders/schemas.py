@@ -344,6 +344,8 @@ class PaymentDeclarationResponse(BaseModel):
     rejection_reason: Optional[str]
     created_at: datetime
     reviewed_at: Optional[datetime]
+    order_number: Optional[str] = None
+    milestone_label: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -413,6 +415,14 @@ class OrderResponse(BaseModel):
     declarations: List[PaymentDeclarationResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def filter_and_sort_milestones(self) -> "OrderResponse":
+        if self.milestones and self.split_type:
+            # Only return milestones that match the current split_type of the order
+            self.milestones = [m for m in self.milestones if m.split_type == self.split_type]
+            self.milestones.sort(key=lambda m: m.order_index)
+        return self
 
 
 class OrderListResponse(BaseModel):

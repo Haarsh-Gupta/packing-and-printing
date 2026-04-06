@@ -13,29 +13,59 @@ logger = logging.getLogger(__name__)
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, Dict[str, Set[WebSocket]]] = {}
+        # Track metadata per user per group: { group_id: { client_id: { "is_admin": bool } } }
+        self.user_meta: Dict[str, Dict[str, dict]] = {}
         self.pubsub_tasks: Dict[str, asyncio.Task] = {}
         self._shutdown_event = asyncio.Event()
 
-    async def connect(self, websocket: WebSocket, group_id: str, client_id: str):
+    async def connect(self, websocket: WebSocket, group_id: str, client_id: str, is_admin: bool = False):
         await websocket.accept()
         if group_id not in self.active_connections:
             self.active_connections[group_id] = {}
-        if client_id not in self.active_connections[group_id]:
+        if group_id not in self.user_meta:
+            self.user_meta[group_id] = {}
+
+        is_new_user = client_id not in self.active_connections[group_id]
+
+        if is_new_user:
             self.active_connections[group_id][client_id] = set()
         self.active_connections[group_id][client_id].add(websocket)
+        self.user_meta[group_id][client_id] = {"is_admin": is_admin}
 
         if group_id not in self.pubsub_tasks:
             task = asyncio.create_task(self._listen_to_redis(group_id))
             self.pubsub_tasks[group_id] = task
 
-    def disconnect(self, websocket: WebSocket, group_id: str, client_id: str):
+        # Broadcast presence:online to other users in the group
+        if is_new_user:
+            await self.broadcast(group_id, {
+                "type": "presence",
+                "user_id": client_id,
+                "is_online": True,
+                "is_admin": is_admin,
+            })
+
+    async def disconnect(self, websocket: WebSocket, group_id: str, client_id: str):
+        is_admin = False
         if group_id in self.active_connections:
             if client_id in self.active_connections[group_id]:
                 self.active_connections[group_id][client_id].discard(websocket)
                 if not self.active_connections[group_id][client_id]:
+                    meta = self.user_meta.get(group_id, {}).pop(client_id, {})
+                    is_admin = meta.get("is_admin", False)
                     del self.active_connections[group_id][client_id]
-            if not self.active_connections[group_id]:
-                del self.active_connections[group_id]
+
+                    # Broadcast presence:offline since user has no more sockets
+                    await self.broadcast(group_id, {
+                        "type": "presence",
+                        "user_id": client_id,
+                        "is_online": False,
+                        "is_admin": is_admin,
+                    })
+
+            if not self.active_connections.get(group_id):
+                self.active_connections.pop(group_id, None)
+                self.user_meta.pop(group_id, None)
                 task = self.pubsub_tasks.pop(group_id, None)
                 if task:
                     task.cancel()
@@ -50,6 +80,21 @@ class ConnectionManager:
             logger.error(f"Redis publish failed for {channel}: {e}")
             await self._local_broadcast(group_id, message)
 
+    def _remove_socket(self, websocket: WebSocket, group_id: str, client_id: str):
+        """Silently remove a dead socket without broadcasting presence (used in error handlers)."""
+        if group_id in self.active_connections:
+            if client_id in self.active_connections[group_id]:
+                self.active_connections[group_id][client_id].discard(websocket)
+                if not self.active_connections[group_id][client_id]:
+                    self.user_meta.get(group_id, {}).pop(client_id, None)
+                    del self.active_connections[group_id][client_id]
+            if not self.active_connections[group_id]:
+                del self.active_connections[group_id]
+                self.user_meta.pop(group_id, None)
+                task = self.pubsub_tasks.pop(group_id, None)
+                if task:
+                    task.cancel()
+
     async def _local_broadcast(self, group_id: str, message: dict):
         if group_id not in self.active_connections:
             return
@@ -58,7 +103,7 @@ class ConnectionManager:
                 try:
                     await ws.send_json(message)
                 except Exception:
-                    self.disconnect(ws, group_id, client_id)
+                    self._remove_socket(ws, group_id, client_id)
 
     async def _listen_to_redis(self, group_id: str):
         channel = f"ws:inquiry:{group_id}"
@@ -95,7 +140,7 @@ class ConnectionManager:
                                         try:
                                             await ws.send_json(parsed)
                                         except Exception:
-                                            self.disconnect(ws, group_id, client_id)
+                                            self._remove_socket(ws, group_id, client_id)
                         except json.JSONDecodeError:
                             pass
 

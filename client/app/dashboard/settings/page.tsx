@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { Loader2, Camera, User, MapPin, Lock, Mail, Phone, Shield, CheckCircle2, Sparkles, ArrowRight } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 import { useAuth } from "@/context/AuthContext";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -41,12 +42,10 @@ export default function SettingsPage() {
 
   // ── Helpers ──
   const updateUser = async (payload: any) => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/update`, {
+    const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/users/update`, {
       method: "PATCH",
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("access_token")}`
-      },
+        "Content-Type": "application/json"},
       body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error("Update failed");
@@ -66,9 +65,9 @@ export default function SettingsPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=profile`, {
+      const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=profile`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+        credentials: "include",
         body: formData
       });
       if (!res.ok) throw new Error("Upload failed");

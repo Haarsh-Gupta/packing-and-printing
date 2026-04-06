@@ -119,12 +119,11 @@ export default function SignUpPage() {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: loginBody,
-        credentials: "include",
+        credentials: "include", // Server sets HttpOnly cookies
       });
 
       if (loginRes.ok) {
-        const loginData = await loginRes.json();
-        localStorage.setItem("access_token", loginData.access_token);
+        // Cookies are set — navigate to dashboard
         router.push("/dashboard");
       } else {
         // Login failed but registration succeeded — redirect to login page

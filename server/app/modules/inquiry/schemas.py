@@ -61,7 +61,7 @@ class QuoteLineItemCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_line_item_pricing(self):
-        if self.discount_type not in ["percentage", "amount"]:
+        if self.discount_type and self.discount_type not in ["percentage", "amount"]:
             raise ValueError("discount_type must be 'percentage' or 'amount'")
         if self.discount_type == "percentage":
             if not (0 <= self.discount_value <= 100):
@@ -73,7 +73,7 @@ class QuoteLineItemCreate(BaseModel):
         #     raise ValueError("taxable_value must be equal to line_item_price - discount_amount")
         # if self.gst_amount != self.taxable_value * (self.cgst_rate + self.sgst_rate) / 100:
         #     raise ValueError("gst_amount must be equal to taxable_value * (cgst_rate + sgst_rate) / 100")
-        # return self
+        return self
 
 
 class QuoteVersionCreate(BaseModel):

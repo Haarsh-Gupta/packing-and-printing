@@ -107,7 +107,6 @@ const StatCard = ({ label, value, change, trend, icon: Icon, active, onClick, co
 
 export default function Dashboard() {
     const [data, setData] = useState<DashboardOverview | null>(null);
-    const [traffic, setTraffic] = useState<TrafficStats | null>(null);
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState("month");
@@ -118,13 +117,11 @@ export default function Dashboard() {
         setLoading(true);
         Promise.all([
             api<DashboardOverview>(`/admin/dashboard/overview?period=${period}`),
-            api<{ activities: any[] }>(`/admin/dashboard/recent-activity?limit=6`),
-            api<TrafficStats>(`/admin/dashboard/traffic?period=${period}`)
+            api<{ activities: any[] }>(`/admin/dashboard/recent-activity?limit=6`)
         ])
-            .then(([overviewData, activityData, trafficData]) => {
+            .then(([overviewData, activityData]) => {
                 setData(overviewData);
                 setRecentActivity(activityData.activities || []);
-                setTraffic(trafficData);
             })
             .catch(console.error)
             .finally(() => setLoading(false));
@@ -166,17 +163,7 @@ export default function Dashboard() {
     const pipelineData = Object.entries(data?.orders.by_status || {}).map(([name, value]) => ({ name, value }));
     const totalOrders = pipelineData.reduce((s, d) => s + (d.value as number), 0);
 
-    const PIE_COLORS = {
-        mobile: '#10b981', // emerald
-        desktop: '#3b82f6', // blue
-        tablet: '#8b5cf6'  // violet
-    };
 
-    const trafficPieData = traffic ? [
-        { name: "Desktop", value: traffic.desktop.count, fill: PIE_COLORS.desktop },
-        { name: "Mobile", value: traffic.mobile.count, fill: PIE_COLORS.mobile },
-        { name: "Tablet", value: traffic.tablet.count, fill: PIE_COLORS.tablet },
-    ].filter(d => d.value > 0) : [];
 
     return (
         <div className="animate-fade-in font-['Inter'] min-h-screen bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] transition-colors">
@@ -444,53 +431,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* ─── Bottom Row 3: Traffic ─── */}
-                {traffic && (
-                    <div className="bg-white dark:bg-[#171f33] rounded-xl p-8 border border-slate-200 dark:border-[#434655]/10 mt-8 transition-colors flex flex-col md:flex-row gap-8 items-center">
-                        <div className="flex-1 w-full">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-[#dae2fd] mb-6">Traffic by Device</h3>
-                            <div className="h-[250px] relative">
-                                {traffic.total > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={trafficPieData}
-                                                cx="50%" cy="50%"
-                                                innerRadius={60} outerRadius={85}
-                                                paddingAngle={5} dataKey="value" stroke="none"
-                                            >
-                                                {trafficPieData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.fill} className="transition-all duration-300" />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip
-                                                formatter={(value: number | undefined) => [`${value || 0} visits`, 'Traffic']}
-                                                contentStyle={{
-                                                    backgroundColor: dark ? '#131b2e' : '#ffffff',
-                                                    borderColor: dark ? '#434655' : '#e2e8f0',
-                                                    borderRadius: '8px',
-                                                    fontSize: '12px',
-                                                }}
-                                                itemStyle={{ color: dark ? '#dae2fd' : '#1e293b' }}
-                                            />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">No traffic data recorded yet.</div>
-                                )}
-                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                    <span className="text-3xl font-bold tracking-tight text-slate-800 dark:text-[#dae2fd] leading-none">{traffic.total}</span>
-                                    <span className="text-[10px] text-slate-500 dark:text-[#c3c5d8] font-medium mt-1 uppercase tracking-widest">Total Hits</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex-1 w-full flex flex-col justify-center space-y-4">
-                            <TrafficLegendRow icon={Monitor} label="Desktop" stats={traffic.desktop} color="bg-blue-500" />
-                            <TrafficLegendRow icon={Smartphone} label="Mobile" stats={traffic.mobile} color="bg-emerald-500" />
-                            <TrafficLegendRow icon={Tablet} label="Tablet" stats={traffic.tablet} color="bg-violet-500" />
-                        </div>
-                    </div>
-                )}
+                {/* ─── Bottom Row 3: Traffic (Removed to use Google / Vercel Analytics) ─── */}
             </div>
         </div>
     );
@@ -510,19 +451,4 @@ function DashboardSkeleton() {
         </div>
     );
 }
-
-function TrafficLegendRow({ icon: Icon, label, stats, color }: { icon: any, label: string, stats: {count: number, percentage: number}, color: string }) {
-    return (
-        <div className="flex items-center justify-between text-sm bg-slate-50 dark:bg-[#0b1326]/50 p-4 rounded-xl border border-slate-100 dark:border-[#434655]/20 group transition-colors">
-            <div className="flex items-center gap-3 text-slate-700 dark:text-[#dae2fd]">
-                <div className={`w-3 h-3 rounded-full ${color} shadow-sm`} />
-                <Icon size={18} className="text-slate-500 dark:text-[#94a3b8] group-hover:text-slate-700 dark:group-hover:text-slate-900 dark:hover:text-[#dae2fd] transition-colors" />
-                <span className="font-semibold tracking-wide">{label}</span>
-            </div>
-            <div className="flex items-center gap-6">
-                <span className="text-slate-500 dark:text-[#c3c5d8] font-medium">{stats.count} hits</span>
-                <span className="font-bold min-w-[4ch] text-right text-slate-800 dark:text-[#dae2fd] text-base">{stats.percentage}%</span>
-            </div>
-        </div>
-    );
-}
+
