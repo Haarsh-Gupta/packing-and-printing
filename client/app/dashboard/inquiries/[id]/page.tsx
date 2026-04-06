@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,18 +21,23 @@ import {
     X,
     FileText,
     RotateCcw,
+    CreditCard,
+    Check,
 } from "lucide-react";
 
 import Link from "next/link";
 import { Inquiry, InquiryMessage } from "@/types/dashboard";
 import { useAlert } from "@/components/CustomAlert";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import InquiryDetailSkeleton from "./InquiryDetailSkeleton";
 
 type WsStatus = "connecting" | "connected" | "disconnected";
 
 export default function InquiryDetailPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { showAlert } = useAlert();
     const { confirm } = useConfirm();
     const inquiryId = params.id as string;
@@ -47,7 +52,9 @@ export default function InquiryDetailPage() {
     const [attachmentName, setAttachmentName] = useState<string | null>(null);
     const [wsStatus, setWsStatus] = useState<WsStatus>("disconnected");
     const [adminTyping, setAdminTyping] = useState(false);
+    const [adminIsOnline, setAdminIsOnline] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -66,18 +73,26 @@ export default function InquiryDetailPage() {
     const fetchInquiryDetails = useCallback(async () => {
         setIsLoading(true);
         try {
-            const token = localStorage.getItem("access_token");
-            if (!token) { router.push("/auth/login"); return; }
-
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-                credentials: "include", // Ensure cookies are sent
+            let res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}`, {
+                credentials: "include",
             });
+
+            // Auto-refresh on 401
+            if (res.status === 401) {
+                const refreshRes = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
+                    method: "POST",
+                    credentials: "include",
+                });
+                if (refreshRes.ok) {
+                    res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}`, {
+                        credentials: "include",
+                    });
+                }
+            }
 
             if (res.ok) {
                 setInquiry(await res.json());
             } else if (res.status === 401) {
-                localStorage.removeItem("access_token");
                 router.replace("/auth/login");
             }
         } catch { /* ignore */ } finally {
@@ -87,10 +102,8 @@ export default function InquiryDetailPage() {
 
     const fetchCurrentUser = useCallback(async () => {
         try {
-            const token = localStorage.getItem("access_token");
-            if (!token) return;
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-                headers: { Authorization: `Bearer ${token}` },
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
+                credentials: "include",
             });
             if (res.ok) {
                 const user = await res.json();
@@ -108,30 +121,29 @@ export default function InquiryDetailPage() {
 
     // ── WebSocket ────────────────────────────────────────────────────────
     useEffect(() => {
-        if (!inquiryId) return;
-        const token = localStorage.getItem("access_token");
-        if (!token) return;
+        if (!inquiry?.id) return;
 
+        let cancelled = false;
         const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
         const wsBase = apiBase.replace(/^http/, "ws");
-        const wsUrl = `${wsBase}/inquiries/ws/${inquiryId}?token=${encodeURIComponent(token)}`;
+        const wsUrl = `${wsBase}/inquiries/ws/${inquiry.id}`;
 
         setWsStatus("connecting");
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
-        ws.onopen = () => setWsStatus("connected");
-        ws.onclose = () => setWsStatus("disconnected");
-        ws.onerror = () => setWsStatus("disconnected");
+        ws.onopen = () => { if (!cancelled) setWsStatus("connected"); };
+        ws.onclose = () => { if (!cancelled) setWsStatus("disconnected"); };
+        ws.onerror = () => { if (!cancelled) setWsStatus("disconnected"); };
 
         ws.onmessage = (event: MessageEvent) => {
+            if (cancelled) return;
             try {
                 const data = JSON.parse(event.data as string);
                 if (data.type === "new_message") {
                     const msg = data.message as InquiryMessage;
                     setInquiry(prev => {
                         if (!prev) return prev;
-                        // Deduplicate: skip if message already exists (from optimistic render)
                         const exists = (prev.messages || []).some(m =>
                             m.id === msg.id || String(m.id) === String(msg.id)
                         );
@@ -140,20 +152,25 @@ export default function InquiryDetailPage() {
                     });
                     setAdminTyping(false);
                 } else if (data.type === "typing") {
-                    // Only show typing if it's NOT from us
-                    const isFromMe = String(data.user_id) === String(currentUserId);
-                    if (!isFromMe && data.is_admin) {
+                    if (data.user_id !== currentUserId) {
                         setAdminTyping(data.is_typing);
+                    }
+                } else if (data.type === "presence") {
+                    if (data.is_admin) {
+                        setAdminIsOnline(data.is_online);
                     }
                 }
             } catch { /* ignore */ }
         };
 
         return () => {
-            ws.close();
+            cancelled = true;
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                ws.close();
+            }
             wsRef.current = null;
         };
-    }, [inquiryId, currentUserId]);
+    }, [inquiry?.id]);
 
     // ── Typing events ────────────────────────────────────────────────────
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,13 +203,12 @@ export default function InquiryDetailPage() {
         setIsUploading(true);
         setUploadProgress(0);
 
-        const token = localStorage.getItem("access_token");
         const formData = new FormData();
         formData.append("file", file);
 
         const xhr = new XMLHttpRequest();
         xhr.open("POST", `${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=inquiry`, true);
-        if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.withCredentials = true; // Send cookies for auth
 
         xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
@@ -238,13 +254,9 @@ export default function InquiryDetailPage() {
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
         try {
-            const token = localStorage.getItem("access_token");
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiry.id}/messages`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiry.id}/messages`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     content: newMessage,
                     file_urls: attachmentUrl ? [attachmentUrl] : []
@@ -269,7 +281,6 @@ export default function InquiryDetailPage() {
                 setUploadProgress(0);
                 if (fileInputRef.current) fileInputRef.current.value = "";
             } else if (res.status === 401) {
-                localStorage.removeItem("access_token");
                 router.replace("/auth/login");
             } else {
                 showAlert("Failed to send message.", "error");
@@ -285,13 +296,9 @@ export default function InquiryDetailPage() {
     const handleStatusUpdate = async (status: "ACCEPTED" | "REJECTED" | "SUBMITTED") => {
         setIsLoading(true);
         try {
-            const token = localStorage.getItem("access_token");
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}/status`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}/status`, {
                 method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status }),
                 credentials: "include",
             });
@@ -327,10 +334,8 @@ export default function InquiryDetailPage() {
 
         setIsLoading(true);
         try {
-            const token = localStorage.getItem("access_token");
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}/reorder`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}/reorder`, {
                 method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
                 credentials: "include",
             });
 
@@ -375,14 +380,14 @@ export default function InquiryDetailPage() {
     };
 
     if (isLoading && !inquiry) {
-        return <div className="p-12 text-center text-xl font-bold animate-pulse">Loading inquiry details...</div>;
+        return <InquiryDetailSkeleton />;
     }
     if (!inquiry) {
         return <div className="p-12 text-center">Inquiry not found.</div>;
     }
 
     const item = inquiry.items && inquiry.items.length > 0 ? inquiry.items[0] : null;
-    const canMessage = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "NEGOTIATING", "QUOTED"].includes(inquiry.status);
+    const canMessage = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "NEGOTIATING", "QUOTED", "ACCEPTED"].includes(inquiry.status);
 
     return (
         <div className="space-y-6 max-w-6xl mx-auto min-h-[calc(100vh-100px)] lg:h-[calc(100vh-100px)] flex flex-col">
@@ -616,10 +621,18 @@ export default function InquiryDetailPage() {
                     {/* Header for chat panel */}
                     <div className="bg-white border-b-2 border-black px-5 py-3 flex items-center justify-between shrink-0">
                         <span className="text-xs font-black uppercase tracking-widest">Conversation</span>
-                        <span className={`text-[10px] font-bold uppercase flex items-center gap-1.5 ${wsStatus === "connected" ? "text-green-600" : "text-zinc-400"}`}>
-                            <span className={`w-2 h-2 rounded-full ${wsStatus === "connected" ? "bg-green-500 animate-pulse" : "bg-zinc-300"}`} />
-                            {wsStatus === "connected" ? "Live" : wsStatus === "connecting" ? "Connecting..." : "Offline"}
-                        </span>
+                        <div className="flex items-center gap-4">
+                            <span className={`text-[10px] font-bold uppercase flex items-center gap-1.5 ${adminIsOnline ? "text-green-600" : "text-zinc-400"}`}>
+                                <span className={`w-2 h-2 rounded-full ${adminIsOnline ? "bg-green-500 animate-pulse" : "bg-zinc-300"}`} />
+                                {adminIsOnline ? "Studio Online" : "Studio Offline"}
+                            </span>
+                            {wsStatus !== "connected" && (
+                                <span className="text-[10px] font-bold uppercase flex items-center gap-1.5 text-zinc-400">
+                                    <WifiOff className="w-3 h-3" />
+                                    {wsStatus === "connecting" ? "Connecting..." : "Disconnected"}
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {/* Messages */}
@@ -631,7 +644,41 @@ export default function InquiryDetailPage() {
                             </div>
                         ) : (
                             inquiry.messages.map((msg) => {
-                                const isMe = String(msg.sender_id) === String(currentUserId);
+                                const isMe = currentUserId ? String(msg.sender_id) === String(currentUserId) : (inquiry?.user_id ? String(msg.sender_id) === String(inquiry.user_id) : false);
+                                // Smart Detection: Requires both numbers and payment context keywords to avoid false positives.
+                                const hasNumbers = /(\d{2}\s+\d{2})/.test(msg.content);
+                                const hasContext = /(milestone|payment|schedule|percent|%|is good|let's|create|switch|change|request)/i.test(msg.content);
+                                
+                                const isPaymentRequest = msg.content.includes("[PAYMENT_REQUEST]") || (hasNumbers && hasContext);
+                                const cleanContent = msg.content.replace("[PAYMENT_REQUEST]", "").trim();
+
+                                if (isPaymentRequest) {
+                                    return (
+                                        <div key={msg.id} className="flex justify-center my-4">
+                                            <div className="bg-[#fdf567] border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] max-w-[90%] flex gap-4 items-start relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 p-1 opacity-10 group-hover:opacity-20 transition-opacity">
+                                                    <CreditCard className="w-12 h-12 rotate-12" />
+                                                </div>
+                                                <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center shrink-0 border-2 border-black">
+                                                    <CreditCard className="w-5 h-5" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest bg-black text-white px-2 py-0.5">Payment Request</span>
+                                                        <span className="text-[10px] font-bold text-zinc-500">{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                                                    </div>
+                                                    <p className="text-sm font-black uppercase leading-tight italic">
+                                                        {cleanContent}
+                                                    </p>
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-600">
+                                                        <Check className="w-3 h-3 text-green-600" /> System logged request
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
                                 return (
                                     <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                                         <div className={`max-w-[80%] flex gap-2.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
@@ -644,7 +691,7 @@ export default function InquiryDetailPage() {
                                                     {msg.file_urls && msg.file_urls.length > 0 && (
                                                         <div className={`mt-2 pt-2 ${msg.content ? 'border-t' : ''} ${isMe ? 'border-zinc-200' : 'border-zinc-200'}`}>
                                                             {msg.file_urls.map((url, i) => {
-                                                                const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url) || /\/image\//i.test(url);
+                                                                const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url) || (/\/image\//i.test(url) && !/\.(pdf|doc|docx|zip|cdr|ai|eps)$/i.test(url));
                                                                 return (
                                                                     <div key={i} className="flex flex-col gap-1 fade-in">
                                                                         {isImage ? (
@@ -706,7 +753,7 @@ export default function InquiryDetailPage() {
                         )}
                         {isUploading && (
                             <div className="w-full bg-zinc-200 border-2 border-black h-4 overflow-hidden mt-1 relative">
-                                <div 
+                                <div
                                     className="bg-blue-500 h-full transition-all duration-300 ease-out border-r-2 border-black"
                                     style={{ width: `${uploadProgress}%` }}
                                 />

@@ -179,14 +179,12 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
             return;
         }
         setIsUploading(true);
-        try {
-            const token = localStorage.getItem("access_token");
-            const formData = new FormData();
+        try {            const formData = new FormData();
             formData.append("file", file);
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=inquiry`, {
                 method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
                 body: formData,
             });
 

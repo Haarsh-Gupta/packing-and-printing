@@ -18,12 +18,9 @@ export function OnlineUsersCard() {
 
   useEffect(() => {
     const fetchOnlineUsers = async () => {
-      const token = localStorage.getItem("access_token");
-      if (!token) return;
-
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/online`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
 
         if (res.ok) {

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { InquiryGroup } from "@/types";
+import { toast } from "sonner";
 import {
     MessageSquare, Send, User, Calendar, Package, Layers, Mail, Phone,
     IndianRupee, FileText, Hash, Clock, CheckCircle2, XCircle, AlertCircle, Loader2, ArrowLeft, Calculator
@@ -207,6 +208,7 @@ export default function InquiryDetail() {
     const [userDetails, setUserDetails] = useState<any>(null);
     const [adminMe, setAdminMe] = useState<any>(null);
     const [remoteTyping, setRemoteTyping] = useState(false);
+    const [clientIsOnline, setClientIsOnline] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
     const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const wsRef = React.useRef<WebSocket | null>(null);
@@ -217,34 +219,39 @@ export default function InquiryDetail() {
         if (chatScrollRef.current) {
             chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
         }
-    }, [selected?.messages]);
+    }, [selected?.messages, remoteTyping]);
 
     useEffect(() => {
         if (!selected) return;
-        if (Object.keys(itemPrices).length === 0 && !quoteForm.amount && Object.keys(itemDiscounts).length === 0 && discountPercentage === 0) return;
 
         let calculatedTaxAmt = 0;
         let subtotal = 0;
 
         selected.items.forEach(item => {
-            const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || ((item.estimated_price || 0) * item.quantity) || 0);
-            if (baseItemPrice > 0) {
-                const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
-                const effectiveRate = itemSysTaxRate;
-                const waiverPerc = itemTaxDiscounts[item.id] || 0;
+            // baseItemPrice is now Unit Price
+            const baseItemPrice = itemPrices[item.id] !== undefined
+                ? itemPrices[item.id]
+                : (item.line_item_price || item.estimated_price || 0);
 
-                const localDiscount = itemDiscounts[item.id] || 0;
-                const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
-                const itemDiscountAmt = baseItemPrice * (stackedDiscountRate / 100);
-                const taxableValue = baseItemPrice - itemDiscountAmt;
+            const qty = item.quantity || 1;
+            const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
+            const waiverPerc = itemTaxDiscounts[item.id] || 0;
 
-                subtotal += taxableValue;
-                calculatedTaxAmt += taxableValue * (effectiveRate / 100) * (1 - (waiverPerc / 100));
-            }
+            const localDiscount = itemDiscounts[item.id] || 0;
+            const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
+
+            // Math: (Unit * Qty) - Discount
+            const itemBaseTotal = baseItemPrice * qty;
+            const itemDiscountAmt = itemBaseTotal * (stackedDiscountRate / 100);
+            const taxableValue = itemBaseTotal - itemDiscountAmt;
+
+            subtotal += taxableValue;
+            calculatedTaxAmt += taxableValue * (itemSysTaxRate / 100) * (1 - (waiverPerc / 100));
         });
 
         const finalAmount = subtotal + calculatedTaxAmt;
-        if (Math.abs(parseFloat(quoteForm.amount || "0") - finalAmount) > 0.01) {
+        // Only auto-update if quoteForm.amount is empty or significantly different
+        if (!quoteForm.amount || Math.abs(parseFloat(quoteForm.amount || "0") - finalAmount) > 0.01) {
             setQuoteForm(prev => ({ ...prev, amount: finalAmount.toFixed(2) }));
         }
     }, [itemPrices, itemTaxDiscounts, itemDiscounts, discountPercentage, selected]);
@@ -280,12 +287,11 @@ export default function InquiryDetail() {
     }, [id]);
 
     useEffect(() => {
-        if (!id) return;
-        const activeToken = localStorage.getItem("admin_token") || "";
-        if (!activeToken) return;
+        if (!selected?.id) return;
         const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
         const wsBase = apiBase.replace(/^http/, "ws");
-        const wsUrl = `${wsBase}/inquiries/ws/${id}?token=${encodeURIComponent(activeToken)}`;
+        // No token in URL — cookies are sent automatically with same-origin WS
+        const wsUrl = `${wsBase}/inquiries/ws/${selected.id}`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
@@ -301,9 +307,14 @@ export default function InquiryDetail() {
                     });
                     setRemoteTyping(false);
                 } else if (data.type === "typing") {
-                    const isFromMe = String(data.user_id) === String(adminMe?.id);
-                    if (!isFromMe && !data.is_admin) {
+                    // Show typing from non-admin users (clients)
+                    if (data.user_id !== adminMe?.id) {
                         setRemoteTyping(data.is_typing);
+                    }
+                } else if (data.type === "presence") {
+                    // Real-time online/offline status from client
+                    if (!data.is_admin) {
+                        setClientIsOnline(data.is_online);
                     }
                 }
             } catch (e) {
@@ -312,7 +323,7 @@ export default function InquiryDetail() {
         };
         ws.onerror = () => console.warn("WS error for inquiry", id);
         return () => { ws.close(); wsRef.current = null; };
-    }, [id, adminMe]);
+    }, [selected?.id]);
 
     const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
         setReply(e.target.value);
@@ -346,29 +357,31 @@ export default function InquiryDetail() {
             let totalDiscountAmt = 0;
 
             const lineItems = selected.items.map(item => {
-                const baseItemPrice = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || ((item.estimated_price || 0) * item.quantity) || 0);
+                const baseItemPrice = itemPrices[item.id] !== undefined
+                    ? itemPrices[item.id]
+                    : (item.line_item_price || item.estimated_price || 0);
 
+                const qty = item.quantity || 1;
                 let itemDiscountAmt = 0;
                 let itemGstAmt = 0;
-                let taxableValue = baseItemPrice;
 
                 const localDiscount = itemDiscounts[item.id] || 0;
                 const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
 
-                if (baseItemPrice > 0) {
-                    itemDiscountAmt = baseItemPrice * (stackedDiscountRate / 100);
-                    taxableValue = baseItemPrice - itemDiscountAmt;
+                const itemBaseTotal = baseItemPrice * qty;
+                itemDiscountAmt = itemBaseTotal * (stackedDiscountRate / 100);
+                const taxableValue = itemBaseTotal - itemDiscountAmt;
 
-                    const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
-                    const waiverPerc = itemTaxDiscounts[item.id] || 0;
-                    itemGstAmt = taxableValue * (itemSysTaxRate / 100) * (1 - (waiverPerc / 100));
-                    taxAmt += itemGstAmt;
-                    totalDiscountAmt += itemDiscountAmt;
-                }
+                const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
+                const waiverPerc = itemTaxDiscounts[item.id] || 0;
+                itemGstAmt = taxableValue * (itemSysTaxRate / 100) * (1 - (waiverPerc / 100));
+
+                taxAmt += itemGstAmt;
+                totalDiscountAmt += itemDiscountAmt;
 
                 return {
                     item_id: item.id,
-                    line_item_price: baseItemPrice,
+                    line_item_price: baseItemPrice, // Saved as Unit Price
                     discount_type: stackedDiscountRate > 0 ? "percentage" : null,
                     discount_value: stackedDiscountRate,
                     discount_amount: itemDiscountAmt,
@@ -392,7 +405,11 @@ export default function InquiryDetail() {
             setItemPrices({});
             const data = await api<InquiryGroup>(`/admin/inquiries/${selected.id}`);
             setSelected(data);
-        } catch (e) { console.error(e); } finally { setSending(false); }
+            toast.success("Quotation sent successfully!");
+        } catch (e: any) {
+            console.error(e);
+            toast.error(e.message || "Failed to send quotation.");
+        } finally { setSending(false); }
     };
 
     const sendMessage = async () => {
@@ -612,12 +629,19 @@ export default function InquiryDetail() {
                                 let totalBase = 0;
 
                                 selected.items.forEach(item => {
-                                    const currentBase = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || item.total_estimated_price || ((item.estimated_price || 0) * item.quantity) || 0);
-                                    totalBase += currentBase;
+                                    // baseItemPrice is now Unit Price
+                                    const baseItemPrice = itemPrices[item.id] !== undefined
+                                        ? itemPrices[item.id]
+                                        : (item.line_item_price || item.estimated_price || 0);
+
+                                    const qty = item.quantity || 1;
+                                    const itemBaseTotal = baseItemPrice * qty;
+                                    totalBase += itemBaseTotal;
+
                                     const currentLocalDisc = itemDiscounts[item.id] || 0;
                                     const currentStackedRate = Math.min(100, discountPercentage + currentLocalDisc);
-                                    const currentDiscAmount = currentBase * (currentStackedRate / 100);
-                                    const currentTaxable = currentBase - currentDiscAmount;
+                                    const currentDiscAmount = itemBaseTotal * (currentStackedRate / 100);
+                                    const currentTaxable = itemBaseTotal - currentDiscAmount;
                                     totalTaxable += currentTaxable;
 
                                     const gstRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
@@ -705,7 +729,7 @@ export default function InquiryDetail() {
                             <div className="flex items-center gap-3">
                                 <MessageSquare size={18} className="text-blue-600 dark:text-[#adc6ff]" />
                                 <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-[#c3c5d8]">Communication Thread</h3>
-                                {userDetails && <UserStatusIndicator isOnline={userDetails.is_online} />}
+                                {userDetails && <UserStatusIndicator isOnline={clientIsOnline || userDetails.is_online} />}
                             </div>
                             <span className="text-[10px] font-bold text-slate-400 dark:text-[#c3c5d8]/40 uppercase tracking-widest">
                                 {selected.messages?.length || 0} Packets logged
@@ -713,8 +737,8 @@ export default function InquiryDetail() {
                         </div>
                         <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-[#0b1326]/50 shadow-inner custom-scrollbar transition-colors">
                             {selected.messages?.map((m) => {
-                                const isMe = String(m.sender_id) === String(adminMe?.id);
-                                const isAdmin = m.sender_id !== selected.user_id;
+                                const isMe = adminMe ? String(m.sender_id) === String(adminMe.id) : String(m.sender_id) !== String(selected.user_id);
+                                const isAdmin = isMe; // On admin panel, admin messages are "me"
                                 return (
                                     <div key={m.id} className={`flex items-start gap-4 max-w-[85%] ${isMe ? 'ml-auto flex-row-reverse text-right' : ''}`}>
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm ${isAdmin ? 'bg-blue-600 text-white ring-2 ring-blue-500/10' : 'bg-blue-100 dark:bg-[#d8e2ff] text-blue-900 dark:text-[#001a42] ring-2 ring-blue-100/20 dark:ring-[#d8e2ff]/20'}`}>
@@ -725,7 +749,7 @@ export default function InquiryDetail() {
                                             {m.file_urls && m.file_urls.length > 0 && (
                                                 <div className={`mt-2 pt-2 border-t ${isAdmin ? 'border-white/20' : 'border-slate-200 dark:border-[#434655]/20'} space-y-1`}>
                                                     {m.file_urls.map((url: string, fi: number) => {
-                                                        const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url) || /\/image\//i.test(url);
+                                                        const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url) || (/\/image\//i.test(url) && !/\.(pdf|doc|docx|zip|cdr|ai|eps)$/i.test(url));
                                                         return (
                                                             <div key={fi}>
                                                                 {isImage && (

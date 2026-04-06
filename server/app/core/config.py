@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     # Auth
     algorithm: str
     secret_key: str
+    refresh_secret_key: str
     access_token_expire_minutes: int
     refresh_token_expire_days: int = 7
 

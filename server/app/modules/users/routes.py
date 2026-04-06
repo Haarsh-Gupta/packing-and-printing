@@ -85,9 +85,12 @@ async def get_dashboard_stats(
     cache_key = f"dashboard_stats:{uid}"
 
     # Try hitting Redis cache first
-    cached_data = await redis_client.get(cache_key)
-    if cached_data:
-        return json.loads(cached_data)
+    try:
+        cached_data = await redis_client.get(cache_key)
+        if cached_data:
+            return json.loads(cached_data)
+    except Exception as e:
+        logger.warning(f"Redis cache read failed: {e}")
 
     # ── 1. Order stats (single aggregate query) ──
     order_stats = (await db.execute(
@@ -185,7 +188,10 @@ async def get_dashboard_stats(
     }
 
     # Set cache for 60 seconds
-    await redis_client.setex(cache_key, 60, json.dumps(response_data))
+    try:
+        await redis_client.setex(cache_key, 60, json.dumps(response_data))
+    except Exception as e:
+        logger.warning(f"Redis cache write failed: {e}")
 
     return response_data
 

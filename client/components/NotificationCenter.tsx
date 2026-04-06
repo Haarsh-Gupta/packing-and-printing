@@ -6,6 +6,7 @@ import { Bell, CheckCircle2, Info, Loader2, X, CheckCheck, Trash2 } from "lucide
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAlert } from "@/components/CustomAlert";
+import { useAuth } from "@/context/AuthContext";
 
 interface Notification {
     id: number;
@@ -27,13 +28,13 @@ export default function NotificationCenter() {
     const panelRef = useRef<HTMLDivElement>(null);
     const { showAlert } = useAlert();
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    const { isLoggedIn } = useAuth();
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
-    const fetcher = (url: string) => fetch(url, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null);
+    const fetcher = (url: string) => fetch(url, { credentials: "include" }).then(r => r.ok ? r.json() : null);
 
     useSWR(
-        token ? `${apiUrl}/notifications/unread-count` : null,
+        isLoggedIn ? `${apiUrl}/notifications/unread-count` : null,
         fetcher,
         {
             onSuccess: (data: { unread: number } | null) => {
@@ -45,11 +46,9 @@ export default function NotificationCenter() {
     );
 
     const fetchNotifications = async () => {
-        if (!token) return;
         setLoading(true);
         try {
             const res = await fetch(`${apiUrl}/notifications/?limit=10`, {
-                headers: { Authorization: `Bearer ${token}` },
                 credentials: "include",
             });
             if (res.ok) {
@@ -66,7 +65,7 @@ export default function NotificationCenter() {
 
     // SSE for real-time updates
     useEffect(() => {
-        if (!token) return;
+        if (!isLoggedIn) return;
 
         const eventSource = new EventSource(`${apiUrl}/notifications/stream`, {
             withCredentials: true,
@@ -97,14 +96,12 @@ export default function NotificationCenter() {
         eventSource.addEventListener("inquiry_new_message", handleEvent);
 
         return () => eventSource.close();
-    }, [token, isOpen]);
+    }, [isLoggedIn, isOpen]);
 
     const markAsRead = async (id: number) => {
-        if (!token) return;
         try {
             const res = await fetch(`${apiUrl}/notifications/${id}/read`, {
                 method: "PATCH",
-                headers: { Authorization: `Bearer ${token}` },
                 credentials: "include",
             });
             if (res.ok) {
@@ -117,11 +114,9 @@ export default function NotificationCenter() {
     };
 
     const markAllRead = async () => {
-        if (!token) return;
         try {
             const res = await fetch(`${apiUrl}/notifications/read-all`, {
                 method: "PATCH",
-                headers: { Authorization: `Bearer ${token}` },
                 credentials: "include",
             });
             if (res.ok) {
@@ -134,11 +129,9 @@ export default function NotificationCenter() {
     };
 
     const deleteAll = async () => {
-        if (!token) return;
         try {
             const res = await fetch(`${apiUrl}/notifications/all`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
                 credentials: "include",
             });
             if (res.ok) {
@@ -153,11 +146,9 @@ export default function NotificationCenter() {
     const deleteNotification = async (id: number, e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!token) return;
         try {
             const res = await fetch(`${apiUrl}/notifications/${id}`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
                 credentials: "include",
             });
             if (res.ok) {
@@ -186,7 +177,7 @@ export default function NotificationCenter() {
         return null;
     };
 
-    if (!token) return null;
+    if (!isLoggedIn) return null;
 
     return (
         <div className="relative" ref={panelRef}>

@@ -1,20 +1,20 @@
 /**
  * Wrapper around fetch that:
- * 1. Attaches the Bearer token from localStorage
- * 2. Includes credentials for cookie-based auth
- * 3. On 401, tries to refresh the token and retry once
+ * 1. Includes credentials for cookie-based auth (HttpOnly cookies)
+ * 2. On 401, tries to refresh the token via /auth/refresh and retry once
+ *
+ * NO localStorage or Authorization headers — auth is purely via cookies.
  */
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export async function fetchWithAuth(
     url: string,
     options: RequestInit = {}
 ): Promise<Response> {
-    const token = localStorage.getItem("access_token");
-
-    // Merge headers: keep caller's headers, add Authorization
+    // Merge headers: keep caller's headers
     const mergedHeaders: Record<string, string> = {};
 
-    // Copy existing headers
     if (options.headers) {
         if (options.headers instanceof Headers) {
             options.headers.forEach((v, k) => { mergedHeaders[k] = v; });
@@ -25,35 +25,28 @@ export async function fetchWithAuth(
         }
     }
 
-    if (token) {
-        mergedHeaders["Authorization"] = `Bearer ${token}`;
-    }
+    // Remove any leftover Authorization headers — we use cookies only
+    delete mergedHeaders["Authorization"];
+    delete mergedHeaders["authorization"];
 
     // First attempt
     let res = await fetch(url, {
         method: options.method || "GET",
         headers: mergedHeaders,
         body: options.body,
-        credentials: "include", // Ensure cookies are sent
+        credentials: "include",
     });
 
     // On 401, try refreshing token once
     if (res.status === 401) {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL;
         try {
             const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
                 method: "POST",
-                credentials: "include", // Ensure cookies are sent for refresh
+                credentials: "include",
             });
 
             if (refreshRes.ok) {
-                const data = await refreshRes.json();
-                if (data.access_token) {
-                    localStorage.setItem("access_token", data.access_token);
-                    mergedHeaders["Authorization"] = `Bearer ${data.access_token}`;
-                }
-
-                // Retry with new token
+                // Retry — server set new access_token cookie
                 res = await fetch(url, {
                     method: options.method || "GET",
                     headers: mergedHeaders,

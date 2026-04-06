@@ -49,7 +49,7 @@ async def websocket_inquiry_endpoint(
     is_admin = token_data.admin
     logger.info(f"WS auth OK: user={user_id}, admin={is_admin}, group={group_id}")
 
-    await ws_manager.connect(websocket, group_id, user_id)
+    await ws_manager.connect(websocket, group_id, user_id, is_admin=is_admin)
     try:
         while True:
             data = await websocket.receive_text()
@@ -65,10 +65,10 @@ async def websocket_inquiry_endpoint(
             except json.JSONDecodeError:
                 pass
     except WebSocketDisconnect:
-        ws_manager.disconnect(websocket, group_id, user_id)
+        await ws_manager.disconnect(websocket, group_id, user_id)
     except Exception as e:
         logger.error(f"WS error for user={user_id}, group={group_id}: {e}")
-        ws_manager.disconnect(websocket, group_id, user_id)
+        await ws_manager.disconnect(websocket, group_id, user_id)
         try:
             await websocket.close()
         except Exception:
@@ -576,6 +576,12 @@ async def send_inquiry_message(
 
     if not group:
         raise HTTPException(status_code=404, detail="Inquiry not found")
+
+    if group.status not in ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "NEGOTIATING", "QUOTED", "ACCEPTED"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=f"Cannot send messages when inquiry status is {group.status}"
+        )
 
     new_message = InquiryMessage(
         inquiry_group_id=group_id,

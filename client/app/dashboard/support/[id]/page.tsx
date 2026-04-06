@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, ArrowLeft, Send, User, ShieldCheck } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import TicketDetailSkeleton from "./TicketDetailSkeleton";
 
 interface Message {
     id: number;
@@ -44,20 +46,16 @@ export default function TicketDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [reply, setReply] = useState("");
     const [isSending, setIsSending] = useState(false);
-    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-
-    useEffect(() => {
-        if (!token) { router.replace("/auth/login"); return; }
+    const [currentUserId, setCurrentUserId] = useState<number | null>(null);    useEffect(() => {
+        // token check removed
         fetchTicket();
         fetchCurrentUser();
     }, [ticketId]);
 
     const fetchCurrentUser = async () => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-                headers: { Authorization: `Bearer ${token}` },
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
+                credentials: "include",
             });
             if (res.ok) {
                 const user = await res.json();
@@ -69,10 +67,10 @@ export default function TicketDetailPage() {
     const fetchTicket = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/${ticketId}`, {
-                headers: { Authorization: `Bearer ${token}` },
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/tickets/${ticketId}`, {
+                credentials: "include",
             });
-            if (res.status === 401) { localStorage.removeItem("access_token"); router.replace("/auth/login"); return; }
+            if (res.status === 401) { router.replace("/auth/login"); return; }
             if (res.status === 404) { router.replace("/dashboard/support"); return; }
             if (res.ok) setTicket(await res.json());
         } catch (e) {
@@ -91,9 +89,9 @@ export default function TicketDetailPage() {
         }
         setIsSending(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/${ticketId}/messages`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/tickets/${ticketId}/messages`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                headers: { "Content-Type": "application/json"},
                 body: JSON.stringify({ message: reply }),
             });
             if (res.ok) {
@@ -115,11 +113,7 @@ export default function TicketDetailPage() {
     });
 
     if (isLoading) {
-        return (
-            <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-10 w-10 animate-spin" />
-            </div>
-        );
+        return <TicketDetailSkeleton />;
     }
 
     if (!ticket) return null;

@@ -61,10 +61,12 @@ async def create_payment_order(
 
     # 2. Find the milestone to pay
     milestone = None
+    active_milestones = [m for m in order.milestones if m.split_type == order.split_type]
+
     if payload.milestone_id:
         # Specific milestone requested
         milestone = next(
-            (m for m in order.milestones if m.id == payload.milestone_id and m.status != "PAID"),
+            (m for m in active_milestones if m.id == payload.milestone_id and m.status != "PAID"),
             None,
         )
         if not milestone:
@@ -75,7 +77,7 @@ async def create_payment_order(
     else:
         # Auto-pick the next unpaid milestone (lowest order_index)
         unpaid = sorted(
-            [m for m in order.milestones if m.status != "PAID"],
+            [m for m in active_milestones if m.status != "PAID"],
             key=lambda m: m.order_index,
         )
         if not unpaid:
@@ -179,16 +181,18 @@ async def verify_payment(
 
     # 3. Find the milestone
     milestone = None
+    active_milestones = [m for m in order.milestones if m.split_type == order.split_type]
+
     if payload.milestone_id:
         milestone = next(
-            (m for m in order.milestones if m.id == payload.milestone_id),
+            (m for m in active_milestones if m.id == payload.milestone_id),
             None,
         )
 
     if not milestone:
         # Fallback: pick the next unpaid milestone
         unpaid = sorted(
-            [m for m in order.milestones if m.status != "PAID"],
+            [m for m in active_milestones if m.status != "PAID"],
             key=lambda m: m.order_index,
         )
         milestone = unpaid[0] if unpaid else None

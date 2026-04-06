@@ -22,6 +22,7 @@ logger = logging.getLogger("app.modules.auth")
 
 REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+REFRESH_SECRET_KEY = settings.refresh_secret_key
 
 router = APIRouter()
 
@@ -106,10 +107,7 @@ async def refresh(response: Response, request: Request, db : AsyncSession = Depe
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # 3. FIX: Use 'verify_token' directly and AWAIT it
-    # We use verify_token instead of get_current_user because we are 
-    # explicitly handing it the string from the cookie.
-    token_data = await verify_token(refresh_token, credentials_exception)
+    token_data = await verify_token(token = refresh_token, credintials_exception = credentials_exception, expected_type = "refresh_token", verify_key = REFRESH_SECRET_KEY)
 
     result = await db.execute(select(User).where(User.id == token_data.id))
     user = result.scalar_one_or_none()
@@ -227,10 +225,8 @@ async def google_callback(request: Request, db : AsyncSession = Depends(get_db))
     # Ensure no trailing slash for consistency
     frontend_url_base = frontend_url_base.rstrip("/")
     
-    # Build the redirect URL with tokens as query params so the frontend
-    # can read them and persist in localStorage (bridging the cross-domain gap)
-    query = urlencode({"access_token": access_token, "refresh_token": refresh_token})
-    frontend_url = f"{frontend_url_base}/auth/success?{query}"
+    # Redirect without tokens in URL, relying on HttpOnly cookies
+    frontend_url = f"{frontend_url_base}/auth/success"
     response = RedirectResponse(url=frontend_url)
 
     # Detect if we are in production (https) or local (http)

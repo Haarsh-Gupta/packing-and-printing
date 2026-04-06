@@ -118,13 +118,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
-    allow_credentials=True, # Critical for setting the refresh_token cookie!
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
@@ -132,6 +125,14 @@ app.add_middleware(UserActivityMiddleware)
 app.add_middleware(RateLimitMiddleware, limit=200, window=60)
 app.add_middleware(CorrelationMiddleware)
 # CorrelationMiddleware is the outermost — every request gets a correlation_id
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
+    allow_credentials=True, # Critical for setting the refresh_token cookie!
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(user_router , prefix="/users" , tags=["Users"])
 app.include_router(admin_user_router, prefix="/admin/users", tags=["Admin Users"])
@@ -184,4 +185,4 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, port=8000, host='0.0.0.0')
+    uvicorn.run(app, port=8000, host='0.0.0.0', proxy_headers=True, forwarded_allow_ips="*")

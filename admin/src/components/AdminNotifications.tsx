@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
-import api, { TOKEN_KEY } from "@/lib/api";
+import api from "@/lib/api";
 
 interface Notification {
   id: number; title: string; message: string;
@@ -25,10 +25,7 @@ export function AdminNotifications() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY); // FIX: TOKEN_KEY not "access_token"
-    if (!token) return;
-
-    if (sourceRef.current) sourceRef.current.close(); // FIX: close previous before new
+    if (sourceRef.current) sourceRef.current.close();
     
     const source = new EventSource(`${import.meta.env.VITE_API_URL}/notifications/stream`, {
       withCredentials: true

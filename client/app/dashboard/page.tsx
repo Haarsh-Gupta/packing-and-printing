@@ -45,13 +45,11 @@ function formatCurrency(amount: number) {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
-
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  const { user, isLoading: authLoading } = useAuth();  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
   const fetcher = async (url: string) => {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const { fetchWithAuth } = await import("@/lib/fetchWithAuth");
+    const res = await fetchWithAuth(url, { credentials: "include" });
     if (!res.ok) {
       if (res.status === 401) router.replace("/auth/login");
       throw new Error("Failed to fetch dashboard stats");
@@ -60,7 +58,7 @@ export default function DashboardPage() {
   };
 
   const { data, isLoading } = useSWR(
-    token && !authLoading ? `${apiUrl}/users/dashboard-stats` : null,
+    user && !authLoading ? `${apiUrl}/users/dashboard-stats` : null,
     fetcher,
     { dedupingInterval: 10000 }
   );

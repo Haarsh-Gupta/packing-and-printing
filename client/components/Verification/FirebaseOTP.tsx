@@ -156,3 +156,7 @@
 //     </div>
 //   );
 // }
+
+export function FirebaseOTP() {
+  return null;
+}

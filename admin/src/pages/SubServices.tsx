@@ -83,7 +83,7 @@ export default function SubServices() {
             
             const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/uploads/?purpose=product`, {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+                credentials: "include",
                 body: formData
             });
             

@@ -228,7 +228,7 @@ async def send_quotation(
     
     # Update line-item pricing on inquiry items if provided
     if quotation.line_items:
-        prices_map = {li.item_id: li.taxable_value for li in quotation.line_items if li.item_id}
+        prices_map = {li.item_id: li.line_item_price for li in quotation.line_items if li.item_id}
         for item in group.items:
             if str(item.id) in prices_map:
                 item.line_item_price = prices_map[str(item.id)]

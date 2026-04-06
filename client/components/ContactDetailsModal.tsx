@@ -35,15 +35,13 @@ export function ContactDetailsModal({
         }
 
         setSaving(true);
-        try {
-            const token = localStorage.getItem("access_token");
-            const body: Record<string, string> = {};
+        try {            const body: Record<string, string> = {};
             if (needsPhone) body.phone = phone.trim();
             if (needsAddress) body.address = address.trim();
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/update`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                headers: { "Content-Type": "application/json"},
                 body: JSON.stringify(body),
             });
 

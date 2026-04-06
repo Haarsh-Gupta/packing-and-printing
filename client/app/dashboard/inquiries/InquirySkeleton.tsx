@@ -1,49 +1,51 @@
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
+import { Skeleton } from "@/components/SkeletonStore";
 
 export function InquirySkeleton() {
     return (
-        <div className="grid gap-6">
+        <div className="grid gap-8 animate-pulse">
             {[1, 2, 3].map((i) => (
-                <Card key={i} className="border border-black/10 shadow-sm rounded-2xl overflow-hidden">
-                    <CardHeader className="bg-zinc-50 border-b border-black/10 pb-4 flex flex-row items-center justify-between">
+                <div key={i} className="bg-white border-4 border-black p-0 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-2xl overflow-hidden">
+                    {/* Header */}
+                    <div className="p-5 border-b-4 border-black bg-zinc-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div className="space-y-2">
-                            <Skeleton className="h-6 w-32 bg-zinc-300" />
+                            <Skeleton className="h-6 w-32" />
                             <Skeleton className="h-4 w-48" />
                         </div>
-                        <Skeleton className="h-8 w-24 rounded-full border border-black/10" />
-                    </CardHeader>
+                        <Skeleton className="h-10 w-28 rounded-full border-2 border-black" />
+                    </div>
 
-                    <CardContent className="p-6 grid md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <Skeleton className="h-6 w-32 bg-zinc-300" />
-                            <div className="grid grid-cols-2 gap-y-4">
-                                <Skeleton className="h-4 w-20" />
-                                <Skeleton className="h-4 w-24" />
-                                <Skeleton className="h-4 w-20" />
-                                <Skeleton className="h-4 w-24" />
-                                <Skeleton className="h-4 w-20" />
-                                <Skeleton className="h-4 w-24" />
-                            </div>
-                        </div>
-
-                        <div className="space-y-4 border-l border-dashed border-black/10 pl-8">
-                            <Skeleton className="h-6 w-32 bg-zinc-300" />
+                    {/* Content */}
+                    <div className="p-8 grid md:grid-cols-2 gap-10">
+                        <div className="space-y-6">
+                            <Skeleton className="h-6 w-40" />
                             <div className="space-y-4">
-                                <Skeleton className="h-10 w-40" />
-                                <Skeleton className="h-4 w-32" />
+                                {[1, 2, 3].map((j) => (
+                                    <div key={j} className="flex justify-between items-center border-b-2 border-zinc-50 pb-2">
+                                        <Skeleton className="h-4 w-24" />
+                                        <Skeleton className="h-4 w-32" />
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    </CardContent>
 
-                    <CardFooter className="bg-zinc-50 border-t border-black/10 p-4 flex gap-4 justify-between items-center">
-                        <Skeleton className="h-10 w-40" />
-                        <div className="flex gap-4">
-                            <Skeleton className="h-10 w-24 rounded-full" />
-                            <Skeleton className="h-10 w-24 rounded-full" />
+                        <div className="space-y-6 md:border-l-4 md:border-black md:pl-10 md:border-dashed">
+                            <Skeleton className="h-6 w-40" />
+                            <div className="space-y-4">
+                                <Skeleton className="h-12 w-full rounded-xl border-2 border-black" />
+                                <Skeleton className="h-4 w-40" />
+                            </div>
                         </div>
-                    </CardFooter>
-                </Card>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="p-4 border-t-4 border-black bg-zinc-50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <Skeleton className="h-11 w-48 rounded-xl border-2 border-black" />
+                        <div className="flex gap-4">
+                            <Skeleton className="h-11 w-28 rounded-xl border-2 border-black" />
+                            <Skeleton className="h-11 w-28 rounded-xl bg-black/10" />
+                        </div>
+                    </div>
+                </div>
             ))}
         </div>
     );

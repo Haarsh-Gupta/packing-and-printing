@@ -38,14 +38,12 @@ export const fetchUserWishlist = createAsyncThunk(
     'wishlist/fetchUserWishlist',
     async (_, { rejectWithValue }) => {
         try {
-            const token = localStorage.getItem('access_token');
-            if (!token) return rejectWithValue('No token');
-
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const res = await fetch(`${API_URL}/wishlist/my`, {
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
 
+            if (res.status === 401) return rejectWithValue('Not authenticated');
             if (!res.ok) throw new Error('Failed to fetch wishlist');
 
             const data: WishlistItem[] = await res.json();
@@ -60,8 +58,6 @@ export const syncGuestWishlist = createAsyncThunk(
     'wishlist/syncGuestWishlist',
     async (_, { dispatch, rejectWithValue }) => {
         try {
-            const token = localStorage.getItem('access_token');
-            if (!token) return rejectWithValue('Not authenticated');
 
             const guestData = getGuestWishlist();
             if (guestData.products.length === 0 && guestData.services.length === 0) {
@@ -74,12 +70,12 @@ export const syncGuestWishlist = createAsyncThunk(
             const res = await fetch(`${API_URL}/wishlist/sync`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
+                    'Content-Type': 'application/json'},
                 body: JSON.stringify(guestData),
+                credentials: 'include',
             });
 
+            if (res.status === 401) return rejectWithValue('Not authenticated');
             if (!res.ok) throw new Error('Failed to sync guest wishlist');
 
             // Clear local storage after successful sync
@@ -103,10 +99,17 @@ export const toggleWishlistItem = createAsyncThunk(
     'wishlist/toggleItem',
     async (payload: TogglePayload, { getState, rejectWithValue }) => {
         try {
-            const token = localStorage.getItem('access_token');
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const res = await fetch(`${API_URL}/wishlist/toggle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+                credentials: 'include',
+            });
 
-            // 1. GUEST MODE
-            if (!token) {
+            // 1. GUEST MODE FALLBACK
+            if (res.status === 401) {
                 const guestData = getGuestWishlist();
 
                 if (payload.sub_product_id) {
@@ -128,17 +131,7 @@ export const toggleWishlistItem = createAsyncThunk(
                 };
             }
 
-            // 2. AUTHENTICATED MODE
-            const API_URL = process.env.NEXT_PUBLIC_API_URL;
-            const res = await fetch(`${API_URL}/wishlist/toggle`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify(payload),
-            });
-
+            // 2. AUTHENTICATED MODE SUCCESS
             if (!res.ok) throw new Error('Failed to toggle item');
 
             const data = await res.json();
@@ -158,9 +151,7 @@ export const wishlistSlice = createSlice({
     reducers: {
         // Hydrate guest items into Redux state on app load
         hydrateGuestWishlist: (state) => {
-            const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-            if (token) return; // Ignore if logged in, fetchUserWishlist will handle it
-
+            // Note: If user is logged in, fetchUserWishlist will later overwrite these synthetic items.
             const guestData = getGuestWishlist();
             const syntheticItems: WishlistItem[] = [];
 

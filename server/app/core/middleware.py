@@ -92,9 +92,16 @@ class RateLimitMiddleware:
 
         request = Request(scope, receive)
 
+        # Bypass health checks
+        if request.url.path in ["/", "/ping", "/health", "/favicon.ico"]:
+            await self.app(scope, receive, send)
+            return
+
+        client_ip = request.client.host if request.client else "unknown" 
+
         # Get Real IP (Behind Proxy)
-        forwarded = request.headers.get("X-Forwarded-For")
-        client_ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+        # forwarded = request.headers.get("X-Forwarded-For")
+        # client_ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
 
         key = f"global_limit:{client_ip}"
 
@@ -140,17 +147,29 @@ class UserActivityMiddleware:
 
         request = Request(scope, receive)
         
+        # Bypass health checks
+        if request.url.path in ["/", "/ping", "/health", "/favicon.ico"]:
+            await self.app(scope, receive, send)
+            return
+        
         # Track Device Traffic
-        user_agent_string = request.headers.get("User-Agent", "")
-        if user_agent_string:
-            task = asyncio.create_task(self.track_traffic(user_agent_string))
-            self._background_tasks.add(task)
-            task.add_done_callback(self._background_tasks.discard)
+        # TODO: closed it becuase of to many calls to the redis server (upstash)
+        # user_agent_string = request.headers.get("User-Agent", "")
+        # if user_agent_string:
+        #     task = asyncio.create_task(self.track_traffic(user_agent_string))
+        #     self._background_tasks.add(task)
+        #     task.add_done_callback(self._background_tasks.discard)
 
         # Try to extract user from token without blocking or DB calls
         auth_header = request.headers.get("Authorization")
+        token = None
+
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
+        else:
+            token = request.cookies.get("access_token")
+            
+        if token:
             try:
                 # Fast JWT decode without validation (secret check only)
                 payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
@@ -172,22 +191,22 @@ class UserActivityMiddleware:
         except Exception:
             pass
 
-    async def track_traffic(self, user_agent_string: str):
-        try:
-            user_agent = parse(user_agent_string)
-            device_type = "mobile"
-            if user_agent.is_tablet:
-                device_type = "tablet"
-            elif user_agent.is_pc or user_agent.is_bot: # classify bots as desktop for simplicity, or we could ignore them
-                device_type = "desktop"
+    # async def track_traffic(self, user_agent_string: str):
+    #     try:
+    #         user_agent = parse(user_agent_string)
+    #         device_type = "mobile"
+    #         if user_agent.is_tablet:
+    #             device_type = "tablet"
+    #         elif user_agent.is_pc or user_agent.is_bot: # classify bots as desktop for simplicity, or we could ignore them
+    #             device_type = "desktop"
                 
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            key = f"analytics:traffic:{today}"
+    #         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    #         key = f"analytics:traffic:{today}"
             
-            async with redis_client.pipeline(transaction=True) as pipe:
-                await pipe.zincrby(key, 1, device_type)
-                await pipe.expire(key, 86400 * 90)  # Keep for 90 days
-                await pipe.execute()
-        except Exception as e:
-            logger.error(f"Error tracking traffic: {e}")
-            pass
+    #         async with redis_client.pipeline(transaction=True) as pipe:
+    #             await pipe.zincrby(key, 1, device_type)
+    #             await pipe.expire(key, 86400 * 90)  # Keep for 90 days
+    #             await pipe.execute()
+    #     except Exception as e:
+    #         logger.error(f"Error tracking traffic: {e}")
+    #         pass

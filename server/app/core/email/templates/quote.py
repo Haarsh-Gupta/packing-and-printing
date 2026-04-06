@@ -25,15 +25,17 @@ def render_quote_email(
         # InquiryItem objects or dicts? Use .get() for safety
         desc = item.get("product_name") or item.get("service_name") or "Custom Item"
         qty = item.get("quantity", 1)
-        price = item.get("line_item_price") or 0.0
-        total = qty * price
+        # We now assume line_item_price is the UNIT price.
+        unit_price = item.get("line_item_price") or 0.0
+        # If taxable_value is provided, it's the TOTAL for the line (after discount)
+        line_total = item.get("taxable_value") or (qty * unit_price)
         
         rows += f"""\
 <tr>
   <td style="padding: 10px 12px; border-bottom: 1px solid #eee;">{desc}</td>
   <td style="padding: 10px 12px; border-bottom: 1px solid #eee; text-align: center;">{qty}</td>
-  <td style="padding: 10px 12px; border-bottom: 1px solid #eee; text-align: right;">{currency}{price:,.2f}</td>
-  <td style="padding: 10px 12px; border-bottom: 1px solid #eee; text-align: right;">{currency}{total:,.2f}</td>
+  <td style="padding: 10px 12px; border-bottom: 1px solid #eee; text-align: right;">{currency}{unit_price:,.2f}</td>
+  <td style="padding: 10px 12px; border-bottom: 1px solid #eee; text-align: right;">{currency}{line_total:,.2f}</td>
 </tr>"""
 
     notes_section = ""

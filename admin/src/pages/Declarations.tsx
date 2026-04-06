@@ -178,8 +178,17 @@ export default function Declarations() {
                                 >
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="text-[9px] font-bold text-slate-500 dark:text-[#8d90a1] uppercase tracking-[0.2em] mb-1 m-0">Ledger Index</p>
-                                            <p className="text-sm font-extrabold text-slate-900 dark:text-[#dae2fd] font-mono m-0">#{dec.order_id.toString().split('-')[0].toUpperCase()}</p>
+                                            <p className="text-[9px] font-bold text-slate-500 dark:text-[#8d90a1] uppercase tracking-[0.2em] mb-1 m-0">Ledger Index / Phase</p>
+                                            <div className="flex items-center gap-2 m-0">
+                                                <Link to={`/orders/${dec.order_id}`} className="text-sm font-extrabold text-slate-900 dark:text-[#dae2fd] font-mono hover:text-blue-600 transition-colors" onClick={e => e.stopPropagation()}>
+                                                    {dec.order_number || `#${dec.order_id.toString().split('-')[0].toUpperCase()}`}
+                                                </Link>
+                                                {dec.milestone_label && (
+                                                    <span className="text-[10px] text-blue-600 dark:text-[#adc6ff] bg-[#1f70e3]/10 px-1.5 py-0.5 rounded border border-[#1f70e3]/20">
+                                                        {dec.milestone_label}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className={`px-2 py-1 border rounded-sm text-[9px] font-bold uppercase tracking-widest ${getStatusStyle(dec.status)}`}>
                                             {dec.status}
@@ -231,7 +240,7 @@ export default function Declarations() {
                             <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0b1326]/80 backdrop-blur-sm">
                                 <tr className="text-[10px] uppercase tracking-[0.2em] font-extrabold text-slate-500 dark:text-[#c3c5d8]/60 border-b border-slate-200 dark:border-[#434655]/20">
                                     <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">Order ID</th>
+                                    <th className="px-6 py-4">Order & Phase</th>
                                     <th className="px-6 py-4">Protocol</th>
                                     <th className="px-6 py-4">Cipher (UTR)</th>
                                     <th className="px-6 py-4">Timestamp</th>
@@ -250,8 +259,17 @@ export default function Declarations() {
                                                 {dec.status}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-5 font-mono text-xs font-bold text-slate-900 dark:text-[#dae2fd]">
-                                            #{dec.order_id.toString().split('-')[0].toUpperCase()}
+                                        <td className="px-6 py-5">
+                                            <div className="flex flex-col gap-1">
+                                                <Link to={`/orders/${dec.order_id}`} className="font-mono text-xs font-bold text-slate-900 dark:text-[#dae2fd] hover:text-blue-600 transition-colors" onClick={e => e.stopPropagation()}>
+                                                    {dec.order_number || `#${dec.order_id.toString().split('-')[0].toUpperCase()}`}
+                                                </Link>
+                                                {dec.milestone_label && (
+                                                    <span className="text-[9px] w-max font-bold text-blue-600 dark:text-[#adc6ff] bg-[#1f70e3]/10 px-1.5 py-0.5 rounded border border-[#1f70e3]/20">
+                                                        {dec.milestone_label}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-5 text-xs font-bold text-slate-600 dark:text-[#c3c5d8]">
                                             {dec.payment_mode}

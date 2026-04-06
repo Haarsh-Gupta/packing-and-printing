@@ -8,6 +8,8 @@ import { CheckCircle2, Clock, Package, Truck, Receipt, CreditCard, Loader2, Arro
 import { useAlert } from "@/components/CustomAlert";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { useAuth } from "@/context/AuthContext";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import OrderDetailSkeleton from "./OrderDetailSkeleton";
 interface Transaction {
     id: string;
     receipt_number?: string;
@@ -95,12 +97,8 @@ export default function OrderDetailPage() {
     const [isFetchingQr, setIsFetchingQr] = useState(false);
     const [isSubmittingUtr, setIsSubmittingUtr] = useState(false);
     const { user } = useAuth();
-    const { initiatePayment, isProcessing } = useRazorpay();
-
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-
-    useEffect(() => {
-        if (!token) { router.replace("/auth/login"); return; }
+    const { initiatePayment, isProcessing } = useRazorpay();    useEffect(() => {
+        // token check removed
         fetchOrder();
     }, [orderId]);
 
@@ -122,10 +120,10 @@ export default function OrderDetailPage() {
     const fetchOrder = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}`, {
-                headers: { Authorization: `Bearer ${token}` },
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}`, {
+                credentials: "include",
             });
-            if (res.status === 401) { localStorage.removeItem("access_token"); router.replace("/auth/login"); return; }
+            if (res.status === 401) { router.replace("/auth/login"); return; }
             if (res.status === 404) { showAlert("Order not found.", "error"); router.replace("/dashboard/orders"); return; }
             if (res.ok) {
                 const data = await res.json();
@@ -143,8 +141,8 @@ export default function OrderDetailPage() {
 
     const fetchInquiry = async (inqId: string) => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inqId}`, {
-                headers: { Authorization: `Bearer ${token}` },
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inqId}`, {
+                credentials: "include",
             });
             if (res.ok) {
                 setInquiry(await res.json());
@@ -158,11 +156,7 @@ export default function OrderDetailPage() {
         day: "numeric", month: "short", year: "numeric"
     });
 
-    if (isLoading) return (
-        <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-10 w-10 animate-spin" />
-        </div>
-    );
+    if (isLoading) return <OrderDetailSkeleton />;
 
     if (!order) return null;
 
@@ -173,12 +167,10 @@ export default function OrderDetailPage() {
     const handleSwitchSplit = async (type: "FULL" | "HALF") => {
         setIsSwitching(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/milestones`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/milestones`, {
                 method: "PATCH",
                 headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
+                    "Content-Type": "application/json"},
                 body: JSON.stringify({ split_type: type })
             });
 
@@ -209,8 +201,7 @@ export default function OrderDetailPage() {
     const handlePayNow = async (milestone: any) => {
         setIsFetchingQr(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/milestones/${milestone.id}/qr`, {
-                headers: { "Authorization": `Bearer ${token}` }
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/milestones/${milestone.id}/qr`, {
             });
             if (res.ok) {
                 const data = await res.json();
@@ -255,9 +246,8 @@ export default function OrderDetailPage() {
             if (screenshotFile) {
                 const formData = new FormData();
                 formData.append("file", screenshotFile);
-                const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=payment`, {
+                const uploadRes = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/upload/?purpose=payment`, {
                     method: "POST",
-                    headers: { "Authorization": `Bearer ${token}` },
                     body: formData,
                 });
                 if (!uploadRes.ok) {
@@ -270,12 +260,10 @@ export default function OrderDetailPage() {
             }
 
             // Step 2: Submit declaration
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/declarations`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/declarations`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
+                    "Content-Type": "application/json"},
                 body: JSON.stringify({
                     milestone_id: qrData.milestone_id || nextMilestone.id,
                     payment_mode: "UPI_MANUAL",
@@ -517,7 +505,7 @@ export default function OrderDetailPage() {
                             <Button
                                 variant="default"
                                 className="flex-1 min-w-[140px] font-black uppercase border-2 border-black rounded-lg bg-[#fdf567] text-black hover:bg-[#ece459] shadow-[4px_4px_0_0_#000]"
-                                disabled={true}
+                                onClick={() => router.push(`/dashboard/inquiries/${order.inquiry_id}`)}
                             >
                                 {order.is_custom_milestone_requested && currentSplitType !== "CUSTOM" ? "Custom Schedule Requested" : "Custom Schedule"}
                             </Button>
@@ -528,13 +516,23 @@ export default function OrderDetailPage() {
                                 onClick={async () => {
                                     setIsSwitching(true);
                                     try {
-                                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/milestones/request-custom`, {
-                                            method: "POST",
-                                            headers: { "Authorization": `Bearer ${token}` }
+                                        const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${orderId}/milestones/request-custom`, {
+                                            method: "POST"
                                         });
                                         if (res.ok) {
-                                            showAlert("Custom payment schedule requested!", "success");
-                                            fetchOrder();
+                                            // Auto-send formal request message to the chat
+                                            try {
+                                                await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${order.inquiry_id}/messages`, {
+                                                    method: "POST",
+                                                    headers: { "Content-Type": "application/json" },
+                                                    body: JSON.stringify({
+                                                        content: `[PAYMENT_REQUEST] I want to make changes in my payment schedule for Order #${order.order_number || order.id.slice(0, 8)}.`
+                                                    })
+                                                });
+                                            } catch (err) { /* silent fail for auto-msg, focus on primary status success */ }
+
+                                            showAlert("Custom schedule request recorded! Redirecting to chat...", "success");
+                                            router.push(`/dashboard/inquiries/${order.inquiry_id}`);
                                         } else {
                                             showAlert("Failed to request custom schedule.", "error");
                                         }
@@ -683,10 +681,8 @@ export default function OrderDetailPage() {
                     variant="outline"
                     className="h-12 px-8 border-2 border-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all rounded-full"
                     onClick={async () => {
-                        try {
-                            const token = localStorage.getItem("access_token");
-                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${order.id}/invoice`, {
-                                headers: { Authorization: `Bearer ${token}` },
+                        try {                            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/my/${order.id}/invoice`, {
+                                credentials: "include",
                             });
                             if (!res.ok) throw new Error("Failed to generate invoice");
                             const blob = await res.blob();

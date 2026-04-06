@@ -30,25 +30,7 @@ function LoginForm() {
     setIsLoading(true);
 
     try {
-      const formBody = new URLSearchParams();
-      formBody.append("username", formData.email);
-      formBody.append("password", formData.password);
-
-      const res = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: formBody,
-        credentials: "include",
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        const detail = typeof data.detail === 'object' ? JSON.stringify(data.detail) : data.detail;
-        throw new Error(detail || "Invalid credentials");
-      }
-
-      // Use AuthContext login — fetches user data before navigating
-      await login(data.access_token);
+      await login(formData.email, formData.password);
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err.message));
     } finally {
