@@ -52,6 +52,8 @@ from app.modules.payments.routes import router as payment_router
 from app.modules.wishlist.routes import router as wishlist_router
 from app.modules.wishlist.admin_routes import router as admin_wishlist_router
 from app.modules.events.routes import router as events_router
+from app.modules.seo.routes import router as seo_router
+from app.modules.seo.admin_routes import router as admin_seo_router
 
 logger = logging.getLogger("app.main")
 
@@ -168,6 +170,8 @@ app.include_router(payment_router, prefix="/payments", tags=["Payments"])
 app.include_router(notification_router, prefix="/notifications", tags=["Notifications"])
 app.include_router(admin_notification_router, prefix="/admin/notifications", tags=["Admin Notifications"])
 app.include_router(events_router, prefix="/events", tags=["SSE Events"])
+app.include_router(seo_router, prefix="/seo", tags=["SEO"])
+app.include_router(admin_seo_router, prefix="/admin/seo", tags=["Admin SEO"])
 
 
 

@@ -1,8 +1,14 @@
+import { fetchPageSEO } from "@/lib/seo";
+
+export async function generateMetadata() {
+  return await fetchPageSEO("/about");
+}
+
 export default function AboutPage() {
     return (
         <main className="max-w-4xl mx-auto px-4 py-16 space-y-12">
             <div className="text-center space-y-4">
-                <h1 className="text-5xl md:text-6xl font-black uppercase tracking-tighter">About BookBind</h1>
+                <h1 className="text-5xl md:text-6xl font-black tracking-tighter">ABOUT {process.env.NEXT_PUBLIC_COMPANY_NAME}<span className="text-primary">.</span></h1>
                 <p className="text-xl text-zinc-500 font-bold max-w-2xl mx-auto">
                     We&apos;re a modern printing &amp; packaging company turning digital designs into premium physical products.
                 </p>
@@ -11,7 +17,7 @@ export default function AboutPage() {
             <div className="border-4 border-black p-8 bg-[#fdf567] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] space-y-4">
                 <h2 className="text-3xl font-black uppercase tracking-tight">Our Mission</h2>
                 <p className="text-lg font-bold text-zinc-800 leading-relaxed">
-                    BookBind was founded with a simple goal: make professional printing and packaging accessible to everyone —
+                    {process.env.NEXT_PUBLIC_COMPANY_NAME} was founded with a simple goal: make professional printing and packaging accessible to everyone —
                     from solo entrepreneurs designing their first product box to established brands needing bulk corporate
                     stationery. We combine cutting-edge digital tools with traditional craftsmanship to deliver exceptional quality.
                 </p>

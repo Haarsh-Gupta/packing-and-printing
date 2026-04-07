@@ -63,7 +63,7 @@ export default function DashboardLayout({
                 ${isCollapsed ? 'md:w-24 p-4' : 'md:w-72 p-6'}`}
             >
                 <div className="flex items-center justify-between mb-10 text-white">
-                    {(!isCollapsed || isMobileMenuOpen) && <span className="font-black text-3xl tracking-tighter">BOOKBIND.</span>}
+                    {(!isCollapsed || isMobileMenuOpen) && <span className="font-black text-3xl tracking-tighter">{process.env.NEXT_PUBLIC_COMPANY_NAME}.</span>}
                     <button
                         onClick={() => isMobileMenuOpen ? setIsMobileMenuOpen(false) : setIsCollapsed(!isCollapsed)}
                         className="p-1 hover:bg-zinc-800 rounded-md transition-colors ml-auto"

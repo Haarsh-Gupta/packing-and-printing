@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
 
+import { fetchPageSEO } from "@/lib/seo";
+
+export async function generateMetadata() {
+  return await fetchPageSEO("/contact");
+}
+
 export default function ContactPage() {
     return (
         <main className="max-w-5xl mx-auto px-4 py-16 space-y-12">

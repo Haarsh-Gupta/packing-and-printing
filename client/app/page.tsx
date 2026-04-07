@@ -10,6 +10,11 @@ import CTASection from "@/components/CTASection";
 import TrustedBySection from "@/components/TrustedBySection";
 import WaveDivider from "@/components/WaveDivider";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
+import { fetchPageSEO } from "@/lib/seo";
+
+export async function generateMetadata() {
+  return await fetchPageSEO("/");
+}
 
 export default function HomePage() {
   return (

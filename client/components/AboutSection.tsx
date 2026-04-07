@@ -46,7 +46,7 @@ export default function AboutSection() {
                     </h2>
 
                     <p className="text-base text-black/70 leading-relaxed font-medium">
-                        BookBind was born out of a simple frustration: getting custom, high-quality printing shouldn&apos;t require endless emails and confusing pricing. We combined state-of-the-art production with a seamless digital platform.
+                        {process.env.NEXT_PUBLIC_COMPANY_NAME} was born out of a simple frustration: getting custom, high-quality printing shouldn&apos;t require endless emails and confusing pricing. We combined state-of-the-art production with a seamless digital platform.
                     </p>
 
                     <ul className="space-y-4 pt-2">

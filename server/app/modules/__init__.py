@@ -7,4 +7,5 @@ from app.modules.notifications.models import Notification
 from app.modules.tickets.models import Ticket, TicketMessage
 from app.modules.reviews.models import Review
 from app.modules.wishlist.models import Wishlist
+from app.modules.seo.models import SEOConfig
 
