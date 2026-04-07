@@ -55,12 +55,15 @@ async def send_custom_email(
     request: Request,
     to_email: str = Form(..., description="Recipient email address"),
     subject: str = Form(..., description="Email subject line"),
-    heading: str = Form(..., description="Main heading inside email body"),
-    message: str = Form(..., description="Custom message (supports basic HTML)"),
+    heading: str = Form("", description="Main heading inside email body"),
+    message: str = Form("", description="Custom message (supports basic HTML)"),
     image_url: Optional[str] = Form(None, description="Optional banner image URL"),
     action_url: Optional[str] = Form(None, description="Optional CTA button URL"),
     action_label: Optional[str] = Form("Learn More", description="CTA button label"),
     template_id: str = Form("custom", description="Template to use: custom, reminder, invoice"),
+    order_id: Optional[str] = Form(None, description="Order ID for reminder"),
+    due_amount: Optional[str] = Form(None, description="Due amount for reminder"),
+    due_date: Optional[str] = Form(None, description="Due date for reminder"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin_user),
 ):
@@ -80,8 +83,9 @@ async def send_custom_email(
     # 2. Render Template
     if template_id == "reminder":
         html = render_reminder_email(
-            order_id=1234, # Mock for general center
-            due_amount=0.0,
+            order_id=int(order_id) if order_id and order_id.isdigit() else 0,
+            due_amount=float(due_amount) if due_amount else 0.0,
+            due_date=due_date,
             message=message,
             user_name=user.name if user else "Customer",
         )
@@ -91,6 +95,14 @@ async def send_custom_email(
             items=[],
             total_amount=0.0,
             amount_paid=0.0,
+            user_name=user.name if user else "Customer",
+        )
+    elif template_id == "admin_notice":
+        html = render_admin_notice_email(
+            subject=subject,
+            message=message,
+            action_url=action_url,
+            action_label=action_label,
             user_name=user.name if user else "Customer",
         )
     else:
@@ -148,6 +160,9 @@ async def preview_custom_email(
     action_url: Optional[str] = Form(None, description="Optional CTA button URL"),
     action_label: Optional[str] = Form("Learn More", description="CTA button label"),
     template_id: str = Form("custom", description="Template to use: custom, reminder, invoice"),
+    order_id: Optional[str] = Form(None, description="Order ID for reminder"),
+    due_amount: Optional[str] = Form(None, description="Due amount for reminder"),
+    due_date: Optional[str] = Form(None, description="Due date for reminder"),
     admin: User = Depends(get_current_admin_user),
 ):
     """
@@ -156,10 +171,10 @@ async def preview_custom_email(
     """
     if template_id == "reminder":
         html = render_reminder_email(
-            order_id=1234,
-            due_amount=5000.0,
-            due_date="20th Oct",
-            message=message or "This is a reminder.",
+            order_id=int(order_id) if order_id and order_id.isdigit() else 0,
+            due_amount=float(due_amount) if due_amount else 0.0,
+            due_date=due_date,
+            message=message,
             user_name="Customer",
         )
     elif template_id == "invoice":
@@ -167,6 +182,14 @@ async def preview_custom_email(
             order_id=1234,
             items=[{"name": "Item A", "qty": 1, "price": 1000.0}],
             total_amount=1000.0,
+            user_name="Customer",
+        )
+    elif template_id == "admin_notice":
+        html = render_admin_notice_email(
+            subject=heading or "Notice Subject",
+            message=message or "Notification message content.",
+            action_url=action_url,
+            action_label=action_label or "View Details",
             user_name="Customer",
         )
     else:
@@ -186,12 +209,16 @@ async def preview_custom_email(
 async def send_bulk_email(
     request: Request,
     subject: str = Form(..., description="Email subject line"),
-    heading: str = Form(..., description="Main heading inside email body"),
-    message: str = Form(..., description="Custom message (supports basic HTML)"),
+    heading: str = Form("", description="Main heading inside email body"),
+    message: str = Form("", description="Custom message (supports basic HTML)"),
     image_url: Optional[str] = Form(None, description="Optional banner image URL"),
     action_url: Optional[str] = Form(None, description="Optional CTA button URL"),
     action_label: Optional[str] = Form("Learn More", description="CTA button label"),
     template_id: str = Form("custom", description="Template to use: custom, reminder, invoice"),
+    order_id: Optional[str] = Form(None, description="Order ID for reminder"),
+    due_amount: Optional[str] = Form(None, description="Due amount for reminder"),
+    due_date: Optional[str] = Form(None, description="Due date for reminder"),
+    user_emails: Optional[str] = Form(None, description="Comma separated emails of specific users"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin_user),
 ):
@@ -211,7 +238,13 @@ async def send_bulk_email(
     # Read attachments once (before iterating over users)
     attachments = await _validate_files(files) if files else []
 
-    result = await db.execute(select(User).where(User.admin == False))
+    stmt = select(User).where(User.admin == False)
+    if user_emails:
+        emails_list = [e.strip() for e in user_emails.split(",") if e.strip()]
+        if emails_list:
+            stmt = stmt.where(User.email.in_(emails_list))
+            
+    result = await db.execute(stmt)
     users = result.scalars().all()
 
     if not users:
@@ -223,11 +256,23 @@ async def send_bulk_email(
     for user in users:
         if template_id == "reminder":
             html = render_reminder_email(
-                order_id=0, due_amount=0.0, message=message, user_name=user.name
+                order_id=int(order_id) if order_id and order_id.isdigit() else 0,
+                due_amount=float(due_amount) if due_amount else 0.0,
+                due_date=due_date,
+                message=message,
+                user_name=user.name
             )
         elif template_id == "invoice":
             html = render_invoice_email(
                 order_id=0, items=[], total_amount=0.0, amount_paid=0.0, user_name=user.name
+            )
+        elif template_id == "admin_notice":
+            html = render_admin_notice_email(
+                subject=subject,
+                message=message,
+                action_url=action_url,
+                action_label=action_label,
+                user_name=user.name
             )
         else:
             html = render_custom_email(

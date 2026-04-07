@@ -1,5 +1,5 @@
 export default function TermsPage() {
-    const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || "BookBind";
+    const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || "NavArt";
 
     const sections = [
         {

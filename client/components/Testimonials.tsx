@@ -7,7 +7,7 @@ const testimonials = [
     {
         name: "Arjun Mehta",
         role: "Founder, QuickBite Foods",
-        content: "BookBind completely transformed our packaging. The custom corrugated boxes are incredibly sturdy, and the print quality is flawless. It gave our brand the premium feel we desperately needed.",
+        content: "Navart completely transformed our packaging. The custom corrugated boxes are incredibly sturdy, and the print quality is flawless. It gave our brand the premium feel we desperately needed.",
         avatarSeed: "ArjunM",
         amount: "₹2,40,000",
         amountLabel: "saved on packaging",
@@ -16,7 +16,7 @@ const testimonials = [
     {
         name: "Priya Sharma",
         role: "Operations Manager, TechNova",
-        content: "Getting custom invoice books printed used to be a massive headache. With BookBind, I just uploaded our logo, configured the triplicate pages, and they arrived perfectly bound in 3 days. Phenomenal service.",
+        content: "Getting custom invoice books printed used to be a massive headache. With Navart, I just uploaded our logo, configured the triplicate pages, and they arrived perfectly bound in 3 days. Phenomenal service.",
         avatarSeed: "PriyaS",
         amount: "3 Days",
         amountLabel: "turnaround time",

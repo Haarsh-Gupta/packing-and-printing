@@ -6,10 +6,13 @@ branding, header, and footer across every email type.
 """
 
 
+from app.core.config import settings
+
+
 def wrap_in_base(
     content: str,
-    company_name: str = "BookBind",
-    support_email: str = "support@bookbind.com",
+    company_name: str = settings.company_name,
+    support_email: str = settings.company_email,
 ) -> str:
     """
     Wraps inner HTML content with a branded email shell.
