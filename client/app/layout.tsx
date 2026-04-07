@@ -9,6 +9,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { StoreProvider } from "@/lib/store/StoreProvider";
 import { Metadata } from "next";
 import { fetchPageSEO } from "@/lib/seo";
+import {GoogleAnalytics} from "@next/third-parties/google";
 
 export async function generateMetadata(): Promise<Metadata> {
   return await fetchPageSEO("/");
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </ConfirmProvider>
         </AlertProvider>
       </body>
+      <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
     </html>
   );
 }

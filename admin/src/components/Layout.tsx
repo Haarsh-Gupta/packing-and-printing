@@ -18,10 +18,11 @@ const PAGE_LABELS: Record<string, string> = {
     "/reviews": "Reviews",
     "/offline-payment": "Record Offline Payment",
     "/settings": "Settings",
+    "/seo": "SEO Configuration",
 };
 
 export default function Layout() {
-    const { admin: user, isLoading: loading } = useAuth();
+    const { admin: user, isLoading: loading, logout } = useAuth();
     const location = useLocation();
     const [search, setSearch] = useState("");
 
@@ -53,13 +54,7 @@ export default function Layout() {
                         This account does not have administrator privileges.
                     </p>
                     <button 
-                        onClick={() => {
-                            // Clear cookies and force reload to login
-                            document.cookie.split(";").forEach(c => {
-                                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-                            });
-                            window.location.href = '/login';
-                        }}
+                        onClick={() => logout()}
                         className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 font-semibold py-2.5 rounded-lg transition-colors"
                     >
                         Sign in with Admin Account

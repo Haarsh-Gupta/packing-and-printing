@@ -1,7 +1,7 @@
 import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
-    LayoutDashboard, ShoppingCart, MessageSquare, Package,
+    LayoutDashboard, ShoppingCart, MessageSquare, Package, Globe,
     Wrench, Users, LifeBuoy, Bell, Mail, Star, Settings as SettingsIcon, LogOut, Calculator, Receipt, History
 } from "lucide-react";
 import {
@@ -23,6 +23,7 @@ const navItems = [
     { label: "Email Center", icon: Mail, path: "/emails" },
     { label: "Email Logs", icon: History, path: "/email-logs" },
     { label: "Reviews", icon: Star, path: "/reviews" },
+    { label: "SEO", icon: Globe, path: "/seo" },
 ];
 
 
