@@ -27,7 +27,7 @@ interface DashboardStats {
   pendingInquiries: number;
   totalOrders: number;
   activeOrders: number;
-  completedOrders: number;
+  deliveredOrders: number;
   totalExpenditure: number;
   totalPaid: number;
   totalRemaining: number;
@@ -65,7 +65,7 @@ export default function DashboardPage() {
 
   const stats: DashboardStats = data?.stats || {
     totalInquiries: 0, pendingInquiries: 0,
-    totalOrders: 0, activeOrders: 0, completedOrders: 0,
+    totalOrders: 0, activeOrders: 0, deliveredOrders: 0,
     totalExpenditure: 0, totalPaid: 0, totalRemaining: 0, upcomingPayments: 0,
   };
   const recentOrders: Order[] = data?.recentOrders || [];
@@ -83,7 +83,7 @@ export default function DashboardPage() {
     { label: "Expenditure", value: formatCurrency(stats.totalExpenditure), sub: `${formatCurrency(stats.totalPaid)} paid`, icon: Wallet, bg: "bg-[#4be794]", href: "/dashboard/orders" },
     { label: "Upcoming Dues", value: formatCurrency(stats.upcomingPayments), sub: `${stats.activeOrders} orders`, icon: CalendarClock, bg: "bg-[#fdf567]", href: "/dashboard/orders" },
     { label: "Remaining", value: formatCurrency(stats.totalRemaining), sub: "balance due", icon: CreditCard, bg: "bg-[#a788fa]", href: "/dashboard/orders" },
-    { label: "Completed", value: stats.completedOrders, sub: `of ${stats.totalOrders} total`, icon: TrendingUp, bg: "bg-white", href: "/dashboard/orders" },
+    { label: "Delivered", value: stats.deliveredOrders, sub: `of ${stats.totalOrders} total`, icon: TrendingUp, bg: "bg-white", href: "/dashboard/orders" },
   ];
 
   const getOrderStatusBadge = (status: string) => {
@@ -93,7 +93,8 @@ export default function DashboardPage() {
       PAID: { label: "Paid", bg: "bg-[#4be794]" },
       PROCESSING: { label: "Processing", bg: "bg-[#90e8ff]" },
       READY: { label: "Ready", bg: "bg-[#4be794]" },
-      COMPLETED: { label: "Done", bg: "bg-[#4be794]" },
+      SHIPPED: { label: "Shipped", bg: "bg-[#90e8ff]" },
+      DELIVERED: { label: "Delivered", bg: "bg-[#4be794]" },
       CANCELLED: { label: "Cancelled", bg: "bg-red-200" },
     };
     const badge = map[status] || { label: status, bg: "bg-zinc-200" };

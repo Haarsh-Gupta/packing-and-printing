@@ -65,16 +65,16 @@ const STATUS_STEPS = [
     { key: "IN_PRODUCTION", label: "In Production", icon: Package },
     { key: "SHIPPED", label: "Shipped", icon: Truck },
     { key: "DELIVERED", label: "Delivered", icon: CheckCircle2 },
-    { key: "COMPLETED", label: "Completed", icon: CheckCircle2 },
 ];
 
-const STATUS_ORDER = ["PENDING", "IN_PRODUCTION", "PARTIALLY_PAID", "PAID", "SHIPPED", "DELIVERED", "COMPLETED"];
+const STATUS_ORDER = ["PENDING", "IN_PRODUCTION", "PARTIALLY_PAID", "PAID", "SHIPPED", "DELIVERED"];
 
 function getStepIndex(status: string) {
-    if (status === "PAID") return 1;
-    if (status === "PARTIALLY_PAID") return 1;
-    const steps = ["PENDING", "IN_PRODUCTION", "SHIPPED", "DELIVERED", "COMPLETED"];
-    return steps.indexOf(status);
+    if (status === "WAITING_PAYMENT" || status === "PARTIALLY_PAID" || status === "PAID") return 0;
+    if (status === "PROCESSING" || status === "READY") return 1;
+    if (status === "SHIPPED") return 2;
+    if (status === "DELIVERED") return 3;
+    return 0; // Default or Cancelled
 }
 
 export default function OrderDetailPage() {
@@ -322,7 +322,7 @@ export default function OrderDetailPage() {
                         </h1>
                         <p className="text-zinc-500 font-bold mt-1">{order.order_number || `#${order.id.slice(0, 8)}`} · Placed {formatDate(order.created_at)}</p>
                     </div>
-                    <span className={`px-4 py-2 text-sm font-black uppercase border-2 border-black ${order.status === "COMPLETED" || order.status === "PAID" ? "bg-[#4be794]" : order.status === "SHIPPED" ? "bg-[#90e8ff]" : order.status === "CANCELLED" ? "bg-zinc-200 text-zinc-500" : "bg-[#fdf567]"}`}>
+                    <span className={`px-4 py-2 text-sm font-black uppercase border-2 border-black ${order.status === "DELIVERED" || order.status === "PAID" ? "bg-[#4be794]" : order.status === "SHIPPED" ? "bg-[#90e8ff]" : order.status === "CANCELLED" ? "bg-zinc-200 text-zinc-500" : "bg-[#fdf567]"}`}>
                         {order.status.replace("_", " ")}
                     </span>
                 </div>

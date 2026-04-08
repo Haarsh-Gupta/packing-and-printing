@@ -4,7 +4,7 @@ export interface Order {
     inquiry_id: string;
     total_amount: number;
     amount_paid: number;
-    status: "WAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "PROCESSING" | "READY" | "COMPLETED" | "CANCELLED";
+    status: "WAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "PROCESSING" | "READY" | "SHIPPED" | "DELIVERED" | "CANCELLED";
     product_name?: string;
     quantity?: number;
     image_url?: string;

@@ -39,6 +39,9 @@ from app.modules.orders.schemas import (
 )
 from app.modules.orders.service.order import OrderService
 from app.modules.orders.service.payment import PaymentService
+from app.core.email.templates.order_status import render_order_status_email
+from app.core.email.templates.payment_declaration import render_declaration_review_email
+from app.core.email.templates.payment_recorded import render_payment_recorded_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -377,8 +380,8 @@ async def update_order_status(
 
     _fire_sse(str(refreshed_order.user_id), "order_status_changed", {
         "order_id": str(order_id),
-        "old_status": old_status.value,
-        "new_status": payload.status.value,
+        "old_status": old_status.value if hasattr(old_status, 'value') else old_status,
+        "new_status": payload.status.value if hasattr(payload.status, 'value') else payload.status,
     })
     _notify_status_change(refreshed_order, old_status, payload.status, admin)
 
@@ -408,13 +411,12 @@ def _notify_payment_recorded(order: Order, amount: float, admin: User) -> None:
                 to_email=user.email,
                 to_phone=getattr(user, "phone", None),
                 subject=f"Payment recorded - Order {order.order_number}",
-                body_html=f"""
-                    <p>Hi {user.name or 'Customer'},</p>
-                    <p>A payment of <strong>₹{amount:,.2f}</strong> has been
-                    recorded for your Order <strong>{order.order_number}</strong>.</p>
-                    <p>Balance remaining:
-                    <strong>₹{order.total_amount - order.amount_paid:,.2f}</strong></p>
-                """,
+                body_html=render_payment_recorded_email(
+                    order_number=order.order_number,
+                    amount=amount,
+                    balance=order.total_amount - order.amount_paid,
+                    user_name=user.name,
+                ),
                 body_text=(
                     f"Payment of ₹{amount:,.2f} recorded for Order {order.order_number}. "
                     f"Balance: ₹{order.total_amount - order.amount_paid:,.2f}"
@@ -446,11 +448,12 @@ def _notify_declaration_approved(order: Order, admin: User) -> None:
                 to_email=user.email,
                 to_phone=getattr(user, "phone", None),
                 subject=f"Payment verified - Order {order.order_number}",
-                body_html=f"""
-                    <p>Hi {user.name or 'Customer'},</p>
-                    <p>Your payment for Order <strong>{order.order_number}</strong> has been verified and recorded.</p>
-                    <p>Order status: <strong>{order.status.value if hasattr(order.status, 'value') else order.status}</strong></p>
-                """,
+                body_html=render_declaration_review_email(
+                    order_number=order.order_number,
+                    is_approved=True,
+                    order_status=order.status.value if hasattr(order.status, 'value') else order.status,
+                    user_name=user.name,
+                ),
                 body_text=f"Your payment for Order {order.order_number} has been verified. Order status: {order.status.value if hasattr(order.status, 'value') else order.status}",
             )
         except Exception as e:
@@ -472,12 +475,12 @@ def _notify_declaration_rejected(order: Order, reason: str) -> None:
                 to_email=user.email,
                 to_phone=getattr(user, "phone", None),
                 subject=f"Payment verification failed - Order {order.order_number}",
-                body_html=f"""
-                    <p>Hi {user.name or 'Customer'},</p>
-                    <p>Your payment declaration for Order <strong>{order.order_number}</strong> was not verified.</p>
-                    <p><strong>Reason:</strong> {reason}</p>
-                    <p>Please contact us if you believe this is an error.</p>
-                """,
+                body_html=render_declaration_review_email(
+                    order_number=order.order_number,
+                    is_approved=False,
+                    reason=reason,
+                    user_name=user.name,
+                ),
                 body_text=f"Payment for Order {order.order_number} not verified. Reason: {reason}",
             )
         except Exception as e:
@@ -504,12 +507,12 @@ def _notify_status_change(
                 to_email=user.email,
                 to_phone=getattr(user, "phone", None),
                 subject=f"Order Update - {order.order_number} - {new_status.value if hasattr(new_status, 'value') else new_status}",
-                body_html=f"""
-                    <p>Hi {user.name or 'Customer'},</p>
-                    <p>Your Order <strong>{order.order_number}</strong> status has been updated to
-                    <strong>{new_status.value if hasattr(new_status, 'value') else new_status}</strong>.</p>
-                    {f'<p>{order.admin_notes}</p>' if order.admin_notes else ''}
-                """,
+                body_html=render_order_status_email(
+                    order_number=order.order_number,
+                    new_status=new_status.value if hasattr(new_status, 'value') else new_status,
+                    user_name=user.name,
+                    admin_notes=order.admin_notes,
+                ),
                 body_text=(
                     f"Order {order.order_number} status: {new_status.value if hasattr(new_status, 'value') else new_status}. "
                     f"{order.admin_notes or ''}"
