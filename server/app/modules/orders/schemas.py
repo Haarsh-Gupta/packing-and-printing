@@ -32,7 +32,8 @@ class OrderStatus(str, Enum):
     PAID            = "PAID"
     PROCESSING      = "PROCESSING"
     READY           = "READY"
-    COMPLETED       = "COMPLETED"
+    SHIPPED         = "SHIPPED"
+    DELIVERED       = "DELIVERED"
     CANCELLED       = "CANCELLED"
 
 
@@ -245,7 +246,8 @@ class OrderStatusUpdate(BaseModel):
     _ADMIN_SETTABLE = {
         OrderStatus.PROCESSING,
         OrderStatus.READY,
-        OrderStatus.COMPLETED,
+        OrderStatus.SHIPPED,
+        OrderStatus.DELIVERED,
         OrderStatus.CANCELLED,
     }
 

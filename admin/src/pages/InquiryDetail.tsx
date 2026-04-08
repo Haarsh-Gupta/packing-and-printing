@@ -460,7 +460,7 @@ export default function InquiryDetail() {
                         <span className="bg-[#2170e4]/10 text-[#0058be] dark:text-[#adc6ff] px-3 py-1 rounded text-xs font-bold tracking-wider uppercase font-headline">
                             {selected.status.replace(/_/g, ' ')}
                         </span>
-                        <span className="text-[#424754] dark:text-[#c3c5d8] text-sm font-medium">INQ-{selected.display_id || selected.id.slice(0, 8)}</span>
+                        <span className="text-[#424754] dark:text-[#c3c5d8] text-sm font-medium">{selected.display_id || selected.id.slice(0, 8)}</span>
                     </div>
                     <h2 className="text-3xl font-bold tracking-tight text-[#191c1e] dark:text-[#dae2fd] font-headline">
                         {selected.items[0]?.subproduct_name || selected.items[0]?.product_name || selected.items[0]?.subservice_name || selected.items[0]?.service_name || "Project Inquiry"}

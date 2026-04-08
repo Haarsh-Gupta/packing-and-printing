@@ -34,12 +34,17 @@ export default function Header() {
     
     setIsLoading(true);
     try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
         const [p, s] = await Promise.all([
-            fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?_t=${Date.now()}`).then(r => r.ok ? r.json() : []),
-            fetch(`${process.env.NEXT_PUBLIC_API_URL}/services?_t=${Date.now()}`).then(r => r.ok ? r.json() : [])
+            fetch(`${baseUrl}/products?_t=${Date.now()}`)
+                .then(r => r.ok ? r.json() : [])
+                .catch(e => { console.warn("Failed to fetch products:", e.message); return []; }),
+            fetch(`${baseUrl}/services?_t=${Date.now()}`)
+                .then(r => r.ok ? r.json() : [])
+                .catch(e => { console.warn("Failed to fetch services:", e.message); return []; })
         ]);
-        setProducts(p);
-        setServices(s);
+        setProducts(Array.isArray(p) ? p : []);
+        setServices(Array.isArray(s) ? s : []);
         setHasFetched(true);
     } catch (err) {
         console.error("Header fetch error", err);

@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Column, String, DateTime, func, Double, Uuid, Integer, text, UniqueConstraint, Sequence, event, Boolean, Index
+from sqlalchemy import ForeignKey, Column, String, DateTime, func, Numeric, Uuid, Integer, text, UniqueConstraint, Sequence, event, Boolean, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -15,11 +15,11 @@ class Order(Base):
     inquiry_id = Column(Uuid, ForeignKey('inquiry_groups.id'), nullable=False)
     user_id = Column(Uuid, ForeignKey('users.id'), nullable=False)
     
-    total_amount = Column(Double, nullable=False)
-    tax_amount = Column(Double, default=0.0)
-    shipping_amount = Column(Double, default=0.0)
-    discount_amount = Column(Double, default=0.0)
-    amount_paid = Column(Double, default=0.0) # Cache: Sum of related Transactions
+    total_amount = Column(Numeric(10, 2), nullable=False)
+    tax_amount = Column(Numeric(10, 2), default=0.0)
+    shipping_amount = Column(Numeric(10, 2), default=0.0)
+    discount_amount = Column(Numeric(10, 2), default=0.0)
+    amount_paid = Column(Numeric(10, 2), default=0.0) # Cache: Sum of related Transactions
     status = Column(String, default='WAITING_PAYMENT')
     split_type = Column(String, default='HALF')  # FULL, HALF, CUSTOM — prevents accidental overwrite
     is_custom_milestone_requested = Column(Boolean, default=False, nullable=False)
@@ -58,8 +58,8 @@ class OrderMilestone(Base):
     split_type = Column(String, nullable=False, default='HALF')
     
     label = Column(String, nullable=False) # e.g., "Advance (50%)", "Dispatch (50%)"
-    percentage = Column(Double, nullable=False) # Source of truth
-    amount = Column(Double, nullable=False) # Derived cache
+    percentage = Column(Numeric(10, 2), nullable=False) # Source of truth
+    amount = Column(Numeric(10, 2), nullable=False) # Derived cache
     order_index = Column(Integer, nullable=False) 
     
     status = Column(String, default='UNPAID') # UNPAID, PENDING (declaration submitted), PAID
@@ -82,7 +82,7 @@ class Transaction(Base):
     order_id = Column(Uuid, ForeignKey('orders.id', ondelete="RESTRICT"), nullable=False, index=True)
     milestone_id = Column(Uuid, ForeignKey('order_milestones.id', ondelete="RESTRICT"), nullable=False, index=True)
     
-    amount = Column(Double, nullable=False)
+    amount = Column(Numeric(10, 2), nullable=False)
     payment_mode = Column(String, nullable=False)
     gateway_payment_id = Column(String, unique=True, nullable=True) # Null for manual UPI
     notes = Column(String, nullable=True)

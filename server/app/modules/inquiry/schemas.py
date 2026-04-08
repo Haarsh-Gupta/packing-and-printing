@@ -61,18 +61,37 @@ class QuoteLineItemCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_line_item_pricing(self):
+        eps = 0.01
+        
         if self.discount_type and self.discount_type not in ["percentage", "amount"]:
             raise ValueError("discount_type must be 'percentage' or 'amount'")
+            
         if self.discount_type == "percentage":
             if not (0 <= self.discount_value <= 100):
                 raise ValueError("discount_value must be between 0 and 100 for percentage discount")
-        # else:
-        #     if self.discount_value < 0:
-        #         raise ValueError("discount_value must be non-negative for amount discount")
-        # if self.taxable_value != self.line_item_price - self.discount_amount:
-        #     raise ValueError("taxable_value must be equal to line_item_price - discount_amount")
-        # if self.gst_amount != self.taxable_value * (self.cgst_rate + self.sgst_rate) / 100:
-        #     raise ValueError("gst_amount must be equal to taxable_value * (cgst_rate + sgst_rate) / 100")
+            if abs(self.discount_amount - (self.line_item_price * self.discount_value / 100.0)) > eps:
+                raise ValueError("discount_amount must be equal to line_item_price * discount_value / 100")
+        elif self.discount_type == "amount":
+            if self.discount_value < 0:
+                raise ValueError("discount_value must be non-negative for amount discount")
+            if abs(self.discount_amount - self.discount_value) > eps:
+                raise ValueError("discount_amount must be equal to discount_value for amount discount")
+        else:
+            if self.discount_value < 0:
+                raise ValueError("discount_value must be non-negative")
+                
+        if abs(self.taxable_value - (self.line_item_price - self.discount_amount)) > eps:
+            raise ValueError("taxable_value must be equal to line_item_price - discount_amount")
+            
+        if self.discount_amount > self.line_item_price + eps:
+            raise ValueError("discount_amount cannot be greater than line_item_price")
+            
+        if self.gst_amount > self.taxable_value + eps:
+            raise ValueError("gst_amount cannot be greater than taxable_value")
+            
+        if abs(self.gst_amount - (self.taxable_value * 0.18)) > eps:
+            raise ValueError("gst_amount must be equal to taxable_value * 0.18")
+            
         return self
 
 

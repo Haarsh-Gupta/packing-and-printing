@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, func, Uuid, text, Integer, Text, ARRAY, Float, Boolean, Double
+from sqlalchemy import Column, String, DateTime, ForeignKey, func, Uuid, text, Integer, Text, ARRAY, Boolean, Numeric
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from app.core.database import Base
@@ -58,8 +58,8 @@ class InquiryItem(Base):
     selected_options = Column(JSONB, nullable=True)
     notes            = Column(Text, nullable=True)
     images           = Column(ARRAY(String), nullable=True)
-    line_item_price  = Column(Double, nullable=True)
-    estimated_price  = Column(Double, nullable=True)
+    line_item_price  = Column(Numeric(10, 2), nullable=True)
+    estimated_price  = Column(Numeric(10, 2), nullable=True)
 
     group            = relationship("InquiryGroup", back_populates="items")
     product          = relationship("Product", lazy="selectin")
@@ -132,10 +132,10 @@ class QuoteVersion(Base):
     version     = Column(Integer, nullable=False)
     created_by  = Column(Uuid, ForeignKey("users.id"), nullable=False)
 
-    total_price = Column(Float, nullable=False)
-    tax_amount  = Column(Float, default=0.0)
-    shipping_amount = Column(Float, default=0.0)
-    discount_amount = Column(Float, default=0.0)
+    total_price = Column(Numeric(10, 2), nullable=False)
+    tax_amount  = Column(Numeric(10, 2), default=0.0)
+    shipping_amount = Column(Numeric(10, 2), default=0.0)
+    discount_amount = Column(Numeric(10, 2), default=0.0)
     valid_until = Column(DateTime(timezone=True), nullable=False)
     admin_notes = Column(Text, nullable=True)
 

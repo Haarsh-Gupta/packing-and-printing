@@ -97,7 +97,7 @@ async def get_dashboard_stats(
         select(
             func.count(Order.id).label("total_orders"),
             func.count(case((Order.status.notin_(["COMPLETED", "CANCELLED"]), 1))).label("active_orders"),
-            func.count(case((Order.status == "COMPLETED", 1))).label("completed_orders"),
+            func.count(case((Order.status == "DELIVERED", 1))).label("delivered_orders"),
             func.coalesce(func.sum(Order.total_amount), 0).label("total_expenditure"),
             func.coalesce(func.sum(Order.amount_paid), 0).label("total_paid"),
             func.coalesce(
@@ -177,7 +177,7 @@ async def get_dashboard_stats(
             "pendingInquiries": inquiry_stats.pending_inquiries,
             "totalOrders": order_stats.total_orders,
             "activeOrders": order_stats.active_orders,
-            "completedOrders": order_stats.completed_orders,
+            "deliveredOrders": order_stats.delivered_orders,
             "totalExpenditure": total_exp,
             "totalPaid": total_paid,
             "totalRemaining": total_exp - total_paid,

@@ -310,11 +310,12 @@ def _build_milestones(order_id, total_amount, payload, split_type: str):
 
 def _status_transitions(current):
     return {
-        "WAITING_PAYMENT": ["PAID", "CANCELLED"],
-        "PAID": ["IN_PRODUCTION", "CANCELLED"],
-        "IN_PRODUCTION": ["READY_TO_DISPATCH", "CANCELLED"],
-        "READY_TO_DISPATCH": ["DISPATCHED"],
-        "DISPATCHED": ["DELIVERED"],
+        "WAITING_PAYMENT": ["PARTIALLY_PAID", "PAID", "PROCESSING", "READY", "CANCELLED"],
+        "PARTIALLY_PAID": ["PAID", "PROCESSING", "READY", "SHIPPED", "DELIVERED", "CANCELLED"],
+        "PAID": ["PROCESSING", "READY", "SHIPPED", "DELIVERED", "CANCELLED"],
+        "PROCESSING": ["READY", "SHIPPED", "DELIVERED", "CANCELLED"],
+        "READY": ["SHIPPED", "DELIVERED", "CANCELLED"],
+        "SHIPPED": ["DELIVERED"],
         "DELIVERED": [],
         "CANCELLED": [],
     }.get(current, [])

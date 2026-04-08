@@ -8,7 +8,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import OfflineOrderModal from "@/components/OfflineOrderModal";
 
-const STATUS_TABS = ["All", "Waiting_payment", "Partially_paid", "Paid", "Processing", "Ready", "Completed", "Cancelled"];
+const STATUS_TABS = ["All", "Waiting_payment", "Partially_paid", "Paid", "Processing", "Ready", "Shipped", "Delivered", "Cancelled"];
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; borderColor: string }> = {
     WAITING_PAYMENT: { color: 'text-amber-400', bg: 'bg-amber-500/10', borderColor: 'border-amber-500/20' },
@@ -16,7 +16,8 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; borderColor: st
     PAID: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20' },
     PROCESSING: { color: 'text-purple-400', bg: 'bg-purple-500/10', borderColor: 'border-purple-500/20' },
     READY: { color: 'text-sky-400', bg: 'bg-sky-500/10', borderColor: 'border-sky-500/20' },
-    COMPLETED: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20' },
+    SHIPPED: { color: 'text-indigo-400', bg: 'bg-indigo-500/10', borderColor: 'border-indigo-500/20' },
+    DELIVERED: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20' },
     CANCELLED: { color: 'text-rose-400', bg: 'bg-rose-500/10', borderColor: 'border-rose-500/20' },
 };
 

@@ -413,7 +413,7 @@ export default function InquiryDetailPage() {
                                     : <span title="Offline – reconnect to get live updates"><WifiOff className="w-4 h-4 text-zinc-400" /></span>}
                         </div>
                         <p className="text-sm font-medium text-zinc-500">
-                            #{inquiry.id.slice(0, 8).toUpperCase()} · {new Date(inquiry.created_at).toLocaleDateString()}
+                            {inquiry.display_id || inquiry.id.slice(0, 8).toUpperCase()} · {new Date(inquiry.created_at).toLocaleDateString()}
                         </p>
                     </div>
                 </div>

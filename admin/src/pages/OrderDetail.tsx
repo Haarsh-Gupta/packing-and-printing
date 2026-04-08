@@ -17,7 +17,8 @@ const DETAIL_STATUS_CONFIG: Record<string, { color: string; bg: string; borderCo
     PAID: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20' },
     PROCESSING: { color: 'text-purple-400', bg: 'bg-purple-500/10', borderColor: 'border-purple-500/20' },
     READY: { color: 'text-sky-400', bg: 'bg-sky-500/10', borderColor: 'border-sky-500/20' },
-    COMPLETED: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20' },
+    SHIPPED: { color: 'text-indigo-400', bg: 'bg-indigo-500/10', borderColor: 'border-indigo-500/20' },
+    DELIVERED: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20' },
     CANCELLED: { color: 'text-rose-400', bg: 'bg-rose-500/10', borderColor: 'border-rose-500/20' },
 };
 
@@ -442,7 +443,8 @@ export default function OrderDetail() {
                                     <option value={order.status} disabled>Current: {order.status}</option>
                                     <option value="PROCESSING">PROCESSING</option>
                                     <option value="READY">READY</option>
-                                    <option value="COMPLETED">COMPLETED</option>
+                                    <option value="SHIPPED">SHIPPED</option>
+                                    <option value="DELIVERED">DELIVERED</option>
                                     <option value="CANCELLED">CANCELLED</option>
                                 </select>
                             </div>
