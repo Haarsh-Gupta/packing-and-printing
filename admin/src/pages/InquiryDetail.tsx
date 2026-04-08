@@ -5,7 +5,7 @@ import type { InquiryGroup } from "@/types";
 import { toast } from "sonner";
 import {
     MessageSquare, Send, User, Calendar, Package, Layers, Mail, Phone,
-    IndianRupee, FileText, Hash, Clock, CheckCircle2, XCircle, AlertCircle, Loader2, ArrowLeft, Calculator
+    IndianRupee, FileText, Hash, Clock, CheckCircle2, XCircle, AlertCircle, Loader2, ArrowLeft, Calculator, RotateCcw
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -196,10 +196,13 @@ export default function InquiryDetail() {
     const [detailLoading, setDetailLoading] = useState(true);
     const [reply, setReply] = useState("");
     const [sending, setSending] = useState(false);
-    const [quoteForm, setQuoteForm] = useState({ amount: "", notes: "", validDays: "7" });
+    const [quoteForm, setQuoteForm] = useState({ amount: "", notes: "", validDays: "7", shippingAmount: "0" });
     const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
     const [itemDiscounts, setItemDiscounts] = useState<Record<string, number>>({});
+    const [itemDiscountTypes, setItemDiscountTypes] = useState<Record<string, 'percentage' | 'amount'>>({});
+    const [itemGlobalOptOut, setItemGlobalOptOut] = useState<Record<string, boolean>>({});
     const [itemTaxDiscounts, setItemTaxDiscounts] = useState<Record<string, number>>({});
+    const [showOriginalPrices, setShowOriginalPrices] = useState(false);
     const [discountPercentage, setDiscountPercentage] = useState<number>(0);
     const [showWarning, setShowWarning] = useState(false);
 
@@ -228,33 +231,55 @@ export default function InquiryDetail() {
         let subtotal = 0;
 
         selected.items.forEach(item => {
+            const catalogPrice = (() => {
+                if (item.subproduct_id) {
+                    const p = subProducts.find((sp: any) => sp.id === item.subproduct_id);
+                    return p?.base_price || 0;
+                }
+                if (item.subservice_id) {
+                    const s = subServices.find((ss: any) => ss.id === item.subservice_id);
+                    return s?.price_per_unit || 0;
+                }
+                return 0;
+            })();
+            const unitPrice = (item.estimated_price || 0) > 0 ? (item.estimated_price || 0) : catalogPrice;
+
             // baseItemPrice is now Unit Price
             const baseItemPrice = itemPrices[item.id] !== undefined
                 ? itemPrices[item.id]
-                : (item.line_item_price || item.estimated_price || 0);
+                : (item.line_item_price || unitPrice || 0);
 
             const qty = item.quantity || 1;
             const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
             const waiverPerc = itemTaxDiscounts[item.id] || 0;
 
             const localDiscount = itemDiscounts[item.id] || 0;
-            const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
-
-            // Math: (Unit * Qty) - Discount
+            const discType = itemDiscountTypes[item.id] || 'percentage';
+            const optOut = itemGlobalOptOut[item.id] || false;
+            
             const itemBaseTotal = baseItemPrice * qty;
-            const itemDiscountAmt = itemBaseTotal * (stackedDiscountRate / 100);
+            
+            let itemDiscountAmt = 0;
+            if (discType === 'percentage') {
+                const effectiveGlobalRate = optOut ? 0 : discountPercentage;
+                const stackedDiscountRate = Math.min(100, effectiveGlobalRate + localDiscount);
+                itemDiscountAmt = itemBaseTotal * (stackedDiscountRate / 100);
+            } else {
+                itemDiscountAmt = Math.min(itemBaseTotal, localDiscount);
+            }
+            
             const taxableValue = itemBaseTotal - itemDiscountAmt;
 
             subtotal += taxableValue;
             calculatedTaxAmt += taxableValue * (itemSysTaxRate / 100) * (1 - (waiverPerc / 100));
         });
 
-        const finalAmount = subtotal + calculatedTaxAmt;
+        const finalAmount = subtotal + calculatedTaxAmt + parseFloat(quoteForm.shippingAmount || "0");
         // Only auto-update if quoteForm.amount is empty or significantly different
         if (!quoteForm.amount || Math.abs(parseFloat(quoteForm.amount || "0") - finalAmount) > 0.01) {
             setQuoteForm(prev => ({ ...prev, amount: finalAmount.toFixed(2) }));
         }
-    }, [itemPrices, itemTaxDiscounts, itemDiscounts, discountPercentage, selected]);
+    }, [itemPrices, itemTaxDiscounts, itemDiscounts, itemDiscountTypes, itemGlobalOptOut, discountPercentage, quoteForm.shippingAmount, selected, subProducts, subServices]);
 
     useEffect(() => {
         if (!selected || !quoteForm.amount) {
@@ -349,6 +374,25 @@ export default function InquiryDetail() {
         } catch (e) { console.error(e); } finally { setSending(false); }
     };
 
+    const resetItem = (itemId: string) => {
+        setItemPrices(prev => { const n = { ...prev }; delete n[itemId]; return n; });
+        setItemDiscounts(prev => { const n = { ...prev }; delete n[itemId]; return n; });
+        setItemDiscountTypes(prev => { const n = { ...prev }; delete n[itemId]; return n; });
+        setItemGlobalOptOut(prev => { const n = { ...prev }; delete n[itemId]; return n; });
+        setItemTaxDiscounts(prev => { const n = { ...prev }; delete n[itemId]; return n; });
+    };
+
+    const resetAllItems = () => {
+        if(window.confirm("Reset all manual overrides back to catalog defaults?")) {
+            setItemPrices({});
+            setItemDiscounts({});
+            setItemDiscountTypes({});
+            setItemGlobalOptOut({});
+            setItemTaxDiscounts({});
+            setQuoteForm(p => ({ ...p, shippingAmount: "0" }));
+        }
+    };
+
     const sendQuote = async () => {
         if (!selected || !quoteForm.amount) return;
         setSending(true);
@@ -366,10 +410,30 @@ export default function InquiryDetail() {
                 let itemGstAmt = 0;
 
                 const localDiscount = itemDiscounts[item.id] || 0;
-                const stackedDiscountRate = Math.min(100, discountPercentage + localDiscount);
+                const discType = itemDiscountTypes[item.id] || 'percentage';
+                const optOut = itemGlobalOptOut[item.id] || false;
 
                 const itemBaseTotal = baseItemPrice * qty;
-                itemDiscountAmt = itemBaseTotal * (stackedDiscountRate / 100);
+                
+                let finalDiscountType: 'percentage' | 'amount' | null = null;
+                let finalDiscountValue = 0;
+
+                if (discType === 'percentage') {
+                    const effectiveGlobalRate = optOut ? 0 : discountPercentage;
+                    const stackedDiscountRate = Math.min(100, effectiveGlobalRate + localDiscount);
+                    itemDiscountAmt = itemBaseTotal * (stackedDiscountRate / 100);
+                    if (stackedDiscountRate > 0) {
+                        finalDiscountType = 'percentage';
+                        finalDiscountValue = stackedDiscountRate;
+                    }
+                } else {
+                    itemDiscountAmt = Math.min(itemBaseTotal, localDiscount);
+                    if (itemDiscountAmt > 0) {
+                        finalDiscountType = 'amount';
+                        finalDiscountValue = itemDiscountAmt;
+                    }
+                }
+
                 const taxableValue = itemBaseTotal - itemDiscountAmt;
 
                 const itemSysTaxRate = (item.cgst_rate || 0) + (item.sgst_rate || 0);
@@ -382,8 +446,8 @@ export default function InquiryDetail() {
                 return {
                     item_id: item.id,
                     line_item_price: baseItemPrice, // Saved as Unit Price
-                    discount_type: stackedDiscountRate > 0 ? "percentage" : null,
-                    discount_value: stackedDiscountRate,
+                    discount_type: finalDiscountType,
+                    discount_value: finalDiscountValue,
                     discount_amount: itemDiscountAmt,
                     taxable_value: taxableValue,
                     gst_amount: itemGstAmt
@@ -397,11 +461,12 @@ export default function InquiryDetail() {
                     admin_notes: quoteForm.notes || null,
                     valid_days: parseInt(quoteForm.validDays) || 7,
                     tax_amount: taxAmt,
+                    shipping_amount: parseFloat(quoteForm.shippingAmount || "0"),
                     discount_amount: totalDiscountAmt,
                     line_items: lineItems
                 }),
             });
-            setQuoteForm({ amount: "", notes: "", validDays: "7" });
+            setQuoteForm({ amount: "", notes: "", validDays: "7", shippingAmount: "0" });
             setItemPrices({});
             const data = await api<InquiryGroup>(`/admin/inquiries/${selected.id}`);
             setSelected(data);
@@ -453,6 +518,41 @@ export default function InquiryDetail() {
 
     return (
         <main className="min-h-screen p-8 lg:p-12 bg-[#f7f9fb] dark:bg-[#0b1326] text-[#191c1e] dark:text-[#dae2fd] antialiased font-['Inter'] overflow-y-auto custom-scrollbar transition-colors">
+            {showOriginalPrices && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-slate-900/60 backdrop-blur-sm transition-all" onClick={() => setShowOriginalPrices(false)}>
+                    <div className="bg-white dark:bg-[#131b2e] w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-[#434655]/20 bg-slate-50 dark:bg-[#0b1326]">
+                            <h2 className="text-sm font-black uppercase tracking-widest text-[#191c1e] dark:text-[#dae2fd] flex items-center gap-2"><FileText size={18} className="text-[#0058be] dark:text-[#adc6ff]" /> Original Catalog Pricing Preview</h2>
+                            <button onClick={() => setShowOriginalPrices(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-200 dark:hover:bg-[#434655]/30 hover:text-slate-700 dark:hover:text-[#dae2fd] transition-colors"><XCircle size={20} /></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+                            {selected.items.map(item => {
+                                const catalogPrice = (() => {
+                                    if (item.subproduct_id) return subProducts.find((sp: any) => sp.id === item.subproduct_id)?.base_price || 0;
+                                    if (item.subservice_id) return subServices.find((ss: any) => ss.id === item.subservice_id)?.price_per_unit || 0;
+                                    return 0;
+                                })();
+                                const itemTotal = catalogPrice * (item.quantity || 1);
+                                return (
+                                    <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-[#0b1326]/50 border border-slate-100 dark:border-[#434655]/20 rounded-xl">
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-slate-900 dark:text-[#dae2fd]">{item.subproduct_name || item.product_name || item.subservice_name || item.service_name || "Custom Item"}</span>
+                                            <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500 mt-1">Qty: {item.quantity} × {item.variant_name || "Base"}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-xs font-bold text-slate-400 block mb-1 uppercase tracking-[0.1em]">Catalog Value</span>
+                                            <span className="text-base font-black text-emerald-600 dark:text-emerald-400">₹{itemTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits:2})}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-100 dark:border-[#434655]/20 bg-slate-50 dark:bg-[#0b1326] flex justify-end">
+                            <button onClick={() => setShowOriginalPrices(false)} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-lg shadow-lg shadow-blue-500/20 transition-all">Close Preview</button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Header Section */}
             <header className="mb-10 flex justify-between items-end">
                 <div>
@@ -502,8 +602,24 @@ export default function InquiryDetail() {
                     {/* Items List Section */}
                     <section className="bg-white dark:bg-[#131b2e] rounded-xl p-8 shadow-sm border border-[#eceef0] dark:border-[#434655]/20 transition-colors">
                         <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#424754] dark:text-[#c3c5d8]">Service Catalog Items</h3>
-                            <span className="text-xs font-bold text-[#0058be] dark:text-[#adc6ff] tracking-tight">{selected.items.length} ITEMS TOTAL</span>
+                            <div className="flex items-center gap-3">
+                                <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#424754] dark:text-[#c3c5d8]">Service Catalog Items</h3>
+                                <span className="text-xs font-bold text-[#0058be] dark:text-[#adc6ff] tracking-tight bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded">{selected.items.length} ITEMS TOTAL</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowOriginalPrices(true)}
+                                    className="text-[10px] font-black uppercase tracking-widest text-[#0058be] hover:text-blue-700 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 px-3 py-1.5 rounded transition-all"
+                                >
+                                    <FileText size={12} /> Preview Base Prices
+                                </button>
+                                <button 
+                                    onClick={resetAllItems} 
+                                    className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-red-600 bg-slate-100 hover:bg-red-50 flex items-center gap-1.5 px-3 py-1.5 rounded transition-all"
+                                >
+                                    <RotateCcw size={12} /> Reset All
+                                </button>
+                            </div>
                         </div>
                         <div className="space-y-6">
                             {selected.items.map((item) => {
@@ -524,11 +640,23 @@ export default function InquiryDetail() {
                                 const itemTotal = item.total_estimated_price || (unitPrice * item.quantity);
                                 const itemTax = item.computed_tax_amount || (itemTotal * gstRate / 100);
 
-                                const currentBase = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || itemTotal || 0);
+                                const currentBase = itemPrices[item.id] !== undefined ? itemPrices[item.id] : (item.line_item_price || unitPrice || 0);
                                 const currentLocalDisc = itemDiscounts[item.id] || 0;
-                                const currentStackedRate = Math.min(100, discountPercentage + currentLocalDisc);
-                                const currentDiscAmount = currentBase * (currentStackedRate / 100);
-                                const currentTaxable = currentBase - currentDiscAmount;
+                                const discType = itemDiscountTypes[item.id] || 'percentage';
+                                const optOut = itemGlobalOptOut[item.id] || false;
+                                
+                                const itemBaseTotal = currentBase * (item.quantity || 1);
+                                
+                                let currentDiscAmount = 0;
+                                if (discType === 'percentage') {
+                                    const effectiveGlobalRate = optOut ? 0 : discountPercentage;
+                                    const currentStackedRate = Math.min(100, effectiveGlobalRate + currentLocalDisc);
+                                    currentDiscAmount = itemBaseTotal * (currentStackedRate / 100);
+                                } else {
+                                    currentDiscAmount = Math.min(itemBaseTotal, currentLocalDisc);
+                                }
+                                
+                                const currentTaxable = itemBaseTotal - currentDiscAmount;
                                 const currentWaiver = itemTaxDiscounts[item.id] || 0;
                                 const currentGstAmt = currentTaxable * (gstRate / 100) * (1 - (currentWaiver / 100));
 
@@ -566,26 +694,59 @@ export default function InquiryDetail() {
                                             </div>
                                             <div className="text-right shrink-0 flex flex-col items-end gap-2">
                                                 <div className="flex items-center gap-2">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Base (₹)</label>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Unit Price (₹)</label>
                                                     <input
                                                         type="number"
                                                         className="w-24 bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/40 rounded p-1.5 text-right text-sm font-bold text-slate-900 dark:text-[#dae2fd] focus:border-blue-500 outline-none"
                                                         value={currentBase}
                                                         onChange={e => setItemPrices(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
                                                     />
+                                                    <button onClick={() => resetItem(item.id)} title="Reset Item Overrides" className="p-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 transition-colors">
+                                                        <RotateCcw size={14} />
+                                                    </button>
                                                 </div>
-                                                <div className="flex flex-col items-end w-32 gap-1 mt-1">
-                                                    <div className="flex items-center justify-between w-full">
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase">Item Disc</label>
-                                                        <span className="text-[9px] font-bold text-blue-500">{itemDiscounts[item.id] || 0}%</span>
+                                                <div className="flex flex-col items-end w-40 gap-1 mt-1">
+                                                    <div className="flex items-center justify-between w-full mb-1">
+                                                        <label className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1 cursor-pointer hover:text-blue-500">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={optOut} 
+                                                                onChange={e => setItemGlobalOptOut(prev => ({...prev, [item.id]: e.target.checked}))} 
+                                                                className="w-3 h-3 accent-blue-600 rounded bg-slate-100 dark:bg-slate-800 border-none appearance-none checked:bg-blue-600 flex items-center justify-center after:content-[''] after:w-1.5 after:h-2.5 after:border-white after:border-b-2 after:border-r-2 after:rotate-45 after:opacity-0 checked:after:opacity-100 pb-0.5"
+                                                            />
+                                                            Ignore Global
+                                                        </label>
+                                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded p-0.5">
+                                                            <button onClick={() => { setItemDiscountTypes(p => ({...p, [item.id]: 'percentage'})); setItemDiscounts(p => ({...p, [item.id]: 0})) }} className={`text-[9px] font-bold px-1.5 py-0.5 rounded transition-all ${discType === 'percentage' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>%</button>
+                                                            <button onClick={() => { setItemDiscountTypes(p => ({...p, [item.id]: 'amount'})); setItemDiscounts(p => ({...p, [item.id]: 0})) }} className={`text-[9px] font-bold px-1.5 py-0.5 rounded transition-all ${discType === 'amount' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>₹</button>
+                                                        </div>
                                                     </div>
-                                                    <input
-                                                        type="range"
-                                                        className="w-full accent-blue-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                                                        min="0" max="100"
-                                                        value={itemDiscounts[item.id] || 0}
-                                                        onChange={e => setItemDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) }))}
-                                                    />
+                                                    {discType === 'percentage' ? (
+                                                        <>
+                                                            <div className="flex items-center justify-between w-full mt-1">
+                                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Item Disc</label>
+                                                                <span className="text-[9px] font-bold text-blue-500">{itemDiscounts[item.id] || 0}%</span>
+                                                            </div>
+                                                            <input
+                                                                type="range"
+                                                                className="w-full accent-blue-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer mt-1"
+                                                                min="0" max="100"
+                                                                value={itemDiscounts[item.id] || 0}
+                                                                onChange={e => setItemDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) }))}
+                                                            />
+                                                        </>
+                                                    ) : (
+                                                        <div className="flex items-center justify-between w-full gap-2 mt-1">
+                                                            <label className="text-[9px] font-bold text-slate-400 uppercase">Flat Disc</label>
+                                                            <input
+                                                                type="number"
+                                                                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded p-1 text-right text-xs font-bold text-slate-900 dark:text-[#dae2fd] outline-none focus:border-blue-500"
+                                                                value={itemDiscounts[item.id] || ""}
+                                                                placeholder="₹0"
+                                                                onChange={e => setItemDiscounts(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -673,9 +834,15 @@ export default function InquiryDetail() {
                                                 <span className="text-sm font-bold text-amber-600 dark:text-amber-400">+₹{totalTax.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                             </div>
                                         )}
+                                        {parseFloat(quoteForm.shippingAmount || "0") > 0 && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-blue-500 dark:text-blue-400">Shipping Charge</span>
+                                                <span className="text-sm font-bold text-blue-500 dark:text-blue-400">+₹{parseFloat(quoteForm.shippingAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                        )}
                                         <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-[#434655]/20 mt-2">
                                             <span className="text-[12px] font-black uppercase tracking-[0.15em] text-slate-800 dark:text-[#dae2fd]">Grand Total (Realtime)</span>
-                                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">₹{(totalTaxable + totalTax).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">₹{(totalTaxable + totalTax + parseFloat(quoteForm.shippingAmount || "0")).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                         </div>
                                     </div>
                                 );
@@ -836,15 +1003,27 @@ export default function InquiryDetail() {
                                         />
                                     </div>
                                     <div className="group/field">
+                                        <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2 group-focus-within/field:text-blue-600 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff] transition-colors">Shipping Cost (Optional)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300 dark:text-[#424754]/30 group-focus-within/field:text-blue-600/50 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff]/50 transition-colors">₹</span>
+                                            <input
+                                                className={`w-full bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/20 rounded-xl pl-9 pr-4 py-3.5 font-bold text-sm focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-blue-400 dark:border-[#adc6ff] text-slate-900 dark:text-[#dae2fd] transition-all outline-none`}
+                                                type="number"
+                                                value={quoteForm.shippingAmount}
+                                                onChange={e => setQuoteForm({ ...quoteForm, shippingAmount: e.target.value })}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="group/field">
                                         <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-[#c3c5d8]/50 mb-2 group-focus-within/field:text-blue-600 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff] transition-colors">Total Contract Value (INR)</label>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300 dark:text-[#424754]/30 group-focus-within/field:text-blue-600/50 dark:group-focus-within/field:text-blue-600 dark:text-[#adc6ff]/50 transition-colors">₹</span>
                                             <input
-                                                className={`w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl pl-9 pr-4 py-3.5 font-black text-lg focus:ring-4 focus:ring-blue-500/5 focus:border-blue-600 dark:focus:border-blue-400 dark:border-[#adc6ff] ${showWarning ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-[#dae2fd]'} transition-all outline-none`}
+                                                className={`w-full bg-slate-50 dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 rounded-xl pl-9 pr-4 py-3.5 font-black text-lg focus:ring-4 focus:ring-blue-500/5 focus:border-transparent ${showWarning ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-[#dae2fd]'} transition-all outline-none opacity-80 cursor-not-allowed`}
                                                 type="number"
                                                 value={quoteForm.amount}
-                                                onChange={e => setQuoteForm({ ...quoteForm, amount: e.target.value })}
-                                                placeholder="0.00"
+                                                readOnly
                                             />
                                         </div>
                                         {showWarning && (
