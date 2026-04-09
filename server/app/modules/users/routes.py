@@ -45,7 +45,7 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
             detail="Invalid or expired OTP"
         )
 
-    data = user.model_dump(exclude={"otp"})
+    data = user.model_dump(exclude={"otp", "phone"})
     data["password"] = await get_password_hash(data["password"])
 
     new_user = User(**data)
@@ -57,6 +57,45 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
     await otp_service.store.delete_otp(user.email)
 
     return new_user
+
+
+# ── Phone OTP Verification ──
+
+# @router.post("/send-phone-otp", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=3, seconds=600))])
+# async def send_phone_otp(request: PhoneOTPRequest):
+#     """
+#     Generate and send a 6-digit OTP to a phone number via SMS/Firebase.
+#     Limited to 3 generations per day per phone number, and 3 times per 10 minutes overall.
+#     """
+#     otp_service = get_otp_service()
+#     success = await otp_service.send_phone_otp(request.phone)
+#     if not success:
+#         raise HTTPException(status_code=400, detail="Failed to send OTP or daily limit reached")
+#     return {"message": "OTP sent successfully"}
+
+
+# @router.post("/verify-phone-otp", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
+# async def verify_phone_otp(request: PhoneOTPVerifyRequest, current_user: TokenData = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+#     """
+#     Verify the phone OTP. If valid, update the user's phone field in DB.
+#     Enforces a strict max 5 attempt limit per generated OTP via the service.
+#     """
+#     otp_service = get_otp_service()
+#     is_valid = await otp_service.verify_phone_otp(phone_number=request.phone, otp=request.otp)
+    
+#     if not is_valid:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Invalid or expired OTP, or too many failed attempts"
+#         )
+        
+#     # If valid, update User's phone number as verified
+#     stmt = update(User).where(User.id == current_user.id).values(phone=request.phone)
+#     await db.execute(stmt)
+#     await db.commit()
+    
+#     return {"message": "Phone number verified and updated successfully"}
+
 
 
 @router.get("/me" , response_model=UserOut)

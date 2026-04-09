@@ -12,6 +12,7 @@ from app.modules.orders.models import Order, OrderMilestone
 from app.modules.orders.schemas import OrderResponse
 from app.modules.orders.schemas import PaymentSplitType
 from app.modules.inquiry.models import InquiryGroup, InquiryItem, InquiryMessage
+from app.modules.users.models import User
 from app.modules.inquiry.service import calculate_item_estimated_price
 from app.modules.inquiry.schemas import (
     InquiryGroupCreate,
@@ -475,6 +476,17 @@ async def update_inquiry_status_user(
 
     # Notify admins if status became SUBMITTED, and fire SSE
     if status_update.status == InquiryStatus.SUBMITTED:
+        # MANDATORY PHONE CHECK:
+        user_stmt = select(User).where(User.id == current_user.id)
+        user_res = await db.execute(user_stmt)
+        db_user = user_res.scalar_one()
+
+        if not db_user.phone:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number verification is mandatory before submitting an inquiry."
+            )
+
         user_name = current_user.name or "A user"
         await NotificationService.notify_admins(
             db,
@@ -641,6 +653,17 @@ async def direct_checkout_zero_cost(
     Directly create an order for a 0-priced product (like free digital services).
     Bypasses the normal inquiry process. Auto-creates the inquiry as ACCEPTED and order as PAID.
     """
+    # 0. MANDATORY PHONE CHECK
+    user_stmt = select(User).where(User.id == current_user.id)
+    user_res = await db.execute(user_stmt)
+    db_user = user_res.scalar_one()
+
+    if not db_user.phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number verification is mandatory before placing an order."
+        )
+
     # 1. First, validate it's actually 0 cost
     estimated_price = await calculate_item_estimated_price(item_data, db)
     

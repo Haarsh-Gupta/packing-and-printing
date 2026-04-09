@@ -32,6 +32,7 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import InquiryDetailSkeleton from "./InquiryDetailSkeleton";
 
+
 type WsStatus = "connecting" | "connected" | "disconnected";
 
 export default function InquiryDetailPage() {
@@ -54,6 +55,8 @@ export default function InquiryDetailPage() {
     const [adminTyping, setAdminTyping] = useState(false);
     const [adminIsOnline, setAdminIsOnline] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [userPhone, setUserPhone] = useState<string | null>(null);
+
 
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -108,6 +111,7 @@ export default function InquiryDetailPage() {
             if (res.ok) {
                 const user = await res.json();
                 setCurrentUserId(String(user.id));
+                setUserPhone(user.phone || null);
             }
         } catch { /* ignore */ }
     }, []);
@@ -293,7 +297,8 @@ export default function InquiryDetailPage() {
     };
 
     // ── Status update (accept / reject quote / submit draft) ────────────────────────────
-    const handleStatusUpdate = async (status: "ACCEPTED" | "REJECTED" | "SUBMITTED") => {
+
+
         setIsLoading(true);
         try {
             const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}/status`, {
@@ -314,14 +319,18 @@ export default function InquiryDetailPage() {
                     showAlert("Quote declined.", "info");
                 }
             } else {
-                showAlert("Failed to update status.", "error");
+                const err = await res.json();
+                showAlert(err.detail || "Failed to update status.", "error");
             }
         } catch {
             showAlert("An error occurred.", "error");
         } finally {
             setIsLoading(false);
+            setPendingStatus(null);
         }
     };
+
+    const handleStatusUpdate = async (status: "ACCEPTED" | "REJECTED" | "SUBMITTED") => {
 
     const handleReorder = async () => {
         const confirmed = await confirm({
@@ -798,8 +807,9 @@ export default function InquiryDetailPage() {
                         )}
                     </div>
                 </div>
-
             </div>
+
+
         </div>
     );
 }

@@ -58,6 +58,14 @@ export default function SubProducts() {
     const [croppingImage, setCroppingImage] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8;
+
+    // Delete Confirmation State
+    const [deleteTarget, setDeleteTarget] = useState<SubProduct | null>(null);
+    const [deleteInput, setDeleteInput] = useState("");
+
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -147,11 +155,17 @@ export default function SubProducts() {
         setShowForm(true);
     };
 
-    const handleDelete = async (id: number) => {
-        if (!confirm("Delete this sub-product permanently?")) return;
+    const handleDeleteClick = (subProduct: SubProduct) => {
+        setDeleteTarget(subProduct);
+        setDeleteInput("");
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget || deleteInput !== deleteTarget.name) return;
         try {
-            await api(`/admin/products/sub-products/${id}`, { method: "DELETE" });
+            await api(`/admin/products/sub-products/${deleteTarget.id}`, { method: "DELETE" });
             fetchProduct();
+            setDeleteTarget(null);
         } catch (error) {
             console.error(error);
         }
@@ -358,7 +372,7 @@ export default function SubProducts() {
                                 <tr><td colSpan={6} className="text-center py-16 text-slate-600 dark:text-[#c3c5d8] font-bold tracking-widest text-[10px] uppercase"><Loader2 className="animate-spin inline mr-2" size={16} /> Syncing...</td></tr>
                             ) : subProducts.length === 0 ? (
                                 <tr><td colSpan={6} className="text-center py-16 text-slate-600 dark:text-[#c3c5d8]/50 font-bold tracking-widest text-[10px] uppercase">No variant nodes deployed.</td></tr>
-                            ) : subProducts.map((p, idx) => {
+                            ) : subProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((p, idx) => {
                                 const typeColor = typeColors[idx % typeColors.length];
                                 return (
                                     <tr key={p.id} className="group hover:bg-slate-50 dark:hover:bg-[#171f33]/80 transition-colors">
@@ -403,7 +417,7 @@ export default function SubProducts() {
                                                 <Button variant="ghost" size="icon" onClick={() => openEdit(p)} className="text-slate-600 dark:text-[#c3c5d8] hover:text-blue-600 dark:hover:text-[#adc6ff] hover:bg-[#1f70e3]/20">
                                                     <Edit2 size={16} />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)} className="text-slate-600 dark:text-[#c3c5d8] hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10">
+                                                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteClick(p); }} className="text-slate-600 dark:text-[#c3c5d8] hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10">
                                                     <Trash2 size={16} />
                                                 </Button>
                                             </div>
@@ -414,6 +428,35 @@ export default function SubProducts() {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Pagination Controls */}
+                {!loading && Math.ceil(subProducts.length / itemsPerPage) > 1 && (
+                    <div className="px-6 py-4 border-t border-slate-200 dark:border-[#434655]/20 bg-slate-50 dark:bg-[#0b1326]/50 flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-500 dark:text-[#8d90a1]">
+                            Showing <span className="font-bold text-slate-900 dark:text-[#dae2fd]">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold text-slate-900 dark:text-[#dae2fd]">{Math.min(currentPage * itemsPerPage, subProducts.length)}</span> of <span className="font-bold text-slate-900 dark:text-[#dae2fd]">{subProducts.length}</span> entries
+                        </span>
+                        <div className="flex gap-2">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                                disabled={currentPage === 1}
+                                className="h-8 text-xs font-bold border-slate-200 dark:border-[#434655]/40 text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] disabled:opacity-50"
+                            >
+                                Previous
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(subProducts.length / itemsPerPage)))} 
+                                disabled={currentPage === Math.ceil(subProducts.length / itemsPerPage)}
+                                className="h-8 text-xs font-bold border-slate-200 dark:border-[#434655]/40 text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] disabled:opacity-50"
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Modal */}
@@ -885,6 +928,46 @@ export default function SubProducts() {
                             </div>
                         </div>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Custom Delete Alert Dialog */}
+            <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                <DialogContent className="sm:max-w-md bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 text-slate-900 dark:text-[#dae2fd] shadow-2xl font-['Inter'] p-0">
+                    <DialogHeader className="px-6 pt-6 pb-2">
+                        <DialogTitle className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] text-red-600 dark:text-[#ffb4ab]">
+                            Permanent Deletion
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-2">
+                            This action cannot be undone. This will permanently delete the sub-product <strong className="text-slate-900 dark:text-white">{deleteTarget?.name}</strong>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="px-6 py-4 space-y-4">
+                        <p className="text-xs font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest">
+                            Please type <span className="text-slate-900 dark:text-white select-all">{deleteTarget?.name}</span> to confirm
+                        </p>
+                        <Input 
+                            className="h-10 text-sm font-bold bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-red-400 dark:focus:border-red-500 placeholder:text-[#434655]" 
+                            value={deleteInput} 
+                            onChange={(e) => setDeleteInput(e.target.value)} 
+                            placeholder={deleteTarget?.name} 
+                        />
+                    </div>
+
+                    <DialogFooter className="px-6 py-4 sm:justify-between border-t border-slate-200 dark:border-[#434655]/20 bg-white dark:bg-[#131b2e]">
+                        <Button variant="outline" className="h-10 px-6 font-bold text-xs uppercase tracking-widest bg-transparent border-[#434655] hover:bg-[#434655]/20 text-slate-600 dark:text-[#c3c5d8]" onClick={() => setDeleteTarget(null)}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            className="h-10 px-6 font-bold text-xs uppercase tracking-widest bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all" 
+                            onClick={confirmDelete} 
+                            disabled={deleteInput !== deleteTarget?.name}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Force Delete
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

@@ -123,12 +123,16 @@ export default function UsersPage() {
                                     <td className="px-6 py-5 flex items-center gap-4">
                                         <Link to={`/users/${user.id}`} className="flex items-center gap-4 group/link">
                                             <div className="relative shrink-0">
-                                                <div className={`w-12 h-12 rounded-xl border border-slate-200 dark:border-[#434655]/30 shrink-0 flex items-center justify-center text-lg font-black transition-colors group-hover/link:border-blue-400 dark:border-[#adc6ff]/50 ${
+                                                <div className={`w-12 h-12 rounded-xl border border-slate-200 dark:border-[#434655]/30 shrink-0 flex items-center justify-center text-lg font-black transition-colors group-hover/link:border-blue-400 dark:border-[#adc6ff]/50 overflow-hidden ${
                                                     user.admin 
                                                         ? 'bg-[#1f70e3]/10 text-blue-600 dark:text-[#adc6ff]' 
                                                         : 'bg-slate-50 dark:bg-[#0b1326] text-slate-600 dark:text-[#c3c5d8]'
                                                 }`}>
-                                                    {(user.name || user.email || 'U')[0].toUpperCase()}
+                                                    {user.profile_picture || user.avatar_url ? (
+                                                        <img src={user.profile_picture || user.avatar_url} alt={user.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        (user.name || user.email || 'U')[0].toUpperCase()
+                                                    )}
                                                 </div>
                                                 <OnlineDot isOnline={(user as any).is_online} />
                                             </div>

@@ -24,6 +24,14 @@ export default function Products() {
     const [croppingImage, setCroppingImage] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8;
+
+    // Delete Confirmation State
+    const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+    const [deleteInput, setDeleteInput] = useState("");
+
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -59,7 +67,8 @@ export default function Products() {
     const fetchProducts = async () => {
         setLoading(true);
         try {
-            const data = await api<Product[]>("/admin/products/");
+            // Fetch with limit 1000 to get all for client-side pagination
+            const data = await api<Product[]>("/admin/products/?limit=1000");
             setProducts(data);
         } catch (e) {
             console.error(e);
@@ -91,12 +100,18 @@ export default function Products() {
         setShowForm(true);
     };
 
-    const handleDelete = async (e: React.MouseEvent, id: number) => {
+    const handleDeleteClick = (e: React.MouseEvent, product: Product) => {
         e.stopPropagation();
-        if (!confirm("Permanently delete this product category and all its sub-products?")) return;
+        setDeleteTarget(product);
+        setDeleteInput("");
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget || deleteInput !== deleteTarget.name) return;
         try {
-            await api(`/admin/products/${id}`, { method: "DELETE" });
+            await api(`/admin/products/${deleteTarget.id}`, { method: "DELETE" });
             fetchProducts();
+            setDeleteTarget(null);
         } catch (error) {
             console.error(error);
         }
@@ -157,6 +172,9 @@ export default function Products() {
         "bg-[#f59e0b]/10 text-[#fcd34d] border-[#f59e0b]/20",
         "bg-[#06b6d4]/10 text-[#67e8f9] border-[#06b6d4]/20"
     ];
+
+    const totalPages = Math.ceil(products.length / itemsPerPage);
+    const paginatedProducts = products.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
         <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] px-2">
@@ -228,9 +246,9 @@ export default function Products() {
                         <tbody className="divide-y divide-[#434655]/10">
                             {loading ? (
                                 <tr><td colSpan={6} className="text-center py-16 text-slate-600 dark:text-[#c3c5d8] font-bold tracking-widest text-[10px] uppercase"><Loader2 className="animate-spin inline mr-2" size={16} /> Loading products...</td></tr>
-                            ) : products.length === 0 ? (
+                            ) : paginatedProducts.length === 0 ? (
                                 <tr><td colSpan={6} className="text-center py-16 text-slate-600 dark:text-[#c3c5d8]/50 font-bold tracking-widest text-[10px] uppercase">No products found.</td></tr>
-                            ) : products.map((product, idx) => (
+                            ) : paginatedProducts.map((product, idx) => (
                                 <tr key={product.id} onClick={() => navigate(`/products/${product.slug}`)} className="group cursor-pointer hover:bg-slate-50 dark:hover:bg-[#171f33]/80 transition-colors">
                                     <td className="px-6 py-5">
                                         <div className="size-14 rounded-xl bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 flex items-center justify-center overflow-hidden relative">
@@ -253,15 +271,29 @@ export default function Products() {
                                             {product.is_active ? "Live" : "Archived"}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-5 text-[13px] font-bold text-slate-600 dark:text-[#c3c5d8]">
-                                        <span className="text-slate-900 dark:text-[#dae2fd] bg-[#434655]/20 px-2.5 py-1 text-xs rounded-md shadow-inner">{product.sub_products?.length || 0}</span> variants
+                                    <td className="px-6 py-5">
+                                        <div className="text-[13px] font-bold text-slate-600 dark:text-[#c3c5d8] mb-2">
+                                            <span className="text-slate-900 dark:text-[#dae2fd] bg-[#434655]/20 px-2.5 py-1 text-xs rounded-md shadow-inner">{product.sub_products?.length || 0}</span> variants
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5 max-w-[200px]">
+                                            {product.sub_products?.slice(0, 3).map((sp) => (
+                                                <span key={sp.id} className="bg-slate-100 dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/30 text-slate-700 dark:text-[#dae2fd] text-[9px] font-medium px-2 py-0.5 rounded truncate max-w-[100px]" title={sp.name}>
+                                                    {sp.name}
+                                                </span>
+                                            ))}
+                                            {(product.sub_products?.length || 0) > 3 && (
+                                                <span className="bg-slate-100 dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/30 text-slate-500 dark:text-[#8d90a1] text-[9px] font-bold px-2 py-0.5 rounded">
+                                                    +{(product.sub_products?.length || 0) - 3}
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-5 text-right">
                                         <div className="inline-flex items-center gap-1.5">
                                             <button onClick={(e) => openEdit(e, product)} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-[#1f70e3]/20 rounded-lg transition-all text-slate-600 dark:text-[#c3c5d8] hover:text-blue-600 dark:hover:text-[#adc6ff]">
                                                 <Edit2 size={16} />
                                             </button>
-                                            <button onClick={(e) => handleDelete(e, product.id)} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-[#ffb4ab]/10 rounded-lg transition-all text-slate-600 dark:text-[#c3c5d8] hover:text-[#ffb4ab]">
+                                            <button onClick={(e) => handleDeleteClick(e, product)} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-[#ffb4ab]/10 rounded-lg transition-all text-slate-600 dark:text-[#c3c5d8] hover:text-[#ffb4ab]">
                                                 <Trash2 size={16} />
                                             </button>
                                             <button className="p-2 text-[#434655] group-hover:text-slate-600 dark:hover:text-[#c3c5d8] transition-colors">
@@ -274,6 +306,35 @@ export default function Products() {
                         </tbody>
                     </table>
                 </div>
+                
+                {/* Pagination Controls */}
+                {!loading && totalPages > 1 && (
+                    <div className="px-6 py-4 border-t border-slate-200 dark:border-[#434655]/20 bg-slate-50 dark:bg-[#0b1326]/50 flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-500 dark:text-[#8d90a1]">
+                            Showing <span className="font-bold text-slate-900 dark:text-[#dae2fd]">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold text-slate-900 dark:text-[#dae2fd]">{Math.min(currentPage * itemsPerPage, products.length)}</span> of <span className="font-bold text-slate-900 dark:text-[#dae2fd]">{products.length}</span> entries
+                        </span>
+                        <div className="flex gap-2">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                                disabled={currentPage === 1}
+                                className="h-8 text-xs font-bold border-slate-200 dark:border-[#434655]/40 text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] disabled:opacity-50"
+                            >
+                                Previous
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                                disabled={currentPage === totalPages}
+                                className="h-8 text-xs font-bold border-slate-200 dark:border-[#434655]/40 text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] disabled:opacity-50"
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Modal */}
@@ -360,6 +421,46 @@ export default function Products() {
                         <Button className="h-10 px-8 font-bold text-xs uppercase tracking-widest bg-[#adc6ff] hover:bg-white text-[#001a42]" onClick={handleSave} disabled={saving || !formState.name.trim()}>
                             {saving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
                             Write
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Custom Delete Alert Dialog */}
+            <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                <DialogContent className="sm:max-w-md bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 text-slate-900 dark:text-[#dae2fd] shadow-2xl font-['Inter']">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] text-red-600 dark:text-[#ffb4ab]">
+                            Permanent Deletion
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-2">
+                            This action cannot be undone. This will permanently delete the product <strong className="text-slate-900 dark:text-white">{deleteTarget?.name}</strong> and all of its associated sub-products and configurations.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4 py-4">
+                        <p className="text-xs font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest">
+                            Please type <span className="text-slate-900 dark:text-white select-all">{deleteTarget?.name}</span> to confirm
+                        </p>
+                        <Input 
+                            className="h-10 text-sm font-bold bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-red-400 dark:focus:border-red-500 placeholder:text-[#434655]" 
+                            value={deleteInput} 
+                            onChange={(e) => setDeleteInput(e.target.value)} 
+                            placeholder={deleteTarget?.name} 
+                        />
+                    </div>
+
+                    <DialogFooter className="sm:justify-between">
+                        <Button variant="outline" className="h-10 px-6 font-bold text-xs uppercase tracking-widest bg-transparent border-[#434655] hover:bg-[#434655]/20 text-slate-600 dark:text-[#c3c5d8]" onClick={() => setDeleteTarget(null)}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            className="h-10 px-6 font-bold text-xs uppercase tracking-widest bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all" 
+                            onClick={confirmDelete} 
+                            disabled={deleteInput !== deleteTarget?.name}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Force Delete
                         </Button>
                     </DialogFooter>
                 </DialogContent>

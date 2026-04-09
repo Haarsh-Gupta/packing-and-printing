@@ -19,9 +19,29 @@ def valid_password(password):
             raise ValueError("Password must contain at least one uppercase letter, one lowercase letter, and one number")
 
 def valid_phone(phone):
-    if not phone.isdigit() or len(phone) != 10:
-        raise ValueError("Phone number must be 10 digits")
+    # Support E.164 format (+ followed by 10-15 digits) or standard 10 digits
+    if phone.startswith('+'):
+        if not phone[1:].isdigit() or len(phone) < 11 or len(phone) > 16:
+            raise ValueError("International phone number must start with '+' followed by 10 to 15 digits")
+    else:
+        if not phone.isdigit() or len(phone) != 10:
+            raise ValueError("Local phone number must be 10 digits")
     return phone
+
+class PhoneOTPRequest(BaseModel):
+    phone: str
+
+    @field_validator("phone")
+    def validate_phone(cls, v):
+        return valid_phone(v)
+
+class PhoneOTPVerifyRequest(BaseModel):
+    phone: str
+    otp: str = Field(min_length=6, max_length=6)
+
+    @field_validator("phone")
+    def validate_phone(cls, v):
+        return valid_phone(v)
  
 
 class UserBase(BaseModel):

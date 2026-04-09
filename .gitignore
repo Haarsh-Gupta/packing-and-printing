@@ -55,4 +55,8 @@ Thumbs.db # Windows
 # Logs
 *.log
 
+#json
+*.json
+
+
 

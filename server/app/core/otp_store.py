@@ -42,6 +42,21 @@ class BaseOTPStore(ABC):
         """Delete the OTP after successful verification."""
         ...
 
+    @abstractmethod
+    async def increment_otp_attempts(self, email: str) -> int:
+        """Increment verification attempt count for an OTP."""
+        ...
+
+    @abstractmethod
+    async def get_daily_otp_count(self, identifier: str) -> int:
+        """Get the number of OTPs generated today for an identifier (e.g. phone)."""
+        ...
+    
+    @abstractmethod
+    async def increment_daily_otp_count(self, identifier: str) -> int:
+        """Increment the distinct OTP generations today for an identifier."""
+        ...
+
 
 class RedisOTPStore(BaseOTPStore):
     """
@@ -72,6 +87,27 @@ class RedisOTPStore(BaseOTPStore):
 
     async def delete_otp(self, email: str) -> None:
         await self._client.delete(self._key(email))
+        await self._client.delete(f"otp_attempts:{email}")
+
+    async def increment_otp_attempts(self, email: str) -> int:
+        key = f"otp_attempts:{email}"
+        attempts = await self._client.incr(key)
+        if attempts == 1:
+            await self._client.expire(key, settings.otp_expire_seconds)
+        return attempts
+
+    async def get_daily_otp_count(self, identifier: str) -> int:
+        key = f"daily_otp:{identifier}"
+        count = await self._client.get(key)
+        return int(count) if count else 0
+
+    async def increment_daily_otp_count(self, identifier: str) -> int:
+        key = f"daily_otp:{identifier}"
+        count = await self._client.incr(key)
+        if count == 1:
+            # Expire in 24 hours
+            await self._client.expire(key, 86400)
+        return count
 
 
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ from app.core.email.service import BaseEmailService, get_email_service
 from app.core.email.templates.otp import render_otp_email
 from app.core.email.templates.password_reset import render_password_reset_email
 
+
 logger = logging.getLogger("app.modules.otps")
 
 
@@ -32,6 +33,7 @@ class OTPService:
     ):
         self.store = otp_store or get_otp_store()
         self.email = email_service or get_email_service()
+
 
     @staticmethod
     def _generate_otp() -> str:
@@ -124,6 +126,8 @@ class OTPService:
             await self.store.delete_otp(key)
             return True
         return False
+
+
 
 
 # Singleton-ish convenience

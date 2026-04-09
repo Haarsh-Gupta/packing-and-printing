@@ -18,7 +18,7 @@ logger = logging.getLogger("app.modules.products")
 router = APIRouter()
 
 @router.get("/", response_model=list[ProductResponse])
-async def get_products(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+async def get_products(skip: int = 0, limit: int = 25, db: AsyncSession = Depends(get_db)):
     """Returns a list of main categories, including their nested sub-products."""
     # selectinload automatically fetches the related sub_products to prevent N+1 query issues
     stmt = select(Product).where(Product.is_active == True).options(selectinload(Product.sub_products)).offset(skip).limit(limit)

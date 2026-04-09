@@ -168,8 +168,8 @@ export default function SignUpPage() {
                 <Input name="email" type="email" required value={formData.email} onChange={handleInputChange} />
               </div>
               <div className="space-y-2">
-                <Label>Phone (Optional)</Label>
-                <Input name="phone" type="tel" value={formData.phone} onChange={handleInputChange} />
+                <Label>Phone Number</Label>
+                <Input name="phone" type="tel" value={formData.phone} onChange={handleInputChange} placeholder="9876543210" />
               </div>
               <div className="space-y-2">
                 <Label className={fieldErrors.password ? "text-red-500" : ""}>Password</Label>

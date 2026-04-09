@@ -64,6 +64,14 @@ export default function SubServices() {
     const [croppingImage, setCroppingImage] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 6;
+
+    // Delete Confirmation State
+    const [deleteTarget, setDeleteTarget] = useState<SubService | null>(null);
+    const [deleteInput, setDeleteInput] = useState("");
+
     const [features, setFeatures] = useState<{ icon: string; label: string; detail: string }[]>([]);
     const [specifications, setSpecifications] = useState<{ label: string; value: string }[]>([]);
 
@@ -154,11 +162,17 @@ export default function SubServices() {
         setShowForm(true);
     };
 
-    const handleDelete = async (id: number) => {
-        if (!confirm("Are you totally sure you want to permanently delete this sub-service and its specific configurations?")) return;
+    const handleDeleteClick = (sub: SubService) => {
+        setDeleteTarget(sub);
+        setDeleteInput("");
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget || deleteInput !== deleteTarget.name) return;
         try {
-            await api(`/admin/services/subservices/${id}`, { method: "DELETE" });
+            await api(`/admin/services/subservices/${deleteTarget.id}`, { method: "DELETE" });
             fetchService();
+            setDeleteTarget(null);
         } catch (e: any) {
             alert("Failed to delete variant: " + e.message);
         }
@@ -309,64 +323,107 @@ export default function SubServices() {
                 </div>
             </div>
 
-            {/* Management Grid Matrix */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {variants.map((sub, i) => (
-                    <div key={sub.id} className="group flex flex-col bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 overflow-hidden hover:border-blue-400 dark:hover:border-[#adc6ff]/50 transition-all duration-300">
-                        {/* Upper Info Box */}
-                        <div className="p-6 pb-5 flex-1 relative z-10">
-                            <div className="absolute top-4 right-4 flex gap-1 bg-white dark:bg-[#131b2e]/90 backdrop-blur-sm p-1 rounded-lg border border-slate-200 dark:border-[#434655]/40 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => handleEdit(sub)} className="p-1.5 text-slate-600 dark:text-[#c3c5d8] hover:text-blue-600 dark:hover:text-[#adc6ff] hover:bg-[#1f70e3]/20 rounded-md transition-all">
-                                    <Edit2 size={16} />
-                                </button>
-                                <button onClick={() => handleDelete(sub.id)} className="p-1.5 text-slate-600 dark:text-[#c3c5d8] hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10 rounded-md transition-all">
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-
-                            <div className="flex gap-4">
-                                <div className="shrink-0">
-                                    {sub.images && sub.images.length > 0 ? (
-                                        <div className="size-16 rounded-xl bg-cover bg-center border border-slate-200 dark:border-[#434655]/30 shadow-inner" style={{ backgroundImage: `url('${sub.images[0]}')` }} />
-                                    ) : (
-                                        <div className="size-16 rounded-xl bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 flex items-center justify-center text-[#434655]">
-                                            <Package size={28} strokeWidth={1.5} />
+            {/* Main Table */}
+            <div className="bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 flex-1 overflow-hidden flex flex-col mb-8">
+                <div className="overflow-x-auto custom-scrollbar flex-1">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-slate-100 dark:bg-[#0b1326]/50 text-slate-600 dark:text-[#c3c5d8] uppercase text-[10px] tracking-[0.2em] font-bold border-b border-slate-200 dark:border-[#434655]/20">
+                                <th className="px-6 py-4 w-[40%]">Sub-Service Variant</th>
+                                <th className="px-6 py-4">Base Rate (₹)</th>
+                                <th className="px-6 py-4">MOQ</th>
+                                <th className="px-6 py-4">Live Status</th>
+                                <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#434655]/10">
+                            {variants.length === 0 ? (
+                                <tr><td colSpan={5} className="text-center py-16 text-slate-600 dark:text-[#c3c5d8]/50 font-bold tracking-widest text-[10px] uppercase">No sub-services deployed.</td></tr>
+                            ) : variants.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((sub, idx) => (
+                                <tr key={sub.id} className="group hover:bg-slate-50 dark:hover:bg-[#171f33]/80 transition-colors cursor-pointer" onClick={() => handleEdit(sub)}>
+                                    <td className="px-6 py-5">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex -space-x-3 overflow-hidden rounded-lg relative">
+                                                {sub.images && sub.images.length > 0 ? sub.images.slice(0, 3).map((img, i) => (
+                                                    <img key={i} src={img} className="inline-block h-10 w-10 rounded-lg ring-2 ring-[#131b2e] object-cover bg-slate-50 dark:bg-[#0b1326]" />
+                                                )) : (
+                                                    <div className="inline-block h-10 w-10 rounded-lg ring-2 ring-[#131b2e] bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 flex items-center justify-center font-bold text-[#434655] text-[9px]"><Package size={16} /></div>
+                                                )}
+                                                {sub.images && sub.images.length > 3 && (
+                                                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 ring-2 ring-[#131b2e] text-[9px] font-bold text-blue-600 dark:text-[#adc6ff] relative z-10">
+                                                        +{sub.images.length - 3}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="font-extrabold text-slate-900 dark:text-[#dae2fd] text-sm leading-tight mb-1">{sub.name}</div>
+                                                <div className="text-[11px] text-slate-600 dark:text-[#c3c5d8]/70 w-52 truncate" title={sub.description || sub.slug}>{sub.description || sub.slug}</div>
+                                                <div className="text-[9px] uppercase tracking-widest font-bold text-blue-600 dark:text-[#adc6ff] mt-1.5 flex items-center gap-1.5 font-mono">
+                                                    {sub.slug}
+                                                </div>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0 pr-12">
-                                    <h3 className="font-extrabold text-slate-900 dark:text-[#dae2fd] truncate text-lg">{sub.name}</h3>
-                                    <p className="text-[10px] text-blue-600 dark:text-[#adc6ff] font-mono font-bold mt-1 truncate bg-[#adc6ff]/10 inline-block px-1.5 py-0.5 rounded border border-blue-400 dark:border-[#adc6ff]/20">{sub.slug}</p>
-                                </div>
-                            </div>
+                                    </td>
+                                    <td className="px-6 py-5 font-black text-slate-900 dark:text-[#dae2fd] font-mono text-sm">₹{Number(sub.price_per_unit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td className="px-6 py-5 font-mono text-blue-600 dark:text-[#adc6ff] text-xs font-bold">{sub.minimum_quantity} U</td>
+                                    <td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
+                                        <div className="flex items-center gap-2">
+                                            <Switch checked={sub.is_active} onCheckedChange={async (c) => {
+                                                try {
+                                                    await api(`/admin/services/subservices/${sub.id}`, {
+                                                        method: "PATCH",
+                                                        body: JSON.stringify({ is_active: c })
+                                                    });
+                                                    fetchService();
+                                                } catch (err) {
+                                                    console.error(err);
+                                                }
+                                            }} className="data-[state=checked]:bg-[#34d399] scale-90" />
+                                            <span className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-wider">{sub.is_active ? 'Live' : 'Hidden'}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-5 text-right" onClick={(e) => e.stopPropagation()}>
+                                        <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(sub)} className="text-slate-600 dark:text-[#c3c5d8] hover:text-blue-600 dark:hover:text-[#adc6ff] hover:bg-[#1f70e3]/20">
+                                                <Edit2 size={16} />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteClick(sub); }} className="text-slate-600 dark:text-[#c3c5d8] hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10">
+                                                <Trash2 size={16} />
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
-                            <p className="text-xs text-slate-600 dark:text-[#c3c5d8]/70 mt-4 line-clamp-2 min-h-[40px] leading-relaxed">
-                                {sub.description || <span className="italic text-[#434655]">No descriptive brief provided.</span>}
-                            </p>
+                {/* Pagination Controls */}
+                {!loading && Math.ceil(variants.length / itemsPerPage) > 1 && (
+                    <div className="px-6 py-4 border-t border-slate-200 dark:border-[#434655]/20 bg-slate-50 dark:bg-[#0b1326]/50 flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-500 dark:text-[#8d90a1]">
+                            Showing <span className="font-bold text-slate-900 dark:text-[#dae2fd]">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold text-slate-900 dark:text-[#dae2fd]">{Math.min(currentPage * itemsPerPage, variants.length)}</span> of <span className="font-bold text-slate-900 dark:text-[#dae2fd]">{variants.length}</span> entries
+                        </span>
+                        <div className="flex gap-2">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                                disabled={currentPage === 1}
+                                className="h-8 text-xs font-bold border-slate-200 dark:border-[#434655]/40 text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] disabled:opacity-50"
+                            >
+                                Previous
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(variants.length / itemsPerPage)))} 
+                                disabled={currentPage === Math.ceil(variants.length / itemsPerPage)}
+                                className="h-8 text-xs font-bold border-slate-200 dark:border-[#434655]/40 text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] disabled:opacity-50"
+                            >
+                                Next
+                            </Button>
                         </div>
-
-                        {/* Status/Metrics Footer */}
-                        <div className="border-t border-slate-200 dark:border-[#434655]/20 bg-slate-50 dark:bg-[#0b1326] p-4 px-6 flex items-center justify-between mt-auto">
-                            <div className="flex items-center gap-3 text-sm">
-                                <div className="font-black text-[#fcd34d] font-mono">₹{sub.price_per_unit.toLocaleString()} <span className="text-[10px] font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest font-['Inter']">/unit</span></div>
-                            </div>
-                            <div className={`px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest rounded-sm border ${sub.is_active ? 'bg-[#34d399]/10 text-[#34d399] border-[#34d399]/20' : 'bg-[#434655]/10 text-slate-500 dark:text-[#8d90a1] border-slate-200 dark:border-[#434655]/20'}`}>
-                                {sub.is_active ? 'Live' : 'Disabled'}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-
-                {variants.length === 0 && (
-                    <div className="col-span-full py-20 bg-white dark:bg-[#131b2e] rounded-2xl border border-dashed border-slate-200 dark:border-[#434655]/40 flex flex-col items-center justify-center text-center px-4">
-                        <div className="size-16 bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 text-[#434655] rounded-2xl flex items-center justify-center mb-4">
-                            <Package size={32} />
-                        </div>
-                        <h3 className="text-sm font-bold tracking-widest uppercase text-slate-600 dark:text-[#c3c5d8]">No Sub-Services Added</h3>
-                        <p className="text-xs text-slate-500 dark:text-[#8d90a1] mt-2 max-w-sm">There are no specific sub-service configurations constructed inside the <strong className="text-blue-600 dark:text-[#adc6ff]">{service.name}</strong> namespace yet.</p>
-                        <button onClick={handleCreateNew} className="mt-6 text-[11px] font-bold tracking-widest uppercase text-blue-600 dark:text-[#adc6ff] hover:text-slate-900 dark:hover:text-[#dae2fd] flex items-center gap-2 transition-colors">
-                            Add First Sub-Service <ChevronRight size={14} />
-                        </button>
                     </div>
                 )}
             </div>
@@ -678,6 +735,46 @@ export default function SubServices() {
                                 </div>
                         </div>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Custom Delete Alert Dialog */}
+            <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                <DialogContent className="sm:max-w-md bg-slate-50 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 text-slate-900 dark:text-[#dae2fd] shadow-2xl font-['Inter'] p-0">
+                    <DialogHeader className="px-6 pt-6 pb-2">
+                        <DialogTitle className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] text-red-600 dark:text-[#ffb4ab]">
+                            Permanent Deletion
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-2">
+                            This action cannot be undone. This will permanently delete the sub-service <strong className="text-slate-900 dark:text-white">{deleteTarget?.name}</strong>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="px-6 py-4 space-y-4">
+                        <p className="text-xs font-bold text-slate-600 dark:text-[#c3c5d8] uppercase tracking-widest">
+                            Please type <span className="text-slate-900 dark:text-white select-all">{deleteTarget?.name}</span> to confirm
+                        </p>
+                        <Input 
+                            className="h-10 text-sm font-bold bg-white dark:bg-[#131b2e] border-slate-200 dark:border-[#434655]/40 text-slate-900 dark:text-[#dae2fd] focus:border-red-400 dark:focus:border-red-500 placeholder:text-[#434655]" 
+                            value={deleteInput} 
+                            onChange={(e) => setDeleteInput(e.target.value)} 
+                            placeholder={deleteTarget?.name} 
+                        />
+                    </div>
+
+                    <DialogFooter className="px-6 py-4 sm:justify-between border-t border-slate-200 dark:border-[#434655]/20 bg-white dark:bg-[#131b2e]">
+                        <Button variant="outline" className="h-10 px-6 font-bold text-xs uppercase tracking-widest bg-transparent border-[#434655] hover:bg-[#434655]/20 text-slate-600 dark:text-[#c3c5d8]" onClick={() => setDeleteTarget(null)}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            className="h-10 px-6 font-bold text-xs uppercase tracking-widest bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all" 
+                            onClick={confirmDelete} 
+                            disabled={deleteInput !== deleteTarget?.name}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Force Delete
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
