@@ -75,7 +75,7 @@ export default function DashboardPage() {
 
   const avatarUrl = user?.profile_picture
     ? user.profile_picture
-    : `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(user?.name || "")}&backgroundColor=fdf567`;
+    : `https://api.dicebear.com/9.x/open-peeps/svg?seed=${encodeURIComponent(user?.name || "default")}&backgroundColor=ffdfbf`;
 
   const statCards = [
     { label: "Total Inquiries", value: stats.totalInquiries, sub: `${stats.pendingInquiries} pending`, icon: FileText, bg: "bg-[#90e8ff]", href: "/dashboard/inquiries" },

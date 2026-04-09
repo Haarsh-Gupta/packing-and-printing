@@ -18,6 +18,9 @@ export default function SettingsPage() {
 
   // Form
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingPersonal, setIsSavingPersonal] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [isSavingSecurity, setIsSavingSecurity] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -39,7 +42,16 @@ export default function SettingsPage() {
     }
   }, [user]);
 
-  const avatarUrl = previewUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(user?.name || "")}&backgroundColor=fdf567`;
+  const avatarUrl = previewUrl || (user?.profile_picture ? user.profile_picture : `https://api.dicebear.com/9.x/open-peeps/svg?seed=${encodeURIComponent(user?.name || "default")}&backgroundColor=ffdfbf`);
+
+  const PRESET_AVATAR_SEEDS = [
+    "Harsh", "Nilesh", "Vivek", "Palak",
+    "Elon", "Bill", "Mark", "Zuckerberg", 
+    "Nigga", "White", "Alpha", "Beta", 
+    "Pytorch", "Tensorflow" , "Scikit-learn", "Keras"
+  ];
+
+
 
   // ── Helpers ──
   const updateUser = async (payload: any) => {
@@ -73,8 +85,8 @@ export default function SettingsPage() {
       });
       if (!res.ok) throw new Error("Upload failed");
       const data = await res.json();
-      await updateUser({ profile_picture: data.url });
-      showAlert("Profile picture updated!", "success");
+      setPreviewUrl(data.url);
+      showAlert("Picture uploaded. Click 'Save Changes' to apply.", "success");
     } catch {
       showAlert("Failed to upload picture.", "error");
     } finally {
@@ -90,6 +102,11 @@ export default function SettingsPage() {
         phone: phone.trim(),
         address: address.trim(),
       };
+      
+      if (previewUrl && previewUrl !== user?.profile_picture) {
+        payload.profile_picture = previewUrl;
+      }
+
       if (newPassword.trim()) {
         if (newPassword !== confirmPassword) {
           showAlert("Passwords don't match.", "error");
@@ -112,6 +129,72 @@ export default function SettingsPage() {
       showAlert("Failed to save changes.", "error");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const saveAvatar = async () => {
+    if (!previewUrl || previewUrl === user?.profile_picture) return;
+    setIsSaving(true);
+    try {
+      await updateUser({ profile_picture: previewUrl });
+      showAlert("Avatar updated successfully!", "success");
+    } catch {
+      showAlert("Failed to save avatar.", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updatePersonalDetails = async () => {
+    setIsSavingPersonal(true);
+    try {
+      await updateUser({
+        name: `${firstName} ${lastName}`.trim(),
+        phone: phone.trim(),
+      });
+      showAlert("Personal details updated!", "success");
+    } catch {
+      showAlert("Failed to update personal details.", "error");
+    } finally {
+      setIsSavingPersonal(false);
+    }
+  };
+
+  const updateAddress = async () => {
+    setIsSavingAddress(true);
+    try {
+      await updateUser({ address: address.trim() });
+      showAlert("Delivery address updated!", "success");
+    } catch {
+      showAlert("Failed to update address.", "error");
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
+  const updatePassword = async () => {
+    if (!newPassword.trim()) {
+      showAlert("Please enter a new password.", "error");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showAlert("Passwords don't match.", "error");
+      return;
+    }
+    if (newPassword.length < 6) {
+      showAlert("Password must be at least 6 characters.", "error");
+      return;
+    }
+    setIsSavingSecurity(true);
+    try {
+      await updateUser({ password: newPassword });
+      showAlert("Password updated successfully!", "success");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch {
+      showAlert("Failed to update password.", "error");
+    } finally {
+      setIsSavingSecurity(false);
     }
   };
 
@@ -177,7 +260,7 @@ export default function SettingsPage() {
               {/* Avatar */}
               <div className="relative group mb-6">
                 <div
-                  className="w-36 h-36 rounded-full border-4 border-black bg-zinc-100 bg-center bg-cover bg-no-repeat shadow-[4px_4px_0px_0px_#FF90E8] overflow-hidden"
+                  className="w-36 h-36 rounded-full border-4 border-black bg-[#ffdfbf] bg-center bg-cover bg-no-repeat shadow-[4px_4px_0px_0px_#FF90E8] overflow-hidden"
                   style={{ backgroundImage: `url("${avatarUrl}")` }}
                 />
                 <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" accept="image/*" />
@@ -201,15 +284,46 @@ export default function SettingsPage() {
                 Member since {memberSince}
               </p>
 
-              {/* Upload button */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="mt-6 w-full py-2.5 bg-[#FF90E8] border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all"
-              >
-                {isUploading ? "Uploading..." : "Change Photo"}
-              </button>
-              <p className="text-[10px] text-zinc-400 font-medium mt-2 text-center">JPG, PNG or GIF. Max 2MB.</p>
+              {/* Dropdown/Grid for presets */}
+              <div className="w-full mt-8 pt-6 border-t-2 border-black/10">
+                <h3 className="font-black text-sm uppercase tracking-widest text-zinc-400 mb-4 text-center">Choose an Avatar</h3>
+                <div className="grid grid-cols-4 gap-2">
+                  {PRESET_AVATAR_SEEDS.map((seed) => {
+                    const url = `https://api.dicebear.com/9.x/open-peeps/svg?seed=${seed}&backgroundColor=ffdfbf`;
+                    return (
+                      <button
+                        key={seed}
+                        onClick={() => setPreviewUrl(url)}
+                        className={`w-12 h-12 rounded-full border-2 border-black overflow-hidden hover:scale-110 transition-transform ${avatarUrl === url ? "ring-2 ring-black ring-offset-2" : ""}`}
+                      >
+                        <img src={url} alt={seed} className="w-full h-full object-cover bg-[#ffdfbf]" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              
+              <div className="mt-6 flex flex-col gap-2 w-full">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading || isSaving}
+                  className="w-full py-2.5 bg-[#FF90E8] border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all"
+                >
+                  {isUploading ? "Uploading..." : "Upload Custom Photo"}
+                </button>
+                <p className="text-[10px] text-zinc-400 font-medium text-center">JPG, PNG or GIF. Max 2MB.</p>
+
+                {previewUrl && previewUrl !== user?.profile_picture && (
+                  <button
+                    onClick={saveAvatar}
+                    disabled={isSaving}
+                    className="mt-2 w-full py-2.5 bg-[#4be794] text-black border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all flex items-center justify-center gap-2"
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    Confirm Avatar
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -309,6 +423,16 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={updatePersonalDetails}
+                disabled={isSavingPersonal}
+                className="px-6 py-2.5 bg-[#FF90E8] text-black border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all flex items-center gap-2"
+              >
+                {isSavingPersonal ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Save Details
+              </button>
+            </div>
           </div>
 
           {/* Shipping Address */}
@@ -337,6 +461,16 @@ export default function SettingsPage() {
               <p className="text-[10px] font-medium text-zinc-400">
                 This address will be pre-filled when you submit inquiries and used for shipping calculations.
               </p>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={updateAddress}
+                disabled={isSavingAddress}
+                className="px-6 py-2.5 bg-[#4be794] text-black border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all flex items-center gap-2"
+              >
+                {isSavingAddress ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Save Address
+              </button>
             </div>
           </div>
 
@@ -380,6 +514,16 @@ export default function SettingsPage() {
                   Leave blank to keep your current password. Minimum 6 characters.
                 </p>
               </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={updatePassword}
+                disabled={isSavingSecurity}
+                className="px-6 py-2.5 bg-[#fdf567] text-black border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all flex items-center gap-2"
+              >
+                {isSavingSecurity ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Update Password
+              </button>
             </div>
           </div>
 
