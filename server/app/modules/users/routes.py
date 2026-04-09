@@ -1,6 +1,7 @@
 import logging
 import json
 from uuid import UUID
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, case
@@ -47,6 +48,11 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
 
     data = user.model_dump(exclude={"otp", "phone"})
     data["password"] = await get_password_hash(data["password"])
+
+    # Assign a default avatar if none provided
+    if not data.get("profile_picture"):
+        seed = quote(data.get("name", "default"))
+        data["profile_picture"] = f"https://api.dicebear.com/9.x/open-peeps/svg?seed={seed}&backgroundColor=ffdfbf"
 
     new_user = User(**data)
     db.add(new_user)
