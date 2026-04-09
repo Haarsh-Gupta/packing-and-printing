@@ -22,6 +22,7 @@ class Ticket(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
+    user = relationship("User")
     messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan",
                             order_by="TicketMessage.created_at")
 

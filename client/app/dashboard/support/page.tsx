@@ -44,7 +44,9 @@ export default function SupportPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [form, setForm] = useState({ subject: "", message: "", priority: "MEDIUM" as Priority });    useEffect(() => {
+    const [form, setForm] = useState({ subject: "", message: "", priority: "MEDIUM" as Priority });
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;    useEffect(() => {
         // token check removed
         fetchTickets();
     }, []);

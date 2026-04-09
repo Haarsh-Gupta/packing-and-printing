@@ -2,7 +2,34 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Ticket } from "@/types";
-import { Loader2, Filter, Plus, ChevronLeft, ChevronRight, Zap, Headset } from "lucide-react";
+import { Loader2, Filter, ChevronRight, MessageSquare, Shield, User as UserIcon, Search } from "lucide-react";
+
+const PriorityBadge = ({ priority }: { priority: string }) => {
+    let styles = "text-slate-600 dark:text-[#c3c5d8] bg-slate-100 dark:bg-[#0b1326]/50 border-slate-200 dark:border-[#434655]/20";
+    if (priority === "HIGH") styles = "text-[#ffb4ab] bg-[#ffb4ab]/10 border-[#ffb4ab]/20";
+    if (priority === "URGENT") styles = "text-rose-500 bg-rose-500/10 border-rose-500/20";
+    if (priority === "MEDIUM") styles = "text-blue-600 dark:text-[#adc6ff] bg-[#1f70e3]/10 border-[#1f70e3]/20";
+
+    return (
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-sm text-[9px] uppercase tracking-widest font-bold border ${styles}`}>
+            {priority}
+        </span>
+    );
+};
+
+const StatusBadge = ({ status }: { status: string }) => {
+    let styles = "text-slate-600 dark:text-[#c3c5d8] bg-slate-100 dark:bg-[#0b1326]/50 border-slate-200 dark:border-[#434655]/20";
+    if (status === "OPEN") styles = "text-rose-500 bg-rose-500/10 border-rose-500/20";
+    if (status === "IN_PROGRESS") styles = "text-blue-600 dark:text-[#adc6ff] bg-[#1f70e3]/10 border-[#1f70e3]/20";
+    if (status === "RESOLVED" || status === "CLOSED") styles = "text-[#34d399] bg-[#34d399]/10 border-[#34d399]/20";
+
+    return (
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] uppercase tracking-widest font-bold border ${styles}`}>
+            <span className={`w-1 h-1 rounded-full ${status === "OPEN" ? "bg-rose-500" : status === "RESOLVED" ? "bg-[#34d399]" : "bg-blue-500"}`} />
+            {status.replace("_", " ")}
+        </span>
+    );
+};
 
 export default function Tickets() {
     const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -29,105 +56,45 @@ export default function Tickets() {
         fetchTickets(); 
     }, [statusFilter, priorityFilter]);
 
-    // Derived statistics
     const totalActive = tickets.filter(t => t.status !== 'CLOSED' && t.status !== 'RESOLVED').length;
     const criticalIssues = tickets.filter(t => t.priority === 'URGENT' || t.priority === 'HIGH').length;
 
-    const resolvedTickets = tickets.filter(t => t.status === 'RESOLVED' || t.status === 'CLOSED');
-    const resolvedRate = tickets.length > 0 ? ((resolvedTickets.length / tickets.length) * 100).toFixed(1) + '%' : '100%';
-
-    let avgResolutionStr = "N/A";
-    if (resolvedTickets.length > 0) {
-        const totalResolveTime = resolvedTickets.reduce((acc, t) => {
-            return acc + (new Date(t.updated_at).getTime() - new Date(t.created_at).getTime());
-        }, 0);
-        const avgMs = totalResolveTime / resolvedTickets.length;
-        const avgHours = avgMs / (1000 * 60 * 60);
-        avgResolutionStr = avgHours < 24 ? `${avgHours.toFixed(1)}h` : `${(avgHours / 24).toFixed(1)}d`;
-    }
-
-    const renderPriority = (priority: string) => {
-        let colorClass = "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
-        if (priority === "MEDIUM") colorClass = "text-blue-500 bg-blue-500/10 border-blue-500/20";
-        if (priority === "HIGH") colorClass = "text-amber-500 bg-amber-500/10 border-amber-500/20";
-        if (priority === "URGENT") colorClass = "text-rose-500 bg-rose-500/10 border-rose-500/20";
-
-        return (
-            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-widest ${colorClass}`}>
-                {priority}
-            </span>
-        );
-    };
-
-    const renderStatus = (status: string) => {
-        let dotColor = "bg-primary";
-        let colorClass = "bg-primary/10 text-primary border-primary/20";
-        
-        if (status === "RESOLVED" || status === "CLOSED") {
-            dotColor = "bg-emerald-500";
-            colorClass = "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
-        } else if (status === "OPEN") {
-            dotColor = "bg-rose-500";
-            colorClass = "bg-rose-500/10 text-rose-500 border-rose-500/20";
-        }
-
-        return (
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${colorClass}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></span>
-                {status.replace("_", " ")}
-            </span>
-        );
-    };
-
     return (
-        <div className="font-['Inter'] pb-12 animate-fade-in w-full max-w-[1400px] mx-auto min-h-screen">
+        <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] px-2">
             
-            {/* Page Header */}
+            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-10 gap-4">
                 <div>
-                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] mb-2">Support Tickets</h1>
-                    <p className="text-slate-500 dark:text-[#c3c5d8] text-sm max-w-xl">Monitor and resolve incoming customer requests across all architectural modules.</p>
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-blue-600 dark:text-[#adc6ff] mb-2 tracking-widest uppercase">
+                        <span>Support</span>
+                        <span>/</span>
+                        <span className="text-slate-600 dark:text-[#c3c5d8]/60">Ticketing System</span>
+                    </nav>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-[#dae2fd] m-0">Customer Support Inquiries</h1>
+                    <p className="text-xs text-slate-600 dark:text-[#c3c5d8] mt-1 m-0">Managing {tickets.length} support nodes in the current shard</p>
                 </div>
                 <div className="flex gap-3">
-                    <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white dark:bg-[#222a3d] border border-slate-200 dark:border-[#434655]/10 text-slate-800 dark:text-[#dae2fd] text-sm font-semibold hover:bg-slate-50 dark:hover:bg-[#31394d] transition-colors shadow-sm">
-                        <Filter size={18} />
-                        Filters
-                    </button>
-                    <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform">
-                        <Plus size={18} />
-                        Create Ticket
-                    </button>
-                </div>
-            </div>
-
-            {/* Dashboard Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
-                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-primary shadow-sm">
-                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Total Active</p>
-                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{totalActive}</h3>
-                </div>
-                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-rose-500 shadow-sm">
-                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Critical Issues</p>
-                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{criticalIssues}</h3>
-                </div>
-                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-amber-500 shadow-sm">
-                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Avg Resolution</p>
-                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{avgResolutionStr}</h3>
-                </div>
-                <div className="p-6 rounded-xl bg-white dark:bg-[#131b2e] border-l-4 border-emerald-500 shadow-sm">
-                    <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-[#c3c5d8] mb-1 font-bold">Resolve Rate</p>
-                    <h3 className="text-3xl font-bold text-slate-900 dark:text-[#dae2fd]">{resolvedRate}</h3>
+                    <div className="p-4 rounded-xl bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/20 shadow-sm flex items-center gap-4">
+                        <div className="text-right border-r border-slate-100 dark:border-[#434655]/10 pr-4">
+                            <p className="text-[9px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8] mb-0.5 tracking-tighter">Active Queue</p>
+                            <p className="text-xl font-black text-slate-900 dark:text-[#dae2fd] tabular-nums">{totalActive}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[9px] uppercase font-bold text-rose-500 mb-0.5 tracking-tighter">Critical Nodes</p>
+                            <p className="text-xl font-black text-rose-500 tabular-nums">{criticalIssues}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* Filters Bar */}
-            <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-[#060e20] rounded-xl border border-slate-200 dark:border-transparent">
+            <div className="flex flex-wrap items-center gap-4 mb-6 p-1.5 bg-slate-100 dark:bg-[#0b1326]/50 rounded-xl border border-slate-200 dark:border-[#434655]/10">
                 <select 
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="appearance-none bg-white dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/20 text-slate-700 dark:text-[#c3c5d8] text-xs py-2 px-4 pr-10 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-200 dark:hover:bg-[#222a3d] transition-colors font-medium shadow-sm"
+                    className="h-9 px-4 border border-slate-200 dark:border-[#434655]/30 rounded-lg text-[11px] font-bold uppercase tracking-widest text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] cursor-pointer outline-none focus:border-blue-400 dark:border-[#adc6ff]/50 transition-colors shadow-sm"
                 >
-                    <option value="ALL">Status: All</option>
+                    <option value="ALL">Status: All Nodes</option>
                     <option value="OPEN">Open</option>
                     <option value="IN_PROGRESS">In Progress</option>
                     <option value="RESOLVED">Resolved</option>
@@ -136,95 +103,101 @@ export default function Tickets() {
                 <select 
                     value={priorityFilter}
                     onChange={(e) => setPriorityFilter(e.target.value)}
-                    className="appearance-none bg-white dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/20 text-slate-700 dark:text-[#c3c5d8] text-xs py-2 px-4 pr-10 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-200 dark:hover:bg-[#222a3d] transition-colors font-medium shadow-sm"
+                    className="h-9 px-4 border border-slate-200 dark:border-[#434655]/30 rounded-lg text-[11px] font-bold uppercase tracking-widest text-slate-600 dark:text-[#c3c5d8] bg-white dark:bg-[#131b2e] cursor-pointer outline-none focus:border-blue-400 dark:border-[#adc6ff]/50 transition-colors shadow-sm"
                 >
-                    <option value="ALL">Priority: All</option>
+                    <option value="ALL">Priority: All Tiers</option>
+                    <option value="URGENT">Urgent</option>
                     <option value="HIGH">High</option>
                     <option value="MEDIUM">Medium</option>
                     <option value="LOW">Low</option>
                 </select>
 
-                <div className="ml-auto flex items-center gap-2 text-xs text-slate-500 dark:text-[#c3c5d8] font-medium">
-                    <span>Showing {tickets.length} tickets</span>
-                    <div className="flex gap-1 ml-4">
-                        <button className="p-1 rounded bg-white dark:bg-[#222a3d] hover:bg-slate-100 dark:hover:bg-primary/20 transition-colors border border-slate-200 dark:border-transparent shadow-sm">
-                            <ChevronLeft size={16} />
-                        </button>
-                        <button className="p-1 rounded bg-white dark:bg-[#222a3d] hover:bg-slate-100 dark:hover:bg-primary/20 transition-colors border border-slate-200 dark:border-transparent shadow-sm">
-                            <ChevronRight size={16} />
-                        </button>
-                    </div>
+                <div className="ml-auto pr-4 hidden md:block">
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-[#c3c5d8]/50 uppercase tracking-widest">
+                        Node Population: <span className="text-blue-600 dark:text-[#adc6ff]">{tickets.length}</span>
+                    </p>
                 </div>
             </div>
 
-            {/* High-Fidelity Table Container */}
-            <div className="bg-white dark:bg-[#131b2e] rounded-2xl overflow-hidden shadow-sm border border-slate-200 dark:border-[#434655]/10">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[800px]">
+            {/* Table Container */}
+            <div className="bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 flex-1 overflow-hidden flex flex-col shadow-sm">
+                <div className="overflow-x-auto flex-1">
+                    <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50 dark:bg-[#060e20]/50 text-slate-600 dark:text-[#c3c5d8]">
-                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Ticket ID</th>
-                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">User</th>
-                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Subject</th>
-                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Status</th>
-                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10">Priority</th>
-                                <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-[#434655]/10 text-right">Created</th>
+                            <tr className="bg-slate-50 dark:bg-[#0b1326]/50 text-slate-500 dark:text-[#c3c5d8] uppercase text-[10px] tracking-[0.2em] font-black border-b border-slate-200 dark:border-[#434655]/20">
+                                <th className="px-6 py-4">Ticket Protocol</th>
+                                <th className="px-6 py-4">Identity Matrix</th>
+                                <th className="px-6 py-4">Status / Priority</th>
+                                <th className="px-6 py-4">Subject</th>
+                                <th className="px-6 py-4 text-right">Age</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-[#434655]/5">
+                        <tbody className="divide-y divide-[#434655]/10">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                                        <Loader2 size={24} className="animate-spin mx-auto text-primary mb-2" />
-                                        <p className="text-xs uppercase tracking-widest font-bold">Fetching Data</p>
+                                    <td colSpan={5} className="px-6 py-20 text-center">
+                                        <Loader2 size={18} className="animate-spin mx-auto text-blue-600 dark:text-[#adc6ff] mb-2" />
+                                        <p className="text-[10px] uppercase tracking-widest font-black text-slate-400">Syncing nodes…</p>
                                     </td>
                                 </tr>
                             ) : tickets.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                                        <p className="text-xs uppercase tracking-widest font-bold">No tickets found</p>
+                                    <td colSpan={5} className="px-6 py-20 text-center">
+                                        <MessageSquare size={32} className="mx-auto mb-3 opacity-10 text-slate-400" />
+                                        <p className="text-[10px] uppercase tracking-widest font-black text-slate-400">No support nodes indexed</p>
                                     </td>
                                 </tr>
                             ) : tickets.map((ticket) => (
                                 <tr 
                                     key={ticket.id} 
                                     onClick={() => navigate(`/tickets/${ticket.id}`)}
-                                    className="hover:bg-slate-50 dark:hover:bg-slate-50 dark:hover:bg-[#171f33]/50 transition-colors group cursor-pointer"
+                                    className="hover:bg-slate-50 dark:hover:bg-[#171f33]/80 transition-colors group cursor-pointer"
                                 >
-                                    <td className="px-6 py-5 min-w-[150px]">
-                                        <div className="font-mono text-xs text-primary font-bold">
-                                            {ticket.display_id || `#TKT-${ticket.id}`}
+                                    <td className="px-6 py-5">
+                                        <div className="font-mono text-[11px] text-blue-600 dark:text-[#adc6ff] font-black tracking-widest">
+                                            {ticket.display_id || `#TKT-${ticket.id.toString().slice(0, 8)}`}
                                         </div>
-                                        <div className="font-mono text-[9px] text-slate-400 mt-1 select-all" title="Original UUID">
-                                            {ticket.id}
-                                        </div>
+                                        <div className="text-[9px] text-slate-400 font-medium mt-0.5">Vector ID: {ticket.id.toString().slice(0, 12)}...</div>
                                     </td>
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-[#222a3d] flex items-center justify-center font-bold text-xs text-slate-600 dark:text-[#dae2fd]">
-                                                {((ticket as any).user_name || 'U')[0].toUpperCase()}
+                                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#0b1326] border border-slate-200 dark:border-[#434655]/30 flex items-center justify-center font-black text-sm text-slate-600 dark:text-[#dae2fd] overflow-hidden group-hover:border-blue-400 dark:group-hover:border-[#adc6ff]/50 transition-colors">
+                                                {ticket.user?.profile_picture ? (
+                                                    <img src={ticket.user.profile_picture} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    (ticket.user?.name || ticket.user?.email || 'U')[0].toUpperCase()
+                                                )}
                                             </div>
                                             <div>
-                                                <p className="text-sm font-semibold text-slate-900 dark:text-[#dae2fd]">
-                                                    {(ticket as any).user_name || 'Customer'}
+                                                <p className="text-xs font-black text-slate-900 dark:text-[#dae2fd] group-hover:text-blue-600 dark:group-hover:text-[#adc6ff] transition-colors">
+                                                    {ticket.user?.name || 'Anonymous Node'}
+                                                </p>
+                                                <p className="text-[10px] font-mono text-slate-500 dark:text-[#c3c5d8]/60 mt-0.5">
+                                                    {ticket.user?.email}
                                                 </p>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <p className="text-sm font-medium text-slate-900 dark:text-[#dae2fd] max-w-xs truncate">
+                                        <div className="flex flex-col gap-1.5">
+                                            <div className="flex text-left"><StatusBadge status={ticket.status} /></div>
+                                            <div className="flex text-left"><PriorityBadge priority={ticket.priority} /></div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        <p className="text-xs font-bold text-slate-900 dark:text-[#dae2fd] max-w-xs truncate leading-relaxed">
                                             {ticket.subject || 'Support Inquiry'}
                                         </p>
-                                        <span className="text-[10px] text-slate-500 dark:text-[#c3c5d8]/60">General Queue</span>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                            <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-[#434655]/50" />
+                                            <span className="text-[9px] text-slate-500 dark:text-[#c3c5d8]/40 font-bold uppercase tracking-widest">Global Queue</span>
+                                        </div>
                                     </td>
-                                    <td className="px-6 py-5">
-                                        {renderStatus(ticket.status)}
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        {renderPriority(ticket.priority || 'LOW')}
-                                    </td>
-                                    <td className="px-6 py-5 text-right text-xs text-slate-500 dark:text-[#c3c5d8] font-medium">
-                                        {new Date(ticket.created_at).toLocaleDateString()}
+                                    <td className="px-6 py-5 text-right">
+                                        <span className="text-[10px] font-black text-slate-500 dark:text-[#8d90a1] uppercase tracking-wider">
+                                            {new Date(ticket.created_at).toLocaleDateString("en-US", { month: "short", day: "2-digit" })}
+                                        </span>
+                                        <div className="text-[9px] text-slate-400 font-medium mt-0.5">{new Date(ticket.created_at).getFullYear()}</div>
                                     </td>
                                 </tr>
                             ))}
@@ -232,50 +205,16 @@ export default function Tickets() {
                     </table>
                 </div>
 
-                {/* Table Pagination */}
-                <div className="px-10 py-5 bg-slate-50 dark:bg-[#060e20]/30 flex justify-between items-center border-t border-slate-200 dark:border-[#434655]/10">
-                    <p className="text-xs text-slate-500 dark:text-[#c3c5d8] font-medium">Page 1 of 1</p>
-                    <div className="flex gap-2">
-                        <button className="px-4 py-1.5 rounded-lg bg-white dark:bg-[#222a3d] text-xs font-semibold text-slate-500 dark:text-[#c3c5d8] hover:text-slate-900 dark:hover:text-slate-900 dark:hover:text-[#dae2fd] transition-colors disabled:opacity-30 border border-slate-200 dark:border-transparent shadow-sm" disabled>Previous</button>
-                        <button className="px-4 py-1.5 rounded-lg bg-white dark:bg-[#222a3d] text-xs font-semibold text-slate-500 dark:text-[#c3c5d8] hover:text-slate-900 dark:hover:text-slate-900 dark:hover:text-[#dae2fd] transition-colors border border-slate-200 dark:border-transparent shadow-sm">Next</button>
+                {/* Table Footer */}
+                <div className="px-6 py-4 bg-slate-50 dark:bg-[#0b1326]/50 flex justify-between items-center border-t border-slate-200 dark:border-[#434655]/20">
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-[#c3c5d8]/40 uppercase tracking-[0.2em]">Listing active support nodes</p>
+                    <div className="flex items-center gap-3">
+                        <button className="text-[10px] font-black text-slate-400 dark:text-[#c3c5d8]/30 uppercase tracking-widest hover:text-blue-600 dark:hover:text-[#adc6ff] transition-colors disabled:opacity-30" disabled>Previous</button>
+                        <div className="w-px h-3 bg-slate-200 dark:bg-[#434655]/20" />
+                        <button className="text-[10px] font-black text-slate-400 dark:text-[#c3c5d8]/30 uppercase tracking-widest hover:text-blue-600 dark:hover:text-[#adc6ff] transition-colors">Next Matrix</button>
                     </div>
                 </div>
             </div>
-
-            {/* Bento Grid - Quick Actions & Recent Activity */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
-                <div className="md:col-span-2 p-8 rounded-2xl bg-white dark:bg-[#131b2e] relative overflow-hidden group shadow-sm border border-slate-200 dark:border-transparent">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-primary/10 transition-colors"></div>
-                    
-                    <h4 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-[#dae2fd]">
-                        <Zap className="text-primary size-5" />
-                        Quick Analysis
-                    </h4>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/10">
-                            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8] mb-2">Total Received</p>
-                            <p className="text-sm font-semibold text-slate-900 dark:text-[#dae2fd]">{tickets.length}</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#171f33] border border-slate-200 dark:border-[#434655]/10">
-                            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-[#c3c5d8] mb-2">Team Load</p>
-                            <p className="text-sm font-semibold text-slate-900 dark:text-[#dae2fd]">{totalActive > 10 ? 'High Capacity' : 'Moderate Capacity'}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-8 rounded-2xl bg-primary text-white relative overflow-hidden group shadow-sm">
-                    <Headset className="absolute right-[-20px] bottom-[-20px] text-[120px] opacity-10 -rotate-12" />
-                    
-                    <h4 className="text-lg font-bold mb-2">Help Center</h4>
-                    <p className="text-sm opacity-90 mb-6 leading-relaxed">Need protocol assistance with a complex or escalated customer ticket?</p>
-                    
-                    <button className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-colors">
-                        Review Policies
-                    </button>
-                </div>
-            </div>
-
         </div>
     );
 }

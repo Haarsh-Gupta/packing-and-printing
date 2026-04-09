@@ -22,6 +22,23 @@ interface SEOConfig {
   og_image?: string;
 }
 
+const COMMON_ROUTES = [
+  "/",
+  "/products",
+  "/services",
+  "/about",
+  "/contact",
+  "/cart",
+  "/quote",
+  "/privacy",
+  "/terms",
+  "/dashboard",
+  "/dashboard/inquiries",
+  "/dashboard/orders",
+  "/dashboard/support",
+  "/dashboard/settings"
+];
+
 export default function SEOSettingsPage() {
   const { showAlert } = useAlert();
   const [configs, setConfigs] = useState<SEOConfig[]>([]);
@@ -265,14 +282,22 @@ export default function SEOSettingsPage() {
                   <label className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
                     <Globe className="w-4 h-4" /> Path
                   </label>
-                  <input
-                    type="text"
-                    placeholder="/about"
-                    className="w-full p-4 border-3 border-black rounded-xl font-bold bg-zinc-50 focus:bg-white focus:outline-none transition-all"
-                    value={editingConfig?.path || ""}
-                    onChange={e => setEditingConfig({ ...editingConfig, path: e.target.value })}
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      list="common-paths"
+                      placeholder="/about"
+                      className="w-full p-4 border-3 border-black rounded-xl font-bold bg-zinc-50 focus:bg-white focus:outline-none transition-all"
+                      value={editingConfig?.path || ""}
+                      onChange={e => setEditingConfig({ ...editingConfig, path: e.target.value })}
+                      required
+                    />
+                    <datalist id="common-paths">
+                      {COMMON_ROUTES.map(path => (
+                        <option key={path} value={path} />
+                      ))}
+                    </datalist>
+                  </div>
                 </div>
                 <div className="space-y-2 md:col-span-1">
                   <label className="text-xs font-black uppercase tracking-widest flex items-center gap-2">

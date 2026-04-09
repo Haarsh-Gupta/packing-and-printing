@@ -13,6 +13,7 @@ from app.modules.tickets.models import Ticket
 from app.modules.tickets.schemas import (
     TicketStatusUpdate,
 )
+from sqlalchemy.orm import joinedload
 
 logger = logging.getLogger("app.modules.tickets.admin")
 
@@ -28,7 +29,7 @@ async def admin_list_all_tickets(
     db: AsyncSession = Depends(get_db),
 ):
     """[ADMIN] List all tickets with optional filters."""
-    query = select(Ticket)
+    query = select(Ticket).options(joinedload(Ticket.user))
     if status_filter:
         query = query.where(Ticket.status == status_filter)
     if priority_filter:

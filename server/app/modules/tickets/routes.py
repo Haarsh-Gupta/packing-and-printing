@@ -95,6 +95,9 @@ async def list_my_tickets(
     return result.scalars().all()
 
 
+from sqlalchemy.orm import selectinload, joinedload
+
+
 @router.get("/{ticket_id}", response_model=TicketDetailResponse)
 async def get_ticket_detail(
     ticket_id: UUID,
@@ -105,7 +108,10 @@ async def get_ticket_detail(
     result = await db.execute(
         select(Ticket)
         .where(Ticket.id == ticket_id)
-        .options(selectinload(Ticket.messages))
+        .options(
+            selectinload(Ticket.messages).joinedload(TicketMessage.sender),
+            joinedload(Ticket.user)
+        )
     )
     ticket = result.scalar_one_or_none()
 
@@ -176,7 +182,12 @@ async def add_message(
             is_admin=current_user.admin
         )
     await db.commit()
-    await db.refresh(msg)
+    
+    # Reload with sender relationship
+    result = await db.execute(
+        select(TicketMessage).where(TicketMessage.id == msg.id).options(joinedload(TicketMessage.sender))
+    )
+    msg = result.scalar_one()
 
     # SSE Alerts
     from app.core.sse import sse_manager

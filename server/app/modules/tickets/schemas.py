@@ -35,6 +35,16 @@ class TicketMessageCreate(BaseModel):
     message: str
 
 
+class TicketUserMinimal(BaseModel):
+    id: UUID
+    name: Optional[str] = None
+    email: str
+    profile_picture: Optional[str] = None
+    admin: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ── Responses ─────────────────────────────────────────────────
 class TicketMessageResponse(BaseModel):
     id: int
@@ -43,6 +53,7 @@ class TicketMessageResponse(BaseModel):
     message: str
     is_read: bool
     created_at: datetime
+    sender: Optional[TicketUserMinimal] = None;
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -56,6 +67,7 @@ class TicketResponse(BaseModel):
     priority: TicketPriority
     created_at: datetime
     updated_at: datetime
+    user: Optional[TicketUserMinimal] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -73,6 +85,7 @@ class TicketListResponse(BaseModel):
     status: TicketStatus
     priority: TicketPriority
     created_at: datetime
+    user: Optional[TicketUserMinimal] = None
     unread_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)

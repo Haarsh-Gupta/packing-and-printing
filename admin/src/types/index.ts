@@ -335,6 +335,7 @@ export interface TicketMessage {
     is_admin: boolean;
     is_read: boolean;
     created_at: string;
+    sender?: User;
 }
 
 export interface Ticket {
@@ -347,6 +348,7 @@ export interface Ticket {
     status: string;
     created_at: string;
     updated_at: string;
+    user?: User;
     messages?: TicketMessage[];
 }
 
