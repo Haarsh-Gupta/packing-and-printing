@@ -56,7 +56,10 @@ export default function SupportPage() {
                 credentials: "include",
             });
             if (res.status === 401) { router.replace("/auth/login"); return; }
-            if (res.ok) setTickets(await res.json());
+            if (res.ok) {
+                setTickets(await res.json());
+                setCurrentPage(1);
+            }
         } catch (e) {
             showAlert("Failed to load tickets.", "error");
         } finally {
@@ -180,7 +183,7 @@ export default function SupportPage() {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {tickets.map((ticket) => (
+                    {tickets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((ticket) => (
                         <Link key={ticket.id} href={`/dashboard/support/${ticket.id}`}>
                             <div className="border-2 border-black bg-white p-6 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-px hover:-translate-y-px transition-all flex items-center justify-between gap-4 group rounded-xl">
                                 <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -199,6 +202,28 @@ export default function SupportPage() {
                             </div>
                         </Link>
                     ))}
+                </div>
+            )}
+
+            {!isLoading && Math.ceil(tickets.length / itemsPerPage) > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-8 py-4">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="w-8 h-8 flex items-center justify-center rounded-none bg-white border-2 border-black hover:bg-black hover:text-white disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-black transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:shadow-none"
+                    >
+                        <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                    </button>
+                    <span className="text-[11px] font-black tracking-widest uppercase mx-2 text-black/60 bg-white border-2 border-black px-4 py-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                        Page <span className="text-black">{currentPage}</span> of <span className="text-black">{Math.ceil(tickets.length / itemsPerPage)}</span>
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(tickets.length / itemsPerPage), p + 1))}
+                        disabled={currentPage === Math.ceil(tickets.length / itemsPerPage)}
+                        className="w-8 h-8 flex items-center justify-center rounded-none bg-white border-2 border-black hover:bg-black hover:text-white disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-black transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:shadow-none"
+                    >
+                        <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                    </button>
                 </div>
             )}
         </div>

@@ -211,7 +211,7 @@ export default async function CustomizeProductPage({
                             <div className="grid grid-cols-3 divide-x divide-border-black/10">
                                 {/* Configurations */}
                                 <div className="p-5">
-                                    <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-1">Configurations</p>
+                                    <p className="tpaext-xs font-bold uppercase tracking-widest text-zinc-500 mb-1">Configurations</p>
                                     <p className="font-black text-2xl">{configCount}</p>
                                     <p className="text-xs text-zinc-500 font-medium mt-1">customizable options</p>
                                 </div>

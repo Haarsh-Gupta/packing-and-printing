@@ -21,6 +21,10 @@ export default function OrdersPage() {
     const [filterStatus, setFilterStatus] = useState("ALL");
     const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
     useEffect(() => {
         fetchOrders();
     }, []);
@@ -58,7 +62,11 @@ export default function OrdersPage() {
             return matchesSearch && matchesFilter;
         });
         setFilteredOrders(filtered);
+        setCurrentPage(1);
     }, [searchQuery, filterStatus, orders]);
+
+    const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
 
     const filterOptions = [
         { label: "All Statuses", value: "ALL" },
@@ -142,15 +150,37 @@ export default function OrdersPage() {
                 </div>
             ) : viewMode === "grid" ? (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                    {filteredOrders.map((order) => (
+                    {paginatedOrders.map((order) => (
                         <OrderCard key={order.id} order={order} />
                     ))}
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {filteredOrders.map((order) => (
+                    {paginatedOrders.map((order) => (
                         <OrderListRow key={order.id} order={order} />
                     ))}
+                </div>
+            )}
+
+            {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-8 py-4">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="w-8 h-8 flex items-center justify-center rounded-none bg-white border-2 border-black hover:bg-black hover:text-white disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-black transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:shadow-none"
+                    >
+                        <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                    </button>
+                    <span className="text-[11px] font-black tracking-widest uppercase mx-2 text-black/60 bg-white border-2 border-black px-4 py-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                        Page <span className="text-black">{currentPage}</span> of <span className="text-black">{totalPages}</span>
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="w-8 h-8 flex items-center justify-center rounded-none bg-white border-2 border-black hover:bg-black hover:text-white disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-black transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:shadow-none"
+                    >
+                        <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                    </button>
                 </div>
             )}
         </div>

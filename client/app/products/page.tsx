@@ -124,9 +124,13 @@ export default function ProductsPage() {
     const [activeKeyword, setActiveKeyword] = useState("");
     const [mounted, setMounted] = useState(false);
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 16;
+
     useEffect(() => {
         setMounted(true);
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?_t=${Date.now()}`)
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?_t=${Date.now()}&limit=1000`)
             .then((r) => (r.ok ? r.json() : []))
             .then(setProducts)
             .catch(() => setProducts([]));
@@ -136,6 +140,13 @@ export default function ProductsPage() {
         const haystack = `${p.name} ${p.description ?? ""}`.toLowerCase();
         return activeKeyword === "" || haystack.includes(activeKeyword);
     });
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeKeyword]);
+
+    const paginated = visible.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const totalPages = Math.ceil(visible.length / itemsPerPage);
 
     return (
         <>
@@ -246,8 +257,8 @@ export default function ProductsPage() {
                     </div>
 
                     <div className="pp-grid">
-                        {visible.length > 0 ? (
-                            visible.map((product, index) => (
+                        {paginated.length > 0 ? (
+                            paginated.map((product, index) => (
                                 <div key={product.id} className="pp-card">
                                     <ProductCard product={product} index={index} />
                                 </div>
@@ -268,6 +279,28 @@ export default function ProductsPage() {
                             </div>
                         )}
                     </div>
+
+                    {totalPages > 1 && (
+                        <div className="flex justify-center items-center gap-2 mt-12 bg-white/50 backdrop-blur-sm px-6 py-3 rounded-full border border-black/5 mx-auto w-max">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-black/10 hover:bg-black hover:text-white disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-black transition-all"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                            </button>
+                            <span className="text-[11px] font-bold tracking-widest uppercase mx-2 text-black/60">
+                                Page <span className="text-black">{currentPage}</span> of <span className="text-black">{totalPages}</span>
+                            </span>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-black/10 hover:bg-black hover:text-white disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-black transition-all"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* ══════════════════════════════════════════════════════
