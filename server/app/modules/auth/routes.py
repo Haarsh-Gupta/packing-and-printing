@@ -274,10 +274,18 @@ async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Dep
     user = result.scalar_one_or_none()
 
     if user:
-        await _otp_service.send_password_reset_otp(
-            email=user.email,
-            user_name=user.name,
-        )
+        try:
+            await _otp_service.send_password_reset_otp(
+                email=user.email,
+                user_name=user.name,
+            )
+        except ValueError as e:
+            if str(e) == "MAX_GENERATION_LIMIT_EXCEEDED":
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many request attempts. Please try again after 10 hours."
+                )
+            raise e
 
     return {"message": "If the email exists, a password reset code has been sent."}
 
@@ -288,10 +296,18 @@ async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depen
     Verify the reset OTP and update the password.
     Bumps token_version to invalidate all existing sessions.
     """
-    valid = await _otp_service.verify_password_reset_otp(
-        email=payload.email,
-        otp=payload.otp,
-    )
+    try:
+        valid = await _otp_service.verify_password_reset_otp(
+            email=payload.email,
+            otp=payload.otp,
+        )
+    except ValueError as e:
+        if str(e) == "MAX_ATTEMPT_LIMIT_EXCEEDED":
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many incorrect attempts. Your OTP has been revoked. Please request a new one."
+            )
+        raise e
 
     if not valid:
         raise HTTPException(

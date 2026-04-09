@@ -68,8 +68,10 @@ class PaymentService:
             milestone.status = MilestoneStatus.PAID
             milestone.paid_at = datetime.now(timezone.utc)
 
+            actual_amt = payload.actual_amount if payload.actual_amount else milestone.amount
+
             txn = Transaction(
-                order_id=order.id, milestone_id=milestone.id, amount=milestone.amount,
+                order_id=order.id, milestone_id=milestone.id, amount=actual_amt,
                 payment_mode=declaration.payment_mode,
                 recorded_by_admin=admin_id, notes=f"Declaration {declaration_id} approved. UTR: {declaration.utr_number or 'N/A'}",
             )
@@ -101,6 +103,9 @@ class PaymentService:
         return order
 
     async def record_admin_payment(self, order_id: UUID, payload: AdminRecordPaymentRequest, admin_id: UUID) -> Order:
+        if payload.amount <= 0:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Ledger transaction amounts must be strictly positive.")
+            
         order = await self._get_order_locked(order_id)
         if payload.milestone_id:
             milestone = await self._get_milestone_lock(payload.milestone_id, order_id)
@@ -157,12 +162,6 @@ class PaymentService:
         await self.db.flush()
         await self._recalculate_amount_paid(order)
 
-        # Revert milestone if fully refunded
-        remaining = net_paid_on_milestone - amount
-        if remaining <= 0:
-            milestone.status = MilestoneStatus.UNPAID
-            milestone.paid_at = None
-
         return order
 
     async def _get_order_locked(self, order_id: UUID) -> Order:
@@ -172,14 +171,6 @@ class PaymentService:
         if not order:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
         return order
-
-    async def _get_milestone(self, milestone_id, order_id) -> OrderMilestone:
-        m = (await self.db.execute(
-            select(OrderMilestone).where(OrderMilestone.id == milestone_id, OrderMilestone.order_id == order_id)
-        )).scalar_one_or_none()
-        if not m:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
-        return m
 
     async def _get_milestone_lock(self, milestone_id: UUID, order_id: UUID) -> OrderMilestone:
         m = (await self.db.execute(
@@ -206,6 +197,29 @@ class PaymentService:
             order.status = "PARTIALLY_PAID"
         else:
             order.status = "WAITING_PAYMENT"
+
+        # Reconcile milestones using a waterfall logic for fungible money
+        milestones = (await self.db.execute(
+            select(OrderMilestone).where(OrderMilestone.order_id == order.id).order_by(OrderMilestone.order_index)
+        )).scalars().all()
+        
+        remaining_money = paid
+        for m in milestones:
+             m_target = _money(m.amount)
+             if remaining_money >= m_target:
+                 # The waterfall covers this milestone fully
+                 if m.status != MilestoneStatus.PAID:
+                     m.status = MilestoneStatus.PAID
+                     m.paid_at = m.paid_at or datetime.now(timezone.utc)
+                 remaining_money -= m_target
+             else:
+                 # The waterfall DOES NOT cover this milestone fully
+                 remaining_money = _money(0) # Absorbs any leftover into the partial milestone
+                 # If it was erroneously marked PAID, reset it unless there's a PENDING declaration.
+                 # To keep this clean, if it doesn't have the funds, it cannot be PAID.
+                 if m.status == MilestoneStatus.PAID:
+                     m.status = MilestoneStatus.UNPAID
+                     m.paid_at = None
 
     async def _get_payment_declaration_lock(self, id: UUID) -> PaymentDeclaration:
         result = await self.db.execute(

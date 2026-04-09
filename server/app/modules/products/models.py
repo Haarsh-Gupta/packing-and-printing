@@ -53,6 +53,9 @@ class SubProduct(Base):
     hsn_code  = Column(String, nullable=True)   # Optional HSN/SAC code
     cgst_rate = Column(Double, default=0.0)     # e.g. 9.0 for 9%
     sgst_rate = Column(Double, default=0.0)     # e.g. 9.0 for 9%
+    igst_rate = Column(Double, default=0.0)     # e.g. 18.0 for 18%
+    cess_rate = Column(Double, default=0.0)
+    unit      = Column(String, default="Nos")
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

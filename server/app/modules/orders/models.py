@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Column, String, DateTime, func, Numeric, Uuid, Integer, text, UniqueConstraint, Sequence, event, Boolean, Index
+from sqlalchemy import ForeignKey, Column, String, DateTime, func, Numeric, Uuid, Integer, text, UniqueConstraint, Sequence, event, Boolean, Index, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -12,6 +12,8 @@ class Order(Base):
     __tablename__ = 'orders'
     id = Column(Uuid, primary_key=True, server_default=text("uuidv7()"))
     order_number = Column(String, unique=True, nullable=True, index=True)  # ORD-2026-0001
+    invoice_number = Column(String, unique=True, nullable=True, index=True) # Set when sequential invoice generated
+
     inquiry_id = Column(Uuid, ForeignKey('inquiry_groups.id'), nullable=False)
     user_id = Column(Uuid, ForeignKey('users.id'), nullable=False)
     
@@ -26,6 +28,11 @@ class Order(Base):
     payment_gateway_order_id = Column(String, nullable=True, unique=True, index=True)
     admin_notes = Column(String, nullable=True)
     is_offline = Column(Boolean, default=False, nullable=False)
+    
+    # Compliance Config
+    place_of_supply = Column(String, nullable=True)
+    reverse_charge = Column(Boolean, default=False, nullable=False)
+    invoice_data = Column(JSON, nullable=True)  # Admin-curated invoice presentation overrides
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -112,6 +112,9 @@ class SubProductCreate(BaseModel):
     hsn_code: Optional[str] = None
     cgst_rate: Optional[float] = 0.0
     sgst_rate: Optional[float] = 0.0
+    igst_rate: Optional[float] = 0.0
+    cess_rate: Optional[float] = 0.0
+    unit: Optional[str] = "Nos"
     features: Optional[List[Dict[str, Any]]] = None
     specifications: Optional[List[Dict[str, Any]]] = None
 
@@ -172,6 +175,9 @@ class SubProductUpdate(BaseModel):
     hsn_code: Optional[str] = None
     cgst_rate: Optional[float] = None
     sgst_rate: Optional[float] = None
+    igst_rate: Optional[float] = None
+    cess_rate: Optional[float] = None
+    unit: Optional[str] = None
     features: Optional[List[Dict[str, Any]]] = None
     specifications: Optional[List[Dict[str, Any]]] = None
 

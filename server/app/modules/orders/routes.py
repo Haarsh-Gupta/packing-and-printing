@@ -315,6 +315,7 @@ async def get_invoice(
     Temp file deleted after response via BackgroundTasks.
     """
     from app.modules.inquiry.models import InquiryGroup, InquiryItem
+    from app.modules.settings.models import SiteSettings
 
     stmt = (
         select(Order)
@@ -332,66 +333,91 @@ async def get_invoice(
     if order.user_id != current_user.id and not current_user.admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not authorized")
 
-    inquiry_stmt = (
-        select(InquiryGroup)
-        .options(
-            selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_product),
-            selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_service),
-            selectinload(InquiryGroup.items).selectinload(InquiryItem.product),
-            selectinload(InquiryGroup.items).selectinload(InquiryItem.service),
-            selectinload(InquiryGroup.active_quote),
+    # ── Use admin-curated invoice_data if available ────────────────────────
+    if order.invoice_data:
+        items = order.invoice_data.get("items", [])
+        inv_meta = order.invoice_data
+        shipping_override = float(inv_meta.get("shipping_amount", 0))
+        shipping_gst_override = float(inv_meta.get("shipping_gst_rate", 0))
+    else:
+        # Legacy fallback: build from inquiry items
+        inv_meta = None
+        shipping_override = None
+        shipping_gst_override = None
+
+        inquiry_stmt = (
+            select(InquiryGroup)
+            .options(
+                selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_product),
+                selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_service),
+                selectinload(InquiryGroup.items).selectinload(InquiryItem.product),
+                selectinload(InquiryGroup.items).selectinload(InquiryItem.service),
+                selectinload(InquiryGroup.active_quote),
+            )
+            .where(InquiryGroup.id == order.inquiry_id)
         )
-        .where(InquiryGroup.id == order.inquiry_id)
-    )
-    inquiry = (await db.execute(inquiry_stmt)).scalar_one_or_none()
+        inquiry = (await db.execute(inquiry_stmt)).scalar_one_or_none()
 
-    items = []
-    if inquiry:
-        # Build discount map from QuoteVersion line_items
-        discount_map = {}
-        if inquiry.active_quote and inquiry.active_quote.line_items:
-            for li in inquiry.active_quote.line_items:
-                discount_map[str(li.get("item_id"))] = li
+        items = []
+        if inquiry:
+            # Build discount map from QuoteVersion line_items
+            discount_map = {}
+            if inquiry.active_quote and inquiry.active_quote.line_items:
+                for li in inquiry.active_quote.line_items:
+                    discount_map[str(li.get("item_id"))] = li
 
-        for itm in inquiry.items:
-            # Determine the source entity (sub_product or sub_service) for HSN/GST
-            sp = itm.sub_product
-            ss = itm.sub_service
-            source = sp or ss  # whichever is populated
+            for itm in inquiry.items:
+                sp = itm.sub_product
+                ss = itm.sub_service
+                source = sp or ss
 
-            name = (sp.name if sp else ss.name if ss else "Custom item")
-            qty = itm.quantity or 1
-            total = float(itm.line_item_price or 0)
-            options = itm.selected_options or {}
-            variant = options.pop("variant_name", None) if isinstance(options, dict) else None
+                name = (sp.name if sp else ss.name if ss else "Custom item")
+                qty = itm.quantity or 1
+                total = float(itm.line_item_price) if itm.line_item_price is not None else 0.0
+                options = itm.selected_options or {}
+                variant = options.pop("variant_name", None) if isinstance(options, dict) else None
 
-            # Build specs string from remaining selected_options
-            specs_parts = []
-            if isinstance(options, dict):
-                for k, v in options.items():
-                    if v not in (None, "", False):
-                        specs_parts.append(f"{k}: {v}")
-            specs = " · ".join(specs_parts) if specs_parts else ""
-            
-            # Fetch precision quote discount overrides
-            disc_info = discount_map.get(str(itm.id), {})
+                specs_parts = []
+                if isinstance(options, dict):
+                    for k, v in options.items():
+                        if v not in (None, "", False):
+                            specs_parts.append(f"{k}: {v}")
+                specs = " · ".join(specs_parts) if specs_parts else ""
+                
+                disc_info = discount_map.get(str(itm.id), {})
 
-            items.append({
-                "description": name,
-                "quantity": qty,
-                "unit_price": round(total / qty, 2) if qty > 0 else 0,
-                "total": total,
-                "variant": variant,
-                "specs": specs,
-                "hsn_sac": getattr(source, "hsn_code", "") or "",
-                "cgst_rate": float(getattr(source, "cgst_rate", 0) or 0),
-                "sgst_rate": float(getattr(source, "sgst_rate", 0) or 0),
-                "igst_rate": float(getattr(source, "cgst_rate", 0) or 0) + float(getattr(source, "sgst_rate", 0) or 0),
-                "discount_amount": float(disc_info.get("discount_amount") or 0.0),
-                "discount_type": disc_info.get("discount_type"),
-                "discount_value": float(disc_info.get("discount_value") or 0.0),
-                "taxable_value": float(disc_info.get("taxable_value")) if disc_info.get("taxable_value") is not None else None,
-            })
+                items.append({
+                    "description": name,
+                    "quantity": qty,
+                    "unit_price": round(total / qty, 2) if qty > 0 else 0,
+                    "total": total,
+                    "variant": variant,
+                    "specs": specs,
+                    "hsn_sac": getattr(source, "hsn_code", "") if source else "",
+                    "cgst_rate": float(getattr(source, "cgst_rate", None) or 0) if source else 0.0,
+                    "sgst_rate": float(getattr(source, "sgst_rate", None) or 0) if source else 0.0,
+                    "igst_rate": float(getattr(source, "igst_rate", None) or 0) if source else 0.0,
+                    "cess_rate": float(getattr(source, "cess_rate", None) or 0) if source else 0.0,
+                    "discount_amount": float(disc_info.get("discount_amount") or 0.0),
+                    "discount_type": disc_info.get("discount_type"),
+                    "discount_value": float(disc_info.get("discount_value") or 0.0),
+                    "taxable_value": float(disc_info.get("taxable_value")) if disc_info.get("taxable_value") is not None else None,
+                })
+
+    # Use order_number directly as the invoice_number by swapping the prefix
+    order_num_str = order.order_number or str(order_id)[:8].upper()
+    
+    if order.status in ("PAID", "PARTIALLY_PAID", "COMPLETED"):
+        if not order.invoice_number:
+            order.invoice_number = order_num_str.replace("ORD", "INV", 1)
+            await db.commit()
+            await db.refresh(order)
+        final_invoice_number = order.invoice_number
+    else:
+        final_invoice_number = f"PROFORMA-{order_num_str}"
+        
+    # Fetch global settings to populate company info on the invoice
+    settings = (await db.execute(select(SiteSettings))).scalar_one_or_none()
 
     # Logo path: configurable via env or placed in server/static/logo.png
     logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "static", "logo.png")
@@ -403,17 +429,21 @@ async def get_invoice(
         generate_simple_invoice,
         filepath,
         {
-            "invoice_number": f"INV-{order.order_number or str(order_id)[:8].upper()}",
+            "invoice_number": final_invoice_number,
             "invoice_date": order.created_at,
             "order_data": {
                 "order_id": order.order_number or str(order_id)[:8].upper(),
                 "status": order.status,
                 "order_date": order.created_at.strftime("%d %b %Y"),
-                "total_amount": float(order.total_amount or 0),
-                "tax_amount": float(order.tax_amount or 0),
-                "shipping_amount": float(order.shipping_amount or 0),
-                "order_discount": float(order.discount_amount or 0),
-                "amount_paid": float(order.amount_paid or 0),
+                "total_amount": float(order.total_amount) if order.total_amount is not None else 0.0,
+                "tax_amount": float(order.tax_amount) if order.tax_amount is not None else 0.0,
+                "shipping_amount": shipping_override if shipping_override is not None else (float(order.shipping_amount) if order.shipping_amount is not None else 0.0),
+                "shipping_gst_rate": shipping_gst_override if shipping_gst_override is not None else 0.0,
+                "order_discount": float(order.discount_amount) if order.discount_amount is not None else 0.0,
+                "amount_paid": float(order.amount_paid) if order.amount_paid is not None else 0.0,
+                "place_of_supply": (inv_meta.get("place_of_supply", "") if inv_meta else order.place_of_supply) or "",
+                "reverse_charge": (inv_meta.get("reverse_charge", False) if inv_meta else order.reverse_charge) or False,
+                "remarks": inv_meta.get("remarks", "BEING GOODS SALES") if inv_meta else "BEING GOODS SALES",
                 "milestones": [
                     {
                         "label": m.label,
@@ -421,22 +451,28 @@ async def get_invoice(
                         "amount": float(m.amount),
                         "status": m.status,
                     }
-                    for m in sorted(order.milestones, key=lambda x: x.order_index)
+                    for m in sorted(
+                        [ms for ms in order.milestones if ms.split_type == order.split_type],
+                        key=lambda x: x.order_index
+                    )
                 ] if getattr(order, 'milestones', None) else [],
             },
             "company_info": {
-                "name": settings.company_name,
-                "address": settings.company_address,
-                "phone": settings.company_phone,
-                "email": settings.company_email,
-                "gstin": settings.company_gstin or None,
-                "website": settings.company_website or None,
+                "name": settings.company_name if 'settings' in locals() and settings else "My Company",
+                "address": settings.company_address if 'settings' in locals() and settings else "",
+                "phone": settings.company_phone if 'settings' in locals() and settings and hasattr(settings, 'company_phone') else "",
+                "email": settings.company_email if 'settings' in locals() and settings and hasattr(settings, 'company_email') else "",
+                "gstin": settings.company_gstin if 'settings' in locals() and settings else None,
+                "pan": settings.company_pan if 'settings' in locals() and settings else None,
+                "bank_details": settings.bank_details if 'settings' in locals() and settings else None,
+                "website": settings.company_website if 'settings' in locals() and settings and hasattr(settings, 'company_website') else None,
             },
             "customer_info": {
                 "name": order.user.name or "Customer",
                 "email": order.user.email,
                 "phone": order.user.phone or "",
-                "address": "",
+                "address": order.user.address or "",
+                "place_of_supply": order.place_of_supply or ((order.user.address or "").split(",")[-1].strip() if order.user.address else "Undetermined"),
             },
             "items": items,
             "logo_path": logo_path,

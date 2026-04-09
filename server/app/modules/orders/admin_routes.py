@@ -36,6 +36,8 @@ from app.modules.orders.schemas import (
     OrderListResponse,
     AdminRefundRequest,
     AdminOfflineOrderCreateRequest,
+    InvoiceDataPayload,
+    InvoiceDataResponse,
 )
 from app.modules.orders.service.order import OrderService
 from app.modules.orders.service.payment import PaymentService
@@ -386,6 +388,279 @@ async def update_order_status(
     _notify_status_change(refreshed_order, old_status, payload.status, admin)
 
     return refreshed_order
+
+
+# ── Invoice data management ───────────────────────────────────────────────────
+
+@router.get("/{order_id}/invoice-data", response_model=InvoiceDataResponse)
+async def get_invoice_data(
+    order_id: UUID,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Returns the saved invoice_data for an order, or auto-generates defaults
+    from inquiry items if not yet configured.
+    """
+    from sqlalchemy.orm import selectinload
+    from app.modules.inquiry.models import InquiryGroup, InquiryItem
+
+    svc = OrderService(db)
+    order = await svc.get_order(order_id)
+    if not order:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+
+    order_total = float(order.total_amount) if order.total_amount is not None else 0.0
+
+    if order.invoice_data:
+        # Already configured — return as-is
+        items = order.invoice_data.get("items", [])
+        items_total = sum(
+            float(it.get("unit_price", 0)) * float(it.get("quantity", 1))
+            for it in items
+        )
+        return InvoiceDataResponse(
+            invoice_data=order.invoice_data,
+            is_configured=True,
+            order_total=order_total,
+            items_total=round(items_total, 2),
+        )
+
+    # Auto-generate defaults from inquiry items
+    inquiry = (await db.execute(
+        select(InquiryGroup)
+        .options(
+            selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_product),
+            selectinload(InquiryGroup.items).selectinload(InquiryItem.sub_service),
+        )
+        .where(InquiryGroup.id == order.inquiry_id)
+    )).scalar_one_or_none()
+
+    auto_items = []
+    if inquiry:
+        item_count = len(inquiry.items) or 1
+        for itm in inquiry.items:
+            sp = itm.sub_product
+            ss = itm.sub_service
+            source = sp or ss
+            name = (sp.name if sp else ss.name if ss else "Custom item")
+            qty = itm.quantity or 1
+            line_price = float(itm.line_item_price) if itm.line_item_price is not None else 0.0
+
+            auto_items.append({
+                "item_id": str(itm.id),
+                "description": name,
+                "quantity": qty,
+                "unit_price": round(line_price / qty, 2) if qty > 0 and line_price > 0 else 0.0,
+                "hsn_sac": getattr(source, "hsn_code", "") or "" if source else "",
+                "cgst_rate": float(getattr(source, "cgst_rate", 0) or 0) if source else 0.0,
+                "sgst_rate": float(getattr(source, "sgst_rate", 0) or 0) if source else 0.0,
+                "igst_rate": float(getattr(source, "igst_rate", 0) or 0) if source else 0.0,
+                "cess_rate": float(getattr(source, "cess_rate", 0) or 0) if source else 0.0,
+                "discount_amount": 0.0,
+                "discount_type": None,
+                "discount_value": 0.0,
+                "unit": getattr(source, "unit", None) if source else None,
+            })
+
+    items_total = sum(it["unit_price"] * it["quantity"] for it in auto_items)
+
+    has_zeros = any(it["unit_price"] == 0 for it in auto_items)
+    warning = None
+    if has_zeros:
+        warning = (
+            "Per-item prices are missing. Please fill in unit prices for each item. "
+            "The total of all items should match the order total of "
+            f"₹{order_total:,.2f} (before tax/shipping adjustments)."
+        )
+    elif abs(items_total - order_total) > 1:
+        warning = (
+            f"Item total (₹{items_total:,.2f}) doesn't match order total (₹{order_total:,.2f}). "
+            "Please adjust unit prices."
+        )
+
+    auto_data = {
+        "items": auto_items,
+        "shipping_amount": float(order.shipping_amount) if order.shipping_amount is not None else 0.0,
+        "shipping_gst_rate": 0.0,
+        "place_of_supply": order.place_of_supply or "",
+        "reverse_charge": order.reverse_charge or False,
+        "remarks": "BEING GOODS SALES",
+    }
+
+    return InvoiceDataResponse(
+        invoice_data=auto_data,
+        is_configured=False,
+        order_total=order_total,
+        items_total=round(items_total, 2),
+        warning=warning,
+    )
+
+
+@router.put("/{order_id}/invoice-data", response_model=InvoiceDataResponse)
+async def save_invoice_data(
+    order_id: UUID,
+    payload: InvoiceDataPayload,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Save admin-curated invoice presentation data.
+    Validates that line items total roughly matches order total.
+    """
+    svc = OrderService(db)
+    order = await svc.get_order(order_id)
+    if not order:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+
+    order_total = float(order.total_amount) if order.total_amount is not None else 0.0
+    items_total = sum(it.unit_price * it.quantity - it.discount_amount for it in payload.items)
+    
+    # Calculate taxes from items
+    tax_total = 0.0
+    for it in payload.items:
+        taxable = it.unit_price * it.quantity - it.discount_amount
+        tax_total += taxable * (it.cgst_rate + it.sgst_rate + it.igst_rate + it.cess_rate) / 100
+
+    # Grand total = items + tax + shipping (+ shipping tax) - we allow some tolerance
+    shipping_tax = payload.shipping_amount * payload.shipping_gst_rate / 100 if payload.shipping_gst_rate > 0 else 0
+    computed_grand = round(items_total + tax_total + payload.shipping_amount + shipping_tax, 2)
+    
+    # Tolerance: allow ±₹2 rounding difference
+    if abs(computed_grand - order_total) > 2:
+        logger.warning(
+            f"Invoice data grand total (₹{computed_grand:,.2f}) differs from "
+            f"order total (₹{order_total:,.2f}) for order {order_id}. Saving anyway."
+        )
+
+    # Serialize and save
+    invoice_dict = payload.model_dump()
+    order.invoice_data = invoice_dict
+    
+    # Also update compliance fields on the order
+    order.place_of_supply = payload.place_of_supply
+    order.reverse_charge = payload.reverse_charge
+    order.shipping_amount = payload.shipping_amount
+    
+    await db.commit()
+
+    return InvoiceDataResponse(
+        invoice_data=invoice_dict,
+        is_configured=True,
+        order_total=order_total,
+        items_total=round(items_total, 2),
+    )
+
+
+@router.get("/{order_id}/invoice-preview")
+async def preview_invoice(
+    order_id: UUID,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate a preview PDF using the saved invoice_data.
+    Falls back to default behavior if invoice_data is not set.
+    """
+    import os
+    import tempfile
+    from fastapi.responses import FileResponse
+    from fastapi.concurrency import run_in_threadpool
+    from sqlalchemy.orm import selectinload
+    from app.modules.orders.service.invoice_generator import generate_simple_invoice
+    from app.modules.settings.models import SiteSettings
+
+    svc = OrderService(db)
+    order = await svc.get_order(order_id)
+    if not order:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+
+    # Build items from invoice_data or warn
+    if order.invoice_data:
+        items = order.invoice_data.get("items", [])
+        inv_meta = order.invoice_data
+    else:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Invoice data not configured. Please save invoice data first."
+        )
+
+    order_num_str = order.order_number or str(order_id)[:8].upper()
+    if order.status in ("PAID", "PARTIALLY_PAID", "COMPLETED"):
+        invoice_number = order.invoice_number or order_num_str.replace("ORD", "INV", 1)
+    else:
+        invoice_number = f"PROFORMA-{order_num_str}"
+
+    settings = (await db.execute(select(SiteSettings))).scalar_one_or_none()
+    logo_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+        "static", "logo.png"
+    )
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        filepath = tmp.name
+
+    await run_in_threadpool(
+        generate_simple_invoice,
+        filepath,
+        {
+            "invoice_number": invoice_number,
+            "invoice_date": order.created_at,
+            "order_data": {
+                "order_id": order_num_str,
+                "status": order.status,
+                "order_date": order.created_at.strftime("%d %b %Y"),
+                "total_amount": float(order.total_amount) if order.total_amount is not None else 0.0,
+                "tax_amount": float(order.tax_amount) if order.tax_amount is not None else 0.0,
+                "shipping_amount": float(inv_meta.get("shipping_amount", 0)),
+                "shipping_gst_rate": float(inv_meta.get("shipping_gst_rate", 0)),
+                "order_discount": float(order.discount_amount) if order.discount_amount is not None else 0.0,
+                "amount_paid": float(order.amount_paid) if order.amount_paid is not None else 0.0,
+                "place_of_supply": inv_meta.get("place_of_supply", ""),
+                "reverse_charge": inv_meta.get("reverse_charge", False),
+                "remarks": inv_meta.get("remarks", "BEING GOODS SALES"),
+                "milestones": [
+                    {
+                        "label": m.label,
+                        "percentage": float(m.percentage),
+                        "amount": float(m.amount),
+                        "status": m.status,
+                    }
+                    for m in sorted(
+                        [ms for ms in order.milestones if ms.split_type == order.split_type],
+                        key=lambda x: x.order_index
+                    )
+                ] if getattr(order, 'milestones', None) else [],
+            },
+            "company_info": {
+                "name": settings.company_name if settings else "My Company",
+                "address": settings.company_address if settings else "",
+                "phone": getattr(settings, 'company_phone', '') if settings else "",
+                "email": getattr(settings, 'company_email', '') if settings else "",
+                "gstin": settings.company_gstin if settings else None,
+                "pan": settings.company_pan if settings else None,
+                "bank_details": settings.bank_details if settings else None,
+                "website": getattr(settings, 'company_website', None) if settings else None,
+            },
+            "customer_info": {
+                "name": order.user.name or "Customer",
+                "email": order.user.email,
+                "phone": order.user.phone or "",
+                "address": order.user.address or "",
+                "place_of_supply": inv_meta.get("place_of_supply") or (
+                    (order.user.address or "").split(",")[-1].strip() if order.user.address else "Undetermined"
+                ),
+            },
+            "items": items,
+            "logo_path": logo_path,
+        }
+    )
+
+    return FileResponse(
+        filepath,
+        media_type="application/pdf",
+        filename=f"Preview_{invoice_number}.pdf",
+    )
 
 
 # ── Notification helpers ──────────────────────────────────────────────────────

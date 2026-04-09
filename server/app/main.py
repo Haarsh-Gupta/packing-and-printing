@@ -54,6 +54,7 @@ from app.modules.wishlist.admin_routes import router as admin_wishlist_router
 from app.modules.events.routes import router as events_router
 from app.modules.seo.routes import router as seo_router
 from app.modules.seo.admin_routes import router as admin_seo_router
+from app.modules.settings.routes import router as settings_router
 
 logger = logging.getLogger("app.main")
 
@@ -172,7 +173,7 @@ app.include_router(admin_notification_router, prefix="/admin/notifications", tag
 app.include_router(events_router, prefix="/events", tags=["SSE Events"])
 app.include_router(seo_router, prefix="/seo", tags=["SEO"])
 app.include_router(admin_seo_router, prefix="/admin/seo", tags=["Admin SEO"])
-
+app.include_router(settings_router, prefix="/admin", tags=["Admin Settings"])
 
 
 @app.get("/")
@@ -187,6 +188,16 @@ async def ping():
 async def health():
     return {"message" : "I am alive"}
 
+from fastapi import Request
+
+@app.get("/debug/headers", tags=["Debug"])
+async def view_headers(request: Request):
+    return {
+        "client_ip": request.client.host,
+        "headers": dict(request.headers)
+    }
+    
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, port=8000, host='0.0.0.0', proxy_headers=True, forwarded_allow_ips="*")
+
