@@ -14,7 +14,7 @@ export default function PrivacyPage() {
                 { title: "5. Data Storage & Retention", body: "Your data is stored on secure cloud servers. We retain your information for as long as your account is active or as needed to provide services. You may request account deletion at any time by contacting our support team." },
                 { title: "6. Cookies", body: "We use essential cookies for authentication and session management. No third-party tracking cookies are used without your explicit consent." },
                 { title: "7. Your Rights", body: "You have the right to: access your personal data, correct inaccurate information, request deletion of your data, opt-out of marketing communications, and lodge a complaint with a data protection authority." },
-                { title: "8. Contact", body: "For privacy-related inquiries, contact us at hello@bookbind.com or open a support ticket through your dashboard." },
+                { title: "8. Contact", body: "For privacy-related inquiries, contact us at info@navart.in or open a support ticket through your dashboard." },
             ].map((section) => (
                 <div key={section.title} className="space-y-2">
                     <h2 className="text-xl font-black uppercase tracking-tight">{section.title}</h2>

@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     brevo_smtp_user: str = ""
     brevo_smtp_password: str = ""
     brevo_sender_email: str = "noreply@example.com"
-    brevo_sender_name: str = "BookBind"
+    brevo_sender_name: str = "NavArt"
 
     @computed_field
     @property

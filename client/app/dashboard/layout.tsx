@@ -114,7 +114,7 @@ export default function DashboardLayout({
                         >
                             <Menu className="h-6 w-6" />
                         </button>
-                        <span className="font-bold text-lg uppercase tracking-tight md:hidden">BookBind.</span>
+                        <span className="font-bold text-lg uppercase tracking-tight md:hidden">NavArt.</span>
                     </div>
                     <div className="flex items-center gap-4">
                         <span className="text-sm font-bold hidden md:inline-block">Welcome back, {user?.name || "User"}</span>
