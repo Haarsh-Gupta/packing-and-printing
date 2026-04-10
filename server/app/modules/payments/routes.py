@@ -22,6 +22,7 @@ from app.modules.users.models import User
 from app.modules.orders.models import Order, Transaction
 
 from app.modules.payments.schemas import CreatePaymentOrder, PaymentOrderResponse, VerifyPayment
+from app.modules.orders.service.payment import PaymentService
 
 logger = logging.getLogger("app.modules.payments")
 
@@ -221,11 +222,8 @@ async def verify_payment(
     milestone.paid_at = datetime.now(timezone.utc)
 
     # 6. Update order totals
-    order.amount_paid += paid_amount
-    if order.amount_paid >= order.total_amount:
-        order.status = "PAID"
-    else:
-        order.status = "PARTIALLY_PAID"
+    svc = PaymentService(db)
+    await svc._recalculate_amount_paid(order)
 
     await db.commit()
 
@@ -358,11 +356,8 @@ async def razorpay_webhook_event(
         db.add(txn)
         milestone.status = "PAID"
         milestone.paid_at = datetime.now(timezone.utc)
-        order.amount_paid += paid_amount
-        if order.amount_paid >= order.total_amount:
-            order.status = "PAID"
-        else:
-            order.status = "PARTIALLY_PAID"
+        svc = PaymentService(db)
+        await svc._recalculate_amount_paid(order)
             
         await db.commit()
         

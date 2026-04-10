@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Loader2, Camera, User, MapPin, Lock, Mail, Phone, Shield, CheckCircle2, Sparkles, ArrowRight, Globe, Layout } from "lucide-react";
+import { Loader2, Camera, User, MapPin, Lock, Mail, Phone, Shield, CheckCircle2, Sparkles, ArrowRight, Globe, Layout, Building2 } from "lucide-react";
 import { useAlert } from "@/components/CustomAlert";
 import { useAuth } from "@/context/AuthContext";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
@@ -554,6 +554,22 @@ export default function SettingsPage() {
                     <div>
                       <p className="font-black text-sm uppercase">SEO Engine</p>
                       <p className="text-[10px] font-bold text-zinc-400">Meta tags & Social Graph</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+
+                <Link 
+                  href="/dashboard/settings/company"
+                  className="flex items-center justify-between p-4 bg-white border-2 border-black rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-[#ffdfbf] border-2 border-black rounded-lg">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-black text-sm uppercase">Company & Finance</p>
+                      <p className="text-[10px] font-bold text-zinc-400">Invoice prefix & Taxes</p>
                     </div>
                   </div>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />

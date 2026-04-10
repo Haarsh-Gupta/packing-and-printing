@@ -105,8 +105,8 @@ class RedisOTPStore(BaseOTPStore):
         key = f"daily_otp:{identifier}"
         count = await self._client.incr(key)
         if count == 1:
-            # Expire in 24 hours
-            await self._client.expire(key, 86400)
+            # Expire in 10 hours
+            await self._client.expire(key, 36000)
         return count
 
 

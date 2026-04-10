@@ -42,6 +42,10 @@ class OTPService:
 
     async def send_otp(self, email: str, user_name: str | None = None) -> bool:
         """Generate, store, and email a verification OTP."""
+        count = await self.store.increment_daily_otp_count(email)
+        if count > 3:
+            raise ValueError("MAX_GENERATION_LIMIT_EXCEEDED")
+            
         otp = self._generate_otp()
         expire_minutes = settings.otp_expire_seconds // 60
 
@@ -68,6 +72,11 @@ class OTPService:
 
     async def send_password_reset_otp(self, email: str, user_name: str | None = None) -> bool:
         """Generate, store, and email a password-reset OTP."""
+        # Share the generation limit across regular and password-reset OTPs
+        count = await self.store.increment_daily_otp_count(email)
+        if count > 3:
+            raise ValueError("MAX_GENERATION_LIMIT_EXCEEDED")
+            
         otp = self._generate_otp()
         expire_minutes = settings.otp_expire_seconds // 60
 
@@ -94,6 +103,11 @@ class OTPService:
         stored = await self.store.get_otp(email)
         if stored is not None:
             stored = stored.decode() if isinstance(stored, bytes) else str(stored)
+            
+        attempts = await self.store.increment_otp_attempts(email)
+        if attempts > 5:
+            await self.store.delete_otp(email)
+            raise ValueError("MAX_ATTEMPT_LIMIT_EXCEEDED")
             
         match = stored and stored == otp
         logger.info(
@@ -122,6 +136,12 @@ class OTPService:
         stored = await self.store.get_otp(key)
         if stored is not None:
             stored = stored.decode() if isinstance(stored, bytes) else str(stored)
+            
+        attempts = await self.store.increment_otp_attempts(key)
+        if attempts > 5:
+            await self.store.delete_otp(key)
+            raise ValueError("MAX_ATTEMPT_LIMIT_EXCEEDED")
+            
         if stored and stored == otp:
             await self.store.delete_otp(key)
             return True

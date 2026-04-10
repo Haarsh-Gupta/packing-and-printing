@@ -20,6 +20,10 @@ from app.core.database import Base
 
 # 2. Import ALL models so their tables register on Base.metadata
 import app.modules  # noqa: F401  (side-effect import)
+from app.modules.products.models import Product, SubProduct
+from app.modules.services.models import Service, SubService
+from app.modules.orders.models import Order
+from app.modules.settings.models import SiteSettings
 
 # ── Alembic Config ───────────────────────────────────────────────────────────
 config = context.config

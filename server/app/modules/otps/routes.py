@@ -17,7 +17,15 @@ async def send_otp(payload: OtpSend):
     """
     Generate a 6-digit OTP, store it in Redis, and send it to the given email.
     """
-    success = await otp_service.send_otp(email=payload.email)
+    try:
+        success = await otp_service.send_otp(email=payload.email)
+    except ValueError as e:
+        if str(e) == "MAX_GENERATION_LIMIT_EXCEEDED":
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many OTP requests. Please try again after 10 hours."
+            )
+        raise e
 
     if not success:
         raise HTTPException(
@@ -33,7 +41,15 @@ async def verify_otp(payload: OtpVerify):
     """
     Verify the OTP for the given email. Does NOT delete the OTP on success (check-only).
     """
-    valid = await otp_service.verify_otp(email=payload.email, otp=payload.otp, consume=False)
+    try:
+        valid = await otp_service.verify_otp(email=payload.email, otp=payload.otp, consume=False)
+    except ValueError as e:
+        if str(e) == "MAX_ATTEMPT_LIMIT_EXCEEDED":
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many incorrect attempts. Your OTP has been revoked. Please request a new one."
+            )
+        raise e
 
     if not valid:
         raise HTTPException(

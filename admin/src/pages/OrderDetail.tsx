@@ -4,7 +4,7 @@ import { api, apiBlob } from "@/lib/api";
 import type { Order, OrderStatus } from "@/types";
 import {
     ChevronRight, Printer, Edit, User, Wallet, ExternalLink, RotateCw, XCircle, CreditCard, Mail, Phone, Loader2, ArrowLeft,
-    Package, FileText, Layers, Info, Calendar
+    Package, FileText, Layers, Info, Calendar, AlertTriangle, Eye, Save, Plus, Trash2
 } from "lucide-react";
 import { StatusPill } from "./Orders"; // Reuse StatusPill from Orders.tsx if exported, or redefine
 
@@ -49,6 +49,16 @@ export default function OrderDetail() {
         {label: '', percentage: 0},
         {label: '', percentage: 0}
     ]);
+
+    // Invoice data editor state
+    const [showInvoiceEditor, setShowInvoiceEditor] = useState(false);
+    const [invoiceData, setInvoiceData] = useState<any>(null);
+    const [invoiceLoading, setInvoiceLoading] = useState(false);
+    const [invoiceSaving, setInvoiceSaving] = useState(false);
+    const [invoiceWarning, setInvoiceWarning] = useState<string | null>(null);
+    const [invoiceConfigured, setInvoiceConfigured] = useState(false);
+    const [orderTotal, setOrderTotal] = useState(0);
+    const [previewLoading, setPreviewLoading] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -120,6 +130,99 @@ export default function OrderDetail() {
             alert(e.message || "Failed to update payment schedule");
         } finally {
             setRescheduling(false);
+        }
+    };
+
+    // Invoice data helpers
+    const fetchInvoiceData = async () => {
+        setInvoiceLoading(true);
+        try {
+            const res = await api<any>(`/admin/orders/${id}/invoice-data`);
+            setInvoiceData(res.invoice_data);
+            setInvoiceConfigured(res.is_configured);
+            setInvoiceWarning(res.warning || null);
+            setOrderTotal(res.order_total || 0);
+        } catch (e) {
+            console.error('Failed to load invoice data', e);
+        } finally {
+            setInvoiceLoading(false);
+        }
+    };
+
+    const calcItemsTotal = () => {
+        if (!invoiceData?.items) return 0;
+        return invoiceData.items.reduce((acc: number, it: any) => acc + (it.unit_price || 0) * (it.quantity || 1), 0);
+    };
+
+    const calcTaxTotal = () => {
+        if (!invoiceData?.items) return 0;
+        return invoiceData.items.reduce((acc: number, it: any) => {
+            const taxable = (it.unit_price || 0) * (it.quantity || 1) - (it.discount_amount || 0);
+            return acc + taxable * ((it.cgst_rate || 0) + (it.sgst_rate || 0) + (it.igst_rate || 0) + (it.cess_rate || 0)) / 100;
+        }, 0);
+    };
+
+    const calcGrandTotal = () => {
+        const items = calcItemsTotal();
+        const tax = calcTaxTotal();
+        const shipping = invoiceData?.shipping_amount || 0;
+        const shippingTax = shipping * (invoiceData?.shipping_gst_rate || 0) / 100;
+        return items + tax + shipping + shippingTax;
+    };
+
+    const updateInvoiceItem = (idx: number, field: string, value: any) => {
+        const newItems = [...(invoiceData?.items || [])];
+        newItems[idx] = { ...newItems[idx], [field]: value };
+        setInvoiceData({ ...invoiceData, items: newItems });
+    };
+
+    const addInvoiceItem = () => {
+        const newItems = [...(invoiceData?.items || []), {
+            item_id: null, description: 'New Item', quantity: 1, unit_price: 0,
+            hsn_sac: '', cgst_rate: 0, sgst_rate: 0, igst_rate: 0, cess_rate: 0,
+            discount_amount: 0, discount_type: null, discount_value: 0, unit: 'Nos'
+        }];
+        setInvoiceData({ ...invoiceData, items: newItems });
+    };
+
+    const removeInvoiceItem = (idx: number) => {
+        const newItems = (invoiceData?.items || []).filter((_: any, i: number) => i !== idx);
+        setInvoiceData({ ...invoiceData, items: newItems });
+    };
+
+    const handleSaveInvoiceData = async () => {
+        setInvoiceSaving(true);
+        try {
+            const res = await api<any>(`/admin/orders/${id}/invoice-data`, {
+                method: 'PUT',
+                body: JSON.stringify(invoiceData)
+            });
+            setInvoiceConfigured(res.is_configured);
+            setInvoiceWarning(res.warning || null);
+            alert('Invoice data saved successfully!');
+        } catch (e: any) {
+            alert(e.message || 'Failed to save invoice data');
+        } finally {
+            setInvoiceSaving(false);
+        }
+    };
+
+    const handlePreviewInvoice = async () => {
+        setPreviewLoading(true);
+        try {
+            // Save first
+            await api(`/admin/orders/${id}/invoice-data`, {
+                method: 'PUT',
+                body: JSON.stringify(invoiceData)
+            });
+            // Then preview
+            const blob = await apiBlob(`/admin/orders/${id}/invoice-preview`);
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        } catch (e: any) {
+            alert(e.message || 'Failed to preview invoice');
+        } finally {
+            setPreviewLoading(false);
         }
     };
 
@@ -545,6 +648,211 @@ export default function OrderDetail() {
                     </div>
                 </div>
             )}
+
+            {/* Invoice Data Editor */}
+            <div className="bg-white dark:bg-[#131b2e] rounded-2xl border border-slate-200 dark:border-[#434655]/20 shadow-sm overflow-hidden mb-8 mt-8">
+                <div className="px-8 py-6 border-b border-slate-200 dark:border-[#434655]/20 bg-slate-50 dark:bg-[#0b1326]/30 flex justify-between items-center">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-[#dae2fd] flex items-center gap-2">
+                            <FileText size={20} className="text-[#1f70e3]" />
+                            Invoice Configuration
+                        </h3>
+                        <p className="text-[11px] font-bold text-slate-500 dark:text-[#8d90a1] uppercase tracking-wider mt-1">
+                            {invoiceConfigured ? '✓ Configured' : '⚠ Not configured — fill in line items'}
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => {
+                            setShowInvoiceEditor(!showInvoiceEditor);
+                            if (!showInvoiceEditor && !invoiceData) fetchInvoiceData();
+                        }}
+                        className="text-[10px] font-bold uppercase tracking-widest text-[#1f70e3] hover:text-blue-700 dark:hover:text-[#adc6ff] transition-colors border border-[#1f70e3]/20 px-4 py-2 rounded-xl bg-[#1f70e3]/5 hover:bg-[#1f70e3]/10"
+                    >
+                        {showInvoiceEditor ? 'Collapse' : 'Configure'}
+                    </button>
+                </div>
+
+                {showInvoiceEditor && (
+                    <div className="p-6">
+                        {invoiceLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 size={24} className="animate-spin text-[#1f70e3]" />
+                            </div>
+                        ) : invoiceData ? (
+                            <div className="space-y-6">
+                                {/* Warning Banner */}
+                                {invoiceWarning && (
+                                    <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
+                                        <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0" />
+                                        <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">{invoiceWarning}</p>
+                                    </div>
+                                )}
+
+                                {/* Line Items Table */}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-100 dark:bg-[#0b1326]/40 border-b border-slate-200 dark:border-[#434655]/20">
+                                                <th className="px-3 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] w-[200px]">Description</th>
+                                                <th className="px-3 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] w-16">Qty</th>
+                                                <th className="px-3 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] w-24">Unit Price</th>
+                                                <th className="px-3 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] w-20">HSN/SAC</th>
+                                                <th className="px-3 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] w-16">CGST%</th>
+                                                <th className="px-3 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] w-16">SGST%</th>
+                                                <th className="px-3 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] w-16">IGST%</th>
+                                                <th className="px-3 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] w-16">CESS%</th>
+                                                <th className="px-3 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] w-24 text-right">Total</th>
+                                                <th className="px-3 py-3 w-10"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-[#434655]/10">
+                                            {invoiceData.items?.map((item: any, idx: number) => {
+                                                const lineTotal = (item.unit_price || 0) * (item.quantity || 1);
+                                                return (
+                                                    <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-[#171f33]/30 transition-colors">
+                                                        <td className="px-3 py-2">
+                                                            <input type="text" value={item.description || ''}
+                                                                onChange={e => updateInvoiceItem(idx, 'description', e.target.value)}
+                                                                className="w-full bg-transparent border border-slate-200 dark:border-[#434655]/30 rounded-lg px-2 py-1.5 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <input type="number" value={item.quantity || ''}
+                                                                onChange={e => updateInvoiceItem(idx, 'quantity', Number(e.target.value))}
+                                                                className="w-full bg-transparent border border-slate-200 dark:border-[#434655]/30 rounded-lg px-2 py-1.5 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <input type="number" step="0.01" value={item.unit_price ?? ''}
+                                                                onChange={e => updateInvoiceItem(idx, 'unit_price', Number(e.target.value))}
+                                                                className="w-full bg-transparent border border-slate-200 dark:border-[#434655]/30 rounded-lg px-2 py-1.5 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none text-right"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <input type="text" value={item.hsn_sac || ''}
+                                                                onChange={e => updateInvoiceItem(idx, 'hsn_sac', e.target.value)}
+                                                                className="w-full bg-transparent border border-slate-200 dark:border-[#434655]/30 rounded-lg px-2 py-1.5 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <input type="number" step="0.01" value={item.cgst_rate ?? ''}
+                                                                onChange={e => updateInvoiceItem(idx, 'cgst_rate', Number(e.target.value))}
+                                                                className="w-full bg-transparent border border-slate-200 dark:border-[#434655]/30 rounded-lg px-2 py-1.5 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <input type="number" step="0.01" value={item.sgst_rate ?? ''}
+                                                                onChange={e => updateInvoiceItem(idx, 'sgst_rate', Number(e.target.value))}
+                                                                className="w-full bg-transparent border border-slate-200 dark:border-[#434655]/30 rounded-lg px-2 py-1.5 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <input type="number" step="0.01" value={item.igst_rate ?? ''}
+                                                                onChange={e => updateInvoiceItem(idx, 'igst_rate', Number(e.target.value))}
+                                                                className="w-full bg-transparent border border-slate-200 dark:border-[#434655]/30 rounded-lg px-2 py-1.5 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <input type="number" step="0.01" value={item.cess_rate ?? ''}
+                                                                onChange={e => updateInvoiceItem(idx, 'cess_rate', Number(e.target.value))}
+                                                                className="w-full bg-transparent border border-slate-200 dark:border-[#434655]/30 rounded-lg px-2 py-1.5 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2 text-right">
+                                                            <span className="text-xs font-bold text-slate-900 dark:text-[#dae2fd]">₹{lineTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                                                        </td>
+                                                        <td className="px-2 py-2">
+                                                            <button onClick={() => removeInvoiceItem(idx)} disabled={invoiceData.items.length <= 1}
+                                                                className="text-rose-400 hover:text-rose-600 disabled:opacity-20 transition-colors">
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                    <button onClick={addInvoiceItem}
+                                        className="w-full mt-2 py-2.5 border border-dashed border-slate-300 dark:border-[#434655]/40 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] hover:text-[#1f70e3] hover:border-[#1f70e3]/40 hover:bg-[#1f70e3]/5 transition-colors flex items-center justify-center gap-2">
+                                        <Plus size={12} /> Add Line Item
+                                    </button>
+                                </div>
+
+                                {/* Order-level fields */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 dark:bg-[#0b1326]/30 rounded-xl p-4">
+                                    <div>
+                                        <label className="text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] mb-1 block">Shipping ₹</label>
+                                        <input type="number" step="0.01" value={invoiceData.shipping_amount ?? ''}
+                                            onChange={e => setInvoiceData({...invoiceData, shipping_amount: Number(e.target.value)})}
+                                            className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/30 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] mb-1 block">Shipping GST%</label>
+                                        <input type="number" step="0.01" value={invoiceData.shipping_gst_rate ?? ''}
+                                            onChange={e => setInvoiceData({...invoiceData, shipping_gst_rate: Number(e.target.value)})}
+                                            className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/30 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1] mb-1 block">Place of Supply</label>
+                                        <input type="text" value={invoiceData.place_of_supply ?? ''}
+                                            onChange={e => setInvoiceData({...invoiceData, place_of_supply: e.target.value})}
+                                            className="w-full bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-[#434655]/30 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-[#dae2fd] focus:border-[#1f70e3] outline-none"
+                                            placeholder="e.g. Delhi"
+                                        />
+                                    </div>
+                                    <div className="flex items-end">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" checked={invoiceData.reverse_charge || false}
+                                                onChange={e => setInvoiceData({...invoiceData, reverse_charge: e.target.checked})}
+                                                className="w-4 h-4 rounded border-slate-300 text-[#1f70e3] focus:ring-[#1f70e3]"
+                                            />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-[#c3c5d8]">Reverse Charge</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* Running Total */}
+                                <div className="bg-slate-100 dark:bg-[#0b1326]/50 rounded-xl p-4 flex items-center justify-between">
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1]">Items Subtotal: <span className="text-slate-900 dark:text-[#dae2fd]">₹{calcItemsTotal().toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
+                                        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1]">Tax Total: <span className="text-slate-900 dark:text-[#dae2fd]">₹{calcTaxTotal().toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
+                                        <div className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-[#dae2fd]">Computed Grand Total: ₹{calcGrandTotal().toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#8d90a1]">Order Total (Source)</div>
+                                        <div className={`text-xl font-black ${Math.abs(calcGrandTotal() - orderTotal) > 2 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                            ₹{orderTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        </div>
+                                        {Math.abs(calcGrandTotal() - orderTotal) > 2 && (
+                                            <p className="text-[9px] text-amber-500 font-bold mt-1">⚠ Mismatch: ₹{Math.abs(calcGrandTotal() - orderTotal).toFixed(2)}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex justify-end gap-3">
+                                    <button onClick={handleSaveInvoiceData} disabled={invoiceSaving}
+                                        className="px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-slate-200 dark:border-[#434655]/30 text-slate-600 dark:text-[#c3c5d8] hover:bg-slate-50 dark:hover:bg-[#171f33] transition-colors flex items-center gap-2 disabled:opacity-50">
+                                        {invoiceSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                        Save Invoice Data
+                                    </button>
+                                    <button onClick={handlePreviewInvoice} disabled={previewLoading}
+                                        className="bg-linear-to-br from-[#1f70e3] to-[#004395] text-white px-6 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-[#1f70e3]/20 hover:opacity-90 transition-all flex items-center gap-2 disabled:opacity-50">
+                                        {previewLoading ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
+                                        Save & Preview
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-slate-500 dark:text-[#8d90a1] text-sm">
+                                No invoice data available. Click configure to load.
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
             {/* Reschedule Modal */}
             {showReschedule && (

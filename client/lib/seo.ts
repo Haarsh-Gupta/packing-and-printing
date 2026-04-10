@@ -15,7 +15,9 @@ export async function fetchPageSEO(path: string): Promise<Metadata> {
     
     const res = await fetch(`${apiUrl}/seo/config?path=${path}`, {
       // ISR: Cache the result for 1 hour (3600 seconds)
-      next: { revalidate: 3600 } 
+      next: { revalidate: 3600 },
+      // Prevent 90s+ hangs when backend is restarting
+      signal: AbortSignal.timeout(3000),
     });
 
     if (!res.ok) {

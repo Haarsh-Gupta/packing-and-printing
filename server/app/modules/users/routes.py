@@ -192,8 +192,8 @@ async def get_dashboard_stats(
             "id": str(o.id),
             "order_number": o.order_number,
             "product_name": product_name,
-            "total_amount": o.total_amount or 0,
-            "amount_paid": o.amount_paid or 0,
+            "total_amount": float(o.total_amount) if o.total_amount is not None else 0,
+            "amount_paid": float(o.amount_paid) if o.amount_paid is not None else 0,
             "status": o.status,
             "created_at": o.created_at.isoformat() if o.created_at else None,
         })

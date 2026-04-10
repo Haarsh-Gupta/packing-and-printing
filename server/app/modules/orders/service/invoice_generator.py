@@ -57,34 +57,88 @@ MUTED    = colors.HexColor("#6b7280")
 WHITE    = colors.white
 
 # Row padding constants
-HP, RP, SP = 5, 5, 2   # header / regular / summary
+HP, RP, SP = 4, 3, 2   # header / regular / summary (tight for single-page)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
-def _grand_total(items: List[Dict], order_data: Dict) -> float:
-    """Compute invoice grand total from line items + shipping - order discount."""
-    def line_taxable(i):
-        # Use explicit taxable_value if provided, otherwise fallback to (rate*qty - discount)
-        val = i.get("taxable_value")
-        if val is not None:
-            return float(val)
-        net = float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
-        disc = float(i.get("discount_amount", 0))
-        return max(0.0, net - disc)
+def line_taxable(i):
+    val = i.get("taxable_value")
+    if val is not None:
+        return float(val)
+    net = float(i.get("unit_price", 0)) * float(i.get("quantity", 1))
+    disc = float(i.get("discount_amount", 0))
+    return max(0.0, net - disc)
 
-    subtotal = sum(line_taxable(i) for i in items)
-    tax = sum(
-        line_taxable(i) * (
-            float(i.get("cgst_rate", 0)) +
-            float(i.get("sgst_rate", 0)) +
-            float(i.get("igst_rate", 0))
-        ) / 100
-        for i in items
-    )
-    shipping   = float(order_data.get("shipping_amount", 0) or 0)
-    # Order discounts ignored if line items have explicit discounts to avoid double dipping
-    order_disc = float(order_data.get("order_discount",  0) or 0) if not any("discount_amount" in i for i in items) else 0.0
-    return round(subtotal + tax + shipping - order_disc, 2)
+def _compute_invoice_totals(items: List[Dict], order_data: Dict) -> Dict[str, float]:
+    """Single source of truth for invoice math."""
+    res = {
+        "subtotal": 0.0,
+        "cgst": 0.0,
+        "sgst": 0.0,
+        "igst": 0.0,
+        "cess": 0.0,
+        "shipping_tax": 0.0,
+        "total_tax": 0.0,
+        "grand_total": 0.0,
+    }
+    
+    for i in items:
+        taxable = line_taxable(i)
+        res["subtotal"] += taxable
+        
+        cr = float(i.get("cgst_rate", 0))
+        sr = float(i.get("sgst_rate", 0))
+        ir = float(i.get("igst_rate", 0))
+        cess_r = float(i.get("cess_rate", 0))
+        
+        if cr > 0 or sr > 0:
+            ir = 0.0  # Mutually exclusive
+
+        c_amt = round(taxable * cr / 100, 2)
+        s_amt = round(taxable * sr / 100, 2)
+        i_amt = round(taxable * ir / 100, 2)
+        cess_amt = round(taxable * cess_r / 100, 2)
+        
+        res["cgst"] += c_amt
+        res["sgst"] += s_amt
+        res["igst"] += i_amt
+        res["cess"] += cess_amt
+
+        # B2B Freight is taxable at configured rate unless pos dictates otherwise
+    shipping = float(order_data.get("shipping_amount", 0) or 0)
+    if shipping > 0:
+        s_rate = float(order_data.get("shipping_gst_rate", 0))
+        if s_rate > 0:
+            if res["igst"] > 0 or (res["cgst"] == 0 and res["sgst"] == 0):
+                s_tax = round(shipping * s_rate / 100, 2)
+                res["igst"] += s_tax
+                res["shipping_tax"] = s_tax
+            else:
+                s_tax = round(shipping * (s_rate / 2) / 100, 2)
+                res["cgst"] += s_tax
+                res["sgst"] += s_tax
+                res["shipping_tax"] = s_tax * 2
+
+    # Math disconnect (offline orders overriding item taxes)
+    db_tax = float(order_data.get("tax_amount") or 0)
+    calculated_tax = res["cgst"] + res["sgst"] + res["igst"] + res["cess"]
+    
+    if db_tax > 0 and abs(calculated_tax - db_tax) > 0.01:
+        res["total_tax"] = db_tax
+    else:
+        res["total_tax"] = calculated_tax
+
+    db_total = order_data.get("total_amount")
+    if db_total is not None:
+         res["grand_total"] = float(db_total)
+    else:
+        order_disc = float(order_data.get("order_discount", 0) or 0) if not any("discount_amount" in it for it in items) else 0.0
+        res["grand_total"] = round(res["subtotal"] + res["total_tax"] + shipping - order_disc, 2)
+
+    return res
+
+def _grand_total(items: List[Dict], order_data: Dict) -> float:
+    return _compute_invoice_totals(items, order_data)["grand_total"]
 
 
 def _amount_in_words(amount: float) -> str:
@@ -104,7 +158,7 @@ def _amount_in_words(amount: float) -> str:
     def _conv(n):
         if n == 0: return "Zero"
         parts = []
-        for thr, lbl in [(10_000_000, "Crore"), (100_000, "Lakh"), (1_000, "Thousand")]:
+        for thr, lbl in [(1_000_000_000, "Arab"), (10_000_000, "Crore"), (100_000, "Lakh"), (1_000, "Thousand")]:
             if n >= thr:
                 parts.append(_b1k(n // thr) + " " + lbl)
                 n %= thr
@@ -174,27 +228,27 @@ class TaxInvoiceGenerator:
     ):
         doc = SimpleDocTemplate(
             self.filename, pagesize=(self.W, self.H),
-            rightMargin=0.50*inch, leftMargin=0.50*inch,
-            topMargin=0.40*inch,   bottomMargin=0.45*inch,
+            rightMargin=0.45*inch, leftMargin=0.45*inch,
+            topMargin=0.30*inch,   bottomMargin=0.30*inch,
         )
-        U = self.W - 1.0*inch   # usable width
+        U = self.W - 0.90*inch   # usable width
         s = []
 
         s += self._header(company_info, logo_path, U)
-        s.append(HRFlowable(width="100%", thickness=2, color=NAVY, spaceAfter=4))
+        s.append(HRFlowable(width="100%", thickness=2, color=NAVY, spaceAfter=3))
         s += self._info_box(customer_info, order_data, invoice_number,
                             invoice_date, due_date, U)
-        s.append(Spacer(1, 5))
-        s += self._items_table(items, U)
-        s.append(Spacer(1, 4))
-        s += self._taxes_table(items, U)
-        s.append(Spacer(1, 4))
-        s += self._financial_summary(items, order_data, U)
-        s.append(Spacer(1, 4))
-        s += self._milestones_table(order_data, U)
-        s.append(Spacer(1, 4))
-        s += self._declaration_block(items, order_data, U)
         s.append(Spacer(1, 3))
+        s += self._items_table(items, order_data, U)
+        s.append(Spacer(1, 2))
+        s += self._taxes_table(items, U)
+        s.append(Spacer(1, 2))
+        s += self._financial_summary(items, order_data, U)
+        s.append(Spacer(1, 2))
+        s += self._milestones_table(order_data, U)
+        s.append(Spacer(1, 2))
+        s += self._declaration_block(items, order_data, U)
+        s.append(Spacer(1, 2))
         s += self._footer(company_info)
 
         doc.build(s)
@@ -267,10 +321,16 @@ class TaxInvoiceGenerator:
             ("TOPPADDING",(0,0),(-1,-1),1),("BOTTOMPADDING",(0,0),(-1,-1),1)]))
 
         # Col 2 – Invoice details
+        # Col 2 – Invoice details
         status = order.get("status", "").replace("_", " ").title()
-        c2 = (_lv("Invoice No:", inv_num, bold=True) +
-               _lv("Order ID:", order.get("order_id", "")) +
-               [Spacer(1, 3)] + _lv("Status:", status))
+        
+        c2_labels = _lv("Invoice No:", inv_num, bold=True) + _lv("Order ID:", order.get("order_id", ""))
+        
+        irn = order.get("irn")
+        if irn:
+            c2_labels += _lv("IRN:", irn)
+            
+        c2 = (c2_labels + [Spacer(1, 4)] + _lv("Status:", status))
         col2 = Table([[r] for r in c2], colWidths=[C2W])
         col2.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),
             ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),2),
@@ -280,8 +340,16 @@ class TaxInvoiceGenerator:
         due_str = due_date.strftime("%d-%b-%Y") if due_date else inv_date.strftime("%d-%b-%Y")
         c3 = (_lv("Invoice Date:", inv_date.strftime("%d-%b-%Y"), bold=True) +
                [Spacer(1, 3)] + _lv("Due Date:", due_str, bold=True))
+               
+        pos = cust.get("place_of_supply")
+        if pos:
+            c3 += [Spacer(1, 2)] + _lv("Place of Supply:", pos)
+            
+        rcm_val = str(order.get("reverse_charge", "N"))
+        c3 += [Spacer(1, 2)] + _lv("Reverse Charge:", rcm_val)
+        
         if order.get("order_date"):
-            c3 += [Spacer(1, 3)] + _lv("Order Date:", order["order_date"])
+            c3 += [Spacer(1, 2)] + _lv("Order Date:", order["order_date"])
         col3 = Table([[r] for r in c3], colWidths=[C3W])
         col3.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),
             ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0),
@@ -301,7 +369,7 @@ class TaxInvoiceGenerator:
 
     # ── S3: Items table ────────────────────────────────────────────────────────
     # Cols: S.No | Description + Specs | HSN/SAC | Quantity | Base Rate | Discount | Taxable Value
-    def _items_table(self, items, U):
+    def _items_table(self, items, order_data, U):
         elems = [Paragraph("Items", self.styles["SecHdr"])]
 
         NUM  = 0.28*inch
@@ -380,13 +448,8 @@ class TaxInvoiceGenerator:
         n = len(data)   # rows so far (header + items)
 
         # Summary rows below items: cols 0-5 span as label, col 6 = value
-        cgst_r = max((float(i.get("cgst_rate", 0)) for i in items), default=0)
-        sgst_r = max((float(i.get("sgst_rate", 0)) for i in items), default=0)
-        igst_r = max((float(i.get("igst_rate", 0)) for i in items), default=0)
-        cgst_a = subtotal_taxable * cgst_r / 100
-        sgst_a = subtotal_taxable * sgst_r / 100
-        igst_a = subtotal_taxable * igst_r / 100
-        grand  = subtotal_taxable + cgst_a + sgst_a + igst_a
+        # Summary rows below items: cols 0-5 span as label, col 6 = value
+        t_data = _compute_invoice_totals(items, order_data)
 
         def _sr(lbl, val, bold=False):
             ls = "TBR" if bold else "TCR"
@@ -395,11 +458,33 @@ class TaxInvoiceGenerator:
 
         if subtotal_discount > 0:
             data.append(_sr("Total Disc:", f"-₹{subtotal_discount:,.2f}"))
-        data.append(_sr("Subtotal (Taxable):", f"\u20b9{subtotal_taxable:,.2f}"))
-        if cgst_r: data.append(_sr(f"CGST @ {cgst_r:.0f}%:", f"\u20b9{cgst_a:,.2f}"))
-        if sgst_r: data.append(_sr(f"SGST @ {sgst_r:.0f}%:", f"\u20b9{sgst_a:,.2f}"))
-        if igst_r: data.append(_sr(f"IGST @ {igst_r:.0f}%:", f"\u20b9{igst_a:,.2f}"))
-        data.append(_sr("Total Amount Due:", f"\u20b9{grand:,.2f}", bold=True))
+        data.append(_sr("Subtotal (Taxable):", f"\u20b9{t_data['subtotal']:,.2f}"))
+        
+        db_tax = float(order_data.get("tax_amount") or 0)
+        calculated_tax = t_data['cgst'] + t_data['sgst'] + t_data['igst'] + t_data['cess']
+        has_tax_override = (db_tax > 0 and abs(calculated_tax - db_tax) > 0.01)
+
+        if has_tax_override:
+            data.append(_sr("Total Tax:", f"\u20b9{db_tax:,.2f}"))
+            if t_data["cess"] > 0:
+                data.append(_sr("Total Cess:", f"\u20b9{t_data['cess']:,.2f}"))
+        else:
+            if t_data["cgst"] > 0:
+                data.append(_sr("Total CGST:", f"\u20b9{t_data['cgst']:,.2f}"))
+            if t_data["sgst"] > 0:
+                data.append(_sr("Total SGST:", f"\u20b9{t_data['sgst']:,.2f}"))
+            if t_data["igst"] > 0:
+                data.append(_sr("Total IGST:", f"\u20b9{t_data['igst']:,.2f}"))
+            if t_data["cess"] > 0:
+                data.append(_sr("Total Cess:", f"\u20b9{t_data['cess']:,.2f}"))
+                
+        shipping = float(order_data.get("shipping_amount", 0) or 0)
+        if shipping > 0:
+            data.append(_sr("Shipping Charges:", f"\u20b9{shipping:,.2f}"))
+            if t_data["shipping_tax"] > 0:
+                data.append(_sr("Shipping Tax (B2B):", f"\u20b9{t_data['shipping_tax']:,.2f}"))
+            
+        data.append(_sr("Total Amount Due:", f"\u20b9{t_data['grand_total']:,.2f}", bold=True))
 
         span_cmds = [("SPAN", (0, r), (5, r)) for r in range(n, len(data))]
 
@@ -463,21 +548,35 @@ class TaxInvoiceGenerator:
                 tv = max(0.0, (rate * qty) - disc_amt)
                 
             if hsn not in groups:
-                groups[hsn] = {"tv": 0,
-                               "cgst": float(item.get("cgst_rate", 0)),
-                               "sgst": float(item.get("sgst_rate", 0)),
-                               "igst": float(item.get("igst_rate", 0))}
-            groups[hsn]["tv"] += tv
+                cr = float(item.get("cgst_rate", 0))
+                sr = float(item.get("sgst_rate", 0))
+                ir = float(item.get("igst_rate", 0))
+                cess = float(item.get("cess_rate", 0))
+                if cr > 0 or sr > 0:
+                    ir = 0.0 # Mutually exclusive
+                # Bug 4 Fix: Group by HSN AND rate structure to prevent overwrite
+                k = f"{hsn}_{cr}_{sr}_{ir}_{cess}"
+                groups[k] = {"hsn": hsn, "tv": 0, "cgst": cr, "sgst": sr, "igst": ir, "cess": cess}
+            else:
+                cr = groups[hsn]["cgst"]
+                sr = groups[hsn]["sgst"]
+                ir = groups[hsn]["igst"]
+                cess = groups[hsn]["cess"]
+                k = f"{hsn}_{cr}_{sr}_{ir}_{cess}"
+                
+            groups[k]["tv"] += tv
 
-        tv_tot = cg_tot = sg_tot = ig_tot = amt_tot = 0.0
-        for hsn, g in groups.items():
+        tv_tot = cg_tot = sg_tot = ig_tot = cess_tot = amt_tot = 0.0
+        for k, g in groups.items():
             tv  = g["tv"]
-            cg  = tv * g["cgst"] / 100
-            sg  = tv * g["sgst"] / 100
-            ig  = tv * g["igst"] / 100
-            amt = tv + cg + sg + ig
-            tv_tot += tv; cg_tot += cg; sg_tot += sg; ig_tot += ig; amt_tot += amt
-            data.append([Paragraph(hsn,           self.styles["TCC"]),
+            hsn_label = g["hsn"]
+            cg  = round(tv * g["cgst"] / 100, 2)
+            sg  = round(tv * g["sgst"] / 100, 2)
+            ig  = round(tv * g["igst"] / 100, 2)
+            cess_amt = round(tv * g["cess"] / 100, 2)
+            amt = tv + cg + sg + ig + cess_amt
+            tv_tot += tv; cg_tot += cg; sg_tot += sg; ig_tot += ig; cess_tot += cess_amt; amt_tot += amt
+            data.append([Paragraph(hsn_label,     self.styles["TCC"]),
                          Paragraph(f"₹{tv:,.2f}", self.styles["TCR"]),
                          _tc(cg, g["cgst"]), _tc(sg, g["sgst"]), _tc(ig, g["igst"]),
                          Paragraph(f"₹{amt:,.2f}", self.styles["TBR"])])
@@ -488,6 +587,9 @@ class TaxInvoiceGenerator:
                      Paragraph(f"₹{sg_tot:,.2f}", self.styles["TBC"]),
                      Paragraph(f"₹{ig_tot:,.2f}", self.styles["TBC"]),
                      Paragraph(f"₹{amt_tot:,.2f}", self.styles["TBR"])])
+                     
+        if cess_tot > 0:
+            elems.append(Paragraph(f"Note: Total Amount includes ₹{cess_tot:,.2f} Compensation Cess.", self.styles["LblSm"]))
 
         t = Table(data, colWidths=cw, repeatRows=1)
         t.setStyle(TableStyle([
@@ -509,19 +611,7 @@ class TaxInvoiceGenerator:
     # ── S5: Financial summary (horizontal row) ─────────────────────────────────
     # Three equal cells side-by-side: Grand Total | Amount Paid | Balance Due
     def _financial_summary(self, items, order_data, U):
-        def line_taxable(i):
-            val = i.get("taxable_value")
-            if val is not None:
-                return float(val)
-            return max(0.0, (float(i.get("unit_price", 0)) * float(i.get("quantity", 1))) - float(i.get("discount_amount", 0)))
-        
-        subtotal = sum(line_taxable(i) for i in items)
-        tax = sum(
-            line_taxable(i) * (float(i.get("cgst_rate", 0)) + float(i.get("sgst_rate", 0)) + float(i.get("igst_rate", 0))) / 100
-            for i in items)
-        shipping   = float(order_data.get("shipping_amount", 0) or 0)
-        order_disc = float(order_data.get("order_discount",  0) or 0) if not any("discount_amount" in i for i in items) else 0.0
-        gross      = round(subtotal + tax + shipping - order_disc, 2)
+        gross = _grand_total(items, order_data)
         amount_paid= float(order_data.get("amount_paid", 0) or 0)
         balance    = max(0.0, round(gross - amount_paid, 2))
 
@@ -568,6 +658,13 @@ class TaxInvoiceGenerator:
         milestones = order_data.get("milestones", [])
         if not milestones:
             return []
+        
+        # Deduplicate: skip "Full Payment (100%)" if other milestones exist
+        if len(milestones) > 1:
+            milestones = [
+                m for m in milestones
+                if not (float(m.get("percentage", 0)) >= 100 and "full" in m.get("label", "").lower())
+            ]
             
         elems = [Paragraph("Payment Milestones", self.styles["SecHdr"])]
         
@@ -605,10 +702,16 @@ class TaxInvoiceGenerator:
             status_p = Paragraph(raw_status, ParagraphStyle("_ms", parent=self.styles["Normal"],
                 fontName=BLD, fontSize=7, textColor=sts_color, alignment=TA_CENTER))
 
+            raw_due = m.get("due_date", "Immediate")
+            if isinstance(raw_due, datetime):
+                due_val = raw_due.strftime("%d-%b-%Y")
+            else:
+                due_val = str(raw_due).title()
+                
             data.append([
                 Paragraph(label, self.styles["TC"]),
                 Paragraph(pct, self.styles["TCC"]),
-                Paragraph("Immediate", self.styles["TCC"]),  # Simplified for B2B standard
+                Paragraph(due_val, self.styles["TCC"]),
                 Paragraph(amt, self.styles["TBR"]),
                 status_p
             ])

@@ -168,6 +168,20 @@ class AdminOfflineOrderCreateItem(BaseModel):
     name: str = Field(..., description="Fallback generic name for custom offline items")
     quantity: int = Field(..., gt=0)
     unit_price: float = Field(..., ge=0)
+    hsn_code: Optional[str] = None
+    cgst_rate: Optional[float] = Field(0.0, ge=0)
+    sgst_rate: Optional[float] = Field(0.0, ge=0)
+    igst_rate: Optional[float] = Field(0.0, ge=0)
+    cess_rate: Optional[float] = Field(0.0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_gst_slabs(self) -> "AdminOfflineOrderCreateItem":
+        VALID_SLABS = {0.0, 0.1, 0.25, 1.5, 2.5, 3.0, 5.0, 6.0, 9.0, 12.0, 14.0, 18.0, 28.0}
+        rates = [self.cgst_rate, self.sgst_rate, self.igst_rate]
+        for r in rates:
+            if r and float(r) not in VALID_SLABS:
+                raise ValueError(f"Invalid GST rate: {r}%. Must be a standard Indian GST slab.")
+        return self
 
 class AdminOfflineOrderCreateRequest(BaseModel):
     """Payload to atomically create Inquiry, Quote, and Order for manual entries."""
@@ -176,6 +190,9 @@ class AdminOfflineOrderCreateRequest(BaseModel):
     tax_amount: float = Field(default=0.0, ge=0)
     shipping_amount: float = Field(default=0.0, ge=0)
     discount_amount: float = Field(default=0.0, ge=0)
+    
+    place_of_supply: Optional[str] = Field(None, max_length=100)
+    reverse_charge: bool = Field(default=False)
     
     split_type: PaymentSplitType
     milestones: Optional[List[MilestoneDefinition]] = Field(
@@ -301,6 +318,7 @@ class PaymentDeclarationReview(BaseModel):
     rejection_reason mandatory when rejecting — user must be told why.
     """
     is_approved: bool
+    actual_amount: Optional[float] = Field(None, gt=0, description="To dynamically record the exact amount paid. Defaults to milestone target if empty.")
     rejection_reason: Optional[str] = Field(None, max_length=500)
 
     @model_validator(mode="after")
@@ -395,6 +413,7 @@ class PaymentSessionResponse(BaseModel):
 class OrderResponse(BaseModel):
     id: UUID
     order_number: Optional[str] = None
+    invoice_number: Optional[str] = None
     inquiry_id: UUID
     user_id: UUID
     user_name: Optional[str] = None
@@ -410,6 +429,8 @@ class OrderResponse(BaseModel):
     split_type: Optional[str] = None
     is_custom_milestone_requested: bool = False
     admin_notes: Optional[str] = None
+    place_of_supply: Optional[str] = None
+    reverse_charge: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
     milestones: List[OrderMilestoneResponse] = []
@@ -458,3 +479,54 @@ class AdminRefundRequest(BaseModel):
     milestone_id: UUID
     amount: float = Field(..., gt=0)
     reason: str = Field(..., min_length=5, max_length=500)
+
+
+# ── Invoice data (admin presentation layer) ──────────────────────────────────
+
+class InvoiceLineItem(BaseModel):
+    """One line item in the admin-curated invoice breakdown."""
+    item_id: Optional[str] = None  # InquiryItem UUID (for tracking)
+    description: str = Field(..., min_length=1, max_length=200)
+    quantity: float = Field(..., gt=0)
+    unit_price: float = Field(..., ge=0)
+    hsn_sac: str = ""
+    cgst_rate: float = Field(0.0, ge=0, le=100)
+    sgst_rate: float = Field(0.0, ge=0, le=100)
+    igst_rate: float = Field(0.0, ge=0, le=100)
+    cess_rate: float = Field(0.0, ge=0, le=100)
+    discount_amount: float = 0.0
+    discount_type: Optional[str] = None  # "percentage" or "flat"
+    discount_value: float = 0.0
+    unit: Optional[str] = None  # "Nos", "Pcs", "Kg", etc.
+
+
+class InvoiceDataPayload(BaseModel):
+    """Admin saves this to configure invoice presentation."""
+    items: List[InvoiceLineItem] = Field(..., min_length=1)
+    shipping_amount: float = Field(0.0, ge=0)
+    shipping_gst_rate: float = Field(0.0, ge=0, le=100)
+    place_of_supply: Optional[str] = None
+    reverse_charge: bool = False
+    remarks: str = "BEING GOODS SALES"
+
+    @model_validator(mode="after")
+    def validate_totals_hint(self) -> "InvoiceDataPayload":
+        """Warn if CGST+SGST and IGST are mixed — mutually exclusive in GST."""
+        for item in self.items:
+            has_intra = item.cgst_rate > 0 or item.sgst_rate > 0
+            has_inter = item.igst_rate > 0
+            if has_intra and has_inter:
+                raise ValueError(
+                    f"Item '{item.description}': CGST/SGST and IGST are mutually exclusive. "
+                    "Use CGST+SGST for intra-state OR IGST for inter-state."
+                )
+        return self
+
+
+class InvoiceDataResponse(BaseModel):
+    """Returned by GET /admin/orders/{id}/invoice-data."""
+    invoice_data: Optional[dict] = None   # Saved invoice_data or auto-generated defaults
+    is_configured: bool = False            # True if admin has saved invoice_data
+    order_total: float                     # Source of truth total
+    items_total: float                     # Sum of line items (for validation display)
+    warning: Optional[str] = None          # Warning message if not configured
