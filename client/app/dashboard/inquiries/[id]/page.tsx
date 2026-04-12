@@ -298,7 +298,7 @@ export default function InquiryDetailPage() {
 
     // ── Status update (accept / reject quote / submit draft) ────────────────────────────
 
-
+    const handleStatusUpdate = async (status: "ACCEPTED" | "REJECTED" | "SUBMITTED") => {
         setIsLoading(true);
         try {
             const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/inquiries/my/${inquiryId}/status`, {
@@ -326,11 +326,8 @@ export default function InquiryDetailPage() {
             showAlert("An error occurred.", "error");
         } finally {
             setIsLoading(false);
-            setPendingStatus(null);
         }
     };
-
-    const handleStatusUpdate = async (status: "ACCEPTED" | "REJECTED" | "SUBMITTED") => {
 
     const handleReorder = async () => {
         const confirmed = await confirm({
@@ -500,7 +497,7 @@ export default function InquiryDetailPage() {
                                                         <div>
                                                             <span className="font-black text-sm block leading-tight">{idx + 1}. {it.subproduct_name || it.product_name || it.subservice_name || it.service_name || it.template_name || "Custom Item"}</span>
                                                             <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1 text-xs text-zinc-600">
-                                                                <span className="font-bold">Qty: {it.quantity}</span>
+                                                                <span className="font-bold">Qty: {Math.round(it.quantity)}</span>
                                                                 {unitPrice > 0 && <span>| Unit: ₹{unitPrice.toLocaleString()}</span>}
                                                                 {it.hsn_code && <span>| HSN: {it.hsn_code}</span>}
                                                             </div>

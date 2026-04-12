@@ -19,7 +19,7 @@ export function OrderCard({ order }: { order: Order }) {
     const balanceDue = order.total_amount - paidAmount;
     const currentStep = getOrderStatusStep(orderStatus);
     const productName = order.product_name || `Order ${order.order_number || '#' + order.id.slice(0, 8)}`;
-    const quantity = order.quantity || 100;
+    const quantity = Math.round(order.quantity || 100);
 
     return (
         <Card className="overflow-hidden border-2 border-black shadow-none hover:shadow-xl transition-all duration-300 group rounded-xl bg-white">
@@ -148,7 +148,7 @@ export function OrderListRow({ order }: { order: Order }) {
                         <h4 className="font-bold text-lg">{productName}</h4>
                         <span className="text-xs font-mono text-zinc-400">{order.order_number || `#${order.id.slice(0, 8)}`}</span>
                     </div>
-                    <p className="text-sm text-zinc-500">Inquiry #{order.inquiry_id} • {order.quantity || 0} Units</p>
+                    <p className="text-sm text-zinc-500">Inquiry #{order.inquiry_id} • {Math.round(order.quantity || 0)} Units</p>
                 </div>
             </div>
 

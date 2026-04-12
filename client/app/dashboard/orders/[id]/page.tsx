@@ -413,7 +413,7 @@ export default function OrderDetailPage() {
                                             </div>
 
                                             <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                                                <span><span className="font-bold text-zinc-500">Qty:</span> <span className="font-black">{item.quantity}</span></span>
+                                                <span><span className="font-bold text-zinc-500">Qty:</span> <span className="font-black">{Math.round(item.quantity || 0)}</span></span>
                                                 {unitPrice > 0 && (
                                                     <span><span className="font-bold text-zinc-500">Unit Price:</span> <span className="font-black">₹{unitPrice.toLocaleString()}</span></span>
                                                 )}

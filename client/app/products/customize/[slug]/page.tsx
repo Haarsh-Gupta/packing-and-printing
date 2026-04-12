@@ -156,7 +156,7 @@ export default async function CustomizeProductPage({
             {/* SECTION 1: HERO — Image Left + Info Right    */}
             {/* ============================================ */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 py-6 md:py-10">
-                <div className="grid lg:grid-cols-[1fr_440px] gap-8 lg:gap-14 items-start">
+                <div className="grid lg:grid-cols-[1fr_500px] gap-8 lg:gap-14 items-start">
 
                     {/* ─── Left Column: Gallery + Below-Gallery Content ─── */}
                     <div className="space-y-8">

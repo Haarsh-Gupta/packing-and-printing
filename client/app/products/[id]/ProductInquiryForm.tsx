@@ -82,6 +82,9 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
     const [isLoading, setIsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [quantity, setQuantity] = useState<number>(product.minimum_quantity);
+    const [quantityInput, setQuantityInput] = useState<string>(String(product.minimum_quantity));
+    const [quantityError, setQuantityError] = useState<string>("");
+    const [numberInputErrors, setNumberInputErrors] = useState<Record<string, string>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [answers, setAnswers] = useState<Record<string, any>>(() => {
@@ -107,6 +110,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
             if (item) {
                 setAnswers(item.options);
                 setQuantity(item.quantity);
+                setQuantityInput(String(item.quantity));
             }
         }
     }, [editId, items]);
@@ -128,10 +132,66 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
 
     const handleQuantityChange = (type: "inc" | "dec") => {
         setQuantity(prev => {
-            if (type === "inc") return prev + 1;
-            if (type === "dec" && prev > product.minimum_quantity) return prev - 1;
-            return prev;
+            let next = prev;
+            if (type === "inc") next = prev + 1;
+            else if (type === "dec" && prev > product.minimum_quantity) next = prev - 1;
+            else return prev;
+            setQuantityInput(String(next));
+            setQuantityError("");
+            return next;
         });
+    };
+
+    const validateQuantity = (val: string) => {
+        const num = Number(val);
+        if (val === "" || isNaN(num)) {
+            setQuantityError("Please enter a valid number");
+            return;
+        }
+        const intVal = Math.floor(num);
+        if (intVal < product.minimum_quantity) {
+            setQuantityError(`Minimum order quantity is ${product.minimum_quantity}`);
+            return;
+        }
+        setQuantityError("");
+        setQuantity(intVal);
+        setQuantityInput(String(intVal));
+    };
+
+    const validateNumberInput = (key: string, val: string, section: SchemaSection) => {
+        const num = Number(val);
+        if (val === "" || isNaN(num)) {
+            setNumberInputErrors(prev => ({ ...prev, [key]: "Please enter a valid number" }));
+            return;
+        }
+        const intVal = Math.floor(num);
+        if (section.min_val !== undefined && intVal < section.min_val) {
+            setNumberInputErrors(prev => ({ ...prev, [key]: `Minimum value is ${section.min_val}` }));
+            return;
+        }
+        if (section.max_val !== undefined && intVal > section.max_val) {
+            setNumberInputErrors(prev => ({ ...prev, [key]: `Maximum value is ${section.max_val}` }));
+            return;
+        }
+        setNumberInputErrors(prev => ({ ...prev, [key]: "" }));
+        handleAnswerChange(key, intVal);
+    };
+
+    const hasValidationErrors = () => {
+        if (quantityError) return true;
+        if (quantityInput === "" || isNaN(Number(quantityInput)) || Math.floor(Number(quantityInput)) < product.minimum_quantity) return true;
+        for (const section of product.config_schema.sections) {
+            if (section.type === "number_input") {
+                if (numberInputErrors[section.key]) return true;
+                const val = answers[section.key];
+                if (val === "" || val === undefined) return true;
+                const num = Number(val);
+                if (isNaN(num)) return true;
+                if (section.min_val !== undefined && num < section.min_val) return true;
+                if (section.max_val !== undefined && num > section.max_val) return true;
+            }
+        }
+        return false;
     };
 
     const { unitPrice, totalPrice } = useMemo(() => {
@@ -243,7 +303,7 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
     return (
         <form onSubmit={handleSubmit} className="relative flex flex-col space-y-6 w-full font-sans pb-4">
 
-            <div className="space-y-6 max-w-[400px] w-full">
+            <div className="space-y-6 w-full">
                 {product.config_schema.sections.map((section) => {
                     const isColorOption = section.label.toLowerCase().includes("color");
 
@@ -397,12 +457,16 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
                                 <div className="space-y-2">
                                     <Input
                                         type="number"
-                                        min={section.min_val}
-                                        max={section.max_val}
-                                        value={answers[section.key] || ""}
+                                        value={answers[section.key] ?? ""}
                                         onChange={(e) => handleAnswerChange(section.key, e.target.value)}
-                                        className="border-2 border-black rounded-md h-12 font-bold uppercase text-sm focus-visible:ring-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus-visible:translate-x-[2px] focus-visible:translate-y-[2px] focus-visible:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all"
+                                        onBlur={(e) => validateNumberInput(section.key, e.target.value, section)}
+                                        className={`border-2 rounded-md h-12 font-bold uppercase text-sm focus-visible:ring-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus-visible:translate-x-[2px] focus-visible:translate-y-[2px] focus-visible:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all ${numberInputErrors[section.key] ? 'border-red-500 bg-red-50/50' : 'border-black'}`}
                                     />
+                                    {numberInputErrors[section.key] && (
+                                        <p className="text-xs font-bold text-red-500 px-1">
+                                            ⚠ {numberInputErrors[section.key]}
+                                        </p>
+                                    )}
                                     <div className="flex justify-between px-1">
                                         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
                                             {section.min_val !== undefined && section.max_val !== undefined 
@@ -453,31 +517,49 @@ export default function ProductInquiryForm({ product }: { product: ProductSchema
 
                     <div className="space-y-2">
                         <Label className="text-sm font-black uppercase tracking-widest text-zinc-800">Quantity</Label>
-                        <div className="flex items-center border-2 border-black h-12 w-full rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
-                            <button type="button" onClick={() => handleQuantityChange("dec")} className="h-full px-4 border-r-2 border-black hover:bg-zinc-100 active:bg-zinc-200 flex items-center justify-center transition-colors">
+                        <div className={`flex items-center border-2 h-12 w-full rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden ${quantityError ? 'border-red-500' : 'border-black'}`}>
+                            <button type="button" onClick={() => handleQuantityChange("dec")} className="h-full px-4 border-r-2 border-inherit hover:bg-zinc-100 active:bg-zinc-200 flex items-center justify-center transition-colors">
                                 <Minus className="h-3 w-3" />
                             </button>
-                            <input type="number" min={product.minimum_quantity} value={quantity} onChange={(e) => setQuantity(Math.max(product.minimum_quantity, Number(e.target.value)))} className="w-full h-full text-center font-bold text-sm focus:outline-none bg-transparent appearance-none" />
-                            <button type="button" onClick={() => handleQuantityChange("inc")} className="h-full px-4 border-l-2 border-black hover:bg-zinc-100 active:bg-zinc-200 flex items-center justify-center transition-colors">
+                            <input
+                                type="number"
+                                value={quantityInput}
+                                onChange={(e) => {
+                                    setQuantityInput(e.target.value);
+                                    // Clear error while typing so user can freely type
+                                    if (quantityError) setQuantityError("");
+                                }}
+                                onBlur={(e) => validateQuantity(e.target.value)}
+                                className={`w-full h-full text-center font-bold text-sm focus:outline-none bg-transparent appearance-none ${quantityError ? 'text-red-500' : ''}`}
+                            />
+                            <button type="button" onClick={() => handleQuantityChange("inc")} className="h-full px-4 border-l-2 border-inherit hover:bg-zinc-100 active:bg-zinc-200 flex items-center justify-center transition-colors">
                                 <Plus className="h-3 w-3" />
                             </button>
                         </div>
+                        {quantityError && (
+                            <p className="text-xs font-bold text-red-500 px-1">
+                                ⚠ {quantityError}
+                            </p>
+                        )}
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider px-1">
+                            Min: {product.minimum_quantity} units
+                        </p>
                     </div>
                 </div>
             </div>
 
             {/* Sticky Bottom Bar with Pill Button */}
-            <div className="sticky bottom-0 z-40 bg-white/95 backdrop-blur-sm border-t-2 border-black pt-4 pb-4 mt-8 w-full flex items-center justify-between gap-4 max-w-[400px]">
+            <div className="sticky bottom-0 z-40 bg-white border-t-2 border-black pt-4 pb-4 mt-8 -mx-6 sm:-mx-8 px-6 sm:px-8 w-[calc(100%+3rem)] sm:w-[calc(100%+4rem)] flex items-center justify-between gap-4">
                 <div className="flex flex-col">
                     <span className="text-xs font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Total Estimate</span>
-                    <span className="text-3xl font-black leading-none text-black">₹{totalPrice.toLocaleString()}</span>
+                    <span className="text-3xl font-black leading-none text-black">₹{Math.round(totalPrice).toLocaleString()}</span>
                 </div>
 
                 {/* Rounded Pill Button matching the reference image */}
                 <Button
                     type="submit"
-                    className="h-14 px-8 bg-accent-green text-black font-black uppercase text-sm border-2 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex items-center gap-2"
-                    disabled={isLoading}
+                    className="h-14 px-8 bg-accent-green text-black font-black uppercase text-sm border-2 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                    disabled={isLoading || hasValidationErrors()}
                 >
                     {isLoading ? (
                         <Loader2 className="h-5 w-5 animate-spin" />

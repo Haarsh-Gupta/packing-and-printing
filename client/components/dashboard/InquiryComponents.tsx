@@ -59,7 +59,7 @@ export function InquiryCard({ inquiry, actionLoading, handleStatusUpdate, handle
                     <h4 className="font-bold text-lg uppercase border-b-2 border-black inline-block">Your Request</h4>
                     <div className="grid grid-cols-2 gap-y-2 text-sm">
                         <span className="text-zinc-500 font-medium">Quantity:</span>
-                        <span className="font-bold">{item?.quantity || 0} Units</span>
+                        <span className="font-bold">{Math.round(item?.quantity || 0)} Units</span>
                         {item?.variant_name && (
                             <div className="contents">
                                 <span className="text-zinc-500 font-medium">Variant:</span>
@@ -178,7 +178,7 @@ export function InquiryListRow({ inquiry, actionLoading, handleStatusUpdate, han
                         <span className="text-lg text-font-mono black uppercase">{inquiry.display_id || `ID #${inquiry.id.slice(0, 8).toUpperCase()}`}</span>
                     </div>
                     <p className="text-sm text-zinc-500 font-medium">
-                        {inquiry.items?.reduce((total, i) => total + (i.quantity || 0), 0) || 0} Units • {item?.variant_name || 'Standard'} • {new Date(inquiry.created_at).toLocaleDateString()}
+                        {Math.round(inquiry.items?.reduce((total, i) => total + (i.quantity || 0), 0) || 0)} Units • {item?.variant_name || 'Standard'} • {new Date(inquiry.created_at).toLocaleDateString()}
                     </p>
                 </div>
             </div>
