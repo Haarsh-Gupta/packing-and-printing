@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import Dict, Union, Optional, List, Literal
 from uuid import UUID
-from enum import Enum
+from enum import Enum as PyEnum
 from pydantic import BaseModel, Field, model_validator, ConfigDict, computed_field
 
 
-class InquiryStatus(str, Enum):
+class InquiryStatus(str, PyEnum):
     DRAFT        = "DRAFT"
     SUBMITTED    = "SUBMITTED"
     UNDER_REVIEW = "UNDER_REVIEW"
@@ -89,9 +89,6 @@ class QuoteLineItemCreate(BaseModel):
         if self.gst_amount > self.taxable_value + eps:
             raise ValueError("gst_amount cannot be greater than taxable_value")
             
-        if abs(self.gst_amount - (self.taxable_value * 0.18)) > eps:
-            raise ValueError("gst_amount must be equal to taxable_value * 0.18")
-            
         return self
 
 
@@ -168,6 +165,8 @@ class InquiryGroupCreate(BaseModel):
 class InquiryStatusUpdate(BaseModel):
     status: InquiryStatus
     reason: Optional[str] = None
+    billing_address_id: Optional[UUID] = None
+    shipping_address_id: Optional[UUID] = None
 
 class InquiryMessageCreate(BaseModel):
     content: str; file_urls: Optional[List[str]] = None
@@ -190,8 +189,7 @@ class InquiryItemResponse(InquiryItemBase):
     display_images: List[str] = []
     
     # Tax & HSN properties mapped from models
-    cgst_rate: float = 0.0
-    sgst_rate: float = 0.0
+    gst_rate: float = 0.0
     hsn_code: Optional[str] = None
 
     @computed_field
@@ -202,8 +200,7 @@ class InquiryItemResponse(InquiryItemBase):
     @computed_field
     @property
     def computed_tax_amount(self) -> float:
-        rate = self.cgst_rate + self.sgst_rate
-        return self.total_estimated_price * (rate / 100.0)
+        return self.total_estimated_price * (self.gst_rate / 100.0)
     model_config = ConfigDict(from_attributes=True)
 
 class InquiryGroupResponse(BaseModel):

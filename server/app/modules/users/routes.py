@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, case
 from redis.asyncio import Redis
 
-from app.modules.users.schemas import UserCreate, UserOut, UserUpdate
-from app.modules.users.models import User
+from typing import List
+from app.modules.users.schemas import UserCreate, UserOut, UserUpdate, PhoneOTPRequest, PhoneOTPVerifyRequest, AddressCreate, AddressUpdate, AddressResponse
+from app.modules.users.models import User, Address
 from app.core.database import get_db
 from app.core.redis import get_redis
 from app.modules.auth.auth import get_password_hash
@@ -67,40 +68,41 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
 
 # ── Phone OTP Verification ──
 
-# @router.post("/send-phone-otp", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=3, seconds=600))])
-# async def send_phone_otp(request: PhoneOTPRequest):
-#     """
-#     Generate and send a 6-digit OTP to a phone number via SMS/Firebase.
-#     Limited to 3 generations per day per phone number, and 3 times per 10 minutes overall.
-#     """
-#     otp_service = get_otp_service()
-#     success = await otp_service.send_phone_otp(request.phone)
-#     if not success:
-#         raise HTTPException(status_code=400, detail="Failed to send OTP or daily limit reached")
-#     return {"message": "OTP sent successfully"}
+@router.post("/send-phone-otp", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=3, seconds=600))])
+async def send_phone_otp(request: PhoneOTPRequest):
+    """
+    Generate and send a 6-digit OTP to a phone number via WhatsApp.
+    Limited to 3 generations per day per phone number, and 3 times per 10 minutes overall.
+    """
+    otp_service = get_otp_service()
+    success = await otp_service.send_phone_otp(request.phone)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to send OTP or daily limit reached")
+    return {"message": "OTP sent successfully"}
 
 
-# @router.post("/verify-phone-otp", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-# async def verify_phone_otp(request: PhoneOTPVerifyRequest, current_user: TokenData = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-#     """
-#     Verify the phone OTP. If valid, update the user's phone field in DB.
-#     Enforces a strict max 5 attempt limit per generated OTP via the service.
-#     """
-#     otp_service = get_otp_service()
-#     is_valid = await otp_service.verify_phone_otp(phone_number=request.phone, otp=request.otp)
+@router.post("/verify-phone-otp", status_code=status.HTTP_200_OK, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
+async def verify_phone_otp(request: PhoneOTPVerifyRequest, current_user: TokenData = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """
+    Verify the phone OTP. If valid, update the user's phone field in DB and mark as verified.
+    Enforces a strict max 5 attempt limit per generated OTP via the service.
+    """
+    otp_service = get_otp_service()
+    # verify_otp handles both email and phone, phone keys are prefixed with 'phone:'
+    is_valid = await otp_service.verify_otp(identifier=f"phone:{request.phone}", otp=request.otp)
     
-#     if not is_valid:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Invalid or expired OTP, or too many failed attempts"
-#         )
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP, or too many failed attempts"
+        )
         
-#     # If valid, update User's phone number as verified
-#     stmt = update(User).where(User.id == current_user.id).values(phone=request.phone)
-#     await db.execute(stmt)
-#     await db.commit()
+    # If valid, update User's phone number as verified
+    stmt = update(User).where(User.id == current_user.id).values(phone=request.phone, is_phone_verified=True)
+    await db.execute(stmt)
+    await db.commit()
     
-#     return {"message": "Phone number verified and updated successfully"}
+    return {"message": "Phone number verified and updated successfully"}
 
 
 
@@ -241,19 +243,6 @@ async def get_dashboard_stats(
     return response_data
 
 
-# ── User by ID (MUST be after all named routes like /dashboard-stats) ──
-@router.get("/{id}" , response_model=UserOut)
-async def get_user_by_id(id : UUID , db : AsyncSession = Depends(get_db), current_user: TokenData = Depends(get_current_user)):
-
-    stmt = select(User).where(User.id == id)
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="User not found")
-    return user
-
-
 @router.patch("/update", response_model=UserOut)
 async def update_user(
     user: UserUpdate,
@@ -282,3 +271,73 @@ async def update_user(
     await db.commit()
 
     return result.scalar_one()
+
+# ── Address Routes ──
+
+@router.get("/addresses", response_model=List[AddressResponse])
+async def get_user_addresses(
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Address).where(Address.user_id == current_user.id)
+    result = await db.execute(stmt)
+    addresses = result.scalars().all()
+    return addresses
+
+@router.post("/addresses", response_model=AddressResponse, status_code=status.HTTP_201_CREATED)
+async def create_address(
+    address: AddressCreate,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # Check if address of this type already exists, if so, update it
+    stmt = select(Address).where(Address.user_id == current_user.id, Address.address_type == address.address_type)
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
+    
+    if existing:
+        for key, value in address.model_dump().items():
+            setattr(existing, key, value)
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+    
+    new_address = Address(**address.model_dump(), user_id=current_user.id)
+    db.add(new_address)
+    await db.commit()
+    await db.refresh(new_address)
+    return new_address
+
+@router.put("/addresses/{address_id}", response_model=AddressResponse)
+async def update_address(
+    address_id: UUID,
+    address: AddressUpdate,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Address).where(Address.id == address_id, Address.user_id == current_user.id)
+    result = await db.execute(stmt)
+    db_address = result.scalar_one_or_none()
+    
+    if not db_address:
+        raise HTTPException(status_code=404, detail="Address not found")
+        
+    data = address.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(db_address, key, value)
+        
+    await db.commit()
+    await db.refresh(db_address)
+    return db_address
+
+# ── User by ID (MUST be after all named routes like /dashboard-stats) ──
+@router.get("/{id}" , response_model=UserOut)
+async def get_user_by_id(id : UUID , db : AsyncSession = Depends(get_db), current_user: TokenData = Depends(get_current_user)):
+
+    stmt = select(User).where(User.id == id)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND , detail="User not found")
+    return user

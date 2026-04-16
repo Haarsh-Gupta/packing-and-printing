@@ -523,6 +523,20 @@ async def update_inquiry_status_user(
     refreshed_group = refreshed_result.scalar_one()
     
     if group.status == 'ACCEPTED':
+        if not status_update.billing_address_id or not status_update.shipping_address_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Billing and Shipping address IDs must be provided when accepting a quote."
+            )
+
+        # Validate addresses belong to the user
+        from app.modules.users.models import Address
+        billing = (await db.execute(select(Address).where(Address.id == status_update.billing_address_id, Address.user_id == current_user.id))).scalar_one_or_none()
+        shipping = (await db.execute(select(Address).where(Address.id == status_update.shipping_address_id, Address.user_id == current_user.id))).scalar_one_or_none()
+
+        if not billing or not shipping:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected addresses are invalid or do not belong to you.")
+
         await NotificationService.notify_admins(
             db,
             title="Quote Accepted",
@@ -532,7 +546,7 @@ async def update_inquiry_status_user(
             is_admin=current_user.admin
         )
         from app.modules.inquiry.service import convert_inquiry_to_order
-        await convert_inquiry_to_order(db, group)
+        await convert_inquiry_to_order(db, group, billing_address=billing, shipping_address=shipping)
         await db.commit()
     
     return refreshed_group

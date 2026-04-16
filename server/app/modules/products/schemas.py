@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, model_validator
 from slugify import slugify
-from enum import Enum
+from enum import Enum as PyEnum
 from datetime import datetime
 
 
@@ -9,7 +9,7 @@ from datetime import datetime
 # 1️⃣ OPTIONS & CONFIG SCHEMAS
 # =========================================================
 
-class Selection(str, Enum):
+class Selection(str, PyEnum):
     DROPDOWN = "dropdown"
     RADIO = "radio"
     NUMBER_INPUT = "number_input"
@@ -110,10 +110,7 @@ class SubProductCreate(BaseModel):
     config_schema: ProductConfigSchema
     is_active: bool = True
     hsn_code: Optional[str] = None
-    cgst_rate: Optional[float] = 0.0
-    sgst_rate: Optional[float] = 0.0
-    igst_rate: Optional[float] = 0.0
-    cess_rate: Optional[float] = 0.0
+    gst_rate: Optional[float] = None
     unit: Optional[str] = "Nos"
     features: Optional[List[Dict[str, Any]]] = None
     specifications: Optional[List[Dict[str, Any]]] = None
@@ -173,10 +170,7 @@ class SubProductUpdate(BaseModel):
     config_schema: Optional[ProductConfigSchema] = None
     is_active: Optional[bool] = None
     hsn_code: Optional[str] = None
-    cgst_rate: Optional[float] = None
-    sgst_rate: Optional[float] = None
-    igst_rate: Optional[float] = None
-    cess_rate: Optional[float] = None
+    gst_rate: Optional[float] = None
     unit: Optional[str] = None
     features: Optional[List[Dict[str, Any]]] = None
     specifications: Optional[List[Dict[str, Any]]] = None

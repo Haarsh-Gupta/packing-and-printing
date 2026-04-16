@@ -59,6 +59,23 @@ def _fire_admin_sse(event: str, data: dict) -> None:
     from app.core.sse import sse_manager
     fire(sse_manager.publish_to_admins(event, data))
 
+
+def _build_user_address(user) -> str:
+    """Build a formatted address string from user's billing address."""
+    if not hasattr(user, 'addresses') or not user.addresses:
+        return ""
+    addr = next((a for a in user.addresses if a.address_type == "BILLING"), None)
+    if not addr:
+        addr = user.addresses[0] if user.addresses else None
+    if not addr:
+        return ""
+    parts = [addr.address_line_1]
+    if addr.address_line_2:
+        parts.append(addr.address_line_2)
+    parts.append(f"{addr.city}, {addr.state} - {addr.pincode}")
+    return ", ".join(parts)
+
+
 # ── Order listing ─────────────────────────────────────────────────────────────
 
 @router.get("/all", response_model=list[OrderListResponse])
@@ -438,6 +455,20 @@ async def get_invoice_data(
 
     auto_items = []
     if inquiry:
+        # Determine inter-state from company settings + order place_of_supply
+        from app.modules.orders.service.tax import split_gst_rate, determine_interstate
+        company_state_code = getattr(settings_obj, 'company_state_code', '07') if 'settings_obj' in dir() else '07'
+        
+        # Fetch settings for company_state_code
+        from app.modules.settings.models import SiteSettings as _SS
+        _settings_obj = (await db.execute(select(_SS))).scalar_one_or_none()
+        company_state_code = getattr(_settings_obj, 'company_state_code', '07') if _settings_obj else '07'
+        
+        customer_state_code = company_state_code  # default: intra-state
+        if order.place_of_supply:
+            customer_state_code = order.place_of_supply
+        is_interstate = determine_interstate(company_state_code, customer_state_code)
+        
         item_count = len(inquiry.items) or 1
         for itm in inquiry.items:
             sp = itm.sub_product
@@ -447,16 +478,20 @@ async def get_invoice_data(
             qty = itm.quantity or 1
             line_price = float(itm.line_item_price) if itm.line_item_price is not None else 0.0
 
+            # Get unified gst_rate and split dynamically
+            gst_rate = float(getattr(source, 'gst_rate', 0) or 0) if source else 0.0
+            tax_split = split_gst_rate(gst_rate, is_interstate)
+
             auto_items.append({
                 "item_id": str(itm.id),
                 "description": name,
                 "quantity": qty,
                 "unit_price": round(line_price / qty, 2) if qty > 0 and line_price > 0 else 0.0,
                 "hsn_sac": getattr(source, "hsn_code", "") or "" if source else "",
-                "cgst_rate": float(getattr(source, "cgst_rate", 0) or 0) if source else 0.0,
-                "sgst_rate": float(getattr(source, "sgst_rate", 0) or 0) if source else 0.0,
-                "igst_rate": float(getattr(source, "igst_rate", 0) or 0) if source else 0.0,
-                "cess_rate": float(getattr(source, "cess_rate", 0) or 0) if source else 0.0,
+                "cgst_rate": tax_split["cgst_rate"],
+                "sgst_rate": tax_split["sgst_rate"],
+                "igst_rate": tax_split["igst_rate"],
+                "cess_rate": 0.0,
                 "discount_amount": 0.0,
                 "discount_type": None,
                 "discount_value": 0.0,
@@ -646,10 +681,9 @@ async def preview_invoice(
                 "name": order.user.name or "Customer",
                 "email": order.user.email,
                 "phone": order.user.phone or "",
-                "address": order.user.address or "",
-                "place_of_supply": inv_meta.get("place_of_supply") or (
-                    (order.user.address or "").split(",")[-1].strip() if order.user.address else "Undetermined"
-                ),
+                "address": _build_user_address(order.user),
+                "place_of_supply": inv_meta.get("place_of_supply") or order.place_of_supply or "Undetermined",
+                "gstin": order.user.gstin or "",
             },
             "items": items,
             "logo_path": logo_path,

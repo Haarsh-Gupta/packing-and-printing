@@ -27,11 +27,12 @@ class SubService(Base):
     name = Column(String, nullable=False) 
     slug = Column(String, unique=True, nullable=True)
     is_active = Column(Boolean, default=True)
-    # base_price = Column(Float, default=0.0) #remove it 
     minimum_quantity = Column(Integer, default=1)       
     price_per_unit = Column(Float, default=0.0)
     images = Column(ARRAY(String), nullable=True)
     description = Column(String, nullable=True)
+
+    type = Column(String, default="service", nullable=True)
 
     # Printify-style display content
     features = Column(JSONB, nullable=True)
@@ -39,10 +40,11 @@ class SubService(Base):
 
     # Taxation
     hsn_code  = Column(String, nullable=True)
-    cgst_rate = Column(Float, default=0.0)
-    sgst_rate = Column(Float, default=0.0)
-    igst_rate = Column(Float, default=0.0)
-    cess_rate = Column(Float, default=0.0)
+    # cgst_rate = Column(Float, default=0.0)
+    # sgst_rate = Column(Float, default=0.0)
+    # igst_rate = Column(Float, default=0.0)
+    # cess_rate = Column(Float, default=0.0)
+    gst_rate = Column(Float, default=18.0)
     unit      = Column(String, default="Nos")
 
     service = relationship("Service", back_populates="sub_services")

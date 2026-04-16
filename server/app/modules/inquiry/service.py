@@ -76,7 +76,9 @@ from app.modules.inquiry.models import InquiryGroup
 
 logger = logging.getLogger(__name__)
 
-async def convert_inquiry_to_order(db: AsyncSession, group: InquiryGroup) -> Order | None:
+from app.modules.users.models import Address
+
+async def convert_inquiry_to_order(db: AsyncSession, group: InquiryGroup, billing_address: Address | None = None, shipping_address: Address | None = None) -> Order | None:
     """
     Centralized service to convert an accepted inquiry to an order.
     Idempotent: returns the existing order if it's already converted.
@@ -111,7 +113,31 @@ async def convert_inquiry_to_order(db: AsyncSession, group: InquiryGroup) -> Ord
     else:
         detected_split = "CUSTOM" if quote_milestones else "HALF"
 
-    # 4. Create Order
+    # 4. Process Addresses and Tax State
+    billing_snap = None
+    shipping_snap = None
+    pos = None
+
+    if billing_address:
+        billing_snap = {
+            "address_line_1": billing_address.address_line_1,
+            "address_line_2": billing_address.address_line_2,
+            "city": billing_address.city,
+            "state": billing_address.state,
+            "pincode": billing_address.pincode
+        }
+        pos = billing_address.state
+
+    if shipping_address:
+        shipping_snap = {
+            "address_line_1": shipping_address.address_line_1,
+            "address_line_2": shipping_address.address_line_2,
+            "city": shipping_address.city,
+            "state": shipping_address.state,
+            "pincode": shipping_address.pincode
+        }
+
+    # 5. Create Order
     new_order = Order(
         inquiry_id=group.id,
         user_id=group.user_id,
@@ -121,11 +147,14 @@ async def convert_inquiry_to_order(db: AsyncSession, group: InquiryGroup) -> Ord
         discount_amount=group.active_quote.discount_amount or 0.0,
         status="WAITING_PAYMENT",
         split_type=detected_split,
+        place_of_supply=pos,
+        customer_billing_snapshot=billing_snap,
+        customer_shipping_snapshot=shipping_snap,
     )
     db.add(new_order)
     await db.flush()  # To generate order.id
     
-    # 5. Create Milestones based on quote configuration
+    # 6. Create Milestones based on quote configuration
     if quoted_total == 0:
         new_order.status = "PAID"
         new_order.split_type = "FULL"

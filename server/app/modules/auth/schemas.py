@@ -25,3 +25,7 @@ class ResetPasswordRequest(BaseModel):
     otp: str
     new_password: str
 
+class PhoneLoginRequest(BaseModel):
+    phone: str
+    otp: str
+

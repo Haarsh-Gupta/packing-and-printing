@@ -22,6 +22,7 @@ interface AuthContextType {
     isLoading: boolean;
     isLoggedIn: boolean;
     login: (email: string, password: string) => Promise<void>;
+    loginWithPhone: (phone: string, otp: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
 }
@@ -108,6 +109,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.dispatchEvent(new Event("user-updated"));
     }, [fetchUser, router]);
 
+    const loginWithPhone = useCallback(async (phone: string, otp: string) => {
+        const res = await fetch(`${API_URL}/auth/login-phone`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone, otp }),
+            credentials: "include",
+        });
+
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            const detail = typeof data.detail === "object" ? JSON.stringify(data.detail) : data.detail;
+            throw new Error(detail || "Invalid OTP or phone number");
+        }
+
+        await fetchUser();
+        router.push("/dashboard");
+        window.dispatchEvent(new Event("user-updated"));
+    }, [fetchUser, router]);
+
     const logout = useCallback(async () => {
         try {
             await fetch(`${API_URL}/auth/logout`, {
@@ -130,6 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isLoading,
                 isLoggedIn: !!user,
                 login,
+                loginWithPhone,
                 logout,
                 refreshUser: fetchUser,
             }}

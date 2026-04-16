@@ -91,15 +91,10 @@ class InquiryItem(Base):
         return []
 
     @property
-    def cgst_rate(self) -> float:
-        if self.sub_product: return getattr(self.sub_product, 'cgst_rate', 0.0)
-        if self.sub_service: return getattr(self.sub_service, 'cgst_rate', 0.0)
-        return 0.0
-
-    @property
-    def sgst_rate(self) -> float:
-        if self.sub_product: return getattr(self.sub_product, 'sgst_rate', 0.0)
-        if self.sub_service: return getattr(self.sub_service, 'sgst_rate', 0.0)
+    def gst_rate(self) -> float:
+        """Unified GST rate from the source SubProduct or SubService."""
+        if self.sub_product: return getattr(self.sub_product, 'gst_rate', 0.0) or 0.0
+        if self.sub_service: return getattr(self.sub_service, 'gst_rate', 0.0) or 0.0
         return 0.0
 
     @property

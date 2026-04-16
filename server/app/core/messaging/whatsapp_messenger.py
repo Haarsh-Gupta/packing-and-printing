@@ -1,18 +1,9 @@
-# ===========================================================================
-# WhatsApp Messenger — future-proofed for Meta Cloud API
-# ===========================================================================
-# CURRENT (hackathon):  WhatsAppLinkMessenger generates wa.me links.
-#                       Admin clicks the link to manually send the message.
-#
-# FUTURE:               Implement WhatsAppAPIMessenger using Meta Cloud API.
-#                       Swap in get_whatsapp_messenger() — zero changes to
-#                       business logic or the dispatcher.
-# ===========================================================================
-
 import urllib.parse
 import logging
+import httpx
 
 from app.core.messaging.base import BaseMessenger, MessengerResult
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -62,19 +53,13 @@ class WhatsAppLinkMessenger(BaseMessenger):
 
 class WhatsAppAPIMessenger(BaseMessenger):
     """
-    Meta Cloud API implementation (placeholder).
-
-    To activate:
-      1. Set WHATSAPP_BUSINESS_PHONE_ID and WHATSAPP_ACCESS_TOKEN in .env
-      2. Implement the send() method using httpx / aiohttp
-      3. Update get_whatsapp_messenger() to return this class
-
-    The rest of the codebase requires ZERO changes.
+    Meta Cloud API implementation.
     """
 
     def __init__(self, phone_number_id: str, access_token: str):
         self._phone_number_id = phone_number_id
         self._access_token = access_token
+        self._base_url = f"https://graph.facebook.com/v21.0/{self._phone_number_id}/messages"
 
     def channel_name(self) -> str:
         return "whatsapp"
@@ -86,31 +71,90 @@ class WhatsAppAPIMessenger(BaseMessenger):
         body: str,
         **kwargs,
     ) -> MessengerResult:
-        # ---- Future Implementation ----
-        # import httpx
-        # url = f"https://graph.facebook.com/v18.0/{self._phone_number_id}/messages"
-        # headers = {"Authorization": f"Bearer {self._access_token}", "Content-Type": "application/json"}
-        # payload = {
-        #     "messaging_product": "whatsapp",
-        #     "to": to,
-        #     "type": "text",
-        #     "text": {"body": f"*{subject}*\n\n{body}"}
-        # }
-        # async with httpx.AsyncClient() as client:
-        #     resp = await client.post(url, json=payload, headers=headers)
-        #     if resp.status_code == 200:
-        #         return MessengerResult(success=True, channel="whatsapp", metadata=resp.json())
-        #     return MessengerResult(success=False, channel="whatsapp", error=resp.text)
+        """
+        Send a WhatsApp message via Meta Cloud API.
+        Supports standard text messages or templates.
+        """
+        # Clean phone number (Meta expects digits only, usually with country code)
+        phone_clean = "".join(c for c in to if c.isdigit())
+        
+        headers = {
+            "Authorization": f"Bearer {self._access_token}",
+            "Content-Type": "application/json"
+        }
 
-        raise NotImplementedError(
-            "WhatsApp Cloud API is not configured. "
-            "Set WHATSAPP_BUSINESS_PHONE_ID and WHATSAPP_ACCESS_TOKEN in .env, "
-            "then implement this method."
-        )
+        template_name = kwargs.get("template_name")
+        template_params = kwargs.get("template_params", [])
+
+        if template_name:
+            # Template message
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": phone_clean,
+                "type": "template",
+                "template": {
+                    "name": template_name,
+                    "language": {"code": kwargs.get("language_code", settings.whatsapp_template_language)},
+                    "components": []
+                }
+            }
+            
+            # Only add components if we have parameters and it's not the default hello_world template
+            if template_params and template_name != "hello_world":
+                payload["template"]["components"] = [
+                    {
+                        "type": "body",
+                        "parameters": [{"type": "text", "text": p} for p in template_params]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": "0",
+                        "parameters": [{"type": "text", "text": p} for p in template_params]
+                    }
+                ]
+        else:
+            # Standard text message
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": phone_clean,
+                "type": "text",
+                "text": {"body": f"*{subject}*\n\n{body}" if subject else body}
+            }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(self._base_url, json=payload, headers=headers)
+                
+                if response.status_code == 200:
+                    logger.info(f"WhatsApp message sent successfully to {phone_clean}")
+                    return MessengerResult(
+                        success=True,
+                        channel="whatsapp",
+                        metadata=response.json()
+                    )
+                else:
+                    logger.error(f"WhatsApp API error: {response.status_code} - {response.text}")
+                    return MessengerResult(
+                        success=False,
+                        channel="whatsapp",
+                        error=response.text
+                    )
+        except Exception as e:
+            logger.exception("Failed to send WhatsApp message")
+            return MessengerResult(
+                success=False,
+                channel="whatsapp",
+                error=str(e)
+            )
 
 
 def get_whatsapp_messenger() -> BaseMessenger:
     """Factory — returns the active WhatsApp messenger implementation."""
-    # When Meta API is configured, swap to:
-    #   return WhatsAppAPIMessenger(settings.whatsapp_phone_id, settings.whatsapp_access_token)
+    if settings.whatsapp_phone_number_id and settings.meta_access_token:
+        return WhatsAppAPIMessenger(
+            settings.whatsapp_phone_number_id,
+            settings.meta_access_token
+        )
     return WhatsAppLinkMessenger()

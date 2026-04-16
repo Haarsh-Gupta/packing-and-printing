@@ -1,4 +1,4 @@
-from app.modules.users.models import User
+from app.modules.users.models import User, Address
 from app.modules.services.models import Service, SubService
 from app.modules.products.models import Product, SubProduct
 from app.modules.inquiry.models import InquiryGroup, InquiryItem, InquiryMessage

@@ -1,19 +1,19 @@
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
-from enum import Enum
+from enum import Enum as PyEnum
 from pydantic import BaseModel, Field, ConfigDict
 
 
 # ── Enums ─────────────────────────────────────────────────────
-class TicketStatus(str, Enum):
+class TicketStatus(str, PyEnum):
     OPEN = "OPEN"
     IN_PROGRESS = "IN_PROGRESS"
     RESOLVED = "RESOLVED"
     CLOSED = "CLOSED"
 
 
-class TicketPriority(str, Enum):
+class TicketPriority(str, PyEnum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"

@@ -329,3 +329,94 @@ async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depen
     await db.commit()
 
     return {"message": "Password reset successfully. Please log in with your new password."}
+from app.modules.auth.schemas import TokenData, PhoneLoginRequest
+from app.modules.otps.services import get_otp_service
+
+_otp_service = get_otp_service()
+
+
+@router.post("/login-phone")
+async def login_phone(request: Request, response: Response, payload: PhoneLoginRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Verify phone OTP and log the user in. Creates a new user if not found.
+    """
+    # Clean phone number
+    phone_clean = "".join(c for c in payload.phone if c.isdigit())
+    if not phone_clean.startswith("+"):
+         if len(phone_clean) == 10:
+            phone_clean = f"+91{phone_clean}"
+         else:
+            phone_clean = f"+{phone_clean}"
+
+    try:
+        valid = await _otp_service.verify_phone_otp(phone=phone_clean, otp=payload.otp, consume=True)
+    except ValueError as e:
+        if str(e) == "MAX_ATTEMPT_LIMIT_EXCEEDED":
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many incorrect attempts. Please request a new OTP."
+            )
+        raise e
+
+    if not valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP.",
+        )
+
+    # Find user or create new one
+    result = await db.execute(select(User).where(User.phone == phone_clean))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        # Auto-signup
+        # Generate a placeholder email since it's required in the model
+        placeholder_email = f"user_{phone_clean.replace('+', '')}@phone.navart.in"
+        user = User(
+            email=placeholder_email,
+            phone=phone_clean,
+            name=f"User {phone_clean}",
+            admin=False
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    # Log user in
+    payload_data = TokenData(id=user.id, email=user.email, admin=user.admin, name=user.name, token_version=user.token_version)
+    access_token = await create_access_token(data=payload_data.model_dump())
+    refresh_token = await create_refresh_token(data=payload_data.model_dump())
+
+    is_secure = request.url.scheme == "https" and "localhost" not in request.url.hostname
+    cookie_domain = os.getenv("COOKIE_DOMAIN", None)
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=is_secure,
+        domain=cookie_domain,
+        samesite="none" if is_secure else "lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=is_secure,
+        domain=cookie_domain,
+        samesite="none" if is_secure else "lax",
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+    )
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "phone": user.phone,
+            "name": user.name,
+        }
+    }

@@ -24,7 +24,13 @@ export default function SettingsPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [shippingAddress, setShippingAddress] = useState({
+    address_line_1: "", address_line_2: "", city: "", state: "", pincode: "",
+  });
+  const [billingAddress, setBillingAddress] = useState({
+    address_line_1: "", address_line_2: "", city: "", state: "", pincode: "",
+  });
+  const [sameAsShipping, setSameAsShipping] = useState(true);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -32,15 +38,61 @@ export default function SettingsPage() {
   const [editSection, setEditSection] = useState<string | null>(null);
 
   useEffect(() => {
+    const loadAddresses = async () => {
+      try {
+        const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/users/addresses`);
+        if (res.ok) {
+          const data = await res.json();
+          const shipping = data.find((a: any) => a.address_type === "SHIPPING");
+          const billing = data.find((a: any) => a.address_type === "BILLING");
+          
+          if (shipping) {
+            setShippingAddress({
+              address_line_1: shipping.address_line_1 || "",
+              address_line_2: shipping.address_line_2 || "",
+              city: shipping.city || "",
+              state: shipping.state || "",
+              pincode: shipping.pincode || ""
+            });
+          }
+          if (billing) {
+            setBillingAddress({
+              address_line_1: billing.address_line_1 || "",
+              address_line_2: billing.address_line_2 || "",
+              city: billing.city || "",
+              state: billing.state || "",
+              pincode: billing.pincode || ""
+            });
+            if (!shipping || (shipping.address_line_1 !== billing.address_line_1 || shipping.city !== billing.city || shipping.state !== billing.state || shipping.pincode !== billing.pincode)) {
+              setSameAsShipping(false);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load addresses", err);
+      }
+    };
+
     if (user) {
       const parts = user.name.split(" ");
       setFirstName(parts[0] || "");
       setLastName(parts.slice(1).join(" ") || "");
       setPhone(user.phone || "");
-      setAddress(user.address || "");
       setPreviewUrl(user.profile_picture || "");
+      loadAddresses();
     }
   }, [user]);
+
+  const INDIAN_STATES = [
+    "JAMMU AND KASHMIR", "HIMACHAL PRADESH", "PUNJAB", "CHANDIGARH", "UTTARAKHAND", 
+    "HARYANA", "DELHI", "RAJASTHAN", "UTTAR PRADESH", "BIHAR", "SIKKIM", 
+    "ARUNACHAL PRADESH", "NAGALAND", "MANIPUR", "MIZORAM", "TRIPURA", 
+    "MEGHALAYA", "ASSAM", "WEST BENGAL", "JHARKHAND", "ODISHA", "CHHATTISGARH", 
+    "MADHYA PRADESH", "GUJARAT", "DADRA AND NAGAR HAVELI AND DAMAN AND DIU", 
+    "MAHARASHTRA", "KARNATAKA", "GOA", "LAKSHADWEEP", "KERALA", "TAMIL NADU", 
+    "PUDUCHERRY", "ANDAMAN AND NICOBAR ISLANDS", "TELANGANA", "ANDHRA PRADESH", 
+    "OTHER TERRITORY", "OTHER COUNTRY"
+  ];
 
   const avatarUrl = previewUrl || (user?.profile_picture ? user.profile_picture : `https://api.dicebear.com/9.x/open-peeps/svg?seed=${encodeURIComponent(user?.name || "default")}&backgroundColor=ffdfbf`);
 
@@ -100,7 +152,6 @@ export default function SettingsPage() {
       const payload: any = {
         name: `${firstName} ${lastName}`.trim(),
         phone: phone.trim(),
-        address: address.trim(),
       };
       
       if (previewUrl && previewUrl !== user?.profile_picture) {
@@ -163,8 +214,25 @@ export default function SettingsPage() {
   const updateAddress = async () => {
     setIsSavingAddress(true);
     try {
-      await updateUser({ address: address.trim() });
-      showAlert("Delivery address updated!", "success");
+      const shipPayload = { ...shippingAddress, address_type: "SHIPPING" };
+      const shipRes = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/users/addresses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(shipPayload)
+      });
+      if (!shipRes.ok) throw new Error("Failed saving shipping address");
+      
+      const billPayload = sameAsShipping 
+        ? { ...shippingAddress, address_type: "BILLING" }
+        : { ...billingAddress, address_type: "BILLING" };
+      const billRes = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/users/addresses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(billPayload)
+      });
+      if (!billRes.ok) throw new Error("Failed saving billing address");
+      
+      showAlert("Addresses updated successfully!", "success");
     } catch {
       showAlert("Failed to update address.", "error");
     } finally {
@@ -210,11 +278,20 @@ export default function SettingsPage() {
     ? new Date(user.created_at).toLocaleDateString("en-IN", { month: "long", year: "numeric" })
     : "New Member";
 
+  const displayAddress = shippingAddress.address_line_1 ? (
+    <div className="flex flex-col text-sm font-bold text-zinc-800 leading-snug mt-0.5">
+      <span className="truncate">{shippingAddress.address_line_1}</span>
+      {shippingAddress.address_line_2 && <span className="truncate">{shippingAddress.address_line_2}</span>}
+      <span className="truncate">{shippingAddress.city}, {shippingAddress.state}</span>
+      <span className="truncate">PIN: {shippingAddress.pincode}</span>
+    </div>
+  ) : "Not set";
+
   // Info items for the profile card
   const profileItems = [
     { icon: Mail, label: "Email", value: user.email },
     { icon: Phone, label: "Phone", value: user.phone || "Not set" },
-    { icon: MapPin, label: "Address", value: user.address || "Not set" },
+    { icon: MapPin, label: "Address", value: displayAddress },
   ];
 
   return (
@@ -335,11 +412,15 @@ export default function SettingsPage() {
                 <div className="w-9 h-9 bg-zinc-100 border-2 border-black rounded-lg flex items-center justify-center shrink-0">
                   <Icon className="w-4 h-4" />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{label}</p>
-                  <p className={`text-sm font-bold truncate ${value === "Not set" ? "text-zinc-300 italic" : "text-zinc-800"}`}>
-                    {value}
-                  </p>
+                  {typeof value === 'string' ? (
+                    <p className={`text-sm font-bold truncate ${value === "Not set" ? "text-zinc-300 italic" : "text-zinc-800"}`}>
+                      {value}
+                    </p>
+                  ) : (
+                    value
+                  )}
                 </div>
               </div>
             ))}
@@ -362,9 +443,9 @@ export default function SettingsPage() {
         <div className="lg:col-span-8 space-y-6">
 
           {/* Personal Details */}
-          <div className="border-2 border-black bg-white p-6 md:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl">
-            <div className="flex items-center justify-between mb-7 border-b-2 border-zinc-100 pb-4">
-              <div className="flex items-center gap-3">
+          <div className="border-2 border-black bg-white p-6 md:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl relative group">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7 border-b-2 border-zinc-100 pb-4">
+              <div className="flex items-center gap-3 shrink-0">
                 <div className="p-2 bg-[#FF90E8] text-black border-2 border-black rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                   <User className="w-5 h-5" />
                 </div>
@@ -373,6 +454,24 @@ export default function SettingsPage() {
                   <p className="text-xs font-medium text-zinc-400">Name, email & phone number</p>
                 </div>
               </div>
+              <div className="flex gap-2 self-start sm:self-auto shrink-0 z-10 w-full sm:w-auto justify-end sm:justify-start">
+                {editSection !== "personal" && (
+                  <button
+                    onClick={() => setEditSection("personal")}
+                    className="px-4 py-2 bg-white text-black border-2 border-black font-black text-xs uppercase tracking-wider rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all md:opacity-0 group-hover:opacity-100"
+                  >
+                    Change Details
+                  </button>
+                )}
+                {editSection === "personal" && (
+                  <button
+                    onClick={() => setEditSection(null)}
+                    className="px-3 py-1.5 bg-zinc-100 text-zinc-600 border-2 border-black font-black text-[10px] uppercase tracking-wider rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -380,7 +479,8 @@ export default function SettingsPage() {
                 <label className="text-xs font-black uppercase tracking-widest text-zinc-500">First Name</label>
                 <input
                   type="text"
-                  className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a788fa] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]"
+                  disabled={editSection !== "personal"}
+                  className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a788fa] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
                   placeholder="Alex"
                   value={firstName}
                   onChange={e => setFirstName(e.target.value)}
@@ -390,7 +490,8 @@ export default function SettingsPage() {
                 <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Last Name</label>
                 <input
                   type="text"
-                  className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a788fa] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]"
+                  disabled={editSection !== "personal"}
+                  className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a788fa] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
                   placeholder="Morgan"
                   value={lastName}
                   onChange={e => setLastName(e.target.value)}
@@ -415,7 +516,8 @@ export default function SettingsPage() {
                 <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Phone Number</label>
                 <input
                   type="tel"
-                  className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a788fa] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]"
+                  disabled={editSection !== "personal"}
+                  className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a788fa] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
                   placeholder="10-digit mobile number"
                   value={phone}
                   onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
@@ -423,22 +525,27 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={updatePersonalDetails}
-                disabled={isSavingPersonal}
-                className="px-6 py-2.5 bg-[#FF90E8] text-black border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all flex items-center gap-2"
-              >
-                {isSavingPersonal ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Save Details
-              </button>
-            </div>
+            {editSection === "personal" && (
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={async () => {
+                    await updatePersonalDetails();
+                    setEditSection(null);
+                  }}
+                  disabled={isSavingPersonal}
+                  className="px-6 py-2.5 bg-[#FF90E8] text-black border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all flex items-center gap-2"
+                >
+                  {isSavingPersonal ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  Save Details
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Shipping Address */}
-          <div className="border-2 border-black bg-white p-6 md:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl">
-            <div className="flex items-center justify-between mb-7 border-b-2 border-zinc-100 pb-4">
-              <div className="flex items-center gap-3">
+          <div className="border-2 border-black bg-white p-6 md:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl relative group">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7 border-b-2 border-zinc-100 pb-4">
+              <div className="flex items-center gap-3 shrink-0">
                 <div className="p-2 bg-[#4be794] text-black border-2 border-black rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                   <MapPin className="w-5 h-5" />
                 </div>
@@ -447,37 +554,205 @@ export default function SettingsPage() {
                   <p className="text-xs font-medium text-zinc-400">Used for shipping and invoices</p>
                 </div>
               </div>
+              <div className="flex gap-2 self-start sm:self-auto shrink-0 z-10 w-full sm:w-auto justify-end sm:justify-start">
+                {editSection !== "address" && (
+                  <button
+                    onClick={() => setEditSection("address")}
+                    className="px-4 py-2 bg-white text-black border-2 border-black font-black text-xs uppercase tracking-wider rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all md:opacity-0 group-hover:opacity-100"
+                  >
+                    Change Details
+                  </button>
+                )}
+                {editSection === "address" && (
+                  <button
+                    onClick={() => setEditSection(null)}
+                    className="px-3 py-1.5 bg-zinc-100 text-zinc-600 border-2 border-black font-black text-[10px] uppercase tracking-wider rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Full Address</label>
-              <textarea
-                className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#4be794] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] resize-none"
-                rows={3}
-                placeholder="Enter your full address including street, city, state and PIN code"
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-              />
-              <p className="text-[10px] font-medium text-zinc-400">
-                This address will be pre-filled when you submit inquiries and used for shipping calculations.
-              </p>
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-widest text-zinc-800 mb-4 border-b-2 border-black/5 pb-2">Shipping Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Address Line 1</label>
+                    <input
+                      type="text"
+                      disabled={editSection !== "address"}
+                      className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#4be794] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
+                      placeholder="Street address, P.O. box, etc."
+                      value={shippingAddress.address_line_1}
+                      onChange={e => setShippingAddress({...shippingAddress, address_line_1: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Address Line 2 <span className="text-[9px] text-zinc-400">(Optional)</span></label>
+                    <input
+                      type="text"
+                      disabled={editSection !== "address"}
+                      className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#4be794] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
+                      placeholder="Apartment, suite, unit, building, floor, etc."
+                      value={shippingAddress.address_line_2}
+                      onChange={e => setShippingAddress({...shippingAddress, address_line_2: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-zinc-500">City</label>
+                    <input
+                      type="text"
+                      disabled={editSection !== "address"}
+                      className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#4be794] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
+                      placeholder="City Name"
+                      value={shippingAddress.city}
+                      onChange={e => setShippingAddress({...shippingAddress, city: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-zinc-500">State</label>
+                    <div className="relative">
+                      <select
+                        disabled={editSection !== "address"}
+                        className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#4be794] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        value={shippingAddress.state}
+                        onChange={e => setShippingAddress({...shippingAddress, state: e.target.value})}
+                      >
+                        <option value="" disabled>Select State</option>
+                        {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-black">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-zinc-500">PIN Code</label>
+                    <input
+                      type="text"
+                      disabled={editSection !== "address"}
+                      className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#4be794] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
+                      placeholder="6-digit PIN code"
+                      value={shippingAddress.pincode}
+                      onChange={e => setShippingAddress({...shippingAddress, pincode: e.target.value.replace(/\D/g, "").slice(0, 6)})}
+                      maxLength={6}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8">
+                <label className={`flex items-center gap-3 w-fit ${editSection === "address" ? "cursor-pointer group" : "cursor-not-allowed opacity-60"}`}>
+                  <div className="relative flex items-center justify-center">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only" 
+                      checked={sameAsShipping}
+                      disabled={editSection !== "address"}
+                      onChange={() => setSameAsShipping(!sameAsShipping)}
+                    />
+                    <div className={`w-6 h-6 border-2 border-black rounded transition-all flex items-center justify-center ${sameAsShipping ? 'bg-[#a788fa] scale-110 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]' : 'bg-white'} ${editSection === "address" ? (sameAsShipping ? 'group-hover:-translate-y-0.5' : 'group-hover:bg-zinc-100') : ''}`}>
+                      {sameAsShipping && <CheckCircle2 className="w-4 h-4 text-black fill-white" />}
+                    </div>
+                  </div>
+                  <span className="text-sm font-black uppercase tracking-wide">Billing details are the same as Shipping</span>
+                </label>
+              </div>
+
+              {!sameAsShipping && (
+                <div className="mt-8 pt-8 border-t-2 border-black/10 animate-in fade-in slide-in-from-top-4">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-zinc-800 mb-4 border-b-2 border-black/5 pb-2">Billing Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Address Line 1</label>
+                      <input
+                        type="text"
+                        disabled={editSection !== "address"}
+                        className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#fdf567] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
+                        placeholder="Street address, P.O. box, etc."
+                        value={billingAddress.address_line_1}
+                        onChange={e => setBillingAddress({...billingAddress, address_line_1: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Address Line 2 <span className="text-[9px] text-zinc-400">(Optional)</span></label>
+                      <input
+                        type="text"
+                        disabled={editSection !== "address"}
+                        className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#fdf567] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
+                        placeholder="Apartment, suite, unit, building, floor, etc."
+                        value={billingAddress.address_line_2}
+                        onChange={e => setBillingAddress({...billingAddress, address_line_2: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-zinc-500">City</label>
+                      <input
+                        type="text"
+                        disabled={editSection !== "address"}
+                        className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#fdf567] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
+                        placeholder="City Name"
+                        value={billingAddress.city}
+                        onChange={e => setBillingAddress({...billingAddress, city: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-zinc-500">State</label>
+                      <div className="relative">
+                        <select
+                          disabled={editSection !== "address"}
+                          className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#fdf567] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
+                          value={billingAddress.state}
+                          onChange={e => setBillingAddress({...billingAddress, state: e.target.value})}
+                        >
+                          <option value="" disabled>Select State</option>
+                          {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-black">
+                          <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-zinc-500">PIN Code</label>
+                      <input
+                        type="text"
+                        disabled={editSection !== "address"}
+                        className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#fdf567] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
+                        placeholder="6-digit PIN code"
+                        value={billingAddress.pincode}
+                        onChange={e => setBillingAddress({...billingAddress, pincode: e.target.value.replace(/\D/g, "").slice(0, 6)})}
+                        maxLength={6}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={updateAddress}
-                disabled={isSavingAddress}
-                className="px-6 py-2.5 bg-[#4be794] text-black border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all flex items-center gap-2"
-              >
-                {isSavingAddress ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Save Address
-              </button>
-            </div>
+
+            {editSection === "address" && (
+              <div className="mt-8 pt-6 border-t-2 border-black/10 flex justify-end">
+                <button
+                  onClick={async () => {
+                    await updateAddress();
+                    setEditSection(null);
+                  }}
+                  disabled={isSavingAddress}
+                  className="px-6 py-2.5 bg-[#4be794] text-black border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all flex items-center gap-2"
+                >
+                  {isSavingAddress ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  Save Address
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Security */}
-          <div className="border-2 border-black bg-white p-6 md:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl">
-            <div className="flex items-center justify-between mb-7 border-b-2 border-zinc-100 pb-4">
-              <div className="flex items-center gap-3">
+          <div className="border-2 border-black bg-white p-6 md:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-xl relative group">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7 border-b-2 border-zinc-100 pb-4">
+              <div className="flex items-center gap-3 shrink-0">
                 <div className="p-2 bg-[#fdf567] text-black border-2 border-black rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                   <Shield className="w-5 h-5" />
                 </div>
@@ -486,6 +761,24 @@ export default function SettingsPage() {
                   <p className="text-xs font-medium text-zinc-400">Update your password</p>
                 </div>
               </div>
+              <div className="flex gap-2 self-start sm:self-auto shrink-0 z-10 w-full sm:w-auto justify-end sm:justify-start">
+                {editSection !== "security" && (
+                  <button
+                    onClick={() => setEditSection("security")}
+                    className="px-4 py-2 bg-white text-black border-2 border-black font-black text-xs uppercase tracking-wider rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all md:opacity-0 group-hover:opacity-100"
+                  >
+                    Change Details
+                  </button>
+                )}
+                {editSection === "security" && (
+                  <button
+                    onClick={() => setEditSection(null)}
+                    className="px-3 py-1.5 bg-zinc-100 text-zinc-600 border-2 border-black font-black text-[10px] uppercase tracking-wider rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -493,7 +786,8 @@ export default function SettingsPage() {
                 <label className="text-xs font-black uppercase tracking-widest text-zinc-500">New Password</label>
                 <input
                   type="password"
-                  className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#fdf567] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]"
+                  disabled={editSection !== "security"}
+                  className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#fdf567] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
                   placeholder="Enter new password"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
@@ -503,7 +797,8 @@ export default function SettingsPage() {
                 <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Confirm Password</label>
                 <input
                   type="password"
-                  className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#fdf567] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1,0.05)]"
+                  disabled={editSection !== "security"}
+                  className="w-full border-2 border-black p-3 rounded-lg font-medium text-sm bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#fdf567] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
                   placeholder="Confirm new password"
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
@@ -515,16 +810,23 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={updatePassword}
-                disabled={isSavingSecurity}
-                className="px-6 py-2.5 bg-[#fdf567] text-black border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all flex items-center gap-2"
-              >
-                {isSavingSecurity ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Update Password
-              </button>
-            </div>
+            {editSection === "security" && (
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={async () => {
+                    await updatePassword();
+                    if (newPassword.trim() === confirmPassword && newPassword.length >= 6) {
+                      setEditSection(null);
+                    }
+                  }}
+                  disabled={isSavingSecurity}
+                  className="px-6 py-2.5 bg-[#fdf567] text-black border-2 border-black font-black text-sm uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-px hover:translate-y-px transition-all flex items-center gap-2"
+                >
+                  {isSavingSecurity ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  Update Password
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Admin Site Settings */}

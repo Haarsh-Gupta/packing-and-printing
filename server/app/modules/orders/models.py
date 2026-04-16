@@ -31,6 +31,8 @@ class Order(Base):
     
     # Compliance Config
     place_of_supply = Column(String, nullable=True)
+    customer_billing_snapshot = Column(JSON, nullable=True)
+    customer_shipping_snapshot = Column(JSON, nullable=True)
     reverse_charge = Column(Boolean, default=False, nullable=False)
     invoice_data = Column(JSON, nullable=True)  # Admin-curated invoice presentation overrides
     

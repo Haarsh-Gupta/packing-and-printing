@@ -13,12 +13,12 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, model_validator, ConfigDict
-from enum import Enum
+from enum import Enum as PyEnum
 
 
 # ── Enums ────────────────────────────────────────────────────────────────────
 
-class PaymentMode(str, Enum):
+class PaymentMode(str, PyEnum):
     CASH          = "CASH"
     UPI_MANUAL    = "UPI_MANUAL"
     BANK_TRANSFER = "BANK_TRANSFER"
@@ -26,7 +26,7 @@ class PaymentMode(str, Enum):
     ONLINE        = "ONLINE"
 
 
-class OrderStatus(str, Enum):
+class OrderStatus(str, PyEnum):
     WAITING_PAYMENT = "WAITING_PAYMENT"
     PARTIALLY_PAID  = "PARTIALLY_PAID"
     PAID            = "PAID"
@@ -37,20 +37,20 @@ class OrderStatus(str, Enum):
     CANCELLED       = "CANCELLED"
 
 
-class MilestoneStatus(str, Enum):
+class MilestoneStatus(str, PyEnum):
     UNPAID   = "UNPAID"
     PENDING  = "PENDING"
     PAID     = "PAID"
     REFUNDED = "REFUNDED"
 
 
-class DeclarationStatus(str, Enum):
+class DeclarationStatus(str, PyEnum):
     PENDING  = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
 
 
-class PaymentSplitType(str, Enum):
+class PaymentSplitType(str, PyEnum):
     FULL   = "FULL"
     HALF   = "HALF"
     CUSTOM = "CUSTOM"
@@ -169,18 +169,13 @@ class AdminOfflineOrderCreateItem(BaseModel):
     quantity: int = Field(..., gt=0)
     unit_price: float = Field(..., ge=0)
     hsn_code: Optional[str] = None
-    cgst_rate: Optional[float] = Field(0.0, ge=0)
-    sgst_rate: Optional[float] = Field(0.0, ge=0)
-    igst_rate: Optional[float] = Field(0.0, ge=0)
-    cess_rate: Optional[float] = Field(0.0, ge=0)
+    gst_rate: float = Field(18.0, ge=0, description="GST rate (5, 12, 18, or 28)")
 
     @model_validator(mode="after")
     def validate_gst_slabs(self) -> "AdminOfflineOrderCreateItem":
-        VALID_SLABS = {0.0, 0.1, 0.25, 1.5, 2.5, 3.0, 5.0, 6.0, 9.0, 12.0, 14.0, 18.0, 28.0}
-        rates = [self.cgst_rate, self.sgst_rate, self.igst_rate]
-        for r in rates:
-            if r and float(r) not in VALID_SLABS:
-                raise ValueError(f"Invalid GST rate: {r}%. Must be a standard Indian GST slab.")
+        VALID_SLABS = {0.0, 5.0, 12.0, 18.0, 28.0}
+        if self.gst_rate not in VALID_SLABS:
+            raise ValueError(f"Invalid GST rate: {self.gst_rate}%. Must be one of: {sorted(VALID_SLABS)}")
         return self
 
 class AdminOfflineOrderCreateRequest(BaseModel):

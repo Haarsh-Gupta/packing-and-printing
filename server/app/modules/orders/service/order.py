@@ -157,8 +157,30 @@ class OrderService:
             )
             self.db.add(item)
 
-        # 3. Calculate total
-        grand_total = total_from_items + payload.tax_amount + payload.shipping_amount - payload.discount_amount
+        # 3. Calculate tax and totals robustly
+        from app.modules.orders.service.tax import determine_interstate, compute_line_item_tax
+        from app.modules.settings.models import SiteSettings as _SS
+        
+        _settings_obj = (await self.db.execute(select(_SS))).scalar_one_or_none()
+        company_state_code = getattr(_settings_obj, "company_state_code", "07") if _settings_obj else "07"
+        
+        # If place_of_supply is not in payload, we should really try to get it from the user's address.
+        # For offline orders, it's safer to either require it in payload or default to intra-state.
+        customer_state_code = payload.place_of_supply or company_state_code
+        is_interstate = determine_interstate(company_state_code, customer_state_code)
+        
+        computed_tax = 0.0
+        for item_data in payload.items:
+            line_tax_info = compute_line_item_tax(
+                gst_rate=item_data.gst_rate,
+                taxable_value=item_data.unit_price * item_data.quantity,
+                is_interstate=is_interstate
+            )
+            computed_tax += line_tax_info["total_tax"]
+
+        # Use admin provided tax if non-zero, else use computed
+        final_tax_amount = payload.tax_amount if payload.tax_amount > 0 else round(computed_tax, 2)
+        grand_total = round(total_from_items + final_tax_amount + payload.shipping_amount - payload.discount_amount, 2)
 
         # 4. Build milestone definitions for the quote
         if payload.split_type == PaymentSplitType.FULL:
@@ -177,7 +199,7 @@ class OrderService:
             version=1,
             created_by=admin_id,
             total_price=grand_total,
-            tax_amount=payload.tax_amount,
+            tax_amount=final_tax_amount,
             shipping_amount=payload.shipping_amount,
             discount_amount=payload.discount_amount,
             valid_until=datetime.now(timezone.utc) + timedelta(days=365),
@@ -195,9 +217,10 @@ class OrderService:
             inquiry_id=inquiry.id,
             user_id=payload.user_id,
             total_amount=grand_total,
-            tax_amount=payload.tax_amount,
+            tax_amount=final_tax_amount,
             shipping_amount=payload.shipping_amount,
             discount_amount=payload.discount_amount,
+            place_of_supply=customer_state_code,
             status="WAITING_PAYMENT",
             split_type=payload.split_type.value,
             is_offline=True,

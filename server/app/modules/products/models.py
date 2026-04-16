@@ -39,7 +39,7 @@ class SubProduct(Base):
     minimum_quantity = Column(Integer, nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
     
-    type = Column(String, default="product", nullable=False)
+    type = Column(String, default="product", nullable=True) # changed nullable to true
     
     # Level 3: The Options (Reusing your awesome JSON schema!)
     config_schema = Column(JSONB, nullable=False)
@@ -51,10 +51,11 @@ class SubProduct(Base):
     
     # Taxation
     hsn_code  = Column(String, nullable=True)   # Optional HSN/SAC code
-    cgst_rate = Column(Double, default=0.0)     # e.g. 9.0 for 9%
-    sgst_rate = Column(Double, default=0.0)     # e.g. 9.0 for 9%
-    igst_rate = Column(Double, default=0.0)     # e.g. 18.0 for 18%
-    cess_rate = Column(Double, default=0.0)
+    # cgst_rate = Column(Double, default=0.0)     # e.g. 9.0 for 9%
+    # sgst_rate = Column(Double, default=0.0)     # e.g. 9.0 for 9%
+    # igst_rate = Column(Double, default=0.0)     # e.g. 18.0 for 18%
+    # cess_rate = Column(Double, default=0.0)
+    gst_rate = Column(Double, default=18.0)
     unit      = Column(String, default="Nos")
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

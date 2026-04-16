@@ -70,6 +70,25 @@ class NotificationService:
                 metadata_=metadata
             )
             db.add(notif)
+            
+            # Send WhatsApp Notification if user's phone is verified
+            user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+            if user and user.is_phone_verified and user.phone:
+                from app.core.messaging.whatsapp_messenger import get_whatsapp_messenger
+                wa_messenger = get_whatsapp_messenger()
+                
+                # Check for specific premium alert types
+                msg_type = metadata.get("type") if metadata else None
+                if msg_type in ["order_shipped", "payment_received", "quote_received"]:
+                    # Do not await block the main execution flow if possible, or await it safely
+                    import asyncio
+                    asyncio.create_task(
+                        wa_messenger.send(
+                            to=user.phone,
+                            subject=title,
+                            body=message
+                        )
+                    )
         except Exception as e:
             logger.error(f"Failed to notify user: {e}")
 

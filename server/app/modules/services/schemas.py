@@ -13,10 +13,7 @@ class SubServiceBase(BaseModel):
     images: Optional[List[str]] = Field(None, description="List of image URLs")
     is_active: bool = Field(True, description="Is the service variant active")
     hsn_code: Optional[str] = Field(None, description="HSN/SAC code")
-    cgst_rate: Optional[float] = Field(0.0, description="CGST percentage")
-    sgst_rate: Optional[float] = Field(0.0, description="SGST percentage")
-    igst_rate: Optional[float] = Field(0.0, description="IGST percentage")
-    cess_rate: Optional[float] = Field(0.0, description="Cess percentage")
+    gst_rate: Optional[float] = Field(18.0, description="GST percentage (5, 12, 18, or 28)")
     unit: Optional[str] = Field("Nos", description="Unit of measurement")
     features: Optional[List[Dict[str, Any]]] = Field(None, description="Features list with icons")
     specifications: Optional[List[Dict[str, Any]]] = Field(None, description="Specifications list")
@@ -57,10 +54,7 @@ class SubServiceUpdate(BaseModel):
     images: Optional[List[str]] = None
     is_active: Optional[bool] = None
     hsn_code: Optional[str] = None
-    cgst_rate: Optional[float] = None
-    sgst_rate: Optional[float] = None
-    igst_rate: Optional[float] = None
-    cess_rate: Optional[float] = None
+    gst_rate: Optional[float] = None
     unit: Optional[str] = None
     features: Optional[List[Dict[str, Any]]] = None
     specifications: Optional[List[Dict[str, Any]]] = None

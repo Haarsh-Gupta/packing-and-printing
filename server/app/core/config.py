@@ -117,6 +117,12 @@ class Settings(BaseSettings):
             f"{self.db_name}"
         )
 
+    # WhatsApp / Meta Cloud API
+    whatsapp_phone_number_id: str = ""
+    meta_access_token: str = ""
+    whatsapp_auth_template_name: str = "verification_code" # Default for test accounts often
+    whatsapp_template_language: str = "en_US" # e.g. 'en_US', 'en', 'en_GB'
+
     class Config:
         env_file = ".env"
         extra = "ignore"

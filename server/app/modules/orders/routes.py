@@ -48,6 +48,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _build_user_address(user) -> str:
+    """Build a formatted address string from user's billing address."""
+    if not hasattr(user, 'addresses') or not user.addresses:
+        return ""
+    # Prefer BILLING address, fallback to first available
+    addr = next((a for a in user.addresses if a.address_type == "BILLING"), None)
+    if not addr:
+        addr = user.addresses[0] if user.addresses else None
+    if not addr:
+        return ""
+    parts = [addr.address_line_1]
+    if addr.address_line_2:
+        parts.append(addr.address_line_2)
+    parts.append(f"{addr.city}, {addr.state} - {addr.pincode}")
+    return ", ".join(parts)
+
+
 # ── Orders ────────────────────────────────────────────────────────────────────
 
 @router.get("/my", response_model=list[OrderListResponse])
@@ -366,6 +383,20 @@ async def get_invoice(
                 for li in inquiry.active_quote.line_items:
                     discount_map[str(li.get("item_id"))] = li
 
+            # Determine inter-state status from company settings + order place_of_supply
+            from app.modules.orders.service.tax import split_gst_rate, determine_interstate
+            from app.modules.settings.models import SiteSettings as _SS
+            _settings_obj = (await db.execute(select(_SS))).scalar_one_or_none()
+            company_state_code = getattr(_settings_obj, 'company_state_code', '07') if _settings_obj else '07'
+            
+            # Extract customer state code from place_of_supply or user addresses
+            customer_state_code = company_state_code  # default: intra-state
+            if order.place_of_supply:
+                # place_of_supply might be a state name or state code
+                customer_state_code = order.place_of_supply
+            
+            is_interstate = determine_interstate(company_state_code, customer_state_code)
+
             for itm in inquiry.items:
                 sp = itm.sub_product
                 ss = itm.sub_service
@@ -385,6 +416,10 @@ async def get_invoice(
                 specs = " · ".join(specs_parts) if specs_parts else ""
                 
                 disc_info = discount_map.get(str(itm.id), {})
+                
+                # Get unified gst_rate and split into cgst/sgst or igst
+                gst_rate = float(getattr(source, 'gst_rate', 0) or 0) if source else 0.0
+                tax_split = split_gst_rate(gst_rate, is_interstate)
 
                 items.append({
                     "description": name,
@@ -394,10 +429,10 @@ async def get_invoice(
                     "variant": variant,
                     "specs": specs,
                     "hsn_sac": getattr(source, "hsn_code", "") if source else "",
-                    "cgst_rate": float(getattr(source, "cgst_rate", None) or 0) if source else 0.0,
-                    "sgst_rate": float(getattr(source, "sgst_rate", None) or 0) if source else 0.0,
-                    "igst_rate": float(getattr(source, "igst_rate", None) or 0) if source else 0.0,
-                    "cess_rate": float(getattr(source, "cess_rate", None) or 0) if source else 0.0,
+                    "cgst_rate": tax_split["cgst_rate"],
+                    "sgst_rate": tax_split["sgst_rate"],
+                    "igst_rate": tax_split["igst_rate"],
+                    "cess_rate": 0.0,
                     "discount_amount": float(disc_info.get("discount_amount") or 0.0),
                     "discount_type": disc_info.get("discount_type"),
                     "discount_value": float(disc_info.get("discount_value") or 0.0),
@@ -471,8 +506,9 @@ async def get_invoice(
                 "name": order.user.name or "Customer",
                 "email": order.user.email,
                 "phone": order.user.phone or "",
-                "address": order.user.address or "",
-                "place_of_supply": order.place_of_supply or ((order.user.address or "").split(",")[-1].strip() if order.user.address else "Undetermined"),
+                "address": _build_user_address(order.user),
+                "place_of_supply": order.place_of_supply or "Undetermined",
+                "gstin": order.user.gstin or "",
             },
             "items": items,
             "logo_path": logo_path,
