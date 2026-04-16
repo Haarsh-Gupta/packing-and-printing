@@ -481,7 +481,7 @@ async def update_inquiry_status_user(
         user_res = await db.execute(user_stmt)
         db_user = user_res.scalar_one()
 
-        if not db_user.phone:
+        if not db_user.phone or not db_user.is_phone_verified:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Phone number verification is mandatory before submitting an inquiry."
@@ -672,7 +672,7 @@ async def direct_checkout_zero_cost(
     user_res = await db.execute(user_stmt)
     db_user = user_res.scalar_one()
 
-    if not db_user.phone:
+    if not db_user.phone or not db_user.is_phone_verified:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Phone number verification is mandatory before placing an order."

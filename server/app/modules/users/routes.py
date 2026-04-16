@@ -106,6 +106,8 @@ async def verify_phone_otp(request: PhoneOTPVerifyRequest, current_user: TokenDa
 
 
 
+
+
 @router.get("/me" , response_model=UserOut)
 async def user_detail(current_user : TokenData = Depends(get_current_user), db : AsyncSession = Depends(get_db)):
     stmt = select(User).where(User.id == current_user.id)
