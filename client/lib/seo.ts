@@ -8,20 +8,24 @@ const FALLBACK_SEO: Metadata = {
   },
 };
 
+let isApiUnreachable = false;
+
 export async function fetchPageSEO(path: string): Promise<Metadata> {
+  // If we've already determined the API is unreachable during this build/process run, 
+  // skip the wait and return fallback immediately.
+  if (isApiUnreachable) {
+    return FALLBACK_SEO;
+  }
+
   try {
-    // We use the server-side internal URL if possible, otherwise falls back to public
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     
     const res = await fetch(`${apiUrl}/seo/config?path=${path}`, {
-      // ISR: Cache the result for 1 hour (3600 seconds)
       next: { revalidate: 3600 },
-      // Prevent 90s+ hangs when backend is restarting
       signal: AbortSignal.timeout(3000),
     });
 
     if (!res.ok) {
-        // If 404, we return the fallback. If we are on home page, maybe we want a specific default.
         return FALLBACK_SEO;
     }
 
@@ -47,8 +51,16 @@ export async function fetchPageSEO(path: string): Promise<Metadata> {
         images: data.og_image ? [data.og_image] : undefined,
       }
     };
-  } catch (error) {
-    console.error(`SEO Fetch failed for ${path}:`, error);
-    return FALLBACK_SEO; // Never crash the page layout on API failure
+  } catch (error: any) {
+    // If it's a timeout or connection error, mark as unreachable to avoid spamming the build
+    if (error.name === 'TimeoutError' || error.innerError?.code === 'ECONNREFUSED' || error.code === 'ECONNREFUSED') {
+        if (!isApiUnreachable) {
+            console.warn(`[SEO] API unreachable at ${path}. Falling back to default metadata for this build run.`);
+            isApiUnreachable = true;
+        }
+    } else {
+        console.error(`[SEO] Fetch failed for ${path}:`, error.message || error);
+    }
+    return FALLBACK_SEO; 
   }
 }
