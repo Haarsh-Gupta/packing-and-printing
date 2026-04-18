@@ -26,6 +26,7 @@ import PricingCalculator from "@/pages/PricingCalculator";
 import OfflinePayment from "@/pages/OfflinePayment";
 import DeclarationDetail from "@/pages/DeclarationDetail";
 import SEO from "@/pages/SEO";
+import Inventory from "@/pages/Inventory";
 
 export default function App() {
   return (
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/offline-payment" element={<OfflinePayment />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/seo" element={<SEO />} />
+            <Route path="/inventory" element={<Inventory />} />
           </Route>
         </Routes>
       </AuthProvider>

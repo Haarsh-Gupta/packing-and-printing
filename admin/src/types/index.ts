@@ -385,3 +385,68 @@ export interface ReviewListResponse {
     limit: number;
     reviews: Review[];
 }
+
+// ============ Inventory ============
+export type MaterialCategory = "PAPER" | "INK" | "BOARD" | "LAMINATE" | "GLUE" | "CONSUMABLE";
+export type UnitType = "SHEET" | "KG" | "SQ_INCH" | "PCS";
+export type OwnerType = "FACTORY" | "CUSTOMER";
+export type TransactionType = "RECEIVE" | "CONSUMPTION" | "WASTAGE" | "RETURN_TO_CUSTOMER" | "MANUAL_RECONCILIATION";
+
+export interface MaterialDefinition {
+    id: string;
+    name: string;
+    category: MaterialCategory;
+    uom: UnitType;
+    attributes: Record<string, unknown>;
+}
+
+export interface InventoryBatch {
+    id: string;
+    display_id: string;
+    material_id: string;
+    owner_type: OwnerType;
+    customer_id?: string;
+    initial_quantity: number;
+    current_quantity: number;
+    unit_cost?: number;
+    batch_metadata?: Record<string, unknown>;
+    received_date: string;
+}
+
+export interface LedgerEntry {
+    id: string;
+    batch_id: string;
+    job_id?: string;
+    transaction_type: TransactionType;
+    quantity_change: number;
+    total_cost_impact: number;
+    reason?: string;
+    timestamp: string;
+}
+
+export interface StockSummaryItem {
+    material_id: string;
+    material_name: string;
+    category: string;
+    uom: string;
+    owner_type: string;
+    total_batches: number;
+    total_initial_quantity: number;
+    total_current_quantity: number;
+    total_value: number;
+}
+
+export interface ExpenditureItem {
+    ledger_id: string;
+    batch_id: string;
+    batch_display_id: string;
+    material_name: string;
+    category: string;
+    transaction_type: string;
+    quantity_change: number;
+    unit_cost: number;
+    total_cost_impact: number;
+    reason?: string;
+    timestamp: string;
+    job_id?: string;
+}
