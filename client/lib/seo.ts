@@ -35,6 +35,11 @@ export async function fetchPageSEO(path: string): Promise<Metadata> {
       title: data.title,
       description: data.description,
       keywords: data.keywords ? data.keywords.split(',') : undefined,
+      icons: {
+        icon: "/favicon.png",
+        shortcut: "/favicon.png",
+        apple: "/favicon.png",
+      },
       alternates: {
         canonical: data.canonical_url || undefined,
       },

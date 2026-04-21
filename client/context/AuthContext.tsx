@@ -24,6 +24,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     loginWithPhone: (phone: string, otp: string) => Promise<void>;
     logout: () => Promise<void>;
+    logoutAll: () => Promise<void>;
     refreshUser: () => Promise<void>;
 }
 

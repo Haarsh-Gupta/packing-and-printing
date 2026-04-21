@@ -397,6 +397,7 @@ export interface MaterialDefinition {
     name: string;
     category: MaterialCategory;
     uom: UnitType;
+    minimum_threshold: number;
     attributes: Record<string, unknown>;
 }
 
@@ -424,6 +425,8 @@ export interface LedgerEntry {
     timestamp: string;
 }
 
+export type LedgerEntryResponse = LedgerEntry;
+
 export interface StockSummaryItem {
     material_id: string;
     material_name: string;
@@ -433,6 +436,7 @@ export interface StockSummaryItem {
     total_batches: number;
     total_initial_quantity: number;
     total_current_quantity: number;
+    minimum_threshold: number;
     total_value: number;
 }
 

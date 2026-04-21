@@ -347,7 +347,9 @@ export default function PurchaseAnalytics() {
                                     <td className="px-6 py-3.5 text-right text-sm font-mono font-bold text-slate-900 dark:text-[#dae2fd]">
                                         <div className="flex items-center justify-end gap-2">
                                             {s.minimum_threshold > 0 && s.total_current_quantity <= s.minimum_threshold && (
-                                                <AlertTriangle size={14} className="text-red-500" title={`Low Stock! Threshold: ${s.minimum_threshold}`} />
+                                                <div title={`Low Stock! Threshold: ${s.minimum_threshold}`}>
+                                                    <AlertTriangle size={14} className="text-red-500" />
+                                                </div>
                                             )}
                                             {s.total_current_quantity.toLocaleString()}
                                         </div>
