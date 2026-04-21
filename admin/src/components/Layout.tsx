@@ -13,6 +13,7 @@ const PAGE_LABELS: Record<string, string> = {
     "/inquiries": "Inquiries",
     "/products": "Products",
     "/services": "Services",
+    "/inventory": "Inventory",
     "/users": "Customers",
     "/tickets": "Tickets",
     "/notifications": "Notifications & Email",
@@ -99,14 +100,14 @@ export default function Layout() {
                     <div className="flex-1" />
 
                     {/* Search */}
-                    <div className="relative">
+                    {/* <div className="relative">
                         <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                         <input
                             type="text" placeholder="Search…"
                             value={search} onChange={e => setSearch(e.target.value)}
                             className="h-8 pl-8 pr-3 w-32 md:w-44 border border-slate-200 dark:border-slate-800 rounded-lg text-[13px] text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950/50 font-sans outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors"
                         />
-                    </div>
+                    </div> */}
 
                     {/* Theme Toggle */}
                     <button

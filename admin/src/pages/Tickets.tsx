@@ -64,7 +64,7 @@ export default function Tickets() {
             
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-10 gap-4">
-                <div>
+                <div className="pt-8 px-10 pb-0">
                     <nav className="flex items-center gap-2 text-[10px] font-bold text-blue-600 dark:text-[#adc6ff] mb-2 tracking-widest uppercase">
                         <span>Support</span>
                         <span>/</span>

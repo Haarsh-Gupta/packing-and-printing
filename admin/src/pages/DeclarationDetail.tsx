@@ -100,7 +100,7 @@ export default function DeclarationDetail() {
     return (
         <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] px-2 pb-12 animate-fade-in">
             {/* Header */}
-            <div className="mb-8">
+            <div className="pt-8 px-10 pb-0">
                 <button 
                     onClick={() => navigate(-1)}
                     className="flex items-center gap-2 text-[10px] font-bold text-blue-600 dark:text-[#adc6ff] mb-4 tracking-widest uppercase hover:underline"

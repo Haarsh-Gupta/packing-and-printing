@@ -68,7 +68,7 @@ export default function EmailLogs() {
         <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] px-2 pb-12 animate-fade-in">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
-                <div>
+                <div className="pt-8 px-10 pb-0">
                     <nav className="flex items-center gap-2 text-[10px] font-bold text-blue-600 dark:text-[#adc6ff] mb-2 tracking-widest uppercase">
                         <span>Communications</span>
                         <span>/</span>

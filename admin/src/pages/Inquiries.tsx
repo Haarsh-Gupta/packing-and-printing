@@ -72,8 +72,8 @@ export default function Inquiries() {
         <div className="flex flex-col h-full font-['Inter'] bg-slate-50 dark:bg-[#0b1326] text-slate-900 dark:text-[#dae2fd] transition-colors">
 
             {/* Header */}
-            <div className="flex items-end justify-between mb-8 px-2">
-                <div>
+            <div className="flex items-start justify-between mb-8 px-2">
+                <div className="pt-8 px-10 pb-0">
                     <nav className="flex items-center gap-2 text-[10px] font-bold text-slate-400 dark:text-[#adc6ff] mb-2 tracking-widest uppercase">
                         <span>Commerce</span>
                         <span>/</span>
