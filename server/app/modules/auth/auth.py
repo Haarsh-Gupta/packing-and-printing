@@ -63,7 +63,25 @@ async def verify_token(token : str, credintials_exception : HTTPException, expec
         raise credintials_exception
     return token_data
 
-async def get_current_user(request: Request, token : str = Depends(oauth2_scheme)) -> TokenData:
+from app.core.redis import redis_client
+
+async def get_user_token_version(user_id: str, db: AsyncSession) -> int | None:
+    # Try Redis first
+    version_str = await redis_client.get(f"user_token_version:{user_id}")
+    if version_str is not None:
+        return int(version_str)
+        
+    # Cache miss: fetch from DB
+    result = await db.execute(select(User.token_version).where(User.id == user_id))
+    version = result.scalar_one_or_none()
+    
+    if version is not None:
+        # Cache for a reasonable amount of time (e.g., 24 hours)
+        await redis_client.setex(f"user_token_version:{user_id}", 86400, version)
+        
+    return version
+
+async def get_current_user(request: Request, token : str = Depends(oauth2_scheme), db : AsyncSession = Depends(get_db)) -> TokenData:
     credintials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED , 
         detail="Could not validate credentials" ,
@@ -79,10 +97,17 @@ async def get_current_user(request: Request, token : str = Depends(oauth2_scheme
         raise credintials_exception
 
     token_data = await verify_token(token , credintials_exception) 
+
+    # Check token version against Redis (fallback to DB)
+    current_version = await get_user_token_version(token_data.id, db)
+
+    if current_version is None or current_version != token_data.token_version:
+        raise credintials_exception
+
     return token_data
 
 
-async def get_current_user_ws(websocket: WebSocket) -> TokenData:
+async def get_current_user_ws(websocket: WebSocket, db: AsyncSession = Depends(get_db)) -> TokenData:
     """Authentication dependency for WebSockets using cookies only (secure)."""
     token = websocket.cookies.get("access_token")
     
@@ -91,7 +116,15 @@ async def get_current_user_ws(websocket: WebSocket) -> TokenData:
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return TokenData(**payload)
+        token_data = TokenData(**payload)
+        
+        # Check token version against Redis (fallback to DB)
+        current_version = await get_user_token_version(token_data.id, db)
+
+        if current_version is None or current_version != token_data.token_version:
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token version")
+
+        return token_data
     except JWTError:
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
 

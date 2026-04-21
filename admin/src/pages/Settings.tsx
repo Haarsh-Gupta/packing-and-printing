@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { User, Shield, Bell, CreditCard, Save, Loader2, Sun, Moon, Monitor, Globe, Mail, Lock, KeyRound, Palette } from "lucide-react";
+import { User, Shield, Bell, CreditCard, Save, Loader2, Sun, Moon, Monitor, Globe, Mail, Lock, KeyRound, Palette, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const SETTING_TABS = [
     { id: "general", label: "General", icon: Globe },
@@ -47,6 +48,7 @@ const Field = ({ label, defaultValue = "", type = "text", disabled = false }: { 
 );
 
 export default function Settings() {
+    const { logoutAll } = useAuth();
     const [activeTab, setActiveTab] = useState("general");
     const [saving, setSaving] = useState(false);
     
@@ -226,6 +228,20 @@ export default function Settings() {
                                     <p className="text-[11px] text-slate-500 dark:text-[#8d90a1] mb-5">Enforce high-security TOTP validation upon login.</p>
                                     <button className="h-10 px-6 bg-[#adc6ff] hover:bg-white text-[#001a42] rounded-lg text-[11px] font-extrabold uppercase tracking-widest transition-colors w-full">
                                         Initialize 2FA
+                                    </button>
+                                </div>
+                                <div className="mt-6 p-6 bg-slate-50 dark:bg-[#0b1326] rounded-2xl border border-slate-200 dark:border-[#434655]/30 max-w-md">
+                                    <div className="w-10 h-10 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center mb-4"><LogOut size={20} /></div>
+                                    <p className="text-sm font-extrabold text-slate-900 dark:text-[#dae2fd] mb-1">Device Sessions</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-[#8d90a1] mb-5">Terminate all active sessions across all your devices.</p>
+                                    <button 
+                                        onClick={async () => {
+                                            if (window.confirm("Are you sure you want to log out from all devices?")) {
+                                                await logoutAll();
+                                            }
+                                        }}
+                                        className="h-10 px-6 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg text-[11px] font-extrabold uppercase tracking-widest transition-colors w-full">
+                                        Logout All Devices
                                     </button>
                                 </div>
                             </div>

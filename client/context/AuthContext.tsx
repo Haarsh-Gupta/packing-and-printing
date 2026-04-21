@@ -143,6 +143,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }, [router]);
 
+    const logoutAll = useCallback(async () => {
+        try {
+            await fetch(`${API_URL}/auth/logout-all`, {
+                method: "POST",
+                credentials: "include",
+            });
+        } catch (e) {
+            console.error("Logout all error", e);
+        } finally {
+            setUser(null);
+            router.replace("/auth/login");
+            window.dispatchEvent(new Event("user-updated"));
+        }
+    }, [router]);
+
     return (
         <AuthContext.Provider
             value={{
@@ -152,6 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 login,
                 loginWithPhone,
                 logout,
+                logoutAll,
                 refreshUser: fetchUser,
             }}
         >

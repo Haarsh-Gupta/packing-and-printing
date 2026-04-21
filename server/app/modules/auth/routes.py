@@ -138,6 +138,18 @@ async def refresh(response: Response, request: Request, db : AsyncSession = Depe
 @router.post("/logout")
 async def logout(request: Request, response: Response, db : AsyncSession = Depends(get_db), current_user : TokenData = Depends(get_current_user)):
 
+    # Set cookie domain to .navart.in if on production, otherwise None (localhost)
+    cookie_domain = ".navart.in" if "navart.in" in request.url.hostname else None
+
+    response.delete_cookie("access_token", domain = cookie_domain)
+    response.delete_cookie("refresh_token", domain = cookie_domain)
+    return {"message" : "Logged out successfully from this device"}
+
+
+@router.post("/logout-all")
+async def logout_all(request: Request, response: Response, db : AsyncSession = Depends(get_db), current_user : TokenData = Depends(get_current_user)):
+    from app.core.redis import redis_client
+
     result = await db.execute(select(User).where(User.id == current_user.id))
     user = result.scalar_one_or_none()
     
@@ -145,7 +157,7 @@ async def logout(request: Request, response: Response, db : AsyncSession = Depen
     cookie_domain = ".navart.in" if "navart.in" in request.url.hostname else None
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
     if user.token_version is None:
         user.token_version = 1
@@ -153,10 +165,11 @@ async def logout(request: Request, response: Response, db : AsyncSession = Depen
         user.token_version += 1
         
     await db.commit()
+    await redis_client.setex(f"user_token_version:{user.id}", 86400, user.token_version)
 
     response.delete_cookie("access_token", domain = cookie_domain)
     response.delete_cookie("refresh_token", domain = cookie_domain)
-    return {"message" : "Logged out successfully"}
+    return {"message" : "Logged out successfully from all devices"}
 
 
 @router.get("/google/login")
@@ -325,8 +338,14 @@ async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depen
         )
 
     user.password = await get_password_hash(payload.new_password)
-    user.token_version += 1  # invalidate all existing tokens
+    if user.token_version is None:
+        user.token_version = 1
+    else:
+        user.token_version += 1  # invalidate all existing tokens
     await db.commit()
+    
+    from app.core.redis import redis_client
+    await redis_client.setex(f"user_token_version:{user.id}", 86400, user.token_version)
 
     return {"message": "Password reset successfully. Please log in with your new password."}
 from app.modules.auth.schemas import TokenData, PhoneLoginRequest

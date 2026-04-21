@@ -12,7 +12,7 @@ from app.modules.users.models import User
 from app.modules.inventory.models import TransactionType, OwnerType
 from app.modules.inventory.schemas import (
     ConsumptionRequest, WastageRequest, ReturnToCustomerRequest,
-    ReconciliationRequest, LedgerEntryResponse,
+    ReconciliationRequest, LedgerEntryResponse, FifoConsumptionRequest,
 )
 from app.modules.inventory.services import InventoryService
 
@@ -41,6 +41,24 @@ async def consume_material(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     await db.commit()
     return ledger
+
+
+@router.post("/consume-fifo", response_model=list[LedgerEntryResponse], status_code=status.HTTP_201_CREATED)
+async def consume_fifo(
+    data: FifoConsumptionRequest,
+    admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Auto-consume material using FIFO. Finds oldest factory-owned active batches and deducts sequentially.
+    """
+    svc = InventoryService(db)
+    try:
+        ledgers = await svc.consume_fifo(data)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    await db.commit()
+    return ledgers
 
 
 # ── Wastage Recording ─────────────────────────────────────────────────────────

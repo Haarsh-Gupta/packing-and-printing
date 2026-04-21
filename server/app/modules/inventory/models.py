@@ -14,6 +14,9 @@ class UnitType(str, enum.Enum):
     KG = "KG"
     SQ_INCH = "SQ_INCH"
     PCS = "PCS"
+    METER = "METER"
+    SQ_METER = "SQ_METER"
+    LITER = "LITER"
 
 class MaterialType(str, enum.Enum):
     PAPER = "PAPER"
@@ -22,6 +25,9 @@ class MaterialType(str, enum.Enum):
     LAMINATE = "LAMINATE"
     GLUE = "GLUE"
     CONSUMABLE = "CONSUMABLE"
+    FOIL = "FOIL"
+    PLATE = "PLATE"
+    HARDWARE = "HARDWARE"
 
 class OwnerType(str, enum.Enum):
     FACTORY = "FACTORY"
@@ -44,6 +50,7 @@ class MaterialDefinition(Base): # Fixed typo from Defination to Definition
     uom = Column(Enum(UnitType), nullable=False)
     
     attributes = Column(JSONB, nullable=False, default=dict) # Store {"gsm" : 100, "size" : "22x28"}
+    minimum_threshold = Column(Numeric(precision=12, scale=4), nullable=False, default=0.00)
 
     # Relationships
     batches = relationship("InventoryBatch", back_populates="material")
@@ -70,7 +77,7 @@ class InventoryBatch(Base):
     # RESTRICT deletion: Prevent admin from deleting a material if we have stock of it
     material_id = Column(Uuid, ForeignKey("material_definitions.id", ondelete="RESTRICT"), nullable=False, index=True)
 
-    display_id = Column(String, nullable=False, unique=True, default=lambda: generate_nanoid("BTH-", 4))
+    display_id = Column(String, nullable=False, unique=True, default=lambda: generate_nanoid("BTH", 4))
     
     owner_type = Column(Enum(OwnerType), nullable=False)
     customer_id = Column(Uuid, ForeignKey("users.id"), nullable=True, index=True)

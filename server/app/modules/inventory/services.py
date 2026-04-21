@@ -202,6 +202,52 @@ class InventoryService:
         await self.db.refresh(ledger)
         return ledger
 
+    async def consume_fifo(self, data) -> list[InventoryLedger]:
+        """Auto-consume material using FIFO (First-In, First-Out)."""
+        stmt = (
+            select(InventoryBatch)
+            .where(
+                InventoryBatch.material_id == data.material_id,
+                InventoryBatch.owner_type == OwnerType.FACTORY,
+                InventoryBatch.current_quantity > 0,
+            )
+            .order_by(InventoryBatch.received_date.asc())
+        )
+        result = await self.db.execute(stmt)
+        batches = list(result.scalars().all())
+
+        remaining_qty = data.quantity
+        ledgers = []
+
+        for batch in batches:
+            if remaining_qty <= 0:
+                break
+            
+            qty_to_consume = min(float(batch.current_quantity), remaining_qty)
+            batch.current_quantity = float(batch.current_quantity) - qty_to_consume
+            cost_impact = qty_to_consume * float(batch.unit_cost or 0)
+            
+            ledger = InventoryLedger(
+                batch_id=batch.id,
+                job_id=data.job_id,
+                transaction_type=TransactionType.CONSUMPTION,
+                quantity_change=-qty_to_consume,
+                total_cost_impact=cost_impact,
+                reason=data.reason or "FIFO Auto-Consume",
+            )
+            self.db.add(ledger)
+            ledgers.append(ledger)
+            
+            remaining_qty -= qty_to_consume
+
+        if remaining_qty > 0:
+            raise ValueError(f"Insufficient stock for FIFO. Short by {remaining_qty}")
+
+        await self.db.flush()
+        for ledger in ledgers:
+            await self.db.refresh(ledger)
+        return ledgers
+
     async def record_wastage(self, data) -> InventoryLedger:
         """Record material wastage."""
         batch = await self._get_batch(data.batch_id)
@@ -321,6 +367,7 @@ class InventoryService:
                 MaterialDefinition.name.label("material_name"),
                 MaterialDefinition.category,
                 MaterialDefinition.uom,
+                MaterialDefinition.minimum_threshold,
                 InventoryBatch.owner_type,
                 sa_func.count(InventoryBatch.id).label("total_batches"),
                 sa_func.sum(InventoryBatch.initial_quantity).label("total_initial_quantity"),
@@ -335,6 +382,7 @@ class InventoryService:
                 MaterialDefinition.name,
                 MaterialDefinition.category,
                 MaterialDefinition.uom,
+                MaterialDefinition.minimum_threshold,
                 InventoryBatch.owner_type,
             )
         )
@@ -358,6 +406,7 @@ class InventoryService:
                 "total_initial_quantity": float(r.total_initial_quantity or 0),
                 "total_current_quantity": float(r.total_current_quantity or 0),
                 "total_value": float(r.total_value or 0),
+                "minimum_threshold": float(r.minimum_threshold or 0),
             }
             for r in rows
         ]

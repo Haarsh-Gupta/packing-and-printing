@@ -8,7 +8,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import Link from "next/link";
 
 export default function SettingsPage() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logoutAll } = useAuth();
   const { showAlert } = useAlert();
 
   // Avatar
@@ -827,6 +827,23 @@ export default function SettingsPage() {
                 </button>
               </div>
             )}
+
+            <div className="mt-6 pt-6 border-t-2 border-black/10 flex items-center justify-between">
+                <div>
+                    <h4 className="font-black text-sm uppercase text-red-500">Device Sessions</h4>
+                    <p className="text-[10px] font-bold text-zinc-400">Log out from all active sessions</p>
+                </div>
+                <button
+                    onClick={async () => {
+                        if (window.confirm("Are you sure you want to log out from all devices?")) {
+                            await logoutAll();
+                        }
+                    }}
+                    className="px-4 py-2 bg-red-100 text-red-600 border-2 border-red-200 hover:border-red-500 font-black text-[10px] uppercase tracking-wider rounded-lg shadow-[2px_2px_0px_0px_rgba(239,68,68,0.2)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+                >
+                    Logout All Devices
+                </button>
+            </div>
           </div>
 
           {/* Admin Site Settings */}

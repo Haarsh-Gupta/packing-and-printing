@@ -8,6 +8,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   googleLogin: () => void;
   logout: () => void;
+  logoutAll: () => void;
   isLoading: boolean;
 }
 
@@ -77,8 +78,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     navigate("/login");
   };
 
+  const logoutAll = async () => {
+    try {
+      await fetch(`${API_URL}/auth/logout-all`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch { /* ignore */ }
+    setIsAuthenticated(false);
+    mutate(null, false);
+    navigate("/login");
+  };
+
   return (
-    <AuthContext.Provider value={{ admin: admin || null, login, googleLogin, logout, isLoading }}>
+    <AuthContext.Provider value={{ admin: admin || null, login, googleLogin, logout, logoutAll, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

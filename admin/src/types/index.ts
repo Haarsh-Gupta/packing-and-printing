@@ -387,8 +387,8 @@ export interface ReviewListResponse {
 }
 
 // ============ Inventory ============
-export type MaterialCategory = "PAPER" | "INK" | "BOARD" | "LAMINATE" | "GLUE" | "CONSUMABLE";
-export type UnitType = "SHEET" | "KG" | "SQ_INCH" | "PCS";
+export type MaterialCategory = "PAPER" | "INK" | "BOARD" | "LAMINATE" | "GLUE" | "CONSUMABLE" | "FOIL" | "PLATE" | "HARDWARE";
+export type UnitType = "SHEET" | "KG" | "SQ_INCH" | "PCS" | "METER" | "SQ_METER" | "LITER";
 export type OwnerType = "FACTORY" | "CUSTOMER";
 export type TransactionType = "RECEIVE" | "CONSUMPTION" | "WASTAGE" | "RETURN_TO_CUSTOMER" | "MANUAL_RECONCILIATION";
 

@@ -56,6 +56,11 @@ from app.modules.seo.routes import router as seo_router
 from app.modules.seo.admin_routes import router as admin_seo_router
 from app.modules.settings.routes import router as settings_router
 
+from app.modules.inventory.routes import router as inventory_router
+from app.modules.inventory.admin_material_routes import router as admin_material_router
+from app.modules.inventory.admin_stock_routes import router as admin_stock_router
+from app.modules.inventory.admin_transaction_routes import router as admin_transaction_router
+
 logger = logging.getLogger("app.main")
 
 
@@ -174,6 +179,11 @@ app.include_router(events_router, prefix="/events", tags=["SSE Events"])
 app.include_router(seo_router, prefix="/seo", tags=["SEO"])
 app.include_router(admin_seo_router, prefix="/admin/seo", tags=["Admin SEO"])
 app.include_router(settings_router, prefix="/admin", tags=["Admin Settings"])
+
+app.include_router(inventory_router, prefix="/inventory", tags=["Inventory"])
+app.include_router(admin_material_router, prefix="/admin/inventory/materials", tags=["Admin Inventory Materials"])
+app.include_router(admin_stock_router, prefix="/admin/inventory/stock", tags=["Admin Inventory Stock"])
+app.include_router(admin_transaction_router, prefix="/admin/inventory/transactions", tags=["Admin Inventory Transactions"])
 
 
 @app.get("/")

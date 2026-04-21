@@ -2,8 +2,9 @@ import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "./Sidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Search, ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { Search, ChevronRight, Loader2, AlertCircle, Sun, Moon } from "lucide-react";
 import { useState } from "react";
+import { useTheme } from "next-themes";
 import { AdminNotifications } from "./AdminNotifications";
 
 const PAGE_LABELS: Record<string, string> = {
@@ -25,6 +26,7 @@ export default function Layout() {
     const { admin: user, isLoading: loading, logout } = useAuth();
     const location = useLocation();
     const [search, setSearch] = useState("");
+    const { theme, setTheme } = useTheme();
 
     if (loading) {
         return (
@@ -105,6 +107,15 @@ export default function Layout() {
                             className="h-8 pl-8 pr-3 w-32 md:w-44 border border-slate-200 dark:border-slate-800 rounded-lg text-[13px] text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950/50 font-sans outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors"
                         />
                     </div>
+
+                    {/* Theme Toggle */}
+                    <button
+                        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                        className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 transition-colors"
+                        title="Toggle theme"
+                    >
+                        {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                    </button>
 
                     {/* Bell */}
                     <AdminNotifications />
